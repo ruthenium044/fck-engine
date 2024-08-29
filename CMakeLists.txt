@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.28)
+cmake_minimum_required(VERSION 3.20)
 project(fck)
 
 include(FetchContent)
@@ -7,13 +7,15 @@ include(ExternalProject)
 set(CMAKE_CXX_STANDARD 23)
 
 # Sets the library file ending so we can build for windows, apple and others
-if(NOT APPLE)
-    set(PLATFORM_LIBRARY_EXTENSION ".lib")
-else()
+if(APPLE)
     set(PLATFORM_LIBRARY_EXTENSION ".a")
     if(APPLE)
         enable_language(OBJC)
     endif()
+elseif(UNIX)
+    set(PLATFORM_LIBRARY_EXTENSION ".a")
+else()
+    set(PLATFORM_LIBRARY_EXTENSION ".lib")
 endif()
 
 Set(FETCHCONTENT_QUIET TRUE)
@@ -23,7 +25,7 @@ Set(FETCHCONTENT_QUIET TRUE)
 FetchContent_Declare(
     SDL
     GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
-    GIT_TAG d6ad28a4cb87b8bb00893f049f7e6e72063fc3b6
+    GIT_TAG main
     GIT_SHALLOW TRUE
     GIT_PROGRESS TRUE
 )

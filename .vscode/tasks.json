@@ -1,0 +1,17 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "type": "shell",
+            "label": "Build - Debug",
+            "command": "cmake -S . -B build -D CMAKE_EXPORT_COMPILE_COMMANDS=1",
+            "detail": "Build project",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+    ],
+    "inputs": [
+    ]
+}

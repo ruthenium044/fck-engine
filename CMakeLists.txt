@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.20)
 project(fck)
 
+# Verbosity settings
+Set(FETCHCONTENT_QUIET TRUE)
+set(CMAKE_MESSAGE_LOG_LEVEL WARNING)
+
 include(FetchContent)
 include(ExternalProject)
 
@@ -18,7 +22,7 @@ else()
     set(PLATFORM_LIBRARY_EXTENSION ".lib")
 endif()
 
-Set(FETCHCONTENT_QUIET TRUE)
+set(SDL_TEST OFF)
 
 # Move this to git outside of cmake
 # SDL
@@ -37,6 +41,7 @@ FetchContent_MakeAvailable(SDL)
 FetchContent_Declare(
     lua
     URL https://www.lua.org/ftp/lua-5.4.6.tar.gz  # URL to Lua's source tarball
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 FetchContent_MakeAvailable(lua)
 
@@ -73,6 +78,6 @@ include_directories(fck "include")
 
 add_executable(${PROJECT_NAME} ${SOURCES})
 
-add_dependencies(fck liblua)
+add_dependencies(fck liblua SDL3::SDL3)
 
 target_link_libraries(${PROJECT_NAME} SDL3::SDL3 liblua)

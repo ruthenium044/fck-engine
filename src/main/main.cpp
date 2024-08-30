@@ -72,7 +72,7 @@ int main(int, char **)
 	if (lua_call_error)
 	{
 		int print_error = fprintf(stderr, "%s", lua_tostring(lua_state, -1));
-		lua_pop(lua_state, 1); /* pop error message from the stack */
+		lua_pop(lua_state, 1);
 	}
 
 	bool is_running = true;

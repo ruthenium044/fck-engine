@@ -12,6 +12,7 @@
     "editor.formatOnSaveMode": "file",
     "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd",
     "cmake.buildTask": true,
+    "cmake.clearOutputBeforeBuild": false,
     "files.associations": {
         "*.cpp": "cpp"
     },

@@ -29,7 +29,7 @@ set(SDL_TEST OFF)
 FetchContent_Declare(
     SDL
     GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
-    GIT_TAG main
+    GIT_TAG "prerelease-3.0.0"
     GIT_SHALLOW TRUE
     GIT_PROGRESS TRUE
 )
@@ -44,6 +44,10 @@ FetchContent_Declare(
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 FetchContent_MakeAvailable(lua)
+
+# Optionally, you can set SDL-specific CMake options here
+#set(SDL_SHARED OFF) 
+#set(SDL_STATIC ON)
 
 # Build in source directly since we need to build with make
 set(LUA_LIBRARY_FILE_PATH "${lua_SOURCE_DIR}/src/liblua${PLATFORM_LIBRARY_EXTENSION}")

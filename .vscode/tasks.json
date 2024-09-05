@@ -24,6 +24,5 @@
             "detail": "CMake template build task"
         }
     ],
-    "inputs": [
-    ]
+    "inputs": []
 }

@@ -12,8 +12,11 @@
     "editor.formatOnSaveMode": "file",
     "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd",
     "cmake.buildTask": true,
-    "cmake.clearOutputBeforeBuild": false,
+    "cmake.clearOutputBeforeBuild": true,
     "files.associations": {
         "*.cpp": "cpp"
+    },
+    "[jsonc]": {
+        "editor.defaultFormatter": "vscode.json-language-features"
     },
 }

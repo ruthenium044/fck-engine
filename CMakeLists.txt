@@ -2,8 +2,10 @@ cmake_minimum_required(VERSION 3.20)
 project(fck)
 
 # Verbosity settings
-Set(FETCHCONTENT_QUIET TRUE)
-set(CMAKE_MESSAGE_LOG_LEVEL WARNING)
+#set(FETCHCONTENT_QUIET TRUE)
+#set(CMAKE_MESSAGE_LOG_LEVEL WARNING)
+
+# Optionally, you can set SDL-specific CMake options here
 
 include(FetchContent)
 include(ExternalProject)
@@ -23,6 +25,8 @@ else()
 endif()
 
 set(SDL_TEST OFF)
+set(SDL_SHARED TRUE CACHE BOOL "Build a SDL shared library (if available)")
+set(SDL_STATIC TRUE CACHE BOOL "Build a SDL static library (if available)")
 
 # Move this to git outside of cmake
 # SDL
@@ -34,7 +38,25 @@ FetchContent_Declare(
     GIT_PROGRESS TRUE
 )
 FetchContent_MakeAvailable(SDL)
+list(APPEND CMAKE_PREFIX_PATH SDL3)
+
+#find_package(SDL3 REQUIRED CONFIG REQUIRED COMPONENTS SDL3)
 # !SDL
+
+# SDL-image
+#FetchContent_Declare(
+#    SDL_image
+#    GIT_REPOSITORY https://github.com/libsdl-org/SDL_image.git
+#    GIT_TAG "main" #"release-2.8.2"
+#    GIT_SHALLOW TRUE
+#    GIT_PROGRESS TRUE
+#)
+
+#set(SDLIMAGE_INSTALL OFF)
+
+#FetchContent_MakeAvailable(SDL_image)
+#add_dependencies(SDL_image SDL)
+# !SDL-image
 
 # LUA
 # Download, but not built
@@ -44,10 +66,6 @@ FetchContent_Declare(
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 FetchContent_MakeAvailable(lua)
-
-# Optionally, you can set SDL-specific CMake options here
-#set(SDL_SHARED OFF) 
-#set(SDL_STATIC ON)
 
 # Build in source directly since we need to build with make
 set(LUA_LIBRARY_FILE_PATH "${lua_SOURCE_DIR}/src/liblua${PLATFORM_LIBRARY_EXTENSION}")

@@ -13,6 +13,38 @@
     "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd",
     "cmake.buildTask": true,
     "cmake.clearOutputBeforeBuild": true,
+    "cmake.configureOnOpen": true,
+    "cmake.options.statusBarVisibility": "compact",
+    "cmake.options.advanced": {
+        "cpack": {
+            "statusBarVisibility": "hidden"
+        },
+        "ctest": {
+            "statusBarVisibility": "hidden"
+        },
+        "buildTarget": {
+            "statusBarVisibility": "hidden"
+        },
+        "workflow": {
+            "statusBarVisibility": "hidden"
+        },
+        "workflowPreset": {
+            "statusBarVisibility": "hidden"
+        },
+        "build": {
+            "statusBarVisibility": "visible",
+            "inheritDefault": "visible"
+        },
+        "launch": {
+            "statusBarVisibility": "inherit",
+            "inheritDefault": "visible"
+        },
+        "debug": {
+            "statusBarVisibility": "inherit",
+            "inheritDefault": "visible"
+        }
+    },
+    "C_Cpp.intelliSenseEngine": "disabled",
     "files.associations": {
         "*.cpp": "cpp"
     },

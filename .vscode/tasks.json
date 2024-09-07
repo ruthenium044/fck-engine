@@ -6,7 +6,10 @@
             "label": "Build - Debug",
             "command": "cmake -S . -B build -D CMAKE_EXPORT_COMPILE_COMMANDS=1",
             "detail": "Build project",
-            "group": "build",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
             "problemMatcher": []
         },
         {
@@ -21,7 +24,6 @@
                 "isDefault": true
             },
             "problemMatcher": [],
-            "detail": "CMake template build task"
         }
     ],
     "inputs": []

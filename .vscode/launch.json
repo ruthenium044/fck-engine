@@ -16,11 +16,10 @@
             "externalConsole": false,
             "MIMode": "lldb"
         },
-
         {
+            "name": "cmake build project debug",
             "type": "cmake",
             "request": "launch",
-            "name": "CMake: Script debugging",
             "cmakeDebugType": "configure",
             "scriptPath": "${workspaceFolder}/CMakeLists.txt"
         },

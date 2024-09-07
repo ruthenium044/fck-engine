@@ -8,8 +8,8 @@
 // - Scripting
 // - Networking!! <- implies multiplayer
 
-#include <SDL.h>
-#include <lua.hpp>
+#include <SDL3/SDL.h>
+#include <SDL3_image/SDL_image.h>
 
 // We add Lua later
 /*extern "C"
@@ -34,10 +34,10 @@ struct fck_keyboard_state
 
 struct fck_mouse_state
 {
-	int current_x;
-	int current_y;
-	int previous_x;
-	int previous_y;
+	float current_x;
+	float current_y;
+	float previous_x;
+	float previous_y;
 
 	Uint32 current_button_state;
 	Uint32 previous_button_state;
@@ -143,6 +143,7 @@ static void *fck_entity_data_get(fck_engine_state *engine_state, fck_entity cons
 
 int main(int, char **)
 {
+	IMG_Load
 	/* // TODOL Lets implement lua bindings later as needed - when we iterate
 	    if (SDL_SetRenderVSync(renderer, SDL_RENDERER_VSYNC_ADAPTIVE))
 	    {
@@ -172,26 +173,26 @@ int main(int, char **)
 	    }
 	*/
 
-	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS))
+	if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS))
 	{
 		LOG_LAST_CRITICAL_SDL_ERROR();
 		return -1;
 	}
 
-	SDL_Window *window = SDL_CreateWindow("fck - engine", 640, 640, 640, 640, 0);
+	SDL_Window *window = SDL_CreateWindow("fck - engine", 640, 640, 0);
 	if (window == nullptr)
 	{
 		LOG_LAST_CRITICAL_SDL_ERROR();
 		return -1;
 	}
 
-	SDL_Renderer *renderer = SDL_CreateRenderer(window, 0, 0);
+	SDL_Renderer *renderer = SDL_CreateRenderer(window, nullptr);
 	if (renderer == nullptr)
 	{
 		LOG_LAST_CRITICAL_SDL_ERROR();
 		return -1;
 	}
-	if (!SDL_RenderSetVSync(renderer, true))
+	if (!SDL_SetRenderVSync(renderer, true))
 	{
 		LOG_LAST_CRITICAL_SDL_ERROR();
 		return -1;
@@ -214,8 +215,8 @@ int main(int, char **)
 		(fck_entity_definition *)SDL_calloc(sizeof(*engine_state.definitions), INITIAL_ENGINE_ENTITY_COUNT);
 	engine_state.entity_count = 0;
 	engine_state.entity_capacity = INITIAL_ENGINE_ENTITY_COUNT;
-	engine_state.entity_count = 0;
-	engine_state.entity_capacity = INITIAL_ENGINE_DATA_BYTE_COUNT;
+	engine_state.data_count = 0;
+	engine_state.data_capacity = INITIAL_ENGINE_DATA_BYTE_COUNT;
 
 	fck_entity player_entity = fck_entity_create(&engine_state, sizeof(SDL_FRect));
 	SDL_FRect player = {0, 0, 128, 128};
@@ -226,7 +227,7 @@ int main(int, char **)
 		SDL_Event ev;
 		while (SDL_PollEvent(&ev))
 		{
-			if (ev.type == SDL_QUIT)
+			if (ev.type == SDL_EVENT_QUIT)
 			{
 				is_running = false;
 			}
@@ -245,7 +246,7 @@ int main(int, char **)
 		{
 			SDL_SetRenderDrawColor(renderer, 255, 0, 0, 0);
 		}
-		SDL_RenderFillRectF(renderer, &player);
+		SDL_RenderFillRect(renderer, &player);
 
 		SDL_RenderPresent(renderer);
 	}

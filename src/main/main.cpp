@@ -133,7 +133,7 @@ void fck_component_registry_free(fck_component_registry *registry)
 		fck_component_collection *component_collection = &registry->collections[index];
 		if (component_collection->capcity != 0)
 		{
-			SDL_free(component_collection);
+			SDL_free(component_collection->components);
 		}
 	}
 

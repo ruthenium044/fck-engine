@@ -3,7 +3,7 @@ project(fck)
 
 # Verbosity settings
 set(FETCHCONTENT_QUIET TRUE)
-set(CMAKE_MESSAGE_LOG_LEVEL WARNING)
+set(CMAKE_MESSAGE_LOG_LEVEL ERROR)
 
 include(FetchContent)
 include(ExternalProject)
@@ -66,13 +66,25 @@ file(GLOB_RECURSE FOUND_CXX_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/**.cpp")
 list(APPEND SOURCES ${FOUND_CXX_SOURCES})
 
 # We need to check out if this is needed 
-#include_directories(fck "include")
+include_directories(fck include)
 
 add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
 
+set(CMAKE_CONFIGURATION_TYPES "Debug;Release" CACHE STRING "Configs" FORCE)
+
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+    $<$<CONFIG:Debug>:DEBUG>
+    $<$<CONFIG:Release>:NDEBUG>
+)
+
+set_target_properties(${PROJECT_NAME} PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/bin/Debug
+    RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/bin/Release
+)
+
 # Shouldn't be needed? We need to check it out
 #target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
-#source_group("Header Files" FILES ${FOUND_CXX_HEADERS})
+source_group("Header Files" FILES ${FOUND_CXX_HEADERS})
 
 add_dependencies(fck SDL3::SDL3)
 

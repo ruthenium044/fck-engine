@@ -11,26 +11,12 @@
 #include <SDL3_image/SDL_image.h>
 #include <SDL3_net/SDL_net.h>
 
+#include "fck_keyboard.h"
+#include "fck_mouse.h"
+
 #define LOG_LAST_CRITICAL_SDL_ERROR() SDL_LogCritical(0, "%s:%d - %s", __FILE__, __LINE__, SDL_GetError());
 
 typedef unsigned char fck_byte;
-
-struct fck_keyboard_state
-{
-	Uint8 current_state[SDL_NUM_SCANCODES];
-	Uint8 previous_state[SDL_NUM_SCANCODES];
-};
-
-struct fck_mouse_state
-{
-	float current_x;
-	float current_y;
-	float previous_x;
-	float previous_y;
-
-	Uint32 current_button_state;
-	Uint32 previous_button_state;
-};
 
 struct fck_entity_storage_header
 {
@@ -47,91 +33,172 @@ struct fck_entity_definition
 
 struct fck_entity
 {
-	size_t definition_index;
+	size_t index;
 };
 
-struct fck_engine_state
+struct fck_component_handle
 {
-	Uint8* entity_date;
-	fck_entity_definition* definitions;
-
-	size_t data_count;
-	size_t data_capacity;
-
-	size_t entity_count;
-	size_t entity_capacity;
+	size_t index;
 };
 
-static void fck_keyboard_state_update(fck_keyboard_state* keyboard_state)
+struct fck_component_definition
 {
-	int num_keys = 0;
-	Uint8 const* current_state = SDL_GetKeyboardState(&num_keys);
+	fck_component_handle handle;
+	size_t byte_count;
+};
 
-	SDL_memcpy((Uint8*)keyboard_state->previous_state, (Uint8*)keyboard_state->current_state, num_keys);
+struct fck_component_collection
+{
+	// void* when we can apply type-erasure
+	// In other words, when we can cast it back to an explicit type use void*
+	// If we cannot cast it back, we need to use byte*/char*
+	void *components;
 
-	SDL_memcpy((Uint8*)keyboard_state->current_state, (Uint8*)current_state, num_keys);
+	size_t count;
+	size_t capcity;
+};
+
+struct fck_entity_registry
+{
+	// Food for throught: should the definition be part of the fck_entity type itself?
+	fck_entity *entities;
+	fck_entity_definition *definitions;
+
+	size_t count;
+	size_t capacity;
+};
+
+// Rows and columns
+struct fck_component_registry
+{
+	fck_component_definition *definitions;
+	fck_component_collection *collections;
+
+	size_t count;
+	size_t capacity;
+};
+
+struct fck_ecs_allocate_configuration
+{
+	size_t initial_entities_count;
+	size_t initial_components_count;
+};
+
+struct fck_ecs
+{
+	fck_entity_registry entities;
+	fck_component_registry components;
+};
+
+void fck_entity_registry_allocate(fck_entity_registry *registry, size_t initial_count)
+{
+	SDL_assert(registry != nullptr && "Entity registry cannot be NULL");
+	SDL_assert(registry->entities == nullptr && "Entity registry entities already allocated");
+	SDL_assert(registry->definitions == nullptr && "Entity registry definitions already allocated");
+
+	registry->entities = (fck_entity *)SDL_calloc(sizeof(*registry->entities), initial_count);
+	registry->definitions = (fck_entity_definition *)SDL_calloc(sizeof(*registry->definitions), initial_count);
+	registry->count = 0;
+	registry->capacity = initial_count;
 }
 
-static bool fck_key_down(fck_keyboard_state const* keyboard_state, SDL_Scancode scancode)
+void fck_entity_registry_free(fck_entity_registry *registry)
 {
-	return keyboard_state->current_state[(size_t)scancode];
+	SDL_assert(registry != nullptr && "Entity registry cannot be NULL");
+	SDL_assert(registry->entities != nullptr && "Entity registry entities is not allocated");
+	SDL_assert(registry->definitions != nullptr && "Entity registry definitions is not allocated");
+
+	SDL_free(registry->entities);
+	SDL_free(registry->definitions);
+
+	registry->entities = nullptr;
+	registry->definitions = nullptr;
 }
 
-static bool fck_key_up(fck_keyboard_state const* keyboard_state, SDL_Scancode scancode)
+void fck_component_registry_allocate(fck_component_registry *registry, size_t initial_count)
 {
-	return !fck_key_down(keyboard_state, scancode);
+	SDL_assert(registry != nullptr && "Entity registry cannot be NULL");
+	SDL_assert(registry->collections == nullptr && "Entity registry entities already allocated");
+	SDL_assert(registry->definitions == nullptr && "Entity registry definitions already allocated");
+
+	// calloc zeroes the memory. Counts are automatically 0!
+	registry->collections = (fck_component_collection *)SDL_calloc(sizeof(*registry->collections), initial_count);
+	registry->definitions = (fck_component_definition *)SDL_calloc(sizeof(*registry->definitions), initial_count);
+	registry->count = 0;
+	registry->capacity = initial_count;
 }
 
-static void fck_mouse_state_update(fck_mouse_state* mouse_state)
+void fck_component_registry_free(fck_component_registry *registry)
 {
-	mouse_state->previous_x = mouse_state->current_x;
-	mouse_state->previous_y = mouse_state->current_y;
+	SDL_assert(registry != nullptr && "Entity registry cannot be NULL");
+	SDL_assert(registry->collections != nullptr && "Entity registry entities is not allocated");
+	SDL_assert(registry->definitions != nullptr && "Entity registry definitions is not allocated");
 
-	mouse_state->previous_button_state = mouse_state->current_button_state;
-	mouse_state->current_button_state = SDL_GetMouseState(&mouse_state->current_x, &mouse_state->current_y);
+	for (size_t index = 0; index < registry->capacity; index++)
+	{
+		fck_component_collection *component_collection = &registry->collections[index];
+		SDL_free(component_collection);
+	}
+
+	SDL_free(registry->collections);
+	SDL_free(registry->definitions);
+
+	registry->collections = nullptr;
+	registry->definitions = nullptr;
 }
 
-static bool fck_button_down(fck_mouse_state const* mouse_state, int button_index /* 1 ... n - Mice are weird*/)
+void fck_ecs_allocate(fck_ecs *ecs, fck_ecs_allocate_configuration const *configuration)
 {
-	int button_mask = SDL_BUTTON(button_index);
-	return (mouse_state->current_button_state & button_mask) == button_mask;
+	SDL_assert(ecs != nullptr);
+	fck_entity_registry_allocate(&ecs->entities, configuration->initial_entities_count);
+	fck_component_registry_allocate(&ecs->components, configuration->initial_components_count);
 }
 
-static bool fck_button_up(fck_mouse_state const* mouse_state, int button_index /* 1 ... n - Mice are weird*/)
+void fck_ecs_free(fck_ecs *ecs)
 {
-	return !fck_button_down(mouse_state, button_index);
+	SDL_assert(ecs != nullptr);
+	fck_entity_registry_free(&ecs->entities);
+	fck_component_registry_free(&ecs->components);
 }
 
-static fck_entity fck_entity_create(fck_engine_state* engine_state, size_t byte_count)
+fck_entity fck_entity_create(fck_ecs *ecs)
 {
-	SDL_assert(engine_state->entity_count < engine_state->entity_capacity);
-	SDL_assert(engine_state->data_count < engine_state->data_capacity);
+	SDL_assert(ecs != nullptr);
 
-	size_t index = engine_state->entity_count;
-	engine_state->entity_count = engine_state->entity_count + 1; // Advance
+	fck_entity_registry *entity_registry = &ecs->entities;
 
-	size_t byte_begin = engine_state->data_count;
-	engine_state->data_count = engine_state->data_count + byte_count;
+	size_t index = entity_registry->count;
+	entity_registry->count = entity_registry->count + 1; // Advance
 
 	fck_entity_definition definition;
 
-	fck_entity_storage_header storage_header;
-	storage_header.definition_index = index;
-	storage_header.byte_index = byte_begin;
-	storage_header.byte_count = byte_count;
-
 	fck_entity entity;
-	entity.definition_index = index;
+	entity.index = index;
 
 	return entity;
 }
 
-static void* fck_entity_data_get(fck_engine_state* engine_state, fck_entity const* entity)
+fck_component_handle fck_component_register(fck_ecs *ecs, size_t unique_id, size_t component_byte_size)
 {
-	fck_entity_definition definition = engine_state->definitions[entity->definition_index];
+	SDL_assert(ecs != nullptr);
+
+	fck_component_handle handle;
+	handle.index = unique_id;
+
+	fck_component_definition definition;
+	definition.handle = handle;
+	definition.byte_count = component_byte_size;
+
+	// Allocate in ecs!
+	ecs->components.definitions[handle.index] = definition;
+	fck_component_collection *component_collection = &ecs->components.collections[handle.index];
+	component_collection->components = SDL_calloc(ecs->entities.capacity, component_byte_size);
+	component_collection->count = 0;
+	component_collection->capcity = component_byte_size;
+	return handle;
 }
 
-int main(int, char**)
+int main(int, char **)
 {
 	if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS))
 	{
@@ -139,20 +206,14 @@ int main(int, char**)
 		return -1;
 	}
 
-	if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS))
-	{
-		LOG_LAST_CRITICAL_SDL_ERROR();
-		return -1;
-	}
-
-	SDL_Window* window = SDL_CreateWindow("fck - engine", 640, 640, 0);
+	SDL_Window *window = SDL_CreateWindow("fck - engine", 640, 640, 0);
 	if (window == nullptr)
 	{
 		LOG_LAST_CRITICAL_SDL_ERROR();
 		return -1;
 	}
 
-	SDL_Renderer* renderer = SDL_CreateRenderer(window, nullptr);
+	SDL_Renderer *renderer = SDL_CreateRenderer(window, nullptr);
 	if (renderer == nullptr)
 	{
 		LOG_LAST_CRITICAL_SDL_ERROR();
@@ -164,32 +225,37 @@ int main(int, char**)
 		return -1;
 	}
 
-	fck_keyboard_state keyboard_state;
-	SDL_zero(keyboard_state);
+	fck_keyboard_state keyboard;
+	SDL_zero(keyboard);
 
-	fck_mouse_state mouse_state;
-	SDL_zero(mouse_state);
+	fck_mouse_state mouse;
+	SDL_zero(mouse);
 
-	fck_engine_state engine_state;
-	SDL_zero(engine_state);
+	fck_ecs ecs;
+	SDL_zero(ecs);
 
 	// Initialise data blob
-	const int INITIAL_ENGINE_ENTITY_COUNT = 128;
-	const int INITIAL_ENGINE_DATA_BYTE_COUNT = 128 * sizeof(size_t);
-	engine_state.entity_date = (Uint8*)SDL_calloc(sizeof(*engine_state.entity_date), INITIAL_ENGINE_DATA_BYTE_COUNT);
-	engine_state.definitions =
-		(fck_entity_definition*)SDL_calloc(sizeof(*engine_state.definitions), INITIAL_ENGINE_ENTITY_COUNT);
-	engine_state.entity_count = 0;
-	engine_state.entity_capacity = INITIAL_ENGINE_ENTITY_COUNT;
-	engine_state.data_count = 0;
-	engine_state.data_capacity = INITIAL_ENGINE_DATA_BYTE_COUNT;
+	// Unused - Just test
+	const int INITIAL_ENTITY_COUNT = 128;
+	const int INITIAL_COMPONENT_COUNT = 32;
 
-	fck_entity player_entity = fck_entity_create(&engine_state, sizeof(SDL_FRect));
-	SDL_FRect player = { 0, 0, 128, 128 };
+	fck_ecs_allocate_configuration allocate_configuration;
+	allocate_configuration.initial_entities_count = INITIAL_ENTITY_COUNT;
+	allocate_configuration.initial_components_count = INITIAL_COMPONENT_COUNT;
+
+	fck_ecs_allocate(&ecs, &allocate_configuration);
+
+	fck_entity player_entity = fck_entity_create(&ecs);
+	// !Unused - Just test
+
+	SDL_FRect player = {0, 0, 128, 128};
+
+	SDL_FRect enemy = {256, 256, 64, 64};
 
 	bool is_running = true;
 	while (is_running)
 	{
+		// Event processing - Input, window, etc.
 		SDL_Event ev;
 		while (SDL_PollEvent(&ev))
 		{
@@ -198,29 +264,46 @@ int main(int, char**)
 				is_running = false;
 			}
 		}
-		fck_keyboard_state_update(&keyboard_state);
-		fck_mouse_state_update(&mouse_state);
+		fck_keyboard_state_update(&keyboard);
+		fck_mouse_state_update(&mouse);
 
+		SDL_FPoint direction = {0.0f, 0.0f};
+		if (fck_key_down(&keyboard, SDL_SCANCODE_A))
+		{
+			direction.x -= 1.0f;
+		}
+		if (fck_key_down(&keyboard, SDL_SCANCODE_D))
+		{
+			direction.x += 1.0f;
+		}
+		if (fck_key_down(&keyboard, SDL_SCANCODE_W))
+		{
+			direction.y -= 1.0f;
+		}
+		if (fck_key_down(&keyboard, SDL_SCANCODE_S))
+		{
+			direction.y += 1.0f;
+		}
+		player.x += direction.x;
+		player.y += direction.y;
+
+		// Render processing
 		SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
 		SDL_RenderClear(renderer);
 
-		if (fck_button_up(&mouse_state, 1))
-		{
-			SDL_SetRenderDrawColor(renderer, 0, 255, 0, 0);
-		}
-		else
-		{
-			SDL_SetRenderDrawColor(renderer, 255, 0, 0, 0);
-		}
+		SDL_SetRenderDrawColor(renderer, 0, 0, 255, 0);
 		SDL_RenderFillRect(renderer, &player);
+
+		SDL_SetRenderDrawColor(renderer, 255, 0, 0, 0);
+		SDL_RenderFillRect(renderer, &enemy);
 
 		SDL_RenderPresent(renderer);
 	}
 
+	fck_ecs_free(&ecs);
+
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
-
-	// lua_close(lua_state);
 
 	SDL_Quit();
 	return 0;

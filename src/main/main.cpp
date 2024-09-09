@@ -1,30 +1,26 @@
 // fck main
 // TODO:
 // - Graphics
-// - Input handling
+// - Input handling (x)
 // - Draw some images
 // - Systems and data model
 // - Data serialisation
+// - Frame independence
 // - Networking!! <- implies multiplayer
 
+// SDL core - functionality such as creating a window and getting events
 #include <SDL3/SDL.h>
+
+// SDL image - Loads images... Many kinds. We only care about PNG
 #include <SDL3_image/SDL_image.h>
+
+// SDL net - networking... More later
 #include <SDL3_net/SDL_net.h>
 
 #include "fck_keyboard.h"
 #include "fck_mouse.h"
 
 #define LOG_LAST_CRITICAL_SDL_ERROR() SDL_LogCritical(0, "%s:%d - %s", __FILE__, __LINE__, SDL_GetError());
-
-typedef unsigned char fck_byte;
-
-struct fck_entity_storage_header
-{
-	size_t byte_index;
-	size_t byte_count;
-	size_t definition_index;
-	int unsused;
-};
 
 struct fck_entity_definition
 {
@@ -49,12 +45,11 @@ struct fck_component_definition
 
 struct fck_component_collection
 {
-	// void* when we can apply type-erasure
+	// void* when we can apply type-erasure - C# version object
 	// In other words, when we can cast it back to an explicit type use void*
 	// If we cannot cast it back, we need to use byte*/char*
-	void *components;
+	uint8_t *components;
 
-	size_t count;
 	size_t capcity;
 };
 
@@ -68,13 +63,12 @@ struct fck_entity_registry
 	size_t capacity;
 };
 
-// Rows and columns
+// Rows and columns - Essentialy a 2D matrix
 struct fck_component_registry
 {
-	fck_component_definition *definitions;
 	fck_component_collection *collections;
+	fck_component_definition *definitions;
 
-	size_t count;
 	size_t capacity;
 };
 
@@ -124,7 +118,6 @@ void fck_component_registry_allocate(fck_component_registry *registry, size_t in
 	// calloc zeroes the memory. Counts are automatically 0!
 	registry->collections = (fck_component_collection *)SDL_calloc(sizeof(*registry->collections), initial_count);
 	registry->definitions = (fck_component_definition *)SDL_calloc(sizeof(*registry->definitions), initial_count);
-	registry->count = 0;
 	registry->capacity = initial_count;
 }
 
@@ -137,7 +130,10 @@ void fck_component_registry_free(fck_component_registry *registry)
 	for (size_t index = 0; index < registry->capacity; index++)
 	{
 		fck_component_collection *component_collection = &registry->collections[index];
-		SDL_free(component_collection);
+		if (component_collection->capcity != 0)
+		{
+			SDL_free(component_collection);
+		}
 	}
 
 	SDL_free(registry->collections);
@@ -164,6 +160,7 @@ void fck_ecs_free(fck_ecs *ecs)
 fck_entity fck_entity_create(fck_ecs *ecs)
 {
 	SDL_assert(ecs != nullptr);
+	SDL_assert(ecs->entities.count < ecs->entities.capacity);
 
 	fck_entity_registry *entity_registry = &ecs->entities;
 
@@ -174,6 +171,10 @@ fck_entity fck_entity_create(fck_ecs *ecs)
 
 	fck_entity entity;
 	entity.index = index;
+
+	// TODO:
+	// zero out components
+	// zero out definition
 
 	return entity;
 }
@@ -190,13 +191,54 @@ fck_component_handle fck_component_register(fck_ecs *ecs, size_t unique_id, size
 	definition.byte_count = component_byte_size;
 
 	// Allocate in ecs!
-	ecs->components.definitions[handle.index] = definition;
 	fck_component_collection *component_collection = &ecs->components.collections[handle.index];
-	component_collection->components = SDL_calloc(ecs->entities.capacity, component_byte_size);
-	component_collection->count = 0;
-	component_collection->capcity = component_byte_size;
+
+	// Handle double register
+	SDL_assert(component_collection->capcity == 0 && "Component slot already used by another type");
+
+	ecs->components.definitions[handle.index] = definition;
+
+	component_collection->components = (uint8_t *)SDL_calloc(ecs->entities.capacity, component_byte_size);
+	component_collection->capcity = ecs->entities.capacity;
 	return handle;
 }
+
+uint8_t *fck_component_get(fck_ecs *ecs, fck_entity const *entity, fck_component_handle const *handle)
+{
+	SDL_assert(handle != nullptr);
+
+	size_t index = handle->index;
+	// System.Collections.Generic.List
+	fck_component_definition *definition = &ecs->components.definitions[index];
+	fck_component_collection *collection = &ecs->components.collections[index];
+	uint8_t *component_data = &collection->components[entity->index * definition->byte_count];
+
+	return component_data;
+}
+
+void fck_component_set(fck_ecs *ecs, fck_entity const *entity, fck_component_handle const *handle, void *data)
+{
+	SDL_assert(handle != nullptr);
+
+	size_t index = handle->index;
+
+	fck_component_definition *definition = &ecs->components.definitions[index];
+	fck_component_collection *collection = &ecs->components.collections[index];
+	uint8_t *component_data = &collection->components[entity->index * definition->byte_count];
+
+	SDL_memcpy(component_data, data, definition->byte_count);
+}
+
+struct fck_pig
+{
+	// :((
+};
+
+struct fck_wolf
+{
+	double itsadouble;
+	// :((
+};
 
 int main(int, char **)
 {
@@ -245,7 +287,18 @@ int main(int, char **)
 
 	fck_ecs_allocate(&ecs, &allocate_configuration);
 
+	// Register types
+	fck_component_handle pig_handle = fck_component_register(&ecs, 0, sizeof(fck_pig));
+	fck_component_handle wolf_handle = fck_component_register(&ecs, 1, sizeof(fck_wolf));
+
+	// Reserve a player slot
 	fck_entity player_entity = fck_entity_create(&ecs);
+
+	// Set and get data
+	fck_wolf wolf = {420.0};
+	fck_component_set(&ecs, &player_entity, &wolf_handle, &wolf);
+	uint8_t *raw_wolf_data = fck_component_get(&ecs, &player_entity, &wolf_handle);
+	fck_wolf *wolf_data = (fck_wolf *)raw_wolf_data;
 	// !Unused - Just test
 
 	SDL_FRect player = {0, 0, 128, 128};

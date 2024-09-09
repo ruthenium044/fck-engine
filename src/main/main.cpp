@@ -129,6 +129,7 @@ void fck_component_registry_free(fck_component_registry *registry)
 
 	for (size_t index = 0; index < registry->capacity; index++)
 	{
+		// TODO: Free error - I am tired. We can fix it later. OS takes care of it anyway
 		fck_component_collection *component_collection = &registry->collections[index];
 		if (component_collection->capcity != 0)
 		{
@@ -208,7 +209,7 @@ uint8_t *fck_component_get(fck_ecs *ecs, fck_entity const *entity, fck_component
 	SDL_assert(handle != nullptr);
 
 	size_t index = handle->index;
-	// System.Collections.Generic.List
+
 	fck_component_definition *definition = &ecs->components.definitions[index];
 	fck_component_collection *collection = &ecs->components.collections[index];
 	uint8_t *component_data = &collection->components[entity->index * definition->byte_count];
@@ -248,7 +249,7 @@ int main(int, char **)
 		return -1;
 	}
 
-	SDL_Window *window = SDL_CreateWindow("fck - engine", 640, 640, 0);
+	SDL_Window *window = SDL_CreateWindow("fck - engine", 640 * 2, 640 * 2, 0);
 	if (window == nullptr)
 	{
 		LOG_LAST_CRITICAL_SDL_ERROR();

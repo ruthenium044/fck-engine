@@ -5,8 +5,8 @@
 
 struct fck_keyboard_state
 {
-	Uint8 current_state[SDL_NUM_SCANCODES];
-	Uint8 previous_state[SDL_NUM_SCANCODES];
+	SDL_bool current_state[SDL_NUM_SCANCODES];
+	SDL_bool previous_state[SDL_NUM_SCANCODES];
 };
 
 // TODO: Put in source file
@@ -14,11 +14,11 @@ struct fck_keyboard_state
 inline void fck_keyboard_state_update(fck_keyboard_state *keyboard_state)
 {
 	int num_keys = 0;
-	Uint8 const *current_state = SDL_GetKeyboardState(&num_keys);
+	SDL_bool const *current_state = SDL_GetKeyboardState(&num_keys);
 
-	SDL_memcpy((Uint8 *)keyboard_state->previous_state, (Uint8 *)keyboard_state->current_state, num_keys);
+	SDL_memcpy((SDL_bool *)keyboard_state->previous_state, (SDL_bool *)keyboard_state->current_state, num_keys);
 
-	SDL_memcpy((Uint8 *)keyboard_state->current_state, (Uint8 *)current_state, num_keys);
+	SDL_memcpy((SDL_bool *)keyboard_state->current_state, (SDL_bool *)current_state, num_keys);
 }
 
 inline bool fck_key_down(fck_keyboard_state const *keyboard_state, SDL_Scancode scancode)

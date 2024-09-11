@@ -9,6 +9,7 @@ include(FetchContent)
 include(ExternalProject)
 
 # CMake settings
+set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
 
@@ -84,23 +85,35 @@ list(APPEND SOURCES ${FOUND_CXX_SOURCES})
 # We need to check out if this is needed 
 include_directories(fck include)
 
+# Idk if this is needed
+source_group("Header Files" FILES ${FOUND_CXX_HEADERS})
+
+# Resource path
+set(FCK_RESOURCE_DIRECTORY_PATH "${CMAKE_CURRENT_SOURCE_DIR}/resources/")
+
+# We can also use file commands for a release non-engine build 
+#file(MAKE_DIRECTORY ${RESOURCE_DIRECTORY_PATH})
 add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
 
-set(CMAKE_CONFIGURATION_TYPES "Debug;Release" CACHE STRING "Configs" FORCE)
+# Maybe later
+target_compile_definitions(${PROJECT_NAME} PRIVATE "FCK_RESOURCE_DIRECTORY_PATH= \"${FCK_RESOURCE_DIRECTORY_PATH}\"")
 
-target_compile_definitions(${PROJECT_NAME} PRIVATE
-    $<$<CONFIG:Debug>:DEBUG>
-    $<$<CONFIG:Release>:NDEBUG>
-)
-
-set_target_properties(${PROJECT_NAME} PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/bin/Debug
-    RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/bin/Release
-)
+# Needed? Maybe not
+#set(CMAKE_CONFIGURATION_TYPES "Debug;Release" CACHE STRING "Configs" FORCE)
+#
+#target_compile_definitions(${PROJECT_NAME} PRIVATE
+#    $<$<CONFIG:Debug>:DEBUG>
+#    $<$<CONFIG:Release>:NDEBUG>
+#)
+#
+#set_target_properties(${PROJECT_NAME} PROPERTIES
+#    RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/bin/Debug
+#    RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/bin/Release
+#)
 
 # Shouldn't be needed? We need to check it out
 #target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
-source_group("Header Files" FILES ${FOUND_CXX_HEADERS})
+
 
 add_dependencies(fck SDL3::SDL3)
 

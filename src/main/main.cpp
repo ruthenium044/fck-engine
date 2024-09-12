@@ -17,82 +17,19 @@
 // SDL net - networking... More later
 #include <SDL3_net/SDL_net.h>
 
+#include "fck_checks.h"
+#include "fck_drop_file.h"
+#include "fck_ecs.h"
 #include "fck_keyboard.h"
 #include "fck_mouse.h"
 
-#define CHECK_INFO(condition, message)                                                                                 \
-	if ((condition))                                                                                                   \
-	SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "%s:%d - %s", __FILE__, __LINE__, message)
-#define CHECK_WARNING(condition, message)                                                                              \
-	if ((condition))                                                                                                   \
-	SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "%s:%d - %s", __FILE__, __LINE__, message)
-#define CHECK_ERROR(condition, message)                                                                                \
-	if ((condition))                                                                                                   \
-	SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s:%d - %s", __FILE__, __LINE__, message)
-#define CHECK_CRITICAL(condition, message)                                                                             \
-	if ((condition))                                                                                                   \
-	SDL_LogCritical(SDL_LOG_CATEGORY_APPLICATION, "%s:%d - %s", __FILE__, __LINE__, message)
-
-struct fck_entity_definition
+struct fck_font_config
 {
-	// Fill out definition info
-};
-
-struct fck_entity
-{
-	size_t index;
-};
-
-struct fck_component_handle
-{
-	size_t index;
-};
-
-struct fck_component_definition
-{
-	fck_component_handle handle;
-	size_t byte_count;
-};
-
-struct fck_component_collection
-{
-	// void* when we can apply type-erasure - C# version object
-	// In other words, when we can cast it back to an explicit type use void*
-	// If we cannot cast it back, we need to use byte*/char*
-	uint8_t *components;
-
-	size_t capcity;
-};
-
-struct fck_entity_registry
-{
-	// Food for throught: should the definition be part of the fck_entity type itself?
-	fck_entity *entities;
-	fck_entity_definition *definitions;
-
-	size_t count;
-	size_t capacity;
-};
-
-// Rows and columns - Essentialy a 2D matrix
-struct fck_component_registry
-{
-	fck_component_collection *collections;
-	fck_component_definition *definitions;
-
-	size_t capacity;
-};
-
-struct fck_ecs_allocate_configuration
-{
-	size_t initial_entities_count;
-	size_t initial_components_count;
-};
-
-struct fck_ecs
-{
-	fck_entity_registry entities;
-	fck_component_registry components;
+	char relative_path[256];
+	int pixel_per_glyph_w;
+	int pixel_per_glyph_h;
+	int columns;
+	int rows;
 };
 
 struct fck_font_editor
@@ -118,152 +55,6 @@ struct fck_engine
 	fck_font_editor font_editor;
 };
 
-void fck_entity_registry_allocate(fck_entity_registry *registry, size_t initial_count)
-{
-	SDL_assert(registry != nullptr && "Entity registry cannot be NULL");
-	SDL_assert(registry->entities == nullptr && "Entity registry entities already allocated");
-	SDL_assert(registry->definitions == nullptr && "Entity registry definitions already allocated");
-
-	registry->entities = (fck_entity *)SDL_calloc(sizeof(*registry->entities), initial_count);
-	registry->definitions = (fck_entity_definition *)SDL_calloc(sizeof(*registry->definitions), initial_count);
-	registry->count = 0;
-	registry->capacity = initial_count;
-}
-
-void fck_entity_registry_free(fck_entity_registry *registry)
-{
-	SDL_assert(registry != nullptr && "Entity registry cannot be NULL");
-	SDL_assert(registry->entities != nullptr && "Entity registry entities is not allocated");
-	SDL_assert(registry->definitions != nullptr && "Entity registry definitions is not allocated");
-
-	SDL_free(registry->entities);
-	SDL_free(registry->definitions);
-
-	registry->entities = nullptr;
-	registry->definitions = nullptr;
-}
-
-void fck_component_registry_allocate(fck_component_registry *registry, size_t initial_count)
-{
-	SDL_assert(registry != nullptr && "Entity registry cannot be NULL");
-	SDL_assert(registry->collections == nullptr && "Entity registry entities already allocated");
-	SDL_assert(registry->definitions == nullptr && "Entity registry definitions already allocated");
-
-	// calloc zeroes the memory. Counts are automatically 0!
-	registry->collections = (fck_component_collection *)SDL_calloc(sizeof(*registry->collections), initial_count);
-	registry->definitions = (fck_component_definition *)SDL_calloc(sizeof(*registry->definitions), initial_count);
-	registry->capacity = initial_count;
-}
-
-void fck_component_registry_free(fck_component_registry *registry)
-{
-	SDL_assert(registry != nullptr && "Entity registry cannot be NULL");
-	SDL_assert(registry->collections != nullptr && "Entity registry entities is not allocated");
-	SDL_assert(registry->definitions != nullptr && "Entity registry definitions is not allocated");
-
-	for (size_t index = 0; index < registry->capacity; index++)
-	{
-		// TODO: Free error - I am tired. We can fix it later. OS takes care of it anyway
-		fck_component_collection *component_collection = &registry->collections[index];
-		if (component_collection->capcity != 0)
-		{
-			SDL_free(component_collection->components);
-		}
-	}
-
-	SDL_free(registry->collections);
-	SDL_free(registry->definitions);
-
-	registry->collections = nullptr;
-	registry->definitions = nullptr;
-}
-
-void fck_ecs_allocate(fck_ecs *ecs, fck_ecs_allocate_configuration const *configuration)
-{
-	SDL_assert(ecs != nullptr);
-	fck_entity_registry_allocate(&ecs->entities, configuration->initial_entities_count);
-	fck_component_registry_allocate(&ecs->components, configuration->initial_components_count);
-}
-
-void fck_ecs_free(fck_ecs *ecs)
-{
-	SDL_assert(ecs != nullptr);
-	fck_entity_registry_free(&ecs->entities);
-	fck_component_registry_free(&ecs->components);
-}
-
-fck_entity fck_entity_create(fck_ecs *ecs)
-{
-	SDL_assert(ecs != nullptr);
-	SDL_assert(ecs->entities.count < ecs->entities.capacity);
-
-	fck_entity_registry *entity_registry = &ecs->entities;
-
-	size_t index = entity_registry->count;
-	entity_registry->count = entity_registry->count + 1; // Advance
-
-	fck_entity_definition definition;
-
-	fck_entity entity;
-	entity.index = index;
-
-	// TODO:
-	// zero out components
-	// zero out definition
-
-	return entity;
-}
-
-fck_component_handle fck_component_register(fck_ecs *ecs, size_t unique_id, size_t component_byte_size)
-{
-	SDL_assert(ecs != nullptr);
-
-	fck_component_handle handle;
-	handle.index = unique_id;
-
-	fck_component_definition definition;
-	definition.handle = handle;
-	definition.byte_count = component_byte_size;
-
-	// Allocate in ecs!
-	fck_component_collection *component_collection = &ecs->components.collections[handle.index];
-
-	// Handle double register
-	SDL_assert(component_collection->capcity == 0 && "Component slot already used by another type");
-
-	ecs->components.definitions[handle.index] = definition;
-
-	component_collection->components = (uint8_t *)SDL_calloc(ecs->entities.capacity, component_byte_size);
-	component_collection->capcity = ecs->entities.capacity;
-	return handle;
-}
-
-uint8_t *fck_component_get(fck_ecs *ecs, fck_entity const *entity, fck_component_handle const *handle)
-{
-	SDL_assert(handle != nullptr);
-
-	size_t index = handle->index;
-
-	fck_component_definition *definition = &ecs->components.definitions[index];
-	fck_component_collection *collection = &ecs->components.collections[index];
-	uint8_t *component_data = &collection->components[entity->index * definition->byte_count];
-
-	return component_data;
-}
-
-void fck_component_set(fck_ecs *ecs, fck_entity const *entity, fck_component_handle const *handle, void *data)
-{
-	SDL_assert(handle != nullptr);
-
-	size_t index = handle->index;
-
-	fck_component_definition *definition = &ecs->components.definitions[index];
-	fck_component_collection *collection = &ecs->components.collections[index];
-	uint8_t *component_data = &collection->components[entity->index * definition->byte_count];
-
-	SDL_memcpy(component_data, data, definition->byte_count);
-}
-
 struct fck_pig
 {
 	// :((
@@ -275,71 +66,88 @@ struct fck_wolf
 	// :((
 };
 
-struct fck_drop_file_context;
-
-typedef bool (*fck_try_receive_drop_file)(fck_drop_file_context const *context, SDL_DropEvent const *drop_event);
-
-struct fck_drop_file_context
+struct fck_file_memory
 {
-	fck_try_receive_drop_file *drop_events;
-
-	size_t count;
-	size_t capacity;
+	Uint8 *data;
+	size_t size;
 };
 
-void fck_drop_file_context_allocate(fck_drop_file_context *drop_file_context, size_t initial_capacity)
+bool fck_file_write(const char *path, const char *name, const char *extension, const void *source, size_t size)
 {
-	SDL_assert(drop_file_context != nullptr);
-	SDL_assert(drop_file_context->drop_events == nullptr && "Already allocated");
+	SDL_assert(path != nullptr && "NULL is not a path");
+	SDL_assert(name != nullptr && "NULL is not a name");
+	SDL_assert(extension != nullptr && "NULL is not an extension");
+	SDL_assert(source != nullptr && size != 0);
 
-	const size_t element_size = sizeof(*drop_file_context->drop_events);
-	drop_file_context->drop_events = (fck_try_receive_drop_file *)SDL_calloc(initial_capacity, element_size);
-	drop_file_context->capacity = initial_capacity;
-	drop_file_context->count = 0;
-}
+	char path_buffer[512];
+	SDL_zero(path_buffer);
 
-bool fck_drop_file_context_push(fck_drop_file_context *drop_file_context, fck_try_receive_drop_file func)
-{
-	SDL_assert(drop_file_context != nullptr);
-	SDL_assert(drop_file_context->drop_events != nullptr);
+	size_t added_length = SDL_strlcat(path_buffer, FCK_RESOURCE_DIRECTORY_PATH, sizeof(path_buffer));
+	added_length = added_length + SDL_strlcat(path_buffer + added_length, path, sizeof(path_buffer));
+	added_length = added_length + SDL_strlcat(path_buffer + added_length, name, sizeof(path_buffer));
+	SDL_strlcat(path_buffer + added_length, extension, sizeof(path_buffer));
 
-	if (drop_file_context->count >= drop_file_context->capacity)
-	{
-		return false;
-	}
+	SDL_IOStream *stream = SDL_IOFromFile(path_buffer, "wb");
+	CHECK_WARNING(stream == nullptr, SDL_GetError(), return false);
 
-	drop_file_context->drop_events[drop_file_context->count] = func;
-	drop_file_context->count = drop_file_context->count + 1;
+	size_t written_size = SDL_WriteIO(stream, source, size);
+	CHECK_WARNING(written_size < size, SDL_GetError());
+
+	SDL_bool result = SDL_CloseIO(stream);
+	CHECK_WARNING(!result, SDL_GetError(), return false);
+
 	return true;
 }
 
-void fck_drop_file_context_notify(fck_drop_file_context *drop_file_context, SDL_DropEvent const *drop_event)
+bool fck_file_read(const char *path, const char *name, const char *extension, fck_file_memory *output)
 {
-	SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Trying to load file: %s ...", drop_event->data);
+	SDL_assert(path != nullptr && "NULL is not a path");
+	SDL_assert(name != nullptr && "NULL is not a name");
+	SDL_assert(extension != nullptr && "NULL is not an extension");
+	SDL_assert(output != nullptr);
 
-	SDL_assert(drop_file_context != nullptr);
-	SDL_assert(drop_file_context->drop_events != nullptr);
+	char path_buffer[512];
+	SDL_zero(path_buffer);
 
-	for (size_t index = 0; index < drop_file_context->count; index++)
+	size_t added_length = SDL_strlcat(path_buffer, FCK_RESOURCE_DIRECTORY_PATH, sizeof(path_buffer));
+	added_length = added_length + SDL_strlcat(path_buffer + added_length, path, sizeof(path_buffer));
+	added_length = added_length + SDL_strlcat(path_buffer + added_length, name, sizeof(path_buffer));
+	SDL_strlcat(path_buffer + added_length, extension, sizeof(path_buffer));
+
+	SDL_IOStream *stream = SDL_IOFromFile(path_buffer, "rb");
+	CHECK_ERROR(stream == nullptr, SDL_GetError(), return false);
+
+	Sint64 stream_size = SDL_GetIOSize(stream);
+	CHECK_ERROR(stream_size < 0, SDL_GetError());
+
+	Uint8 *data = (Uint8 *)SDL_malloc(stream_size);
+
+	size_t read_size = SDL_ReadIO(stream, data, stream_size);
+	SDL_bool has_error_in_reading = read_size < stream_size;
+	CHECK_ERROR(has_error_in_reading, SDL_GetError());
+
+	SDL_bool result = SDL_CloseIO(stream);
+	CHECK_ERROR(!result, SDL_GetError());
+
+	if (has_error_in_reading)
 	{
-		fck_try_receive_drop_file try_receive = drop_file_context->drop_events[index];
-		bool result = try_receive(drop_file_context, drop_event);
-		if (result)
-		{
-			break;
-		}
+		SDL_free(data);
+		output->data = nullptr;
+		output->size = 0;
+		return false;
 	}
+
+	output->data = data;
+	output->size = read_size;
+
+	return true;
 }
 
-void fck_drop_file_context_free(fck_drop_file_context *drop_file_context)
+void fck_file_free(fck_file_memory *file_memory)
 {
-	SDL_assert(drop_file_context != nullptr);
-	SDL_assert(drop_file_context->drop_events != nullptr && "Non-sensical - Nothing to deallocate");
-
-	const size_t element_size = sizeof(*drop_file_context->drop_events);
-	SDL_free(drop_file_context->drop_events);
-	drop_file_context->capacity = 0;
-	drop_file_context->count = 0;
+	SDL_free(file_memory->data);
+	file_memory->data = nullptr;
+	file_memory->size = 0;
 }
 
 bool fck_drop_file_receive_png(fck_drop_file_context const *context, SDL_DropEvent const *drop_event)
@@ -365,7 +173,8 @@ bool fck_drop_file_receive_png(fck_drop_file_context const *context, SDL_DropEve
 	SDL_zero(path_buffer);
 	size_t added_length = SDL_strlcat(path_buffer, resource_path_base, sizeof(path_buffer));
 
-	// There is actually no possible way the path is longer than 2024... Let's just pray
+	// There is actually no possible way the path is longer than 2024... Let's
+	// just pray
 	SDL_strlcat(path_buffer + added_length, target_file_name, sizeof(path_buffer));
 
 	SDL_bool result = SDL_CopyFile(drop_event->data, path_buffer);
@@ -453,13 +262,11 @@ void fck_font_editor_update(fck_engine *engine)
 
 		SDL_FPoint mouse_point = {mouse_state->current.cursor_position_x, mouse_state->current.cursor_position_y};
 
-		if (fck_button_down(mouse_state, SDL_BUTTON_MIDDLE))
+		if (fck_button_down(mouse_state, SDL_BUTTON_LEFT))
 		{
 			font_editor->editor_pivot_x -= mouse_point.x - mouse_state->previous.cursor_position_x;
 			font_editor->editor_pivot_y -= mouse_point.y - mouse_state->previous.cursor_position_y;
 		}
-
-		SDL_SetTextureColorMod(font_editor->selected_font_texture, 255, 0, 0);
 
 		SDL_RenderTexture(renderer, font_editor->selected_font_texture, &texture_rect_src, &texture_rect_dst);
 		SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
@@ -468,19 +275,100 @@ void fck_font_editor_update(fck_engine *engine)
 		SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
 		float scaled_glyph_w = font_editor->pixel_per_glyph_w * scale;
 		float scaled_glyph_h = font_editor->pixel_per_glyph_h * scale;
-		SDL_FRect glyph_rect = {dst_x, dst_y, scaled_glyph_w, scaled_glyph_h};
 
-		for (float glyph_x = dst_x; glyph_x < dst_x + scaled_w; glyph_x = glyph_x + scaled_glyph_w)
+		int glyph_cols = scaled_w / scaled_glyph_w;
+		int glyph_rows = scaled_h / scaled_glyph_h;
+
+		for (int glyph_index_y = 0; glyph_index_y < glyph_rows; glyph_index_y++)
 		{
-			for (float glyph_y = dst_y; glyph_y < dst_y + scaled_h; glyph_y = glyph_y + scaled_glyph_h)
+			for (int glyph_index_x = 0; glyph_index_x < glyph_cols; glyph_index_x++)
 			{
+				float glyph_x = dst_x + (scaled_glyph_w * glyph_index_x);
+				float glyph_y = dst_y + (scaled_glyph_h * glyph_index_y);
 				SDL_FRect glyph_rect = {glyph_x, glyph_y, scaled_glyph_w, scaled_glyph_h};
 				SDL_RenderRect(renderer, &glyph_rect);
 			}
 		}
+
+		int window_width;
+		int window_height;
+		if (SDL_GetWindowSize(engine->window, &window_width, &window_height))
+		{
+			const float save_button_padding = 4.0f;
+			const float save_button_x = 0.0f + save_button_padding;
+			const float save_button_width = window_width - (save_button_padding * 2.0f);
+			const float save_button_height = 64.0f - (save_button_padding * 2.0f);
+			const float save_button_y = window_height - save_button_height - save_button_padding;
+			SDL_FRect save_button_rect = {save_button_x, save_button_y, save_button_width, save_button_height};
+
+			if (fck_rect_point_intersection(&save_button_rect, &mouse_point))
+			{
+				SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+				if (fck_button_just_down(mouse_state, SDL_BUTTON_LEFT))
+				{
+					fck_font_config config;
+					SDL_zero(config);
+					SDL_strlcpy(config.relative_path, "Test path", sizeof(config.relative_path));
+					config.pixel_per_glyph_w = font_editor->pixel_per_glyph_w;
+					config.pixel_per_glyph_h = font_editor->pixel_per_glyph_h;
+					config.rows = glyph_rows;
+					config.columns = glyph_cols;
+
+					bool write_result = fck_file_write("", "special", ".font", &config, sizeof(config));
+					// TODO: Finish saving!! Make it nice
+				}
+			}
+			else
+			{
+
+				SDL_SetRenderDrawColor(renderer, 100, 100, 100, 255);
+			}
+
+			SDL_RenderRect(renderer, &save_button_rect);
+		}
 	}
 
 	SDL_RenderPresent(renderer);
+}
+
+// TODO: Clean up this prototype of a function :D
+void fck_render_text(fck_engine *engine, const char *text, int scale = 2)
+{
+	// 64 hard limit. No reason
+	fck_font_editor *font_editor = &engine->font_editor;
+	float glyph_w = font_editor->pixel_per_glyph_w;
+	float glyph_h = font_editor->pixel_per_glyph_h;
+	SDL_FRect src_rect = {0, 0, glyph_w, glyph_h};
+	SDL_FRect dst_rect = {0, 0, glyph_w * scale, glyph_h * scale};
+
+	float tw;
+	float th;
+	if (!SDL_GetTextureSize(font_editor->selected_font_texture, &tw, &th))
+	{
+		return;
+	}
+
+	int glyph_cols = tw / glyph_w;
+	int glyph_rows = th / glyph_h;
+
+	for (size_t index = 0; index < 64; index++)
+	{
+		const char c = text[index];
+		if (c == 0)
+		{
+			// maybe break if cleanup needed?
+			return;
+		}
+		int x = c % glyph_cols;
+		int y = c / glyph_cols;
+
+		src_rect.x = x * glyph_w;
+		src_rect.y = y * glyph_h;
+
+		dst_rect.x = dst_rect.w * index;
+
+		SDL_RenderTexture(engine->renderer, engine->font_editor.selected_font_texture, &src_rect, &dst_rect);
+	}
 }
 
 int main(int c, char **str)
@@ -540,19 +428,17 @@ int main(int c, char **str)
 	fck_wolf *wolf_data = (fck_wolf *)raw_wolf_data;
 	// !Unused - Just test
 
+	// Read default font config on startup and load it somwhere. Need a place for it
+	fck_file_memory file_memory;
+	if (fck_file_read("", "special", ".font", &file_memory))
+	{
+		fck_font_config *font_config = (fck_font_config *)file_memory.data;
+		fck_file_free(&file_memory);
+	}
+
 	bool is_running = true;
 	while (is_running)
 	{
-		{
-			// Exhaust error buffer
-			const char *error = "";
-			do
-			{
-				error = SDL_GetError();
-				SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, error);
-			} while (SDL_strcmp(error, "") != 0);
-		}
-
 		// Event processing - Input, window, etc.
 		SDL_Event ev;
 
@@ -589,6 +475,8 @@ int main(int c, char **str)
 		{
 			SDL_SetRenderDrawColor(engine.renderer, 0, 0, 0, 255);
 			SDL_RenderClear(engine.renderer);
+
+			fck_render_text(&engine, "TEEEST", 4);
 
 			SDL_RenderPresent(engine.renderer);
 		}

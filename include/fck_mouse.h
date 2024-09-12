@@ -62,4 +62,9 @@ inline bool fck_button_up(fck_mouse_state const *mouse_state, int button_index, 
 	return !fck_button_down(mouse_state, button_index, frame_index);
 }
 
+inline bool fck_button_just_down(fck_mouse_state const *mouse_state, int button_index)
+{
+	return fck_button_down(mouse_state, button_index, 0) && !fck_button_down(mouse_state, button_index, 1);
+}
+
 #endif // FCK_MOUSE_STATE_INCLUDED

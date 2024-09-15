@@ -15,7 +15,8 @@ set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
 
 # We fix this up later to be optimised for release and non-optimised for debug
 #add_compile_options(-O0)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0")
+set(CMAKE_CXX_FLAGS "-O0")
 
 # SDL settings
 set(BUILD_SHARED_LIBS OFF)

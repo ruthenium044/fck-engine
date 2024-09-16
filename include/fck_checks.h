@@ -54,19 +54,19 @@
 
 #define CHECK_INFO(condition, message, ...)                                                                            \
 	CHECK_MACRO_CHOOSER(__VA_ARGS__, CHECK_INFO_ARGS_1(condition, message, __VA_ARGS__),                               \
-	                    CHECK_INFO_ARGS_0(condition, message, __VA_ARGS__))
+	                    CHECK_INFO_ARGS_0(condition, message))
 
 #define CHECK_WARNING(condition, message, ...)                                                                         \
 	CHECK_MACRO_CHOOSER(__VA_ARGS__, CHECK_WARNING_ARGS_1(condition, message, __VA_ARGS__),                            \
-	                    CHECK_WARNING_ARGS_0(condition, message, __VA_ARGS__))
+	                    CHECK_WARNING_ARGS_0(condition, message))
 
 #define CHECK_ERROR(condition, message, ...)                                                                           \
 	CHECK_MACRO_CHOOSER(__VA_ARGS__, CHECK_ERROR_ARGS_1(condition, message, __VA_ARGS__),                              \
-	                    CHECK_ERROR_ARGS_0(condition, message, __VA_ARGS__))
+	                    CHECK_ERROR_ARGS_0(condition, message))
 
 #define CHECK_CRITICAL(condition, message, ...)                                                                        \
 	CHECK_MACRO_CHOOSER(__VA_ARGS__, CHECK_CRITICAL_ARGS_1(condition, message, __VA_ARGS__),                           \
-	                    CHECK_CRITICAL_ARGS_0(condition, message, __VA_ARGS__))
+	                    CHECK_CRITICAL_ARGS_0(condition, message))
 
 // params object[];
 // typename ... T

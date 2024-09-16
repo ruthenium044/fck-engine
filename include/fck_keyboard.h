@@ -5,7 +5,7 @@
 
 struct fck_keyboard_state_frame
 {
-	SDL_bool state[SDL_NUM_SCANCODES];
+	SDL_bool state[SDL_SCANCODE_COUNT];
 };
 
 enum fck_keyboard_state_frame_count

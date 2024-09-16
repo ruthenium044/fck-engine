@@ -723,9 +723,10 @@ SDL_bool fck_load_font_asset(SDL_Renderer *renderer, const char *file_name, fck_
 	font_asset->columns = font_resource->columns;
 	font_asset->rows = font_resource->rows;
 	SDL_bool load_result = fck_texture_load(renderer, font_resource->texture_path, &font_asset->texture);
-	CHECK_CRITICAL(!load_result, SDL_GetError(), return false);
 
 	fck_file_free(&file_memory);
+
+	CHECK_CRITICAL(!load_result, SDL_GetError(), return false);
 
 	return true;
 }

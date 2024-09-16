@@ -16,7 +16,7 @@ set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
 # We fix this up later to be optimised for release and non-optimised for debug
 #add_compile_options(-O0)
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0")
-set(CMAKE_CXX_FLAGS "-O0")
+set(CMAKE_CXX_FLAGS "-Od")
 
 # SDL settings
 set(BUILD_SHARED_LIBS OFF)
@@ -58,23 +58,23 @@ set(SDL_TEST OFF)
 FetchContent_Declare(
     SDL
     GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
-    GIT_TAG "main"
+    GIT_TAG 4f722d372ae7246f123762b0407cbec1e6e71d65
     GIT_SHALLOW TRUE
     GIT_PROGRESS TRUE
 )
 
 # Fetch SDL3_image
 FetchContent_Declare(
-        SDL_image
-        GIT_REPOSITORY https://github.com/libsdl-org/SDL_image.git
-        GIT_TAG "main"
+    SDL_image
+    GIT_REPOSITORY https://github.com/libsdl-org/SDL_image.git
+    GIT_TAG c1b272450d306db3845086cc231acae736b92f4f
 )
 
 # Fetch SDL3_net
 FetchContent_Declare(
-        SDL_net
-        GIT_REPOSITORY https://github.com/libsdl-org/SDL_net.git
-        GIT_TAG "main"
+    SDL_net
+    GIT_REPOSITORY https://github.com/libsdl-org/SDL_net.git
+    GIT_TAG 7ffe77830cad41c7edbacc8eda35cf99a7557072
 )
 
 # For each SDL module, we should set on a GIT_TAG so we do not have funny renames and other issues!

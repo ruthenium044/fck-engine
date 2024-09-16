@@ -562,6 +562,9 @@ bool fck_ui_button(fck_engine *engine, SDL_FRect const *button_rect, fck_ui_butt
 	SDL_FPoint mouse_point = {mouse_state->current.cursor_position_x, mouse_state->current.cursor_position_y};
 
 	fck_ui_style const *style;
+
+	bool is_clicked = false;
+
 	if (fck_rect_point_intersection(button_rect, &mouse_point))
 	{
 		style = &button_style->hover;
@@ -569,7 +572,7 @@ bool fck_ui_button(fck_engine *engine, SDL_FRect const *button_rect, fck_ui_butt
 		{
 			// If we do not draw for a frame, we should get a nice little blink effect
 			// Let's see lol
-			return true;
+			is_clicked = true;
 		}
 	}
 	else
@@ -577,11 +580,14 @@ bool fck_ui_button(fck_engine *engine, SDL_FRect const *button_rect, fck_ui_butt
 		style = &button_style->normal;
 	}
 
+	// Default colour for a click
+	const SDL_Color some_shitty_green = {160, 210, 160, 255};
+
 	SDL_FRect border_rect = fck_rect_apply_margin(button_rect, &style->margin);
 	SDL_FRect content_rect = fck_rect_apply_padding(&border_rect, &style->padding);
 
-	SDL_Color background = style->background_color;
-	SDL_Color border = style->border_color;
+	SDL_Color background = is_clicked ? some_shitty_green : style->background_color;
+	SDL_Color border = is_clicked ? some_shitty_green : style->border_color;
 	SDL_SetRenderDrawColor(renderer, background.r, background.g, background.b, background.a);
 	SDL_RenderFillRect(renderer, &content_rect);
 
@@ -595,7 +601,7 @@ bool fck_ui_button(fck_engine *engine, SDL_FRect const *button_rect, fck_ui_butt
 		fck_render_text(font, label, &layout, button_rect);
 	}
 
-	return false;
+	return is_clicked;
 }
 
 void fck_font_editor_update(fck_engine *engine)

@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 3.20)
 project(fck)
 
 # Verbosity settings
-set(FETCHCONTENT_QUIET TRUE)
-set(CMAKE_MESSAGE_LOG_LEVEL ERROR)
+#set(FETCHCONTENT_QUIET TRUE)
+#set(CMAKE_MESSAGE_LOG_LEVEL ERROR)
 
 include(FetchContent)
 include(ExternalProject)
@@ -15,7 +15,6 @@ set(CMAKE_CXX_STANDARD 17)
 
 # We fix this up later to be optimised for release and non-optimised for debug
 #add_compile_options(-O0)
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0")
 if(MSVC)
     set(CMAKE_CXX_FLAGS "-Od")
     add_compile_options(/wd4003)  # Disable specific warning code 4996

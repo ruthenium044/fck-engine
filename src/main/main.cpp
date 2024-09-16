@@ -533,7 +533,7 @@ void fck_ui_style_set_margin(fck_ui_style *style, float top, float bottom, float
 	style->margin.right = right;
 }
 
-fck_ui_button_style fck_ui_button_style_simple()
+fck_ui_button_style fck_ui_button_style_engine()
 {
 	fck_ui_button_style button_style;
 	SDL_zero(button_style);
@@ -681,35 +681,22 @@ void fck_font_editor_update(fck_engine *engine)
 			const float save_button_y = window_height - save_button_height - save_button_padding;
 			SDL_FRect save_button_rect = {save_button_x, save_button_y, save_button_width, save_button_height};
 
-			if (fck_rect_point_intersection(&save_button_rect, &mouse_point))
+			fck_ui_button_style button_style = fck_ui_button_style_engine();
+			if (fck_ui_button(engine, &save_button_rect, &button_style, "SAVE TO FILE"))
 			{
-				SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-				if (fck_button_just_down(mouse_state, SDL_BUTTON_LEFT))
+				if (font_editor->relative_texture_path != nullptr)
 				{
-					if (font_editor->relative_texture_path != nullptr)
-					{
-						fck_font_resource config;
-						SDL_zero(config);
-						SDL_strlcpy(config.texture_path, font_editor->relative_texture_path,
-						            sizeof(config.texture_path));
-						config.pixel_per_glyph_w = font_editor->pixel_per_glyph_w;
-						config.pixel_per_glyph_h = font_editor->pixel_per_glyph_h;
-						config.rows = glyph_rows;
-						config.columns = glyph_cols;
+					fck_font_resource config;
+					SDL_zero(config);
+					SDL_strlcpy(config.texture_path, font_editor->relative_texture_path, sizeof(config.texture_path));
+					config.pixel_per_glyph_w = font_editor->pixel_per_glyph_w;
+					config.pixel_per_glyph_h = font_editor->pixel_per_glyph_h;
+					config.rows = glyph_rows;
+					config.columns = glyph_cols;
 
-						bool write_result = fck_file_write("", "special", ".font", &config, sizeof(config));
-					}
+					bool write_result = fck_file_write("", "special", ".font", &config, sizeof(config));
 				}
 			}
-			else
-			{
-				SDL_SetRenderDrawColor(renderer, 100, 100, 100, 255);
-			}
-
-			fck_layout layout = {2, FCK_LAYOUT_HORIZONTAL_ALIGNMENT_CENTRE, FCK_LAYOUT_VERTICAL_ALIGNMENT_CENTRE};
-			fck_render_text(&engine->default_editor_font, "SAVE TO FILE", &layout, &save_button_rect);
-
-			SDL_RenderRect(renderer, &save_button_rect);
 		}
 	}
 }
@@ -866,7 +853,7 @@ int main(int c, char **str)
 		}
 
 		SDL_FRect button_rect = {0.0f, 32.0f, window_width, 64.0f};
-		fck_ui_button_style button_style = fck_ui_button_style_simple();
+		fck_ui_button_style button_style = fck_ui_button_style_engine();
 		if (fck_ui_button(&engine, &button_rect, &button_style, "FONT EDITOR"))
 		{
 			is_font_editor_open = !is_font_editor_open;

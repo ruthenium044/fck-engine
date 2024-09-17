@@ -3,3 +3,4 @@
 ## Required tools
 - Cmake
 - Git
+- Skillz

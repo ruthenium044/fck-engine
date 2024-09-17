@@ -164,13 +164,13 @@ bool fck_file_write(const char *path, const char *name, const char *extension, c
 	SDL_strlcat(path_buffer + added_length, extension, sizeof(path_buffer));
 
 	SDL_IOStream *stream = SDL_IOFromFile(path_buffer, "wb");
-	CHECK_WARNING(stream == nullptr, SDL_GetError(), return false);
+	CHECK_WARNING(stream, SDL_GetError(), return false);
 
 	size_t written_size = SDL_WriteIO(stream, source, size);
-	CHECK_WARNING(written_size < size, SDL_GetError());
+	CHECK_WARNING(written_size >= 0, SDL_GetError());
 
 	SDL_bool result = SDL_CloseIO(stream);
-	CHECK_WARNING(!result, SDL_GetError(), return false);
+	CHECK_WARNING(result, SDL_GetError(), return false);
 
 	return true;
 }
@@ -191,19 +191,19 @@ bool fck_file_read(const char *path, const char *name, const char *extension, fc
 	SDL_strlcat(path_buffer + added_length, extension, sizeof(path_buffer));
 
 	SDL_IOStream *stream = SDL_IOFromFile(path_buffer, "rb");
-	CHECK_ERROR(stream == nullptr, SDL_GetError(), return false);
+	CHECK_ERROR(stream, SDL_GetError(), return false);
 
 	Sint64 stream_size = SDL_GetIOSize(stream);
-	CHECK_ERROR(stream_size < 0, SDL_GetError());
+	CHECK_ERROR(stream_size >= 0, SDL_GetError());
 
 	Uint8 *data = (Uint8 *)SDL_malloc(stream_size);
 
 	size_t read_size = SDL_ReadIO(stream, data, stream_size);
 	SDL_bool has_error_in_reading = read_size < stream_size;
-	CHECK_ERROR(has_error_in_reading, SDL_GetError());
+	CHECK_ERROR(!has_error_in_reading, SDL_GetError());
 
 	SDL_bool result = SDL_CloseIO(stream);
-	CHECK_ERROR(!result, SDL_GetError());
+	CHECK_ERROR(result, SDL_GetError());
 
 	if (has_error_in_reading)
 	{
@@ -234,7 +234,7 @@ bool fck_drop_file_receive_png(fck_drop_file_context const *context, SDL_DropEve
 	SDL_assert(drop_event != nullptr);
 
 	SDL_IOStream *stream = SDL_IOFromFile(drop_event->data, "r");
-	CHECK_ERROR(stream == nullptr, SDL_GetError());
+	CHECK_ERROR(stream, SDL_GetError());
 	if (!IMG_isPNG(stream))
 	{
 		// We only allow pngs for now!
@@ -259,7 +259,7 @@ bool fck_drop_file_receive_png(fck_drop_file_context const *context, SDL_DropEve
 	SDL_strlcat(path_buffer + added_length, target_file_name, sizeof(path_buffer));
 
 	SDL_bool result = SDL_CopyFile(drop_event->data, path_buffer);
-	CHECK_INFO(!result, SDL_GetError());
+	CHECK_INFO(result, SDL_GetError());
 
 	SDL_CloseIO(stream);
 
@@ -272,20 +272,34 @@ bool fck_texture_load(SDL_Renderer *renderer, const char *relative_file_path, SD
 	SDL_assert(relative_file_path != nullptr);
 	SDL_assert(out_texture != nullptr);
 
-	// CMake (the thing that sets the project up) generates this path
-	// No heap allocation is happening since it exists as a constant r-value
-	const char resource_path_base[] = FCK_RESOURCE_DIRECTORY_PATH;
+	fck_file_memory file_memory;
+	if (!fck_file_read("", relative_file_path, "", &file_memory))
+	{
+		return false;
+	}
 
-	char path_buffer[512];
-	SDL_zero(path_buffer);
+	SDL_IOStream *stream = SDL_IOFromMem(file_memory.data, file_memory.size);
+	CHECK_ERROR(stream, SDL_GetError(), return false);
 
-	size_t added_length = SDL_strlcat(path_buffer, resource_path_base, sizeof(path_buffer));
+	// IMG_Load_IO frees stream!
+	SDL_Surface *surface = IMG_Load_IO(stream, true);
+	CHECK_ERROR(surface, SDL_GetError(), return false);
 
-	SDL_strlcat(path_buffer + added_length, relative_file_path, sizeof(path_buffer));
+	const SDL_Palette *palette = SDL_GetSurfacePalette(surface);
+	const SDL_PixelFormatDetails *details = SDL_GetPixelFormatDetails(surface->format);
+	CHECK_ERROR(details, SDL_GetError(), return false);
 
-	*out_texture = IMG_LoadTexture(renderer, path_buffer);
+	// Maybe generalise bitmap transparency
+	bool set_color_key_result = SDL_SetSurfaceColorKey(surface, true, SDL_MapRGB(details, palette, 248, 0, 248));
+	CHECK_ERROR(set_color_key_result, SDL_GetError(), return false);
 
-	return out_texture != nullptr;
+	*out_texture = SDL_CreateTextureFromSurface(renderer, surface);
+
+	SDL_DestroySurface(surface);
+
+	CHECK_ERROR(*out_texture, SDL_GetError(), return false);
+
+	return true;
 }
 
 void fck_font_editor_allocate(fck_font_editor *editor)
@@ -398,12 +412,12 @@ void fck_render_text(fck_font_asset const *font_asset, const char *text, fck_lay
 	SDL_FRect dst_rect = {0, 0, scaled_glyph_w, scaled_glyph_h};
 
 	SDL_Renderer *renderer = SDL_GetRendererFromTexture(texture);
-	CHECK_ERROR(renderer == nullptr, SDL_GetError(), return);
+	CHECK_ERROR(renderer, SDL_GetError(), return);
 
 	// Let's drive it from SDL_RenderDrawColor
 	Uint8 r, g, b, a;
-	CHECK_ERROR(!SDL_GetRenderDrawColor(renderer, &r, &g, &b, &a), SDL_GetError());
-	CHECK_ERROR(!SDL_SetTextureColorMod(texture, r, g, b), SDL_GetError());
+	CHECK_ERROR(SDL_GetRenderDrawColor(renderer, &r, &g, &b, &a), SDL_GetError());
+	CHECK_ERROR(SDL_SetTextureColorMod(texture, r, g, b), SDL_GetError());
 
 	const int MAX_LENGTH = 64;
 	int text_length = SDL_strnlen(text, MAX_LENGTH);
@@ -434,7 +448,7 @@ void fck_render_text(fck_font_asset const *font_asset, const char *text, fck_lay
 		dst_rect.y = draw_area->y + offset_y;
 
 		SDL_bool render_result = SDL_RenderTexture(renderer, texture, &src_rect, &dst_rect);
-		CHECK_ERROR(!render_result, SDL_GetError(), return);
+		CHECK_ERROR(render_result, SDL_GetError(), return);
 	}
 	return;
 }
@@ -621,7 +635,7 @@ void fck_font_editor_update(fck_engine *engine)
 	{
 		float w;
 		float h;
-		CHECK_ERROR(!SDL_GetTextureSize(font_editor->selected_font_texture, &w, &h), SDL_GetError());
+		CHECK_ERROR(SDL_GetTextureSize(font_editor->selected_font_texture, &w, &h), SDL_GetError());
 
 		float x = font_editor->editor_pivot_x;
 		float y = font_editor->editor_pivot_y;
@@ -701,7 +715,7 @@ void fck_font_editor_update(fck_engine *engine)
 	}
 }
 
-SDL_bool fck_load_font_asset(SDL_Renderer *renderer, const char *file_name, fck_font_asset *font_asset)
+SDL_bool fck_font_asset_load(SDL_Renderer *renderer, const char *file_name, fck_font_asset *font_asset)
 {
 	fck_file_memory file_memory;
 	if (!fck_file_read("", file_name, ".font", &file_memory))
@@ -719,7 +733,7 @@ SDL_bool fck_load_font_asset(SDL_Renderer *renderer, const char *file_name, fck_
 
 	fck_file_free(&file_memory);
 
-	CHECK_CRITICAL(!load_result, SDL_GetError(), return false);
+	CHECK_ERROR(load_result, SDL_GetError(), return false);
 
 	return true;
 }
@@ -733,27 +747,277 @@ int fck_print_directory(void *userdata, const char *dirname, const char *fname)
 	return 1;
 }
 
-int main(int c, char **str)
+struct fck_rect_list
+{
+	SDL_FRect *rects;
+	size_t count;
+	size_t capacity;
+};
+
+void fck_rect_list_allocate(fck_rect_list *list, size_t capacity)
+{
+	list->rects = (SDL_FRect *)SDL_calloc(capacity, sizeof(*list->rects));
+	list->capacity = capacity;
+	list->count = 0;
+}
+
+void fck_rect_list_free(fck_rect_list *list)
+{
+	SDL_free(list->rects);
+	list->rects = nullptr;
+	list->capacity = 0;
+	list->count = 0;
+}
+
+bool fck_rect_list_try_add(fck_rect_list *list, SDL_FRect const *rect)
+{
+	SDL_assert(list != nullptr);
+	SDL_assert(list->rects != nullptr);
+
+	if (list->count >= list->capacity)
+	{
+		size_t new_capacity = list->count + 1;
+		SDL_FRect *next_memory = (SDL_FRect *)SDL_realloc(list->rects, sizeof(*list->rects) * new_capacity);
+		if (next_memory == nullptr)
+		{
+			return false;
+		}
+		list->rects = next_memory;
+		list->capacity = new_capacity;
+	}
+
+	list->rects[list->count] = *rect;
+	list->count = list->count + 1;
+	return true;
+}
+
+struct fck_point_list
+{
+	SDL_Point *points;
+	size_t count;
+	size_t capacity;
+};
+
+struct fck_extreme_points
+{
+	int min_x;
+	int min_y;
+	int max_x;
+	int max_y;
+};
+
+void fck_point_list_allocate(fck_point_list *list, size_t capacity)
+{
+	list->points = (SDL_Point *)SDL_calloc(capacity, sizeof(*list->points));
+	list->capacity = capacity;
+	list->count = 0;
+}
+
+void fck_point_list_free(fck_point_list *list)
+{
+	SDL_free(list->points);
+	list->points = nullptr;
+	list->capacity = 0;
+	list->count = 0;
+}
+
+void fck_point_list_push(fck_point_list *list, SDL_Point rect)
+{
+	SDL_assert(list != nullptr);
+	SDL_assert(list->points != nullptr);
+
+	if (list->count >= list->capacity)
+	{
+		size_t new_capacity = list->count + 1;
+		SDL_Point *next_memory = (SDL_Point *)SDL_realloc(list->points, sizeof(*list->points) * new_capacity);
+		SDL_assert(next_memory != nullptr);
+
+		list->points = next_memory;
+		list->capacity = new_capacity;
+	}
+
+	list->points[list->count] = rect;
+	list->count = list->count + 1;
+}
+
+bool fck_point_list_try_pop(fck_point_list *list, SDL_Point *point)
+{
+	SDL_assert(list != nullptr);
+	SDL_assert(list->points != nullptr);
+
+	if (list->count <= 0)
+	{
+		return false;
+	}
+
+	*point = list->points[list->count - 1];
+	list->count = list->count - 1;
+	return true;
+}
+
+void fck_surface_flood_fill(SDL_Surface *surface, bool *is_closed, int sx, int sy, fck_extreme_points *extremes)
+{
+	fck_point_list open_list;
+	SDL_zero(open_list);
+	fck_point_list_allocate(&open_list, 16);
+	fck_point_list_push(&open_list, SDL_Point{sx, sy});
+
+	SDL_Point current_point;
+	while (fck_point_list_try_pop(&open_list, &current_point))
+	{
+		int x = current_point.x;
+		int y = current_point.y;
+		size_t current = (y * surface->w) + x;
+		if (is_closed[current])
+		{
+			continue;
+		}
+		is_closed[current] = true;
+
+		Uint8 r, g, b, a;
+		CHECK_ERROR(SDL_ReadSurfacePixel(surface, x, y, &r, &g, &b, &a), SDL_GetError(), continue);
+
+		bool is_empty = r == 0 && g == 0 && b == 0 && a == 0;
+		if (is_empty)
+		{
+			continue;
+		}
+
+		extremes->min_x = SDL_min(extremes->min_x, x);
+		extremes->min_y = SDL_min(extremes->min_y, y);
+		extremes->max_x = SDL_max(extremes->max_x, x);
+		extremes->max_y = SDL_max(extremes->max_y, y);
+
+		if (x > 0)
+		{
+			fck_point_list_push(&open_list, SDL_Point{x - 1, y});
+		}
+		if (x <= surface->w)
+		{
+			fck_point_list_push(&open_list, SDL_Point{x + 1, y});
+		}
+		if (y > 0)
+		{
+			fck_point_list_push(&open_list, SDL_Point{x, y - 1});
+		}
+		if (y <= surface->h)
+		{
+			fck_point_list_push(&open_list, SDL_Point{x, y + 1});
+		}
+	}
+
+	fck_point_list_free(&open_list);
+}
+
+bool fck_surface_identify_sprites(SDL_Surface *surface, fck_rect_list *rect_list)
+{
+	fck_rect_list_allocate(rect_list, 256);
+
+	bool *is_closed = (bool *)SDL_calloc(surface->w * surface->h, sizeof(bool));
+
+	for (int y = 0; y < surface->h; y++)
+	{
+		for (int x = 0; x < surface->w; x++)
+		{
+			size_t index = (y * surface->w) + x;
+			if (!is_closed[index])
+			{
+				fck_extreme_points extreme_points{INT32_MAX, INT32_MAX, INT32_MIN, INT32_MIN};
+				fck_surface_flood_fill(surface, is_closed, x, y, &extreme_points);
+				if (extreme_points.max_x != INT32_MIN && extreme_points.min_x != INT32_MAX &&
+				    extreme_points.max_y != INT32_MIN && extreme_points.min_y != INT32_MAX)
+				{
+					SDL_FRect rect = {extreme_points.min_x, extreme_points.min_y,
+					                  extreme_points.max_x - extreme_points.min_x + 1,
+					                  extreme_points.max_y - extreme_points.min_y + 1};
+					if (!fck_rect_list_try_add(rect_list, &rect))
+					{
+						fck_rect_list_free(rect_list);
+
+						return false;
+					}
+					x = extreme_points.max_x;
+				}
+			}
+		}
+	}
+	return true;
+}
+
+struct fck_snes_sprites
+{
+	SDL_Texture *texture;
+	fck_rect_list rect_list;
+};
+
+bool fck_load_snes_texture(SDL_Renderer *renderer, const char *file_name, fck_snes_sprites *out_sprites)
+{
+	SDL_assert(renderer != nullptr);
+	SDL_assert(file_name != nullptr);
+	SDL_assert(out_sprites != nullptr);
+
+	fck_file_memory file_memory;
+	if (!fck_file_read("", file_name, "", &file_memory))
+	{
+		return false;
+	}
+
+	SDL_IOStream *stream = SDL_IOFromMem(file_memory.data, file_memory.size);
+	CHECK_ERROR(stream, SDL_GetError(), return false);
+
+	// IMG_Load_IO frees stream!
+	SDL_Surface *surface = IMG_Load_IO(stream, true);
+	CHECK_ERROR(surface, SDL_GetError(), return false);
+
+	const SDL_Palette *palette = SDL_GetSurfacePalette(surface);
+	const SDL_PixelFormatDetails *details = SDL_GetPixelFormatDetails(surface->format);
+	CHECK_ERROR(details, SDL_GetError(), return false);
+
+	// Create sprites
+
+	// fck_rect_list rects;
+	// SDL_zero(rects);
+	// fck_rect_list_allocate(&rects, 1);
+
+	fck_rect_list rects;
+	fck_surface_identify_sprites(surface, &out_sprites->rect_list);
+	CHECK_ERROR(out_sprites->rect_list.rects, "Failure in identifying rects");
+	// SDL_ReadSurfacePixel(surface,)
+
+	// Maybe generalise bitmap transparency
+	bool set_color_key_result = SDL_SetSurfaceColorKey(surface, true, SDL_MapRGB(details, palette, 248, 0, 248));
+	CHECK_ERROR(set_color_key_result, SDL_GetError(), return false);
+
+	out_sprites->texture = SDL_CreateTextureFromSurface(renderer, surface);
+
+	SDL_DestroySurface(surface);
+
+	CHECK_ERROR(out_sprites->texture, SDL_GetError(), return false);
+
+	return true;
+}
+
+int main(int, char **)
 {
 	fck_engine engine;
 	SDL_zero(engine);
 
 	// Init Systems
-	CHECK_CRITICAL(!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS), SDL_GetError());
+	CHECK_CRITICAL(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS), SDL_GetError());
 
-	CHECK_CRITICAL(!IMG_Init(IMG_INIT_PNG), SDL_GetError());
+	CHECK_CRITICAL(IMG_Init(IMG_INIT_PNG), SDL_GetError());
 
-	CHECK_CRITICAL(SDLNet_Init() == -1, SDL_GetError())
+	CHECK_CRITICAL(SDLNet_Init() != -1, SDL_GetError())
 
 	const int window_width = 640;
 	const int window_height = 640;
-	engine.window = SDL_CreateWindow("fck - engine", window_width, window_height, 0);
-	CHECK_CRITICAL(engine.window == nullptr, SDL_GetError());
+	engine.window = SDL_CreateWindow("fck - engine", window_width, window_height, SDL_WINDOW_RESIZABLE);
+	CHECK_CRITICAL(engine.window, SDL_GetError());
 
 	engine.renderer = SDL_CreateRenderer(engine.window, nullptr);
-	CHECK_CRITICAL(engine.renderer == nullptr, SDL_GetError());
+	CHECK_CRITICAL(engine.renderer, SDL_GetError());
 
-	CHECK_WARNING(!SDL_SetRenderVSync(engine.renderer, true), SDL_GetError());
+	CHECK_WARNING(SDL_SetRenderVSync(engine.renderer, true), SDL_GetError());
 
 	// Init Application
 	fck_ecs ecs;
@@ -762,7 +1026,11 @@ int main(int c, char **str)
 	fck_drop_file_context drop_file_context;
 	SDL_zero(drop_file_context);
 
-	fck_load_font_asset(engine.renderer, "special", &engine.default_editor_font);
+	fck_font_asset_load(engine.renderer, "special", &engine.default_editor_font);
+
+	fck_snes_sprites cammy_sprites;
+	SDL_zero(cammy_sprites);
+	CHECK_ERROR(fck_load_snes_texture(engine.renderer, "cammy.png", &cammy_sprites), SDL_GetError());
 
 	fck_drop_file_context_allocate(&drop_file_context, 16);
 	fck_drop_file_context_push(&drop_file_context, fck_drop_file_receive_png);
@@ -794,23 +1062,35 @@ int main(int c, char **str)
 	fck_wolf *wolf_data = (fck_wolf *)raw_wolf_data;
 	// !Unused - Just test
 
-	engine.font_editor.selected_font_texture = engine.default_editor_font.texture;
+	engine.font_editor.selected_font_texture = cammy_sprites.texture;
 	float w, h;
-	CHECK_ERROR(!SDL_GetTextureSize(engine.default_editor_font.texture, &w, &h), SDL_GetError());
+	CHECK_ERROR(SDL_GetTextureSize(engine.default_editor_font.texture, &w, &h), SDL_GetError());
 	int offset_x = (window_width * 0.5f) - (w * 0.5f);
 	int offset_y = (window_height * 0.5f) - (h * 0.5f);
 	engine.font_editor.editor_pivot_x = offset_x;
 	engine.font_editor.editor_pivot_y = offset_y;
-
-	// engine.font_editor.relative_texture_path = font_config->texture_path;
 
 	SDL_EnumerateDirectory(FCK_RESOURCE_DIRECTORY_PATH, fck_print_directory, nullptr);
 
 	bool is_font_editor_open = false;
 
 	bool is_running = true;
+	int sprite_rect_index = 0;
+
+	int cammy_idle_start = 24;
+	int cammy_idle_count = 8;
+	int cammy_idle_current = 24;
+	Uint64 cammy_animation_accumulator = 0;
+	Uint64 cammy_animation_frame_time = 120;
+
+	Uint64 tp = SDL_GetTicks();
+
 	while (is_running)
 	{
+		Uint64 now = SDL_GetTicks();
+		Uint64 delta = now - tp;
+		tp = now;
+
 		// Event processing - Input, window, etc.
 		SDL_Event ev;
 
@@ -849,14 +1129,20 @@ int main(int c, char **str)
 		}
 		else
 		{
-			// SDL_FRect button_rect = {0.0f, 32.0f, window_width, 64.0f};
-		}
+			cammy_animation_accumulator += delta;
+			if (cammy_animation_accumulator > cammy_animation_frame_time)
+			{
+				cammy_animation_accumulator -= cammy_animation_frame_time;
+				cammy_idle_current = cammy_idle_current + 1;
+				if (cammy_idle_current - cammy_idle_start >= cammy_idle_count)
+				{
+					cammy_idle_current = cammy_idle_start;
+				}
+			}
 
-		SDL_FRect button_rect = {0.0f, 32.0f, window_width, 64.0f};
-		fck_ui_button_style button_style = fck_ui_button_style_engine();
-		if (fck_ui_button(&engine, &button_rect, &button_style, "FONT EDITOR"))
-		{
-			is_font_editor_open = !is_font_editor_open;
+			SDL_FRect source = cammy_sprites.rect_list.rects[cammy_idle_current];
+			SDL_FRect dst = {0.0f, 128.0f, source.w * 2.0f, source.h * 2.0f};
+			SDL_RenderTexture(engine.renderer, cammy_sprites.texture, &source, &dst);
 		}
 
 		SDL_RenderPresent(engine.renderer);
@@ -874,6 +1160,109 @@ int main(int c, char **str)
 	SDLNet_Quit();
 
 	IMG_Quit();
+
+	SDL_Quit();
+	return 0;
+}
+
+int student_main(int, char **)
+{
+	CHECK_CRITICAL(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS), SDL_GetError());
+
+	CHECK_CRITICAL(IMG_Init(IMG_INIT_PNG), SDL_GetError());
+
+	SDL_Window *window = SDL_CreateWindow("Fck - Engine", 640, 640, 0);
+	CHECK_CRITICAL(window != nullptr, SDL_GetError());
+
+	SDL_Renderer *renderer = SDL_CreateRenderer(window, nullptr);
+	CHECK_CRITICAL(renderer != nullptr, SDL_GetError());
+
+	SDL_bool input_previous[SDL_SCANCODE_COUNT];
+	SDL_zero(input_previous);
+
+	SDL_bool input_current[SDL_SCANCODE_COUNT];
+	SDL_zero(input_current);
+
+	SDL_Texture *player_texture = IMG_LoadTexture(renderer, FCK_RESOURCE_DIRECTORY_PATH "player.png");
+	CHECK_CRITICAL(player_texture != nullptr, SDL_GetError());
+
+	float x = 0;
+	float y = 640 - 64.0f;
+
+	Uint64 tp = SDL_GetTicks();
+
+	float dash_cooldown_duration = 1.0f;
+	float dash_cooldown_timer = 0.0f;
+
+	bool is_running = true;
+	while (is_running)
+	{
+		Uint64 now = SDL_GetTicks();
+		Uint64 delta = now - tp;
+		float delta_seconds = float(delta) / 1000.0f;
+
+		tp = now;
+
+		SDL_memcpy(input_previous, input_current, sizeof(input_current));
+
+		SDL_Event event;
+		while (SDL_PollEvent(&event))
+		{
+			switch (event.type)
+			{
+			case SDL_EVENT_QUIT: {
+				is_running = false;
+				break;
+			}
+			case SDL_EVENT_KEY_DOWN:
+			case SDL_EVENT_KEY_UP: {
+				input_current[event.key.scancode] = event.type == SDL_EVENT_KEY_DOWN;
+				break;
+			}
+			default:
+				break;
+			}
+		}
+
+		// Update
+		float direction = 0.0f;
+		if (input_current[SDL_SCANCODE_D])
+		{
+			direction = direction + 0.5f;
+		}
+		if (input_current[SDL_SCANCODE_A])
+		{
+			direction = direction - 0.5f;
+		}
+		x = x + direction;
+
+		dash_cooldown_timer -= delta_seconds;
+		dash_cooldown_timer = SDL_max(dash_cooldown_timer, 0.0f);
+		if (dash_cooldown_timer <= 0.0f)
+		{
+			if (input_current[SDL_SCANCODE_SPACE] && !input_previous[SDL_SCANCODE_SPACE])
+			{
+				y = y - 64.0f;
+				dash_cooldown_timer = dash_cooldown_duration;
+			}
+		}
+
+		// Render
+
+		// Clear the final image
+		SDL_SetRenderDrawColor(renderer, 0, 0, 20, 255);
+		SDL_RenderClear(renderer);
+
+		// Construct the final
+		SDL_SetRenderDrawColor(renderer, 50, 175, 20, 255);
+		SDL_FRect src{0, 0, 48.0f, 48.0f};
+		SDL_FRect dst{x, y, 48.0f, 48.0f};
+		CHECK_ERROR(SDL_RenderTextureRotated(renderer, player_texture, &src, &dst, 0.0, nullptr, SDL_FLIP_VERTICAL),
+		            SDL_GetError(), is_running = false);
+
+		// Present final image
+		SDL_RenderPresent(renderer);
+	}
 
 	SDL_Quit();
 	return 0;

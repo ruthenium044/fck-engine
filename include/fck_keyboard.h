@@ -49,4 +49,9 @@ inline bool fck_key_up(fck_keyboard_state const *keyboard_state, SDL_Scancode sc
 	return !fck_key_down(keyboard_state, scancode);
 }
 
+inline bool fck_key_just_down(fck_keyboard_state const *keyboard_state, SDL_Scancode scancode)
+{
+	return fck_key_down(keyboard_state, scancode) && fck_key_up(keyboard_state, scancode);
+}
+
 #endif // !FCK_KEYBOARD_INCLUDED

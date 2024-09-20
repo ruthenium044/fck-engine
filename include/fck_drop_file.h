@@ -70,4 +70,42 @@ inline void fck_drop_file_context_free(fck_drop_file_context *drop_file_context)
 	drop_file_context->count = 0;
 }
 
+bool fck_drop_file_receive_png(fck_drop_file_context const *context, SDL_DropEvent const *drop_event)
+{
+	SDL_assert(context != nullptr);
+	SDL_assert(drop_event != nullptr);
+
+	SDL_IOStream *stream = SDL_IOFromFile(drop_event->data, "r");
+	CHECK_ERROR(stream, SDL_GetError());
+	if (!IMG_isPNG(stream))
+	{
+		// We only allow pngs for now!
+		SDL_CloseIO(stream);
+		return false;
+	}
+	const char resource_path_base[] = FCK_RESOURCE_DIRECTORY_PATH;
+
+	const char *target_file_path = drop_event->data;
+
+	// Spin till the end
+	const char *target_file_name = SDL_strrchr(target_file_path, '\\');
+	SDL_assert(target_file_name != nullptr && "Potential file name is directory?");
+	target_file_name = target_file_name + 1;
+
+	char path_buffer[512];
+	SDL_zero(path_buffer);
+	size_t added_length = SDL_strlcat(path_buffer, resource_path_base, sizeof(path_buffer));
+
+	// There is actually no possible way the path is longer than 2024... Let's
+	// just pray
+	SDL_strlcat(path_buffer + added_length, target_file_name, sizeof(path_buffer));
+
+	SDL_bool result = SDL_CopyFile(drop_event->data, path_buffer);
+	CHECK_INFO(result, SDL_GetError());
+
+	SDL_CloseIO(stream);
+
+	return true;
+}
+
 #endif // !FCK_DROP_FILE_INCLUDED

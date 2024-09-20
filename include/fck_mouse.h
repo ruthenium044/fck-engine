@@ -1,6 +1,7 @@
 #ifndef FCK_MOUSE_INCLUDED
 #define FCK_MOUSE_INCLUDED
 
+#include <SDL3/SDL_assert.h>
 #include <SDL3/SDL_mouse.h>
 
 struct fck_mouse_state_frame
@@ -14,7 +15,7 @@ struct fck_mouse_state_frame
 	Uint32 button_state;
 };
 
-enum fck_mouse_state_frame_count
+enum
 {
 	FCK_MOUSE_STATE_FRAME_COUNT = 2
 };

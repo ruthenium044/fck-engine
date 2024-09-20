@@ -8,7 +8,7 @@ struct fck_keyboard_state_frame
 	SDL_bool state[SDL_SCANCODE_COUNT];
 };
 
-enum fck_keyboard_state_frame_count
+enum
 {
 	FCK_KEYBOARD_STATE_FRAME_COUNT = 2
 };
@@ -39,19 +39,19 @@ inline void fck_keyboard_state_update(fck_keyboard_state *keyboard_state)
 	SDL_memcpy((SDL_bool *)keyboard_state->current.state, (SDL_bool *)current_state, num_keys);
 }
 
-inline bool fck_key_down(fck_keyboard_state const *keyboard_state, SDL_Scancode scancode)
+inline bool fck_key_down(fck_keyboard_state const *keyboard_state, SDL_Scancode scancode, int frame_index = 0)
 {
-	return keyboard_state->current.state[(size_t)scancode];
+	return keyboard_state->state[frame_index].state[(size_t)scancode];
 }
 
-inline bool fck_key_up(fck_keyboard_state const *keyboard_state, SDL_Scancode scancode)
+inline bool fck_key_up(fck_keyboard_state const *keyboard_state, SDL_Scancode scancode, int frame_index = 0)
 {
-	return !fck_key_down(keyboard_state, scancode);
+	return !fck_key_down(keyboard_state, scancode, frame_index);
 }
 
 inline bool fck_key_just_down(fck_keyboard_state const *keyboard_state, SDL_Scancode scancode)
 {
-	return fck_key_down(keyboard_state, scancode) && fck_key_up(keyboard_state, scancode);
+	return fck_key_down(keyboard_state, scancode, 0) && fck_key_up(keyboard_state, scancode, 1);
 }
 
 #endif // !FCK_KEYBOARD_INCLUDED

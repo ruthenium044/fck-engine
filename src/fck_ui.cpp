@@ -280,3 +280,26 @@ bool fck_texture_load(SDL_Renderer *renderer, const char *relative_file_path, SD
 
 	return true;
 }
+
+SDL_bool fck_font_asset_load(SDL_Renderer *renderer, const char *file_name, fck_font_asset *font_asset)
+{
+	fck_file_memory file_memory;
+	if (!fck_file_read("", file_name, ".font", &file_memory))
+	{
+		return false;
+	}
+
+	fck_font_resource *font_resource = (fck_font_resource *)file_memory.data;
+
+	font_asset->pixel_per_glyph_h = font_resource->pixel_per_glyph_h;
+	font_asset->pixel_per_glyph_w = font_resource->pixel_per_glyph_w;
+	font_asset->columns = font_resource->columns;
+	font_asset->rows = font_resource->rows;
+	SDL_bool load_result = fck_texture_load(renderer, font_resource->texture_path, &font_asset->texture);
+
+	fck_file_free(&file_memory);
+
+	CHECK_ERROR(load_result, SDL_GetError(), return false);
+
+	return true;
+}

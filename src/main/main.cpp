@@ -177,34 +177,32 @@ void fck_font_editor_update(fck_engine *engine)
 	}
 }
 
-SDL_bool fck_font_asset_load(SDL_Renderer *renderer, const char *file_name, fck_font_asset *font_asset)
-{
-	fck_file_memory file_memory;
-	if (!fck_file_read("", file_name, ".font", &file_memory))
-	{
-		return false;
-	}
-
-	fck_font_resource *font_resource = (fck_font_resource *)file_memory.data;
-
-	font_asset->pixel_per_glyph_h = font_resource->pixel_per_glyph_h;
-	font_asset->pixel_per_glyph_w = font_resource->pixel_per_glyph_w;
-	font_asset->columns = font_resource->columns;
-	font_asset->rows = font_resource->rows;
-	SDL_bool load_result = fck_texture_load(renderer, font_resource->texture_path, &font_asset->texture);
-
-	fck_file_free(&file_memory);
-
-	CHECK_ERROR(load_result, SDL_GetError(), return false);
-
-	return true;
-}
-
 int fck_print_directory(void *userdata, const char *dirname, const char *fname)
 {
 	const char *extension = SDL_strrchr(fname, '.');
 
+	SDL_PathInfo path_info;
+
+	size_t path_count = SDL_strlen(dirname);
+	size_t file_name_count = SDL_strlen(fname);
+	size_t total_count = file_name_count + path_count + 1;
+	char *path = (char *)SDL_malloc(total_count);
+	path[0] = '\0';
+
+	size_t last = 0;
+	last = SDL_strlcat(path, dirname, total_count);
+	last = SDL_strlcat(path, fname, total_count);
+
 	SDL_Log("%s - %s - %s", dirname, fname, extension);
+	if (SDL_GetPathInfo(path, &path_info))
+	{
+		if (path_info.type == SDL_PATHTYPE_DIRECTORY)
+		{
+			SDL_EnumerateDirectory(path, fck_print_directory, userdata);
+		}
+	}
+
+	SDL_free(path);
 
 	return 1;
 }

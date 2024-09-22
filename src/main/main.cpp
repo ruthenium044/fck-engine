@@ -207,6 +207,221 @@ int fck_print_directory(void *userdata, const char *dirname, const char *fname)
 	return 1;
 }
 
+enum fck_common_animations
+{
+	FCK_COMMON_ANIMATION_IDLE,
+	FCK_COMMON_ANIMATION_CROUCH,
+	FCK_COMMON_ANIMATION_JUMP_UP,
+	FCK_COMMON_ANIMATION_JUMP_FORWARD,
+	FCK_COMMON_ANIMATION_JUMP_BACKWARD,
+	FCK_COMMON_ANIMATION_WALK_FORWARD,
+	FCK_COMMON_ANIMATION_WALK_BACKWARD,
+	FCK_COMMON_ANIMATION_PUNCH_A,
+	FCK_COMMON_ANIMATION_PUNCH_B,
+	FCK_COMMON_ANIMATION_KICK_A,
+	FCK_COMMON_ANIMATION_KICK_B,
+	FCK_COMMON_ANIMATION_COUNT
+};
+
+enum fck_input_type
+{
+	FCK_INPUT_TYPE_LEFT,
+	FCK_INPUT_TYPE_RIGHT,
+	FCK_INPUT_TYPE_UP,
+	FCK_INPUT_TYPE_DOWN,
+	FCK_INPUT_TYPE_MOVEMENT_END = FCK_INPUT_TYPE_DOWN + 1,
+	FCK_INPUT_TYPE_PUNCH_A = FCK_INPUT_TYPE_MOVEMENT_END,
+	FCK_INPUT_TYPE_PUNCH_B,
+	FCK_INPUT_TYPE_KICK_A,
+	FCK_INPUT_TYPE_KICK_B,
+};
+
+enum fck_input_flag
+{
+	FCK_INPUT_FLAG_ZERO = 0,
+	FCK_INPUT_FLAG_LEFT = 1 << FCK_INPUT_TYPE_LEFT,
+	FCK_INPUT_FLAG_RIGHT = 1 << FCK_INPUT_TYPE_RIGHT,
+	FCK_INPUT_FLAG_UP = 1 << FCK_INPUT_TYPE_UP,
+	FCK_INPUT_FLAG_DOWN = 1 << FCK_INPUT_TYPE_DOWN,
+
+	FCK_INPUT_FLAG_MOVEMENT_END = 1 << FCK_INPUT_TYPE_MOVEMENT_END,
+
+	FCK_INPUT_FLAG_PUNCH_A = 1 << FCK_INPUT_TYPE_PUNCH_A,
+	FCK_INPUT_FLAG_PUNCH_B = 1 << FCK_INPUT_TYPE_PUNCH_B,
+	FCK_INPUT_FLAG_KICK_A = 1 << FCK_INPUT_TYPE_KICK_A,
+	FCK_INPUT_FLAG_KICK_B = 1 << FCK_INPUT_TYPE_KICK_B,
+};
+
+enum fck_animation_type
+{
+	FCK_ANIMATION_TYPE_LOOP,
+	FCK_ANIMATION_TYPE_ONCE,
+};
+
+struct fck_animation
+{
+	fck_animation_type animation_type;
+	fck_rect_list_view rect_view;
+	uint64_t frame_time_ms;
+	SDL_FPoint offset;
+};
+
+struct fck_animator
+{
+	fck_spritesheet *spritesheet;
+	fck_animation animations[FCK_COMMON_ANIMATION_COUNT];
+
+	fck_animation *active_oneshot;
+	fck_animation *active_animation;
+
+	uint64_t time_accumulator_ms;
+	size_t current_frame;
+};
+
+void fck_animator_alloc(fck_animator *animator, fck_spritesheet *spritsheet)
+{
+	SDL_assert(spritsheet != nullptr);
+	SDL_zerop(animator);
+
+	// What a hard dependency
+	animator->spritesheet = spritsheet;
+}
+
+void fck_animator_free(fck_animator *animator)
+{
+	SDL_assert(animator != nullptr);
+	animator->spritesheet = nullptr;
+}
+
+void fck_animator_insert(fck_animator *animator, fck_common_animations anim, fck_animation_type animation_type,
+                         size_t start, size_t count, uint64_t frame_time_ms, float offset_x, float offset_y)
+{
+	SDL_assert(animator != nullptr);
+	SDL_assert(animator->spritesheet != nullptr && "Resource data for animator not set!");
+
+	fck_animation *animation = &animator->animations[anim];
+	SDL_assert(animation->rect_view.rect_list == nullptr && "Overwriting animation");
+
+	fck_rect_list_view_create(&animator->spritesheet->rect_list, start, count, &animation->rect_view);
+	animation->animation_type = animation_type;
+	animation->frame_time_ms = frame_time_ms;
+	animation->offset.x = offset_x;
+	animation->offset.y = offset_y;
+}
+
+void fck_animator_set(fck_animator *animator, fck_common_animations anim)
+{
+	SDL_assert(animator != nullptr);
+
+	fck_animation *next_animation = &animator->animations[anim];
+	if (next_animation != animator->active_animation)
+	{
+		animator->active_animation = next_animation;
+		animator->current_frame = 0;
+		animator->time_accumulator_ms = 0;
+	}
+}
+
+void fck_animator_play(fck_animator *animator, fck_common_animations anim)
+{
+	SDL_assert(animator != nullptr);
+
+	if (animator->active_oneshot == nullptr)
+	{
+		fck_animation *next_animation = &animator->animations[anim];
+		animator->active_oneshot = next_animation;
+		animator->current_frame = 0;
+		animator->time_accumulator_ms = 0;
+	}
+}
+
+bool fck_animator_is_playing(fck_animator *animator)
+{
+	SDL_assert(animator != nullptr);
+
+	return animator->active_oneshot != nullptr;
+}
+
+bool fck_animator_update(fck_animator *animator, uint64_t delta_ms)
+{
+	SDL_assert(animator != nullptr);
+
+	if (animator->active_animation == nullptr)
+	{
+		return false;
+	}
+
+	if (animator->active_animation->rect_view.rect_list == nullptr)
+	{
+		return false;
+	}
+
+	animator->time_accumulator_ms += delta_ms;
+
+	fck_animation *animation = animator->active_animation;
+
+	bool is_oneshot_animation = animator->active_oneshot != nullptr;
+	if (is_oneshot_animation)
+	{
+		animation = animator->active_oneshot;
+	}
+
+	while (animator->time_accumulator_ms > animation->frame_time_ms)
+	{
+		animator->time_accumulator_ms = animator->time_accumulator_ms - animation->frame_time_ms;
+		animator->current_frame = animator->current_frame + 1;
+
+		if (animator->current_frame >= animation->rect_view.count)
+		{
+			if (is_oneshot_animation)
+			{
+				animator->active_oneshot = nullptr;
+				animator->current_frame = 0;
+				return true;
+			}
+
+			switch (animation->animation_type)
+			{
+			case FCK_ANIMATION_TYPE_LOOP:
+				animator->current_frame = 0;
+				break;
+
+			case FCK_ANIMATION_TYPE_ONCE:
+				animator->current_frame = animation->rect_view.count - 1;
+				break;
+			}
+		}
+	}
+}
+
+SDL_FRect const *fck_animator_get_rect(fck_animator *animator)
+{
+	SDL_assert(animator != nullptr);
+	SDL_assert(animator->active_animation != nullptr);
+
+	fck_animation *animation = animator->active_animation;
+	if (animator->active_oneshot != nullptr)
+	{
+		animation = animator->active_oneshot;
+	}
+	fck_rect_list_view const *view = &animation->rect_view;
+	return fck_rect_list_view_get(view, animator->current_frame);
+}
+
+void fck_animator_apply(fck_animator *animator, SDL_FRect *rect, float scale)
+{
+	SDL_assert(animator != nullptr);
+	SDL_assert(animator->active_animation != nullptr);
+
+	fck_animation *animation = animator->active_animation;
+	if (animator->active_oneshot != nullptr)
+	{
+		animation = animator->active_oneshot;
+	}
+	rect->x = rect->x + (animation->offset.x * scale);
+	rect->y = rect->y + (animation->offset.y * scale);
+}
+
 int main(int, char **)
 {
 	fck_engine engine;
@@ -240,7 +455,7 @@ int main(int, char **)
 
 	fck_spritesheet cammy_sprites;
 	SDL_zero(cammy_sprites);
-	CHECK_ERROR(fck_spritesheet_load(engine.renderer, "cammy.png", &cammy_sprites), SDL_GetError());
+	CHECK_ERROR(fck_spritesheet_load(engine.renderer, "cammy.png", &cammy_sprites, false), SDL_GetError());
 
 	fck_drop_file_context_allocate(&drop_file_context, 16);
 	fck_drop_file_context_push(&drop_file_context, fck_drop_file_receive_png);
@@ -284,17 +499,46 @@ int main(int, char **)
 
 	bool is_font_editor_open = false;
 
-	bool is_running = true;
 	int sprite_rect_index = 0;
+
+	int cammy_move_start = 84;
+	int cammy_move_count = 12;
 
 	int cammy_idle_start = 24;
 	int cammy_idle_count = 8;
-	int cammy_idle_current = 24;
+	int cammy_current = 85;
 	Uint64 cammy_animation_accumulator = 0;
-	Uint64 cammy_animation_frame_time = 120;
+	Uint64 cammy_animation_frame_time = 60;
+
+	fck_animator animator;
+	fck_animator_alloc(&animator, &cammy_sprites);
+
+	fck_animator_insert(&animator, FCK_COMMON_ANIMATION_IDLE, FCK_ANIMATION_TYPE_LOOP, 24, 8, 60, 0.0f, 0.0f);
+	fck_animator_insert(&animator, FCK_COMMON_ANIMATION_CROUCH, FCK_ANIMATION_TYPE_ONCE, 35, 3, 40, 0.0f, 0.0f);
+	fck_animator_insert(&animator, FCK_COMMON_ANIMATION_JUMP_UP, FCK_ANIMATION_TYPE_ONCE, 58, 7, 120, 0.0f, -32.0f);
+	fck_animator_insert(&animator, FCK_COMMON_ANIMATION_JUMP_FORWARD, FCK_ANIMATION_TYPE_ONCE, 52, 6, 120, 0.0f,
+	                    -32.0f);
+	fck_animator_insert(&animator, FCK_COMMON_ANIMATION_JUMP_BACKWARD, FCK_ANIMATION_TYPE_ONCE, 65, 6, 120, 0.0f,
+	                    -32.0f);
+	fck_animator_insert(&animator, FCK_COMMON_ANIMATION_WALK_FORWARD, FCK_ANIMATION_TYPE_LOOP, 84, 12, 40, -5.0f,
+	                    -10.0f);
+	fck_animator_insert(&animator, FCK_COMMON_ANIMATION_WALK_BACKWARD, FCK_ANIMATION_TYPE_LOOP, 96, 12, 40, -5.0f,
+	                    -10.0f);
+	fck_animator_insert(&animator, FCK_COMMON_ANIMATION_PUNCH_A, FCK_ANIMATION_TYPE_ONCE, 118, 3, 60, 0.0f, 0.0f);
+	fck_animator_insert(&animator, FCK_COMMON_ANIMATION_PUNCH_B, FCK_ANIMATION_TYPE_ONCE, 121, 3, 60, 0.0f, 0.0f);
+	fck_animator_insert(&animator, FCK_COMMON_ANIMATION_KICK_A, FCK_ANIMATION_TYPE_ONCE, 130, 5, 60, 0.0f, 0.0f);
+	// Something is missing for this anim
+	fck_animator_insert(&animator, FCK_COMMON_ANIMATION_KICK_B, FCK_ANIMATION_TYPE_ONCE, 145, 3, 120, -24.0f, -16.0f);
+
+	fck_animator_set(&animator, FCK_COMMON_ANIMATION_IDLE);
+
+	// Maybe global control later
+	const float screen_scale = 2.0f;
+
+	float px = 0.0;
 
 	Uint64 tp = SDL_GetTicks();
-
+	bool is_running = true;
 	while (is_running)
 	{
 		Uint64 now = SDL_GetTicks();
@@ -327,10 +571,110 @@ int main(int, char **)
 		fck_keyboard_state_update(&engine.keyboard);
 		fck_mouse_state_update(&engine.mouse, scroll_delta_x, scroll_delta_y);
 
+		// INPUT
+		int input_flag = 0;
+		if (!fck_animator_is_playing(&animator))
+		{
+			if (fck_key_down(&engine.keyboard, SDL_SCANCODE_LEFT))
+			{
+				input_flag = input_flag | FCK_INPUT_FLAG_LEFT;
+			}
+			if (fck_key_down(&engine.keyboard, SDL_SCANCODE_RIGHT))
+			{
+				input_flag = input_flag | FCK_INPUT_FLAG_RIGHT;
+			}
+			if (fck_key_down(&engine.keyboard, SDL_SCANCODE_DOWN))
+			{
+				input_flag = input_flag | FCK_INPUT_FLAG_DOWN;
+			}
+			if (fck_key_down(&engine.keyboard, SDL_SCANCODE_UP))
+			{
+				input_flag = input_flag | FCK_INPUT_FLAG_UP;
+			}
+		}
+		if (fck_key_just_down(&engine.keyboard, SDL_SCANCODE_A))
+		{
+			input_flag = input_flag | FCK_INPUT_FLAG_PUNCH_A;
+		}
+		if (fck_key_just_down(&engine.keyboard, SDL_SCANCODE_S))
+		{
+			input_flag = input_flag | FCK_INPUT_FLAG_PUNCH_B;
+		}
+		if (fck_key_just_down(&engine.keyboard, SDL_SCANCODE_X))
+		{
+			input_flag = input_flag | FCK_INPUT_FLAG_KICK_A;
+		}
+		if (fck_key_just_down(&engine.keyboard, SDL_SCANCODE_Z))
+		{
+			input_flag = input_flag | FCK_INPUT_FLAG_KICK_B;
+		}
+
+		// STATE EVAL
+		// Movement
+		if (input_flag < FCK_INPUT_FLAG_MOVEMENT_END)
+		{
+			if (input_flag == FCK_INPUT_FLAG_ZERO)
+			{
+				fck_animator_set(&animator, FCK_COMMON_ANIMATION_IDLE);
+			}
+
+			if ((input_flag & FCK_INPUT_FLAG_UP) == FCK_INPUT_FLAG_UP)
+			{
+				if ((input_flag & FCK_INPUT_FLAG_LEFT) == FCK_INPUT_FLAG_LEFT)
+				{
+					fck_animator_play(&animator, FCK_COMMON_ANIMATION_JUMP_BACKWARD);
+				}
+				else if ((input_flag & FCK_INPUT_FLAG_RIGHT) == FCK_INPUT_FLAG_RIGHT)
+				{
+					fck_animator_play(&animator, FCK_COMMON_ANIMATION_JUMP_FORWARD);
+				}
+				else
+				{
+					fck_animator_play(&animator, FCK_COMMON_ANIMATION_JUMP_UP);
+				}
+			}
+
+			// Cround is dominant!
+			else if ((input_flag & FCK_INPUT_FLAG_DOWN) == FCK_INPUT_FLAG_DOWN)
+			{
+				fck_animator_set(&animator, FCK_COMMON_ANIMATION_CROUCH);
+			}
+			else
+			{
+				if (input_flag == FCK_INPUT_FLAG_RIGHT)
+				{
+					fck_animator_set(&animator, FCK_COMMON_ANIMATION_WALK_FORWARD);
+					px += 2.0f * screen_scale;
+				}
+				if (input_flag == FCK_INPUT_FLAG_LEFT)
+				{
+					fck_animator_set(&animator, FCK_COMMON_ANIMATION_WALK_BACKWARD);
+					px -= 2.0f * screen_scale;
+				}
+			}
+		}
+
+		// Combat
+		if ((input_flag & FCK_INPUT_FLAG_PUNCH_A) == FCK_INPUT_FLAG_PUNCH_A)
+		{
+			fck_animator_play(&animator, FCK_COMMON_ANIMATION_PUNCH_A);
+		}
+		if ((input_flag & FCK_INPUT_FLAG_PUNCH_B) == FCK_INPUT_FLAG_PUNCH_B)
+		{
+			fck_animator_play(&animator, FCK_COMMON_ANIMATION_PUNCH_B);
+		}
+		// Combat
+		if ((input_flag & FCK_INPUT_FLAG_KICK_A) == FCK_INPUT_FLAG_KICK_A)
+		{
+			fck_animator_play(&animator, FCK_COMMON_ANIMATION_KICK_A);
+		}
+		if ((input_flag & FCK_INPUT_FLAG_KICK_B) == FCK_INPUT_FLAG_KICK_B)
+		{
+			fck_animator_play(&animator, FCK_COMMON_ANIMATION_KICK_B);
+		}
+
 		SDL_SetRenderDrawColor(engine.renderer, 0, 0, 0, 255);
 		SDL_RenderClear(engine.renderer);
-
-		fck_layout layout = {2, FCK_LAYOUT_HORIZONTAL_ALIGNMENT_CENTRE, FCK_LAYOUT_VERTICAL_ALIGNMENT_CENTRE};
 
 		// Render processing
 		if (is_font_editor_open)
@@ -339,21 +683,31 @@ int main(int, char **)
 		}
 		else
 		{
-			cammy_animation_accumulator += delta;
-			if (cammy_animation_accumulator > cammy_animation_frame_time)
-			{
-				cammy_animation_accumulator -= cammy_animation_frame_time;
-				cammy_idle_current = cammy_idle_current + 1;
-				if (cammy_idle_current - cammy_idle_start >= cammy_idle_count)
-				{
-					cammy_idle_current = cammy_idle_start;
-				}
-			}
+			fck_animator_update(&animator, delta);
+			SDL_FRect const *source = fck_animator_get_rect(&animator);
 
-			SDL_FRect source = cammy_sprites.rect_list.rects[cammy_idle_current];
-			SDL_FRect dst = {0.0f, 128.0f, source.w * 2.0f, source.h * 2.0f};
-			SDL_RenderTextureRotated(engine.renderer, cammy_sprites.texture, &source, &dst, 0.0f, nullptr,
+			int local_index = cammy_current - cammy_move_start;
+			float target_x = px;
+			float target_y = 128.0f;
+			float target_width = source->w * screen_scale;
+			float target_height = source->h * screen_scale;
+			SDL_FRect dst = {target_x, target_y, target_width, target_height};
+			fck_animator_apply(&animator, &dst, screen_scale);
+
+			SDL_RenderTextureRotated(engine.renderer, cammy_sprites.texture, source, &dst, 0.0f, nullptr,
 			                         SDL_FLIP_HORIZONTAL);
+
+			SDL_SetRenderDrawColor(engine.renderer, 0, 255, 0, 255);
+			// SDL_RenderRect(engine.renderer, &dst);
+
+			char str[32];
+			SDL_IOStream *stream = SDL_IOFromMem(str, sizeof(str));
+			SDL_IOprintf(stream, "%d - %d%c", cammy_current, local_index, 0);
+			SDL_CloseIO(stream);
+
+			fck_layout layout = {2.0f, fck_layout_horizontal_alignment::FCK_LAYOUT_HORIZONTAL_ALIGNMENT_RIGHT,
+			                     fck_layout_vertical_alignment::FCK_LAYOUT_VERTICAL_ALIGNMENT_BOTTOM};
+			// fck_render_text(&engine.default_editor_font, str, &layout, &dst);
 		}
 
 		SDL_RenderPresent(engine.renderer);

@@ -7,15 +7,15 @@
 
 static void rect_list_allocate(fck_rect_list *list, size_t capacity)
 {
-	list->rects = (SDL_FRect *)SDL_calloc(capacity, sizeof(*list->rects));
+	list->data = (SDL_FRect *)SDL_calloc(capacity, sizeof(*list->data));
 	list->capacity = capacity;
 	list->count = 0;
 }
 
 static void rect_list_free(fck_rect_list *list)
 {
-	SDL_free(list->rects);
-	list->rects = nullptr;
+	SDL_free(list->data);
+	list->data = nullptr;
 	list->capacity = 0;
 	list->count = 0;
 }
@@ -23,31 +23,24 @@ static void rect_list_free(fck_rect_list *list)
 static bool rect_list_try_add(fck_rect_list *list, SDL_FRect const *rect)
 {
 	SDL_assert(list != nullptr);
-	SDL_assert(list->rects != nullptr);
+	SDL_assert(list->data != nullptr);
 
 	if (list->count >= list->capacity)
 	{
 		size_t new_capacity = list->count + 1;
-		SDL_FRect *next_memory = (SDL_FRect *)SDL_realloc(list->rects, sizeof(*list->rects) * new_capacity);
+		SDL_FRect *next_memory = (SDL_FRect *)SDL_realloc(list->data, sizeof(*list->data) * new_capacity);
 		if (next_memory == nullptr)
 		{
 			return false;
 		}
-		list->rects = next_memory;
+		list->data = next_memory;
 		list->capacity = new_capacity;
 	}
 
-	list->rects[list->count] = *rect;
+	list->data[list->count] = *rect;
 	list->count = list->count + 1;
 	return true;
 }
-
-struct fck_point_list
-{
-	SDL_Point *points;
-	size_t count;
-	size_t capacity;
-};
 
 struct extreme_points
 {
@@ -200,9 +193,9 @@ static void spritesheet_config_save(const char *file_name, fck_spritesheet const
 	fck_memory_stream stream;
 	SDL_zero(stream);
 
-	const size_t data_byte_size = sizeof(*out_sprites->rect_list.rects) * out_sprites->rect_list.count;
+	const size_t data_byte_size = sizeof(*out_sprites->rect_list.data) * out_sprites->rect_list.count;
 	fck_memory_stream_write(&stream, (void *)&out_sprites->rect_list.count, sizeof(out_sprites->rect_list.count));
-	fck_memory_stream_write(&stream, out_sprites->rect_list.rects, data_byte_size);
+	fck_memory_stream_write(&stream, out_sprites->rect_list.data, data_byte_size);
 
 	CHECK_CRITICAL(fck_file_write("", file_name, ".sprites", stream.data, stream.count), "Failed to write file");
 
@@ -227,17 +220,43 @@ static void spritesheet_config_load(const char *file_name, fck_spritesheet *out_
 
 	out_sprites->rect_list.count = *(size_t *)fck_memory_stream_read(&stream, sizeof(out_sprites->rect_list.count));
 
-	const size_t data_byte_size = sizeof(*out_sprites->rect_list.rects) * out_sprites->rect_list.count;
-	out_sprites->rect_list.rects = (SDL_FRect *)fck_memory_stream_read(&stream, data_byte_size);
+	const size_t data_byte_size = sizeof(*out_sprites->rect_list.data) * out_sprites->rect_list.count;
+	out_sprites->rect_list.data = (SDL_FRect *)fck_memory_stream_read(&stream, data_byte_size);
+}
+
+void fck_rect_list_view_create(fck_rect_list *list, size_t at, size_t count, fck_rect_list_view *view)
+{
+	SDL_assert(list != nullptr);
+	SDL_assert(list->data != nullptr);
+	SDL_assert(view != nullptr);
+	SDL_assert(at + count < list->count);
+	// view->rects is allowed to be != nullptr since it is non-alloc view span
+
+	view->rect_list = list;
+	view->begin = at;
+	view->count = count;
+}
+
+SDL_FRect const *fck_rect_list_view_get(fck_rect_list_view const *view, size_t at)
+{
+	SDL_assert(view != nullptr);
+	SDL_assert(view->rect_list != nullptr);
+	SDL_assert(view->rect_list != nullptr);
+	SDL_assert(at < view->count);
+
+	SDL_FRect *view_begin = view->rect_list->data + view->begin;
+	return view_begin + at;
 }
 
 void fck_spritesheet_free(fck_spritesheet *sprites)
 {
 	SDL_DestroyTexture(sprites->texture);
+	sprites->texture = nullptr;
 	rect_list_free(&sprites->rect_list);
 }
 
-bool fck_spritesheet_load(SDL_Renderer *renderer, const char *file_name, fck_spritesheet *out_sprites)
+bool fck_spritesheet_load(SDL_Renderer *renderer, const char *file_name, fck_spritesheet *out_sprites,
+                          bool force_rebuild)
 {
 	SDL_assert(renderer != nullptr);
 	SDL_assert(file_name != nullptr);
@@ -261,11 +280,11 @@ bool fck_spritesheet_load(SDL_Renderer *renderer, const char *file_name, fck_spr
 	const SDL_PixelFormatDetails *details = SDL_GetPixelFormatDetails(surface->format);
 	CHECK_ERROR(details, SDL_GetError(), return false);
 
-	if (!spritesheet_config_exists(file_name))
+	if (force_rebuild || !spritesheet_config_exists(file_name))
 	{
 		fck_rect_list rects;
 		surface_identify_sprites(surface, &out_sprites->rect_list);
-		CHECK_ERROR(out_sprites->rect_list.rects, "Failure in identifying rects");
+		CHECK_ERROR(out_sprites->rect_list.data, "Failure in identifying rects");
 		spritesheet_config_save(file_name, out_sprites);
 	}
 	else

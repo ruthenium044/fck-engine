@@ -499,17 +499,6 @@ int main(int, char **)
 
 	bool is_font_editor_open = false;
 
-	int sprite_rect_index = 0;
-
-	int cammy_move_start = 84;
-	int cammy_move_count = 12;
-
-	int cammy_idle_start = 24;
-	int cammy_idle_count = 8;
-	int cammy_current = 85;
-	Uint64 cammy_animation_accumulator = 0;
-	Uint64 cammy_animation_frame_time = 60;
-
 	fck_animator animator;
 	fck_animator_alloc(&animator, &cammy_sprites);
 
@@ -686,7 +675,6 @@ int main(int, char **)
 			fck_animator_update(&animator, delta);
 			SDL_FRect const *source = fck_animator_get_rect(&animator);
 
-			int local_index = cammy_current - cammy_move_start;
 			float target_x = px;
 			float target_y = 128.0f;
 			float target_width = source->w * screen_scale;
@@ -698,16 +686,6 @@ int main(int, char **)
 			                         SDL_FLIP_HORIZONTAL);
 
 			SDL_SetRenderDrawColor(engine.renderer, 0, 255, 0, 255);
-			// SDL_RenderRect(engine.renderer, &dst);
-
-			char str[32];
-			SDL_IOStream *stream = SDL_IOFromMem(str, sizeof(str));
-			SDL_IOprintf(stream, "%d - %d%c", cammy_current, local_index, 0);
-			SDL_CloseIO(stream);
-
-			fck_layout layout = {2.0f, fck_layout_horizontal_alignment::FCK_LAYOUT_HORIZONTAL_ALIGNMENT_RIGHT,
-			                     fck_layout_vertical_alignment::FCK_LAYOUT_VERTICAL_ALIGNMENT_BOTTOM};
-			// fck_render_text(&engine.default_editor_font, str, &layout, &dst);
 		}
 
 		SDL_RenderPresent(engine.renderer);

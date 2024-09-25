@@ -1,4 +1,3 @@
-
 # BasedOnStyle:  Microsoft
 AccessModifierOffset: -4
 AlignAfterOpenBracket: Align
@@ -92,7 +91,7 @@ BreakBeforeTernaryOperators: true
 BreakConstructorInitializers: BeforeColon
 BreakInheritanceList: BeforeColon
 BreakStringLiterals: true
-ColumnLimit:     120
+ColumnLimit:     140
 CommentPragmas:  '^ IWYU pragma:'
 CompactNamespaces: false
 ConstructorInitializerIndentWidth: 4

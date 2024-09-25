@@ -288,8 +288,8 @@ void fck_animator_free(fck_animator *animator)
 	animator->spritesheet = nullptr;
 }
 
-void fck_animator_insert(fck_animator *animator, fck_common_animations anim, fck_animation_type animation_type,
-                         size_t start, size_t count, uint64_t frame_time_ms, float offset_x, float offset_y)
+void fck_animator_insert(fck_animator *animator, fck_common_animations anim, fck_animation_type animation_type, size_t start, size_t count,
+                         uint64_t frame_time_ms, float offset_x, float offset_y)
 {
 	SDL_assert(animator != nullptr);
 	SDL_assert(animator->spritesheet != nullptr && "Resource data for animator not set!");
@@ -508,14 +508,10 @@ int main(int argc, char **argv)
 	fck_animator_insert(&animator, FCK_COMMON_ANIMATION_IDLE, FCK_ANIMATION_TYPE_LOOP, 24, 8, 60, 0.0f, 0.0f);
 	fck_animator_insert(&animator, FCK_COMMON_ANIMATION_CROUCH, FCK_ANIMATION_TYPE_ONCE, 35, 3, 40, 0.0f, 0.0f);
 	fck_animator_insert(&animator, FCK_COMMON_ANIMATION_JUMP_UP, FCK_ANIMATION_TYPE_ONCE, 58, 7, 120, 0.0f, -32.0f);
-	fck_animator_insert(&animator, FCK_COMMON_ANIMATION_JUMP_FORWARD, FCK_ANIMATION_TYPE_ONCE, 52, 6, 120, 0.0f,
-	                    -32.0f);
-	fck_animator_insert(&animator, FCK_COMMON_ANIMATION_JUMP_BACKWARD, FCK_ANIMATION_TYPE_ONCE, 65, 6, 120, 0.0f,
-	                    -32.0f);
-	fck_animator_insert(&animator, FCK_COMMON_ANIMATION_WALK_FORWARD, FCK_ANIMATION_TYPE_LOOP, 84, 12, 40, -5.0f,
-	                    -10.0f);
-	fck_animator_insert(&animator, FCK_COMMON_ANIMATION_WALK_BACKWARD, FCK_ANIMATION_TYPE_LOOP, 96, 12, 40, -5.0f,
-	                    -10.0f);
+	fck_animator_insert(&animator, FCK_COMMON_ANIMATION_JUMP_FORWARD, FCK_ANIMATION_TYPE_ONCE, 52, 6, 120, 0.0f, -32.0f);
+	fck_animator_insert(&animator, FCK_COMMON_ANIMATION_JUMP_BACKWARD, FCK_ANIMATION_TYPE_ONCE, 65, 6, 120, 0.0f, -32.0f);
+	fck_animator_insert(&animator, FCK_COMMON_ANIMATION_WALK_FORWARD, FCK_ANIMATION_TYPE_LOOP, 84, 12, 40, -5.0f, -10.0f);
+	fck_animator_insert(&animator, FCK_COMMON_ANIMATION_WALK_BACKWARD, FCK_ANIMATION_TYPE_LOOP, 96, 12, 40, -5.0f, -10.0f);
 	fck_animator_insert(&animator, FCK_COMMON_ANIMATION_PUNCH_A, FCK_ANIMATION_TYPE_ONCE, 118, 3, 60, 0.0f, 0.0f);
 	fck_animator_insert(&animator, FCK_COMMON_ANIMATION_PUNCH_B, FCK_ANIMATION_TYPE_ONCE, 121, 3, 60, 0.0f, 0.0f);
 	fck_animator_insert(&animator, FCK_COMMON_ANIMATION_KICK_A, FCK_ANIMATION_TYPE_ONCE, 130, 5, 60, 0.0f, 0.0f);
@@ -685,8 +681,7 @@ int main(int argc, char **argv)
 			SDL_FRect dst = {target_x, target_y, target_width, target_height};
 			fck_animator_apply(&animator, &dst, screen_scale);
 
-			SDL_RenderTextureRotated(engine.renderer, cammy_sprites.texture, source, &dst, 0.0f, nullptr,
-			                         SDL_FLIP_HORIZONTAL);
+			SDL_RenderTextureRotated(engine.renderer, cammy_sprites.texture, source, &dst, 0.0f, nullptr, SDL_FLIP_HORIZONTAL);
 
 			SDL_SetRenderDrawColor(engine.renderer, 0, 255, 0, 255);
 		}

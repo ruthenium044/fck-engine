@@ -70,7 +70,7 @@ inline void fck_drop_file_context_free(fck_drop_file_context *drop_file_context)
 	drop_file_context->count = 0;
 }
 
-bool fck_drop_file_receive_png(fck_drop_file_context const *context, SDL_DropEvent const *drop_event)
+inline bool fck_drop_file_receive_png(fck_drop_file_context const *context, SDL_DropEvent const *drop_event)
 {
 	SDL_assert(context != nullptr);
 	SDL_assert(drop_event != nullptr);

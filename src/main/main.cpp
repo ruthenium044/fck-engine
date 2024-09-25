@@ -1,13 +1,3 @@
-// fck main
-// TODO:
-// - Graphics
-// - Input handling (x)
-// - Draw some images
-// - Systems and data model
-// - Data serialisation
-// - Frame independence
-// - Networking!! <- implies multiplayer
-
 // SDL core - functionality such as creating a window and getting events
 #include <SDL3/SDL.h>
 
@@ -24,8 +14,13 @@
 #include "fck_keyboard.h"
 #include "fck_memory_stream.h"
 #include "fck_mouse.h"
+#include "fck_spritesheet.h"
 #include "fck_ui.h"
-#include <fck_spritesheet.h>
+
+#include "fck_student_testbed.h"
+
+// NOTE: CHANGE THIS TO USE THE CONTENT OF THE student_program.cpp source file!!!
+#define FCK_STUDENT_MODE false
 
 struct fck_font_editor
 {
@@ -392,6 +387,7 @@ bool fck_animator_update(fck_animator *animator, uint64_t delta_ms)
 			}
 		}
 	}
+	return true;
 }
 
 SDL_FRect const *fck_animator_get_rect(fck_animator *animator)
@@ -422,8 +418,15 @@ void fck_animator_apply(fck_animator *animator, SDL_FRect *rect, float scale)
 	rect->y = rect->y + (animation->offset.y * scale);
 }
 
-int main(int, char **)
+int main(int argc, char **argv)
 {
+#if FCK_STUDENT_MODE
+	if (FCK_STUDENT_MODE)
+	{
+		return fck_run_student_testbed(argc, argv);
+	}
+#endif // FCK_STUDENT_MODE
+
 	fck_engine engine;
 	SDL_zero(engine);
 
@@ -643,7 +646,7 @@ int main(int, char **)
 			}
 		}
 
-		// Combat
+		// Combat - Punch
 		if ((input_flag & FCK_INPUT_FLAG_PUNCH_A) == FCK_INPUT_FLAG_PUNCH_A)
 		{
 			fck_animator_play(&animator, FCK_COMMON_ANIMATION_PUNCH_A);
@@ -652,7 +655,7 @@ int main(int, char **)
 		{
 			fck_animator_play(&animator, FCK_COMMON_ANIMATION_PUNCH_B);
 		}
-		// Combat
+		// Combat - Kick
 		if ((input_flag & FCK_INPUT_FLAG_KICK_A) == FCK_INPUT_FLAG_KICK_A)
 		{
 			fck_animator_play(&animator, FCK_COMMON_ANIMATION_KICK_A);
@@ -703,109 +706,6 @@ int main(int, char **)
 	SDLNet_Quit();
 
 	IMG_Quit();
-
-	SDL_Quit();
-	return 0;
-}
-
-int student_main(int, char **)
-{
-	CHECK_CRITICAL(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS), SDL_GetError());
-
-	CHECK_CRITICAL(IMG_Init(IMG_INIT_PNG), SDL_GetError());
-
-	SDL_Window *window = SDL_CreateWindow("Fck - Engine", 640, 640, 0);
-	CHECK_CRITICAL(window != nullptr, SDL_GetError());
-
-	SDL_Renderer *renderer = SDL_CreateRenderer(window, nullptr);
-	CHECK_CRITICAL(renderer != nullptr, SDL_GetError());
-
-	SDL_bool input_previous[SDL_SCANCODE_COUNT];
-	SDL_zero(input_previous);
-
-	SDL_bool input_current[SDL_SCANCODE_COUNT];
-	SDL_zero(input_current);
-
-	SDL_Texture *player_texture = IMG_LoadTexture(renderer, FCK_RESOURCE_DIRECTORY_PATH "player.png");
-	CHECK_CRITICAL(player_texture != nullptr, SDL_GetError());
-
-	float x = 0;
-	float y = 640 - 64.0f;
-
-	Uint64 tp = SDL_GetTicks();
-
-	float dash_cooldown_duration = 1.0f;
-	float dash_cooldown_timer = 0.0f;
-
-	bool is_running = true;
-	while (is_running)
-	{
-		Uint64 now = SDL_GetTicks();
-		Uint64 delta = now - tp;
-		float delta_seconds = float(delta) / 1000.0f;
-
-		tp = now;
-
-		SDL_memcpy(input_previous, input_current, sizeof(input_current));
-
-		SDL_Event event;
-		while (SDL_PollEvent(&event))
-		{
-			switch (event.type)
-			{
-			case SDL_EVENT_QUIT: {
-				is_running = false;
-				break;
-			}
-			case SDL_EVENT_KEY_DOWN:
-			case SDL_EVENT_KEY_UP: {
-				input_current[event.key.scancode] = event.type == SDL_EVENT_KEY_DOWN;
-				break;
-			}
-			default:
-				break;
-			}
-		}
-
-		// Update
-		float direction = 0.0f;
-		if (input_current[SDL_SCANCODE_D])
-		{
-			direction = direction + 0.5f;
-		}
-		if (input_current[SDL_SCANCODE_A])
-		{
-			direction = direction - 0.5f;
-		}
-		x = x + direction;
-
-		dash_cooldown_timer -= delta_seconds;
-		dash_cooldown_timer = SDL_max(dash_cooldown_timer, 0.0f);
-		if (dash_cooldown_timer <= 0.0f)
-		{
-			if (input_current[SDL_SCANCODE_SPACE] && !input_previous[SDL_SCANCODE_SPACE])
-			{
-				y = y - 64.0f;
-				dash_cooldown_timer = dash_cooldown_duration;
-			}
-		}
-
-		// Render
-
-		// Clear the final image
-		SDL_SetRenderDrawColor(renderer, 0, 0, 20, 255);
-		SDL_RenderClear(renderer);
-
-		// Construct the final
-		SDL_SetRenderDrawColor(renderer, 50, 175, 20, 255);
-		SDL_FRect src{0, 0, 48.0f, 48.0f};
-		SDL_FRect dst{x, y, 48.0f, 48.0f};
-		CHECK_ERROR(SDL_RenderTextureRotated(renderer, player_texture, &src, &dst, 0.0, nullptr, SDL_FLIP_VERTICAL),
-		            SDL_GetError(), is_running = false);
-
-		// Present final image
-		SDL_RenderPresent(renderer);
-	}
 
 	SDL_Quit();
 	return 0;

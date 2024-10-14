@@ -3,4 +3,4 @@
 
 int fck_run_student_testbed(int, char **);
 
-#endif !FCK_STUDENT_TESTBED_INCLUDED
+#endif // !FCK_STUDENT_TESTBED_INCLUDED

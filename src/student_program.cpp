@@ -19,7 +19,7 @@
 
 #include "fck_checks.h"
 #include "fck_drop_file.h"
-#include "fck_ecs.h"
+#include "fck_ecs_opaque_style.h"
 #include "fck_file.h"
 #include "fck_keyboard.h"
 #include "fck_memory_stream.h"
@@ -83,9 +83,7 @@ void fck_sprite_storage_draw(fck_sprite_storage *storage, size_t at, SDL_FRect c
 
 	fck_sprite const *sprite = fck_sprite_storage_get(storage, at);
 
-	CHECK_ERROR(
-		SDL_RenderTextureRotated(renderer, storage->texture, &sprite->src, dst, 0.0, nullptr, storage->flip_mode),
-		SDL_GetError());
+	CHECK_ERROR(SDL_RenderTextureRotated(renderer, storage->texture, &sprite->src, dst, 0.0, nullptr, storage->flip_mode), SDL_GetError());
 }
 
 void fck_sprite_storage_free(fck_sprite_storage *storage)
@@ -146,8 +144,7 @@ void fck_anim_storage_alloc(fck_anim_storage *anim_storage, fck_sprite_storage *
 	anim_storage->accumulator = 0.0f;
 }
 
-void fck_anim_storage_set(fck_anim_storage *anim_storage, fck_frog_animation_type type, size_t start, size_t count,
-                          float frame_time)
+void fck_anim_storage_set(fck_anim_storage *anim_storage, fck_frog_animation_type type, size_t start, size_t count, float frame_time)
 {
 	SDL_assert(anim_storage != nullptr);
 	SDL_assert(type < FCK_FROG_ANIMATION_TYPE_COUNT && type >= 0);

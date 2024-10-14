@@ -46,7 +46,7 @@
     },
     "C_Cpp.intelliSenseEngine": "disabled",
     "files.associations": {
-        "*.cpp": "cpp"
+        "*.cpp": "cpp",
     },
     "[jsonc]": {
         "editor.defaultFormatter": "vscode.json-language-features"

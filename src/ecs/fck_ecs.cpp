@@ -1,0 +1,6 @@
+#include "ecs/fck_ecs.h"
+
+// This file exists for clangd to find the header...
+// Maybe we should include something smaller
+// Eh whatever...
+// Comment end

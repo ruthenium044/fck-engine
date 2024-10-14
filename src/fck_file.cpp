@@ -1,5 +1,6 @@
 #include "fck_file.h"
 
+#include "fck_checks.h"
 #include <SDL3/SDL_assert.h>
 #include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_iostream.h>

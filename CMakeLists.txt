@@ -82,6 +82,9 @@ FetchContent_Declare(
 # For each SDL module, we should set on a GIT_TAG so we do not have funny renames and other issues!
 FetchContent_MakeAvailable(SDL SDL_image SDL_net)
 
+find_package(Vulkan REQUIRED)
+
+
 # LOCAL PROJECT
 file(GLOB_RECURSE FOUND_CXX_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/include/**.h")
 list(APPEND HEADERS ${FOUND_CXX_HEADERS})
@@ -120,8 +123,9 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE "FCK_RESOURCE_DIRECTORY_PATH=
 
 # Shouldn't be needed? We need to check it out
 #target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+list(APPEND LIBRARIES SDL3::SDL3 SDL3_image::SDL3_image SDL3_net::SDL3_net)
+list(APPEND LIBRARIES Vulkan::Vulkan)
 
+add_dependencies(fck ${LIBRARIES})
 
-add_dependencies(fck SDL3::SDL3)
-
-target_link_libraries(${PROJECT_NAME} SDL3::SDL3 SDL3_image::SDL3_image SDL3_net::SDL3_net)
+target_link_libraries(${PROJECT_NAME} ${LIBRARIES})

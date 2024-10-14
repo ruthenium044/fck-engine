@@ -1,10 +1,12 @@
 #include "fck_spritesheet.h"
 
-#include <fck_memory_stream.h>
+#include "fck_checks.h"
+#include "fck_memory_stream.h"
 #include <SDL3/SDL_assert.h>
 #include <SDL3/SDL_surface.h>
 #include <SDL3_image/SDL_image.h>
 
+#include "ecs/fck_ecs.h"
 static void rect_list_allocate(fck_rect_list *list, size_t capacity)
 {
 	list->data = (SDL_FRect *)SDL_calloc(capacity, sizeof(*list->data));
@@ -168,8 +170,8 @@ static bool surface_identify_sprites(SDL_Surface *surface, fck_rect_list *rect_l
 			{
 				extreme_points extreme_points{INT32_MAX, INT32_MAX, INT32_MIN, INT32_MIN};
 				surface_flood_fill(surface, is_closed, x, y, &extreme_points);
-				if (extreme_points.max_x != INT32_MIN && extreme_points.min_x != INT32_MAX &&
-				    extreme_points.max_y != INT32_MIN && extreme_points.min_y != INT32_MAX)
+				if (extreme_points.max_x != INT32_MIN && extreme_points.min_x != INT32_MAX && extreme_points.max_y != INT32_MIN &&
+				    extreme_points.min_y != INT32_MAX)
 				{
 					SDL_FRect rect = {float(extreme_points.min_x), float(extreme_points.min_y),
 					                  float(extreme_points.max_x) - extreme_points.min_x + 1,
@@ -255,8 +257,7 @@ void fck_spritesheet_free(fck_spritesheet *sprites)
 	rect_list_free(&sprites->rect_list);
 }
 
-bool fck_spritesheet_load(SDL_Renderer *renderer, const char *file_name, fck_spritesheet *out_sprites,
-                          bool force_rebuild)
+bool fck_spritesheet_load(SDL_Renderer *renderer, const char *file_name, fck_spritesheet *out_sprites, bool force_rebuild)
 {
 	SDL_assert(renderer != nullptr);
 	SDL_assert(file_name != nullptr);

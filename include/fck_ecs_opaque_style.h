@@ -1,7 +1,11 @@
-#ifndef FCK_ECS_INCLUDED
-#define FCK_ECS_INCLUDED
+#ifndef FCK_ECS_OPAQUE_INCLUDED
+#define FCK_ECS_OPAQUE_INCLUDED
 
+#include <SDL3/SDL_assert.h>
 #include <SDL3/SDL_stdinc.h>
+
+namespace deprecated
+{
 
 struct fck_entity_definition
 {
@@ -210,5 +214,5 @@ inline void fck_component_set(fck_ecs *ecs, fck_entity const *entity, fck_compon
 
 	SDL_memcpy(component_data, data, definition->byte_count);
 }
-
-#endif // !FCK_ECS_INCLUDED
+} // namespace deprecated
+#endif // !FCK_ECS_OPAQUE_INCLUDED

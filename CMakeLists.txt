@@ -102,27 +102,11 @@ source_group("Header Files" FILES ${FOUND_CXX_HEADERS})
 set(FCK_RESOURCE_DIRECTORY_PATH "${CMAKE_CURRENT_SOURCE_DIR}/resources/")
 
 # We can also use file commands for a release non-engine build 
-#file(MAKE_DIRECTORY ${RESOURCE_DIRECTORY_PATH})
 add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
 
 # Maybe later
 target_compile_definitions(${PROJECT_NAME} PRIVATE "FCK_RESOURCE_DIRECTORY_PATH= \"${FCK_RESOURCE_DIRECTORY_PATH}\"")
 
-# Needed? Maybe not
-#set(CMAKE_CONFIGURATION_TYPES "Debug;Release" CACHE STRING "Configs" FORCE)
-#
-#target_compile_definitions(${PROJECT_NAME} PRIVATE
-#    $<$<CONFIG:Debug>:DEBUG>
-#    $<$<CONFIG:Release>:NDEBUG>
-#)
-#
-#set_target_properties(${PROJECT_NAME} PROPERTIES
-#    RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/bin/Debug
-#    RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/bin/Release
-#)
-
-# Shouldn't be needed? We need to check it out
-#target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 list(APPEND LIBRARIES SDL3::SDL3 SDL3_image::SDL3_image SDL3_net::SDL3_net)
 list(APPEND LIBRARIES Vulkan::Vulkan)
 

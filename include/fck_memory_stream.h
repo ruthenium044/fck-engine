@@ -10,7 +10,7 @@ struct fck_memory_stream
 	size_t capacity;
 };
 
-bool fck_memory_stream_write(fck_memory_stream *stream, void *data, size_t size);
+bool fck_memory_stream_write(fck_memory_stream *stream, void const *data, size_t size);
 
 uint8_t *fck_memory_stream_read(fck_memory_stream *stream, size_t size);
 

@@ -13,6 +13,7 @@
 #include "fck_checks.h"
 #include "fck_drop_file.h"
 #include "fck_keyboard.h"
+#include "fck_memory_stream.h"
 #include "fck_mouse.h"
 #include "fck_spritesheet.h"
 #include "fck_ui.h"
@@ -106,41 +107,6 @@ struct fck_engine
 	bool is_running;
 	uint64_t delta_time;
 };
-
-void event_process(fck_ecs *ecs, fck_system_update_info *)
-{
-	fck_engine *engine = fck_ecs_unique_view<fck_engine>(ecs);
-	fck_keyboard_state *keyboard = fck_ecs_unique_view<fck_keyboard_state>(ecs);
-	fck_mouse_state *mouse = fck_ecs_unique_view<fck_mouse_state>(ecs);
-
-	float scroll_delta_x = 0.0f;
-	float scroll_delta_y = 0.0f;
-
-	SDL_Event ev;
-	while (SDL_PollEvent(&ev))
-	{
-		switch (ev.type)
-		{
-		case SDL_EventType::SDL_EVENT_QUIT:
-			engine->is_running = false;
-			break;
-		case SDL_EventType::SDL_EVENT_DROP_FILE: {
-			fck_drop_file_context *drop_file_context = fck_ecs_unique_view<fck_drop_file_context>(ecs);
-			fck_drop_file_context_notify(drop_file_context, &ev.drop);
-		}
-		break;
-		case SDL_EventType::SDL_EVENT_MOUSE_WHEEL:
-			scroll_delta_x = scroll_delta_x + ev.wheel.x;
-			scroll_delta_y = scroll_delta_y + ev.wheel.y;
-			break;
-		default:
-			break;
-		}
-	}
-
-	fck_keyboard_state_update(keyboard);
-	fck_mouse_state_update(mouse, scroll_delta_x, scroll_delta_y);
-}
 
 void input_process(fck_ecs *ecs, fck_system_update_info *)
 {
@@ -305,15 +271,9 @@ void render_process(fck_ecs *ecs, fck_system_update_info *)
 	SDL_RenderPresent(engine->renderer);
 }
 
-void setup_engine(fck_ecs *ecs, fck_system_once_info *)
+void engine_setup(fck_ecs *ecs, fck_system_once_info *)
 {
 	fck_engine *engine = fck_ecs_unique_view<fck_engine>(ecs);
-
-	CHECK_CRITICAL(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS), SDL_GetError());
-
-	CHECK_CRITICAL(IMG_Init(IMG_INIT_PNG), SDL_GetError());
-
-	CHECK_CRITICAL(SDLNet_Init() != -1, SDL_GetError())
 
 	const int window_width = 640;
 	const int window_height = 640;
@@ -340,7 +300,80 @@ void setup_engine(fck_ecs *ecs, fck_system_once_info *)
 	engine->is_running = true;
 }
 
-void setup_cammy(fck_ecs *ecs, fck_system_once_info *)
+struct fck_networking
+{
+	SDLNet_DatagramSocket *self;
+	SDLNet_Address *broadcast_address;
+
+	fck_sparse_list<uint8_t, SDLNet_DatagramSocket *> peers;
+};
+
+void fck_networking_alloc(fck_networking *networking)
+{
+	SDL_assert(networking != nullptr);
+	SDL_zerop(networking);
+
+	SDLNet_Address *broadcast_address = SDLNet_ResolveHostname("255.255.255.255");
+	if (SDLNet_WaitUntilResolved(broadcast_address, -1) == 1)
+	{
+		constexpr uint64_t start_port = 42069;
+		const uint64_t port_self = start_port + fck_count_up_and_get<start_port>();
+
+		networking->self = SDLNet_CreateDatagramSocket(nullptr, port_self);
+
+		CHECK_ERROR(networking->self != nullptr, SDL_GetError());
+	}
+	fck_sparse_list_alloc(&networking->peers, ~0);
+}
+
+void fck_networking_free(fck_networking *networking)
+{
+	SDL_assert(networking != nullptr);
+
+	SDLNet_DestroyDatagramSocket(networking->self);
+	SDLNet_UnrefAddress(networking->broadcast_address);
+
+	for (SDLNet_DatagramSocket **pointer_to_peer : &networking->peers.dense)
+	{
+		SDLNet_DatagramSocket *peer = *pointer_to_peer;
+		SDLNet_DestroyDatagramSocket(peer);
+	}
+	fck_sparse_list_free(&networking->peers);
+
+	SDL_zerop(networking);
+}
+
+void fck_networking_peer_add(fck_networking *networking, SDLNet_DatagramSocket *socket)
+{
+	SDL_assert(networking != nullptr);
+}
+
+void networking_setup(fck_ecs *ecs, fck_system_once_info *)
+{
+	int local_address_count;
+
+	fck_networking *networking = fck_ecs_unique_set_empty<fck_networking>(ecs);
+	fck_networking_alloc(networking);
+}
+
+void networking_process(fck_ecs *ecs, fck_system_update_info *)
+{
+	fck_networking *networking = fck_ecs_unique_view<fck_networking>(ecs);
+
+	SDLNet_Datagram *datagram;
+	int result = SDLNet_ReceiveDatagram(networking->self, &datagram);
+	CHECK_CRITICAL(result != -1, SDL_GetError());
+
+	if (result > 0)
+	{
+		if (datagram != nullptr)
+		{
+			// TODO, baby
+		}
+	}
+}
+
+void cammy_setup(fck_ecs *ecs, fck_system_once_info *)
 {
 	fck_engine *engine = fck_ecs_unique_view<fck_engine>(ecs);
 
@@ -372,6 +405,226 @@ void setup_cammy(fck_ecs *ecs, fck_system_once_info *)
 	fck_animator_set(animator, FCK_COMMON_ANIMATION_IDLE);
 }
 
+struct fck_stream_writer
+{
+	fck_memory_stream *stream;
+};
+
+struct fck_stream_reader
+{
+	fck_memory_stream *stream;
+};
+
+template <typename type>
+void fck_serialize(fck_stream_writer writer, type *data)
+{
+	fck_memory_stream_write(writer.stream, data, sizeof(*data));
+}
+
+template <typename type>
+void fck_serialize(fck_stream_reader writer, type *data)
+{
+	data = fck_memory_stream_read(writer.stream, sizeof(*data));
+}
+
+struct fck_instance
+{
+	fck_ecs ecs;
+	fck_engine *engine;
+};
+
+void fck_instance_alloc(fck_instance *instance)
+{
+	SDL_assert(instance != nullptr);
+
+	fck_ecs_alloc_info ecs_alloc_info = {256, 128, 64};
+	fck_ecs_alloc(&instance->ecs, &ecs_alloc_info);
+
+	// Good old fashioned init systems
+	fck_ecs_system_add(&instance->ecs, engine_setup);
+	fck_ecs_system_add(&instance->ecs, networking_setup);
+	fck_ecs_system_add(&instance->ecs, cammy_setup);
+
+	// Good old fasioned update systems
+	fck_ecs_system_add(&instance->ecs, networking_process);
+	fck_ecs_system_add(&instance->ecs, input_process);
+	fck_ecs_system_add(&instance->ecs, gameplay_process);
+	fck_ecs_system_add(&instance->ecs, animations_process);
+	fck_ecs_system_add(&instance->ecs, render_process);
+
+	// We place the engine inside of the ECS as a unique - this way anything that
+	// can access the ecs, can also access the engine. Ergo, we intigrate the
+	// engine as part of the ECS workflow
+	instance->engine = fck_ecs_unique_set_empty<fck_engine>(&instance->ecs);
+	// We flush the once systems since they might be relevant for startup
+	// Adding once system during once system might file - We should enable that
+	// If we queue a once system during a once system, what should happen?
+	fck_ecs_flush_system_once(&instance->ecs);
+}
+
+void fck_instance_free(fck_instance *instance)
+{
+	SDL_assert(instance != nullptr);
+
+	// Not so pretty for now, but for development (ports) reasons, we would like to dealloc it
+	fck_networking *networking = fck_ecs_unique_view<fck_networking>(&instance->ecs);
+	if (networking != nullptr)
+	{
+		fck_networking_free(networking);
+	}
+	// We ignore free-ing memory for now
+	// Since the ECS exists in this scope and we pass it along, we are pretty much
+	// guaranteed that the OS will clean it up
+	// I mean the ECS quite literally collects all the garbage in the application since it takes ownership
+	// and then it decides to free... it just so happens it's at the very end
+	fck_ecs_free(&instance->ecs);
+
+	SDL_DestroyRenderer(instance->engine->renderer);
+	SDL_DestroyWindow(instance->engine->window);
+
+	SDL_zerop(instance);
+}
+
+struct fck_instances
+{
+	fck_sparse_array<uint8_t, fck_instance> data;
+	// If anything breaks, make sure to come up with a better mapping
+	fck_dense_list<uint8_t, SDL_WindowID> pending_destroyed;
+};
+
+fck_iterator<fck_instance> begin(fck_instances *instances)
+{
+	SDL_assert(instances != nullptr);
+
+	return begin(&instances->data.dense);
+}
+
+fck_iterator<fck_instance> end(fck_instances *instances)
+{
+	SDL_assert(instances != nullptr);
+
+	return end(&instances->data.dense);
+}
+
+void fck_instances_alloc(fck_instances *instances, uint8_t capacity)
+{
+	SDL_assert(instances != nullptr);
+	fck_sparse_array_alloc(&instances->data, capacity);
+	fck_dense_list_alloc(&instances->pending_destroyed, capacity);
+}
+
+void fck_instances_free(fck_instances *instances)
+{
+	fck_dense_list_free(&instances->pending_destroyed);
+	SDL_assert(instances != nullptr);
+	for (fck_instance *instance : instances)
+	{
+		fck_instance_free(instance);
+	}
+	fck_sparse_array_free(&instances->data);
+}
+
+bool fck_instances_any_active(fck_instances *instances)
+{
+	SDL_assert(instances != nullptr);
+
+	bool is_any_instance_running = false;
+	for (fck_instance *instance : instances)
+	{
+		is_any_instance_running |= instance->engine->is_running;
+	}
+	return is_any_instance_running;
+}
+
+fck_instance *fck_instances_add(fck_instances *instances)
+{
+	SDL_assert(instances != nullptr);
+
+	fck_instance instance;
+	fck_instance_alloc(&instance);
+	SDL_WindowID id = SDL_GetWindowID(instance.engine->window);
+	return fck_sparse_array_emplace(&instances->data, id, &instance);
+}
+
+fck_instance *fck_instances_view(fck_instances *instances, SDL_WindowID const *windowId)
+{
+	SDL_assert(instances != nullptr);
+	return fck_sparse_array_view(&instances->data, *windowId);
+}
+
+void fck_instances_remove(fck_instances *instances, SDL_WindowID const *windowId)
+{
+	SDL_assert(instances != nullptr);
+
+	SDL_WindowID id = *windowId;
+	fck_instance *instance = fck_instances_view(instances, &id);
+
+	fck_instance_free(instance);
+	fck_sparse_array_remove(&instances->data, id);
+}
+
+void fck_instances_process_events(fck_instances *instances)
+{
+	float scroll_delta_x = 0.0f;
+	float scroll_delta_y = 0.0f;
+
+	// We defer killing instances by about one tick
+	// Ok, it's exactly one tick. This makes sure we do not kill it during event polling
+	for (SDL_WindowID *id : &instances->pending_destroyed)
+	{
+		fck_instances_remove(instances, id);
+	}
+	fck_dense_list_clear(&instances->pending_destroyed);
+
+	SDL_Event ev;
+	while (SDL_PollEvent(&ev))
+	{
+		switch (ev.type)
+		{
+		case SDL_EventType::SDL_EVENT_QUIT:
+			// engine->is_running = false;
+			break;
+		case SDL_EventType::SDL_EVENT_WINDOW_CLOSE_REQUESTED: {
+			fck_dense_list_add(&instances->pending_destroyed, &ev.window.windowID);
+		}
+		break;
+		case SDL_EventType::SDL_EVENT_DROP_FILE: {
+			fck_instance *instance = fck_instances_view(instances, &ev.drop.windowID);
+			fck_drop_file_context *drop_file_context = fck_ecs_unique_view<fck_drop_file_context>(&instance->ecs);
+			fck_drop_file_context_notify(drop_file_context, &ev.drop);
+		}
+		break;
+		case SDL_EventType::SDL_EVENT_MOUSE_WHEEL:
+			scroll_delta_x = scroll_delta_x + ev.wheel.x;
+			scroll_delta_y = scroll_delta_y + ev.wheel.y;
+			break;
+		default:
+			break;
+		}
+	}
+
+	for (fck_instance *instance : instances)
+	{
+		// Maybe we should cache these modules, maybe access is fast enough, maybe, maybe
+		fck_ecs *ecs = &instance->ecs;
+		fck_engine *engine = fck_ecs_unique_view<fck_engine>(ecs);
+		fck_keyboard_state *keyboard = fck_ecs_unique_view<fck_keyboard_state>(ecs);
+		fck_mouse_state *mouse = fck_ecs_unique_view<fck_mouse_state>(ecs);
+		SDL_WindowFlags window_flags = SDL_GetWindowFlags(engine->window);
+
+		if ((window_flags & SDL_WINDOW_INPUT_FOCUS) == SDL_WINDOW_INPUT_FOCUS)
+		{
+			fck_keyboard_state_update(keyboard);
+			fck_mouse_state_update(mouse, scroll_delta_x, scroll_delta_y);
+		}
+		else
+		{
+			fck_keyboard_state_update_empty(keyboard);
+			fck_mouse_state_update_empty(mouse);
+		}
+	}
+}
+
 int main(int argc, char **argv)
 {
 #if FCK_STUDENT_MODE
@@ -380,58 +633,40 @@ int main(int argc, char **argv)
 		return fck_run_student_testbed(argc, argv);
 	}
 #endif // FCK_STUDENT_MODE
+	CHECK_CRITICAL(SDL_InitSubSystem(SDL_INIT_VIDEO | SDL_INIT_EVENTS), SDL_GetError());
+	CHECK_CRITICAL(IMG_Init(IMG_INIT_PNG), SDL_GetError());
+	CHECK_CRITICAL(SDLNet_Init() != -1, SDL_GetError())
 
-	fck_ecs ecs;
-	fck_ecs_alloc_info ecs_alloc_info = {256, 128, 64};
-	fck_ecs_alloc(&ecs, &ecs_alloc_info);
+	fck_instances instances;
+	fck_instances_alloc(&instances, 8);
 
-	// Good old fashioned init systems
-	fck_ecs_system_add(&ecs, setup_engine);
-	fck_ecs_system_add(&ecs, setup_cammy);
-
-	// Good old fasioned update systems
-	fck_ecs_system_add(&ecs, event_process);
-	fck_ecs_system_add(&ecs, input_process);
-	fck_ecs_system_add(&ecs, gameplay_process);
-	fck_ecs_system_add(&ecs, animations_process);
-
-	fck_ecs_system_add(&ecs, render_process);
-
-	// We place the engine inside of the ECS as a unique - this way anything that
-	// can access the ecs, can also access the engine. Ergo, we intigrate the
-	// engine as part of the ECS workflow
-	fck_engine *engine = fck_ecs_unique_set_empty<fck_engine>(&ecs);
-
-	// We flush the once systems since they might be relevant for startup
-	// Adding once system during once system might file - We should enable that
-	// If we queue a once system during a once system, what should happen?
-	fck_ecs_flush_system_once(&ecs);
+	for (int index = 0; index < 2; index++)
+	{
+		fck_instances_add(&instances);
+	}
 
 	Uint64 tp = SDL_GetTicks();
-	while (engine->is_running)
+	while (fck_instances_any_active(&instances))
 	{
 		// Maybe global control later
 		Uint64 now = SDL_GetTicks();
-		engine->delta_time = now - tp;
+		Uint64 delta_time = now - tp;
 		tp = now;
 
-		fck_ecs_tick(&ecs);
+		fck_instances_process_events(&instances);
+
+		for (fck_instance *instance : &instances)
+		{
+			instance->engine->delta_time = delta_time;
+			fck_ecs_tick(&instance->ecs);
+		}
 	}
 
-	// We ignore free-ing memory for now
-	// Since the ECS exists in this scope and we pass it along, we are pretty much
-	// guaranteed that the OS will clean it up
-	// I mean the ECS quite literally collects all the garbage in the application since it takes ownership
-	// and then it decides to free... it just so happens it's at the very end
-	fck_ecs_free(&ecs);
-
-	SDL_DestroyRenderer(engine->renderer);
-	SDL_DestroyWindow(engine->window);
+	fck_instances_free(&instances);
 
 	SDLNet_Quit();
-
 	IMG_Quit();
-
 	SDL_Quit();
+
 	return 0;
 }

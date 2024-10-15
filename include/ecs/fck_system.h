@@ -148,5 +148,6 @@ void fck_systems_scheduler_free(fck_systems_scheduler<index_type> *system_schedu
 		system_type *systems = &system_scheduler->systems_buckets[index];
 		fck_systems_free(systems);
 	}
+	SDL_zerop(system_scheduler->systems_buckets);
 }
 #endif // FCK_SYSTEM_INCLUDED

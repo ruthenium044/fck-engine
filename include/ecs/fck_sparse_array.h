@@ -62,10 +62,10 @@ value_type *fck_sparse_array_view(fck_sparse_array<index_type, value_type> *list
 {
 	SDL_assert(list != nullptr);
 
-	static constexpr index_type free_mask = fck_sparse_array<index_type, value_type>::index_info::free_mask;
-
 	const index_type dense_index = fck_sparse_lookup_get(&list->sparse, index);
-	if ((dense_index & free_mask) != free_mask)
+
+	static constexpr index_type invalid = fck_sparse_array<index_type, value_type>::index_info::invalid;
+	if (dense_index != invalid)
 	{
 		return fck_dense_list_view(&list->dense, dense_index);
 	}
@@ -78,10 +78,10 @@ bool fck_sparse_array_try_view(fck_sparse_array<index_type, value_type> *list, t
 {
 	SDL_assert(list != nullptr);
 
-	static constexpr index_type free_mask = fck_sparse_array<index_type, value_type>::index_info::free_mask;
-
 	const index_type dense_index = fck_sparse_lookup_get(&list->sparse, index);
-	if ((dense_index & free_mask) != free_mask)
+
+	static constexpr index_type invalid = fck_sparse_array<index_type, value_type>::index_info::invalid;
+	if (dense_index != invalid)
 	{
 		*out_value = fck_dense_list_view(&list->dense, dense_index);
 		return true;
@@ -90,13 +90,12 @@ bool fck_sparse_array_try_view(fck_sparse_array<index_type, value_type> *list, t
 }
 
 template <typename index_type, typename value_type>
-void fck_sparse_array_emplace(fck_sparse_array<index_type, value_type> *list, typename fck_ignore_deduction<index_type>::type index,
-                              value_type const *value)
+value_type *fck_sparse_array_emplace(fck_sparse_array<index_type, value_type> *list, typename fck_ignore_deduction<index_type>::type index,
+                                     value_type const *value)
 {
 	SDL_assert(list != nullptr);
 
 	static constexpr index_type invalid = fck_sparse_array<index_type, value_type>::index_info::invalid;
-	static constexpr index_type free_mask = fck_sparse_array<index_type, value_type>::index_info::free_mask;
 
 	index_type *dense_index = fck_sparse_lookup_view(&list->sparse, index);
 
@@ -105,11 +104,13 @@ void fck_sparse_array_emplace(fck_sparse_array<index_type, value_type> *list, ty
 		*dense_index = list->dense.count;
 		fck_dense_list_add(&list->dense, value);
 		fck_dense_list_add(&list->owner, &index);
-		return;
+		return fck_dense_list_view(&list->dense, *dense_index);
 	}
 
 	// Set dense data
-	fck_dense_list_set(&list->dense, *dense_index, value);
+	value_type *entry = fck_dense_list_view(&list->dense, *dense_index);
+	*entry = *value;
+	return entry;
 }
 
 template <typename index_type, typename value_type>
@@ -140,7 +141,6 @@ void fck_sparse_array_remove(fck_sparse_array<index_type, value_type> *list, typ
 	SDL_assert(list != nullptr);
 
 	static constexpr index_type invalid = fck_sparse_array<index_type, value_type>::index_info::invalid;
-	static constexpr index_type free_mask = fck_sparse_array<index_type, value_type>::index_info::free_mask;
 
 	index_type dense_index = fck_sparse_lookup_get(&list->sparse, index);
 
@@ -150,6 +150,7 @@ void fck_sparse_array_remove(fck_sparse_array<index_type, value_type> *list, typ
 	fck_dense_list_remove(&list->dense, dense_index);
 	fck_dense_list_remove(&list->owner, dense_index);
 	fck_sparse_lookup_set(&list->sparse, last_owner, &dense_index);
+	fck_sparse_lookup_set(&list->sparse, index, &invalid);
 }
 
 template <typename index_type, typename value_type>

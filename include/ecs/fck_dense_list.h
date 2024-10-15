@@ -81,7 +81,7 @@ T fck_dense_list_get(fck_dense_list<index_type, T> *list, typename fck_ignore_de
 }
 
 template <typename index_type, typename T>
-void fck_dense_list_add(fck_dense_list<index_type, T> *list, T const *value)
+void fck_dense_list_add(fck_dense_list<index_type, T> *list, typename fck_ignore_deduction<T>::type const *value)
 {
 	SDL_assert(list != nullptr);
 	SDL_assert(list->data != nullptr);
@@ -129,6 +129,15 @@ void fck_dense_list_remove(fck_dense_list<index_type, T> *list, typename fck_ign
 	index_type last = list->count - 1;
 	fck_dense_list_swap(list, at, last);
 	list->count = last;
+}
+
+template <typename index_type, typename T>
+void fck_dense_list_clear(fck_dense_list<index_type, T> *list)
+{
+	SDL_assert(list != nullptr);
+	SDL_assert(list->data != nullptr);
+
+	list->count = 0;
 }
 
 template <typename index_type, typename value_type>

@@ -29,7 +29,7 @@ struct fck_ecs
 	// - Internally created entities
 	// - Externally created entities... oh boy
 	// Oh what a fucking nightmare this is...
-	// If user emplaces entities expicitly just for frun and then uses the entity create function
+	// If user emplaces entities externally just for frun and then uses the entity create function
 	// the user will just overwrite previously written data... Well, we can flag the interface at one point
 	// that way the user must declare how the interactions with the ECS should look like
 	fck_sparse_list<entity_type, entity_type> entities;

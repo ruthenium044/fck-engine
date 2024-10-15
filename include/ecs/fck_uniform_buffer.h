@@ -21,6 +21,12 @@ struct fck_uniform_buffer
 	fck_sparse_lookup<uint16_t, fck_uniform_element_debug_info> debug_info;
 
 	// Need to page data so we do not accidentally destabilise pointers
+	// Paging fucking bytes will be an absolute pain
+	// What if a data type doesn't fit into one page? Variable sized pages? Fucking christ
+	// What if we have 64 bytes left in page A and then we emplace 128 bytes?
+	// We would need to go accross pages, what is impossible since we cannot provide views then
+	// So we need to discard the 64 bytes, maybe put them in a free list to use later?
+	// The simplest solution is to just provide large enough capacity. Assert, go next.
 	uint8_t *data;
 
 	size_t capacity;
@@ -88,6 +94,10 @@ type *fck_uniform_buffer_ensure_buffer_and_get(fck_uniform_buffer *buffer)
 
 		buffer->count = buffer->count + header->stride;
 	}
+
+	SDL_assert(buffer->data + header->offset + header->stride < buffer->data + buffer->capacity &&
+	           "Out of memory, trying to access uniform buffer memory that doesn't exist. Give buffer more capacity!"
+	           "Look at the callstack to see what type is causing it");
 
 	return (type *)(buffer->data + header->offset);
 }

@@ -421,6 +421,10 @@ int main(int argc, char **argv)
 	// We ignore free-ing memory for now
 	// Since the ECS exists in this scope and we pass it along, we are pretty much
 	// guaranteed that the OS will clean it up
+	// I mean the ECS quite literally collects all the garbage in the application since it takes ownership
+	// and then it decides to free... it just so happens it's at the very end
+	fck_ecs_free(&ecs);
+
 	SDL_DestroyRenderer(engine->renderer);
 	SDL_DestroyWindow(engine->window);
 

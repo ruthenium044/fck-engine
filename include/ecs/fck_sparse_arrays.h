@@ -27,7 +27,6 @@ bool fck_sparse_arrays_tuple_is_valid_combine(
 	fck_tuple<fck_sparse_array<index_type, type> *, fck_sparse_array<index_type, types> *...> *tuple,
 	typename fck_ignore_deduction<index_type>::type *index)
 {
-
 	bool exists = fck_sparse_array_exists(tuple->value, *index);
 	return exists && fck_sparse_arrays_tuple_is_valid_combine<index_type, types...>(
 						 (fck_tuple<fck_sparse_array<index_type, types> *...> *)tuple, index);
@@ -52,14 +51,12 @@ bool fck_sparse_arrays_tuple_exists_combine(
 template <typename index_type, typename... types>
 bool fck_sparse_arrays_is_valid(fck_sparse_arrays<index_type, types...> *array, typename fck_ignore_deduction<index_type>::type index)
 {
-
 	return fck_sparse_arrays_tuple_is_valid_combine<index_type, types...>(&array->tuple, &index);
 }
 
 template <typename functor, typename index_type, typename value_type, typename... types>
 void fck_sparse_arrays_apply(fck_sparse_arrays<index_type, value_type, types...> *arrays, functor func)
 {
-
 	fck_sparse_array<index_type, value_type> *array = arrays->tuple.value;
 	if (!fck_sparse_arrays_tuple_exists_combine(&arrays->tuple))
 	{

@@ -16,11 +16,13 @@ struct fck_sparse_list
 	fck_sparse_lookup<index_type, index_type> sparse;
 
 	// We lazily make use of the deterministic nature of owner and dense
-	// Let's just hope they stay deterministic
+	// Let's just hope they stay deterministic - I should start tracking the nightmare parts of this code
 	fck_dense_list<index_type, index_type> owner;
 	fck_dense_list<index_type, value_type> dense;
 
-	// Required for list semantics
+	// Required for list semantics, but also to make the free list resilient to
+	// using add and emplace at the same time. This is the wet dream data structure for the user
+	// You get stable indices, can get a good index proposed by the list, but also can just wildly emplace
 	fck_sparse_lookup<index_type, index_type> free_list_prev;
 	index_type free_list_head;
 };

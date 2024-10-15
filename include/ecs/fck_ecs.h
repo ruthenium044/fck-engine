@@ -28,6 +28,10 @@ struct fck_ecs
 	// I do not know - We now have two concepts:
 	// - Internally created entities
 	// - Externally created entities... oh boy
+	// Oh what a fucking nightmare this is...
+	// If user emplaces entities expicitly just for frun and then uses the entity create function
+	// the user will just overwrite previously written data... Well, we can flag the interface at one point
+	// that way the user must declare how the interactions with the ECS should look like
 	fck_sparse_list<entity_type, entity_type> entities;
 	entity_type entity_counter;
 
@@ -38,7 +42,7 @@ struct fck_ecs
 	entity_type capacity;
 
 	fck_sparse_lookup<system_id, fck_ecs_system_state> update_system_states;
-	// probably no scheduler... more like buckets hehe
+	// probably no scheduler... more like buckets atm, hehe
 	fck_systems_scheduler<system_id> system_scheduler;
 };
 
@@ -222,8 +226,6 @@ inline void fck_ecs_flush_system_once(fck_ecs *ecs)
 {
 	// Pop em once called baddies
 	{
-		// We could use an enum mapping based on the state to get a bucket
-		// But this is good enough for now!
 		fck_ecs::scheduler_type::systems_type *systems = fck_systems_scheduler_view(&ecs->system_scheduler, FCK_ECS_SYSTEM_TYPE_ONCE);
 		for (fck_system *system : systems)
 		{
@@ -242,12 +244,12 @@ inline void fck_ecs_tick(fck_ecs *ecs)
 
 	// Tick em update baddies
 	{
-		// We could use an enum mapping based on the state to get a bucket
-		// But this is good enough for now!
 		fck_ecs::scheduler_type::systems_type *systems = fck_systems_scheduler_view(&ecs->system_scheduler, FCK_ECS_SYSTEM_TYPE_UPDATE);
 		for (size_t index = 0; index < systems->count; index++)
 		{
 			fck_ecs_system_state *state = fck_sparse_lookup_view(&ecs->update_system_states, index);
+			// We could use an enum mapping based on the state to get a bucket
+			// But this is good enough for now!
 			if (*state == FCK_ECS_SYSTEM_STATE_DEAD)
 			{
 				continue;

@@ -55,6 +55,14 @@ struct fck_systems
 };
 
 template <typename index_type>
+struct fck_systems_scheduler
+{
+	using systems_type = fck_systems<index_type>;
+
+	fck_systems<index_type> systems_buckets[FCK_ECS_SYSTEM_TYPE_COUNT];
+};
+
+template <typename index_type>
 fck_iterator<fck_system> begin(fck_systems<index_type> *systems)
 {
 	return {systems->data};
@@ -96,14 +104,6 @@ void fck_systems_free(fck_systems<index_type> *systems)
 	SDL_free(systems->data);
 	SDL_zerop(systems);
 }
-
-template <typename index_type>
-struct fck_systems_scheduler
-{
-	using systems_type = fck_systems<index_type>;
-
-	fck_systems<index_type> systems_buckets[FCK_ECS_SYSTEM_TYPE_COUNT];
-};
 
 template <typename index_type>
 void fck_systems_scheduler_alloc(fck_systems_scheduler<index_type> *system_scheduler,

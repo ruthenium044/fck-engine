@@ -1,6 +1,7 @@
 #ifndef FCK_TEMPLATE_UTILITY_INCLUDED
 #define FCK_TEMPLATE_UTILITY_INCLUDED
 
+#include "fck_template_constants.h"
 #include "fck_type_pack.h"
 #include <SDL3/SDL_stdinc.h>
 
@@ -27,17 +28,6 @@ struct fck_enable_if<true, T>
 {
 	typedef T type;
 };
-
-template <class T, T v>
-struct fck_constant
-{
-	static constexpr T value = v;
-	using value_type = T;
-	using type = fck_constant; // using injected-class-name
-};
-
-typedef fck_constant<bool, true> fck_true_type;
-typedef fck_constant<bool, false> fck_false_type;
 
 template <class T, class U>
 struct fck_is_same : fck_false_type
@@ -176,7 +166,7 @@ struct fck_function_traits<return_t (caller::*)(args...) const>
 	static constexpr size_t argument_count = sizeof...(args);
 };
 
-// Call this one in user code to seriouslz fuck shit up
+// Call this one in user code to seriously fuck shit up
 template <size_t>
 uint16_t fck_count_up_and_get()
 {

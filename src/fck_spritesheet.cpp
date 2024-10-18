@@ -234,19 +234,16 @@ void fck_rect_list_view_create(fck_rect_list *list, size_t at, size_t count, fck
 	SDL_assert(at + count < list->count);
 	// view->rects is allowed to be != nullptr since it is non-alloc view span
 
-	view->rect_list = list;
 	view->begin = at;
 	view->count = count;
 }
 
-SDL_FRect const *fck_rect_list_view_get(fck_rect_list_view const *view, size_t at)
+SDL_FRect const *fck_rect_list_view_get(fck_rect_list *rect_source, fck_rect_list_view const *view, size_t at)
 {
 	SDL_assert(view != nullptr);
-	SDL_assert(view->rect_list != nullptr);
-	SDL_assert(view->rect_list != nullptr);
 	SDL_assert(at < view->count);
 
-	SDL_FRect *view_begin = view->rect_list->data + view->begin;
+	SDL_FRect *view_begin = rect_source->data + view->begin;
 	return view_begin + at;
 }
 

@@ -8,7 +8,9 @@
 #include <SDL3_image/SDL_image.h>
 
 // SDL net - networking... More later
-#include <SDL3_net/SDL_net.h>
+// #include <SDL3_net/SDL_net.h>
+// We use our own net - TODO: Port to windows
+#include "net/cnt_session.h"
 
 #include "fck_checks.h"
 #include "fck_drop_file.h"
@@ -85,6 +87,14 @@ enum fck_input_flag
 	FCK_INPUT_FLAG_KICK_B = 1 << FCK_INPUT_TYPE_KICK_B,
 };
 
+using fck_millisecond = uint64_t;
+
+struct fck_time
+{
+	fck_millisecond delta;
+	fck_millisecond current;
+};
+
 struct fck_controller
 {
 	fck_input_flag input;
@@ -104,8 +114,15 @@ struct fck_engine
 	SDL_Renderer *renderer;
 
 	fck_font_asset default_editor_font;
+
 	bool is_running;
-	uint64_t delta_time;
+};
+
+struct fck_instance_info
+{
+	char const *ip;
+	uint16_t source_port;
+	uint16_t destination_port;
 };
 
 void input_process(fck_ecs *ecs, fck_system_update_info *)
@@ -250,13 +267,14 @@ void animations_process(fck_ecs *ecs, fck_system_update_info *)
 void render_process(fck_ecs *ecs, fck_system_update_info *)
 {
 	fck_engine *engine = fck_ecs_unique_view<fck_engine>(ecs);
+	fck_time *time = fck_ecs_unique_view<fck_time>(ecs);
 
 	SDL_SetRenderDrawColor(engine->renderer, 0, 0, 0, 255);
 	SDL_RenderClear(engine->renderer);
 
-	fck_ecs_apply(ecs, [engine](fck_animator *animator, fck_spritesheet *spritesheet, fck_position *position) {
-		fck_animator_update(animator, engine->delta_time);
-		SDL_FRect const *source = fck_animator_get_rect(animator);
+	fck_ecs_apply(ecs, [engine, time](fck_animator *animator, fck_spritesheet *spritesheet, fck_position *position) {
+		fck_animator_update(animator, time->delta);
+		SDL_FRect const *source = fck_animator_get_rect(animator, spritesheet);
 
 		float target_x = position->x;
 		float target_y = position->y;
@@ -292,117 +310,14 @@ void engine_setup(fck_ecs *ecs, fck_system_once_info *)
 	fck_keyboard_state *keyboard = fck_ecs_unique_set_empty<fck_keyboard_state>(ecs);
 	fck_mouse_state *mouse = fck_ecs_unique_set_empty<fck_mouse_state>(ecs);
 
+	fck_time *time = fck_ecs_unique_set_empty<fck_time>(ecs);
+
 	fck_drop_file_context_allocate(drop_file_context, 16);
 	fck_drop_file_context_push(drop_file_context, fck_drop_file_receive_png);
 
 	SDL_EnumerateDirectory(FCK_RESOURCE_DIRECTORY_PATH, fck_print_directory, nullptr);
 
 	engine->is_running = true;
-}
-
-struct fck_networking
-{
-	SDLNet_DatagramSocket *self;
-	SDLNet_Address *broadcast_address;
-
-	fck_sparse_list<uint8_t, SDLNet_DatagramSocket *> peers;
-};
-
-void fck_networking_alloc(fck_networking *networking)
-{
-	SDL_assert(networking != nullptr);
-	SDL_zerop(networking);
-
-	SDLNet_Address *broadcast_address = SDLNet_ResolveHostname("255.255.255.255");
-	if (SDLNet_WaitUntilResolved(broadcast_address, -1) == 1)
-	{
-		constexpr uint64_t start_port = 42069;
-		const uint64_t port_self = start_port + fck_count_up_and_get<start_port>();
-
-		networking->self = SDLNet_CreateDatagramSocket(nullptr, port_self);
-
-		CHECK_ERROR(networking->self != nullptr, SDL_GetError());
-	}
-	fck_sparse_list_alloc(&networking->peers, ~0);
-}
-
-void fck_networking_free(fck_networking *networking)
-{
-	SDL_assert(networking != nullptr);
-
-	SDLNet_DestroyDatagramSocket(networking->self);
-	SDLNet_UnrefAddress(networking->broadcast_address);
-
-	for (SDLNet_DatagramSocket **pointer_to_peer : &networking->peers.dense)
-	{
-		SDLNet_DatagramSocket *peer = *pointer_to_peer;
-		SDLNet_DestroyDatagramSocket(peer);
-	}
-	fck_sparse_list_free(&networking->peers);
-
-	SDL_zerop(networking);
-}
-
-void fck_networking_peer_add(fck_networking *networking, SDLNet_DatagramSocket *socket)
-{
-	SDL_assert(networking != nullptr);
-}
-
-void networking_setup(fck_ecs *ecs, fck_system_once_info *)
-{
-	int local_address_count;
-
-	fck_networking *networking = fck_ecs_unique_set_empty<fck_networking>(ecs);
-	fck_networking_alloc(networking);
-}
-
-void networking_process(fck_ecs *ecs, fck_system_update_info *)
-{
-	fck_networking *networking = fck_ecs_unique_view<fck_networking>(ecs);
-
-	SDLNet_Datagram *datagram;
-	int result = SDLNet_ReceiveDatagram(networking->self, &datagram);
-	CHECK_CRITICAL(result != -1, SDL_GetError());
-
-	if (result > 0)
-	{
-		if (datagram != nullptr)
-		{
-			// TODO, baby
-		}
-	}
-}
-
-void cammy_setup(fck_ecs *ecs, fck_system_once_info *)
-{
-	fck_engine *engine = fck_ecs_unique_view<fck_engine>(ecs);
-
-	fck_ecs::entity_type cammy = fck_ecs_entity_create(ecs);
-
-	fck_controller *controller = fck_ecs_component_set_empty<fck_controller>(ecs, cammy);
-	fck_spritesheet *spritesheet = fck_ecs_component_set_empty<fck_spritesheet>(ecs, cammy);
-	fck_animator *animator = fck_ecs_component_set_empty<fck_animator>(ecs, cammy);
-	fck_position *position = fck_ecs_component_set_empty<fck_position>(ecs, cammy);
-	position->x = 0.0f;
-	position->y = 128.0f;
-
-	CHECK_ERROR(fck_spritesheet_load(engine->renderer, "cammy.png", spritesheet, false), SDL_GetError());
-
-	fck_animator_alloc(animator, spritesheet);
-
-	fck_animator_insert(animator, FCK_COMMON_ANIMATION_IDLE, FCK_ANIMATION_TYPE_LOOP, 24, 8, 60, 0.0f, 0.0f);
-	fck_animator_insert(animator, FCK_COMMON_ANIMATION_CROUCH, FCK_ANIMATION_TYPE_ONCE, 35, 3, 40, 0.0f, 0.0f);
-	fck_animator_insert(animator, FCK_COMMON_ANIMATION_JUMP_UP, FCK_ANIMATION_TYPE_ONCE, 58, 7, 120, 0.0f, -32.0f);
-	fck_animator_insert(animator, FCK_COMMON_ANIMATION_JUMP_FORWARD, FCK_ANIMATION_TYPE_ONCE, 52, 6, 120, 0.0f, -32.0f);
-	fck_animator_insert(animator, FCK_COMMON_ANIMATION_JUMP_BACKWARD, FCK_ANIMATION_TYPE_ONCE, 65, 6, 120, 0.0f, -32.0f);
-	fck_animator_insert(animator, FCK_COMMON_ANIMATION_WALK_FORWARD, FCK_ANIMATION_TYPE_LOOP, 84, 12, 40, -5.0f, -10.0f);
-	fck_animator_insert(animator, FCK_COMMON_ANIMATION_WALK_BACKWARD, FCK_ANIMATION_TYPE_LOOP, 96, 12, 40, -5.0f, -10.0f);
-	fck_animator_insert(animator, FCK_COMMON_ANIMATION_PUNCH_A, FCK_ANIMATION_TYPE_ONCE, 118, 3, 60, 0.0f, 0.0f);
-	fck_animator_insert(animator, FCK_COMMON_ANIMATION_PUNCH_B, FCK_ANIMATION_TYPE_ONCE, 121, 3, 60, 0.0f, 0.0f);
-	fck_animator_insert(animator, FCK_COMMON_ANIMATION_KICK_A, FCK_ANIMATION_TYPE_ONCE, 130, 5, 60, 0.0f, 0.0f);
-	// Something is missing for this anim
-	fck_animator_insert(animator, FCK_COMMON_ANIMATION_KICK_B, FCK_ANIMATION_TYPE_ONCE, 145, 3, 120, -24.0f, -16.0f);
-	fck_animator_set(animator, FCK_COMMON_ANIMATION_IDLE);
 }
 
 struct fck_stream_writer
@@ -416,24 +331,85 @@ struct fck_stream_reader
 };
 
 template <typename type>
-void fck_serialize(fck_stream_writer writer, type *data)
+void fck_serialize(fck_stream_writer *writer, type *data)
 {
-	fck_memory_stream_write(writer.stream, data, sizeof(*data));
+	fck_memory_stream_write(writer->stream, data, sizeof(*data));
 }
 
 template <typename type>
-void fck_serialize(fck_stream_reader writer, type *data)
+void fck_serialize(fck_stream_reader *reader, type *data)
 {
-	data = fck_memory_stream_read(writer.stream, sizeof(*data));
+	data = (type *)fck_memory_stream_read(reader->stream, sizeof(*data));
+}
+
+constexpr uint32_t fck_start_port = 42069;
+uint32_t fck_end_port = fck_start_port;
+
+uint16_t port_dispenser = 42069;
+
+void networking_setup(fck_ecs *ecs, fck_system_once_info *)
+{
+	int local_address_count;
+
+	fck_instance_info *info = fck_ecs_unique_view<fck_instance_info>(ecs);
+
+	cnt_session *session = fck_ecs_unique_set_empty<cnt_session>(ecs);
+	constexpr size_t tick_rate = 1000; // 1000 / 120; // 120 tick server, baby. Esports ready
+	cnt_session_alloc(session, 4, 128, 64, tick_rate);
+	cnt_socket_handle socket_handle = cnt_session_socket_create(session, info->ip, info->source_port);
+	if (info->destination_port != 0)
+	{
+		cnt_address_handle address_handle = cnt_session_address_create(session, info->ip, info->destination_port);
+		cnt_session_connect(session, &socket_handle, &address_handle);
+	}
+}
+
+void networking_process(fck_ecs *ecs, fck_system_update_info *)
+{
+	cnt_session *session = fck_ecs_unique_view<cnt_session>(ecs);
+	fck_time *time = fck_ecs_unique_view<fck_time>(ecs);
+
+	cnt_session_tick(session, time->current, time->delta);
+}
+
+void cammy_setup(fck_ecs *ecs, fck_system_once_info *)
+{
+	fck_engine *engine = fck_ecs_unique_view<fck_engine>(ecs);
+	fck_ecs::entity_type cammy = fck_ecs_entity_create(ecs);
+
+	fck_controller *controller = fck_ecs_component_set_empty<fck_controller>(ecs, cammy);
+	fck_animator *animator = fck_ecs_component_set_empty<fck_animator>(ecs, cammy);
+	fck_position *position = fck_ecs_component_set_empty<fck_position>(ecs, cammy);
+	fck_spritesheet *spritesheet = fck_ecs_component_set_empty<fck_spritesheet>(ecs, cammy);
+	CHECK_ERROR(fck_spritesheet_load(engine->renderer, "cammy.png", spritesheet, false), SDL_GetError());
+	position->x = 0.0f;
+	position->y = 128.0f + (cammy * 32);
+
+	fck_animator_alloc(animator, spritesheet);
+
+	fck_animator_insert(animator, spritesheet, FCK_COMMON_ANIMATION_IDLE, FCK_ANIMATION_TYPE_LOOP, 24, 8, 60, 0.0f, 0.0f);
+	fck_animator_insert(animator, spritesheet, FCK_COMMON_ANIMATION_CROUCH, FCK_ANIMATION_TYPE_ONCE, 35, 3, 40, 0.0f, 0.0f);
+	fck_animator_insert(animator, spritesheet, FCK_COMMON_ANIMATION_JUMP_UP, FCK_ANIMATION_TYPE_ONCE, 58, 7, 120, 0.0f, -32.0f);
+	fck_animator_insert(animator, spritesheet, FCK_COMMON_ANIMATION_JUMP_FORWARD, FCK_ANIMATION_TYPE_ONCE, 52, 6, 120, 0.0f, -32.0f);
+	fck_animator_insert(animator, spritesheet, FCK_COMMON_ANIMATION_JUMP_BACKWARD, FCK_ANIMATION_TYPE_ONCE, 65, 6, 120, 0.0f, -32.0f);
+	fck_animator_insert(animator, spritesheet, FCK_COMMON_ANIMATION_WALK_FORWARD, FCK_ANIMATION_TYPE_LOOP, 84, 12, 40, -5.0f, -10.0f);
+	fck_animator_insert(animator, spritesheet, FCK_COMMON_ANIMATION_WALK_BACKWARD, FCK_ANIMATION_TYPE_LOOP, 96, 12, 40, -5.0f, -10.0f);
+	fck_animator_insert(animator, spritesheet, FCK_COMMON_ANIMATION_PUNCH_A, FCK_ANIMATION_TYPE_ONCE, 118, 3, 60, 0.0f, 0.0f);
+	fck_animator_insert(animator, spritesheet, FCK_COMMON_ANIMATION_PUNCH_B, FCK_ANIMATION_TYPE_ONCE, 121, 3, 60, 0.0f, 0.0f);
+	fck_animator_insert(animator, spritesheet, FCK_COMMON_ANIMATION_KICK_A, FCK_ANIMATION_TYPE_ONCE, 130, 5, 60, 0.0f, 0.0f);
+	// Something is missing for this anim
+	fck_animator_insert(animator, spritesheet, FCK_COMMON_ANIMATION_KICK_B, FCK_ANIMATION_TYPE_ONCE, 145, 3, 120, -24.0f, -16.0f);
+	fck_animator_set(animator, FCK_COMMON_ANIMATION_IDLE);
 }
 
 struct fck_instance
 {
 	fck_ecs ecs;
 	fck_engine *engine;
+	fck_instance_info *info;
 };
 
-void fck_instance_alloc(fck_instance *instance)
+void fck_instance_alloc(fck_instance *instance, fck_instance_info const *info)
 {
 	SDL_assert(instance != nullptr);
 
@@ -459,6 +435,9 @@ void fck_instance_alloc(fck_instance *instance)
 	// We flush the once systems since they might be relevant for startup
 	// Adding once system during once system might file - We should enable that
 	// If we queue a once system during a once system, what should happen?
+
+	instance->info = fck_ecs_unique_set<fck_instance_info>(&instance->ecs, info);
+
 	fck_ecs_flush_system_once(&instance->ecs);
 }
 
@@ -467,10 +446,10 @@ void fck_instance_free(fck_instance *instance)
 	SDL_assert(instance != nullptr);
 
 	// Not so pretty for now, but for development (ports) reasons, we would like to dealloc it
-	fck_networking *networking = fck_ecs_unique_view<fck_networking>(&instance->ecs);
-	if (networking != nullptr)
+	cnt_session *session = fck_ecs_unique_view<cnt_session>(&instance->ecs);
+	if (session != nullptr)
 	{
-		fck_networking_free(networking);
+		cnt_session_free(session);
 	}
 	// We ignore free-ing memory for now
 	// Since the ECS exists in this scope and we pass it along, we are pretty much
@@ -536,12 +515,12 @@ bool fck_instances_any_active(fck_instances *instances)
 	return is_any_instance_running;
 }
 
-fck_instance *fck_instances_add(fck_instances *instances)
+fck_instance *fck_instances_add(fck_instances *instances, fck_instance_info const *info)
 {
 	SDL_assert(instances != nullptr);
 
 	fck_instance instance;
-	fck_instance_alloc(&instance);
+	fck_instance_alloc(&instance, info);
 	SDL_WindowID id = SDL_GetWindowID(instance.engine->window);
 	return fck_sparse_array_emplace(&instances->data, id, &instance);
 }
@@ -558,6 +537,8 @@ void fck_instances_remove(fck_instances *instances, SDL_WindowID const *windowId
 
 	SDL_WindowID id = *windowId;
 	fck_instance *instance = fck_instances_view(instances, &id);
+	// Hide the window before destroying it so MacOS deals with it better
+	CHECK_WARNING(SDL_HideWindow(instance->engine->window), SDL_GetError());
 
 	fck_instance_free(instance);
 	fck_sparse_array_remove(&instances->data, id);
@@ -575,7 +556,6 @@ void fck_instances_process_events(fck_instances *instances)
 		fck_instances_remove(instances, id);
 	}
 	fck_dense_list_clear(&instances->pending_destroyed);
-
 	SDL_Event ev;
 	while (SDL_PollEvent(&ev))
 	{
@@ -635,36 +615,49 @@ int main(int argc, char **argv)
 #endif // FCK_STUDENT_MODE
 	CHECK_CRITICAL(SDL_InitSubSystem(SDL_INIT_VIDEO | SDL_INIT_EVENTS), SDL_GetError());
 	CHECK_CRITICAL(IMG_Init(IMG_INIT_PNG), SDL_GetError());
-	CHECK_CRITICAL(SDLNet_Init() != -1, SDL_GetError())
 
 	fck_instances instances;
 	fck_instances_alloc(&instances, 8);
 
-	for (int index = 0; index < 2; index++)
+	constexpr uint16_t instance_count = 2;
+	constexpr uint16_t source_ports[instance_count] = {42069, 42072};
+	constexpr uint16_t destination_ports[instance_count] = {42072, 42069};
+
+	for (uint16_t index = 0; index < instance_count; index++)
 	{
-		fck_instances_add(&instances);
+		// Entry point to inject something custom
+		fck_instance_info info;
+		info.ip = "127.0.0.1";
+		info.source_port = source_ports[index];
+		info.destination_port = destination_ports[index];
+		fck_instance *instance = fck_instances_add(&instances, &info);
 	}
 
-	Uint64 tp = SDL_GetTicks();
+	fck_millisecond tp = SDL_GetTicks();
 	while (fck_instances_any_active(&instances))
 	{
 		// Maybe global control later
-		Uint64 now = SDL_GetTicks();
-		Uint64 delta_time = now - tp;
+		fck_millisecond now = SDL_GetTicks();
+		fck_millisecond delta_time = now - tp;
 		tp = now;
+
+		for (fck_instance *instance : &instances)
+		{
+			fck_time *time = fck_ecs_unique_view<fck_time>(&instance->ecs);
+			time->current = tp;
+			time->delta = delta_time;
+		}
 
 		fck_instances_process_events(&instances);
 
 		for (fck_instance *instance : &instances)
 		{
-			instance->engine->delta_time = delta_time;
 			fck_ecs_tick(&instance->ecs);
 		}
 	}
 
 	fck_instances_free(&instances);
 
-	SDLNet_Quit();
 	IMG_Quit();
 	SDL_Quit();
 

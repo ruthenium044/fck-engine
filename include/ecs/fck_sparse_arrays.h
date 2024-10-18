@@ -57,13 +57,13 @@ bool fck_sparse_arrays_is_valid(fck_sparse_arrays<index_type, types...> *array, 
 template <typename functor, typename index_type, typename value_type, typename... types>
 void fck_sparse_arrays_apply(fck_sparse_arrays<index_type, value_type, types...> *arrays, functor func)
 {
-	fck_sparse_array<index_type, value_type> *array = arrays->tuple.value;
 	if (!fck_sparse_arrays_tuple_exists_combine(&arrays->tuple))
 	{
 		// Nothing to iterate! Set is empty! :)
 		return;
 	}
 
+	fck_sparse_array<index_type, value_type> *array = arrays->tuple.value;
 	for (fck_item<index_type, value_type> item : array)
 	{
 		index_type *index = item.index;
@@ -84,13 +84,13 @@ template <typename functor, typename index_type, typename value_type, typename..
 void fck_sparse_arrays_apply_with_entity(fck_sparse_arrays<index_type, value_type, types...> *arrays, functor func)
 {
 
-	fck_sparse_array<index_type, value_type> *array = arrays->tuple.value;
 	if (!fck_sparse_arrays_tuple_exists_combine(&arrays->tuple))
 	{
 		// Nothing to iterate! Set is empty! :)
 		return;
 	}
-
+	// TODO: Select the one with the smallest count
+	fck_sparse_array<index_type, value_type> *array = arrays->tuple.value;
 	for (fck_item<index_type, value_type> item : array)
 	{
 		index_type *index = item.index;

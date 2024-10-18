@@ -153,6 +153,25 @@ void fck_sparse_array_remove(fck_sparse_array<index_type, value_type> *list, typ
 	fck_sparse_lookup_set(&list->sparse, index, &invalid);
 }
 
+template <typename index_type>
+void fck_sparse_array_remove(fck_sparse_array<index_type, void> *list, typename fck_ignore_deduction<index_type>::type index,
+                             size_t type_size_bytes)
+{
+	SDL_assert(list != nullptr);
+
+	static constexpr index_type invalid = fck_sparse_array<index_type, void>::index_info::invalid;
+
+	index_type dense_index = fck_sparse_lookup_get(&list->sparse, index);
+	index_type last_owner = fck_dense_list_get(&list->owner, list->dense.count - 1);
+
+	// Update structure
+	fck_dense_list_remove(&list->dense, dense_index, type_size_bytes);
+
+	fck_dense_list_remove(&list->owner, dense_index);
+	fck_sparse_lookup_set(&list->sparse, last_owner, &dense_index);
+	fck_sparse_lookup_set(&list->sparse, index, &invalid);
+}
+
 template <typename index_type, typename value_type>
 fck_iterator<fck_item<index_type, value_type>> begin(fck_sparse_array<index_type, value_type> *list)
 {

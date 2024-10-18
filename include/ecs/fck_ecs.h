@@ -14,6 +14,11 @@
 template <typename index_type>
 using fck_sparse_array_void_type = fck_sparse_array<index_type, void>;
 
+struct fck_component_element_header
+{
+	size_t size;
+};
+
 struct fck_ecs
 {
 	using entity_type = uint32_t;
@@ -38,6 +43,7 @@ struct fck_ecs
 	template <typename value_type>
 	using sparse_array = fck_sparse_array<entity_type, value_type>;
 
+	fck_sparse_array<component_id, fck_component_element_header> component_headers;
 	fck_sparse_array<component_id, sparse_array_void_type> components;
 	entity_type capacity;
 
@@ -64,6 +70,7 @@ inline void fck_ecs_alloc(fck_ecs *ecs, fck_ecs_alloc_info const *info)
 	fck_uniform_buffer_alloc_info buffer_alloc_info = {4096, 32};
 	fck_uniform_buffer_alloc(&ecs->uniform_buffer, &buffer_alloc_info);
 
+	fck_sparse_array_alloc(&ecs->component_headers, info->component_capacity);
 	fck_sparse_array_alloc(&ecs->components, info->component_capacity);
 	fck_sparse_list_alloc(&ecs->entities, info->entity_capacity);
 	fck_sparse_lookup_alloc(&ecs->update_system_states, info->system_capacity, FCK_ECS_SYSTEM_STATE_RUN);
@@ -76,6 +83,7 @@ inline void fck_ecs_free(fck_ecs *ecs)
 	SDL_assert(ecs != nullptr);
 
 	fck_uniform_buffer_free(&ecs->uniform_buffer);
+	fck_sparse_array_free(&ecs->component_headers);
 	fck_sparse_array_free(&ecs->components);
 	fck_sparse_list_free(&ecs->entities);
 	fck_sparse_lookup_free(&ecs->update_system_states);
@@ -108,12 +116,27 @@ type *fck_ecs_unique_view(fck_ecs *ecs)
 
 inline fck_ecs::entity_type fck_ecs_entity_create(fck_ecs *ecs)
 {
+	SDL_assert(ecs != nullptr);
+
 	ecs->entity_counter++;
 	return fck_sparse_list_add(&ecs->entities, &ecs->entity_counter);
 }
 
 inline void fck_ecs_entity_destroy(fck_ecs *ecs, fck_ecs::entity_type entity)
 {
+	SDL_assert(ecs != nullptr);
+
+	for (fck_item<fck_ecs::component_id, fck_component_element_header> item : &ecs->component_headers)
+	{
+		fck_ecs::component_id *id = item.index;
+		fck_component_element_header *header = item.value;
+		fck_ecs::sparse_array_void_type *components = fck_sparse_array_view(&ecs->components, *id);
+		if (fck_sparse_array_exists(components, entity))
+		{
+			fck_sparse_array_remove(components, entity, header->size);
+		}
+	}
+
 	ecs->entity_counter--;
 	return fck_sparse_list_remove(&ecs->entities, entity);
 }
@@ -135,6 +158,10 @@ void fck_ecs_component_set(fck_ecs *table, fck_ecs::entity_type index, type cons
 	fck_ecs::sparse_array_void_type *out_ptr;
 	if (!fck_sparse_array_try_view(&table->components, component_id, &out_ptr))
 	{
+		fck_component_element_header header;
+		header.size = sizeof(*value);
+		fck_sparse_array_emplace(&table->component_headers, component_id, &header);
+
 		fck_ecs::sparse_array<type> components;
 		fck_sparse_array_alloc(&components, table->capacity);
 
@@ -157,6 +184,10 @@ type *fck_ecs_component_set_empty(fck_ecs *table, fck_ecs::entity_type index)
 	fck_ecs::sparse_array_void_type *out_ptr;
 	if (!fck_sparse_array_try_view(&table->components, component_id, &out_ptr))
 	{
+		fck_component_element_header header;
+		header.size = sizeof(type);
+		fck_sparse_array_emplace(&table->component_headers, component_id, &header);
+
 		fck_ecs::sparse_array<type> components;
 		fck_sparse_array_alloc(&components, table->capacity);
 

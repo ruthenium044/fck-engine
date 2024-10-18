@@ -35,7 +35,7 @@ struct fck_animation
 
 struct fck_animator
 {
-	fck_spritesheet *spritesheet;
+	// fck_spritesheet *spritesheet;
 	fck_animation animations[FCK_COMMON_ANIMATION_COUNT];
 
 	fck_animation *active_oneshot;
@@ -49,8 +49,9 @@ void fck_animator_alloc(fck_animator *animator, fck_spritesheet *spritsheet);
 
 void fck_animator_free(fck_animator *animator);
 
-void fck_animator_insert(fck_animator *animator, fck_common_animations anim, fck_animation_type animation_type, size_t start, size_t count,
-                         uint64_t frame_time_ms, float offset_x, float offset_y);
+void fck_animator_insert(fck_animator *animator, fck_spritesheet *spritesheet, fck_common_animations anim,
+                         fck_animation_type animation_type, size_t start, size_t count, uint64_t frame_time_ms, float offset_x,
+                         float offset_y);
 
 void fck_animator_set(fck_animator *animator, fck_common_animations anim);
 
@@ -60,7 +61,7 @@ bool fck_animator_is_playing(fck_animator *animator);
 
 bool fck_animator_update(fck_animator *animator, uint64_t delta_ms);
 
-SDL_FRect const *fck_animator_get_rect(fck_animator *animator);
+SDL_FRect const *fck_animator_get_rect(fck_animator *animator, fck_spritesheet *spritesheet);
 
 void fck_animator_apply(fck_animator *animator, SDL_FRect *rect, float scale);
 

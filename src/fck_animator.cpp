@@ -5,27 +5,22 @@ void fck_animator_alloc(fck_animator *animator, fck_spritesheet *spritsheet)
 {
 	SDL_assert(spritsheet != nullptr);
 	SDL_zerop(animator);
-
-	// What a hard dependency
-	animator->spritesheet = spritsheet;
 }
 
 void fck_animator_free(fck_animator *animator)
 {
 	SDL_assert(animator != nullptr);
-	animator->spritesheet = nullptr;
 }
 
-void fck_animator_insert(fck_animator *animator, fck_common_animations anim, fck_animation_type animation_type, size_t start, size_t count,
-                         uint64_t frame_time_ms, float offset_x, float offset_y)
+void fck_animator_insert(fck_animator *animator, fck_spritesheet *spritesheet, fck_common_animations anim,
+                         fck_animation_type animation_type, size_t start, size_t count, uint64_t frame_time_ms, float offset_x,
+                         float offset_y)
 {
 	SDL_assert(animator != nullptr);
-	SDL_assert(animator->spritesheet != nullptr && "Resource data for animator not set!");
 
 	fck_animation *animation = &animator->animations[anim];
-	SDL_assert(animation->rect_view.rect_list == nullptr && "Overwriting animation");
 
-	fck_rect_list_view_create(&animator->spritesheet->rect_list, start, count, &animation->rect_view);
+	fck_rect_list_view_create(&spritesheet->rect_list, start, count, &animation->rect_view);
 	animation->animation_type = animation_type;
 	animation->frame_time_ms = frame_time_ms;
 	animation->offset.x = offset_x;
@@ -74,11 +69,6 @@ bool fck_animator_update(fck_animator *animator, uint64_t delta_ms)
 		return false;
 	}
 
-	if (animator->active_animation->rect_view.rect_list == nullptr)
-	{
-		return false;
-	}
-
 	animator->time_accumulator_ms += delta_ms;
 
 	fck_animation *animation = animator->active_animation;
@@ -118,7 +108,7 @@ bool fck_animator_update(fck_animator *animator, uint64_t delta_ms)
 	return true;
 }
 
-SDL_FRect const *fck_animator_get_rect(fck_animator *animator)
+SDL_FRect const *fck_animator_get_rect(fck_animator *animator, fck_spritesheet *spritesheet)
 {
 	SDL_assert(animator != nullptr);
 	SDL_assert(animator->active_animation != nullptr);
@@ -129,7 +119,7 @@ SDL_FRect const *fck_animator_get_rect(fck_animator *animator)
 		animation = animator->active_oneshot;
 	}
 	fck_rect_list_view const *view = &animation->rect_view;
-	return fck_rect_list_view_get(view, animator->current_frame);
+	return fck_rect_list_view_get(&spritesheet->rect_list, view, animator->current_frame);
 }
 
 void fck_animator_apply(fck_animator *animator, SDL_FRect *rect, float scale)

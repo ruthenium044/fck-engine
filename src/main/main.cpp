@@ -92,6 +92,7 @@ using fck_millisecond = uint64_t;
 struct fck_time
 {
 	fck_millisecond delta;
+	// TODO: make it per-instance so each instance has its own instance time
 	fck_millisecond current;
 };
 
@@ -621,7 +622,7 @@ int main(int argc, char **argv)
 
 	constexpr uint16_t instance_count = 2;
 	constexpr uint16_t source_ports[instance_count] = {42069, 42072};
-	constexpr uint16_t destination_ports[instance_count] = {42072, 42069};
+	constexpr uint16_t destination_ports[instance_count] = {42072, 0};
 
 	for (uint16_t index = 0; index < instance_count; index++)
 	{

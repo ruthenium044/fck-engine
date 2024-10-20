@@ -23,4 +23,6 @@ void cnt_address_free(cnt_address *address);
 
 bool cnt_address_equals(cnt_address const *lhs, cnt_address const *rhs);
 
+void cnt_address_as_string(cnt_address *address, char *buffer, size_t length);
+
 #endif // CNT_TRANSPORT_INCLUDED

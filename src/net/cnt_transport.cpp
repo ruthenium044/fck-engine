@@ -256,3 +256,18 @@ bool cnt_address_equals(cnt_address const *lhs, cnt_address const *rhs)
 
 	return SDL_memcmp(lhs->ai_addr, rhs->ai_addr, lhs->ai_addrlen) == 0;
 }
+
+void cnt_address_as_string(cnt_address *address, char *buffer, size_t length)
+{
+	if (address->ai_family == AF_INET6)
+	{
+		SDL_snprintf(buffer, length, "TODO: Print IPv6");
+	}
+
+	if (address->ai_family == AF_INET)
+	{
+		sockaddr_in *in_addr = (sockaddr_in *)address->ai_addr;
+		uint8_t *ptr = (uint8_t *)&in_addr->sin_addr;
+		SDL_snprintf(buffer, length, "%d.%d.%d.%d:%d", ptr[0], ptr[1], ptr[2], ptr[3], ntohs(in_addr->sin_port));
+	}
+}

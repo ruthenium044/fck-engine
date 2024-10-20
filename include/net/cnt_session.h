@@ -31,10 +31,13 @@ struct cnt_address_handle
 
 enum cnt_connection_state
 {
-	CNT_CONNECTION_STATE_REQUESTED,
-	CNT_CONNECTION_STATE_REQUESTING,
+	CNT_CONNECTION_STATE_REQUEST_INCOMING,
+	CNT_CONNECTION_STATE_REQUEST_OUTGOING,
 	CNT_CONNECTION_STATE_CONNECTING,
 	CNT_CONNECTION_STATE_CONNECTED,
+	CNT_CONNECTION_STATE_REJECTED,
+	CNT_CONNECTION_STATE_WAITING_TO_CONNECT,
+	CNT_CONNECTION_STATE_ACKNOWLEDGE_CONNECTION
 };
 
 struct cnt_connection
@@ -44,12 +47,24 @@ struct cnt_connection
 	cnt_address_id destination;
 };
 
+struct cnt_socket_data
+{
+	cnt_socket socket;
+	cnt_address_id address;
+};
+
+struct cnt_address_data
+{
+	cnt_address *address;
+	char debug[64];
+};
+
 struct cnt_session
 {
 	using system_id = uint8_t;
 
-	fck_sparse_list<cnt_socket_id, cnt_socket> sockets;
-	fck_sparse_list<cnt_address_id, cnt_address *> addresses;
+	fck_sparse_list<cnt_socket_id, cnt_socket_data> sockets;
+	fck_sparse_list<cnt_address_id, cnt_address_data> addresses;
 	fck_sparse_list<cnt_connection_id, cnt_connection> connections;
 
 	uint64_t tick;

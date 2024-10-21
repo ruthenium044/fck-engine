@@ -58,9 +58,6 @@ template <typename index_type, typename value_type>
 void fck_sparse_lookup_set(fck_sparse_lookup<index_type, value_type> *list, typename fck_ignore_deduction<index_type>::type at,
                            value_type const *value)
 {
-	SDL_assert(list != nullptr);
-	SDL_assert(list->data != nullptr);
-	SDL_assert(list->capacity > at);
 	fck_sparse_lookup_assert_in_range(list, at);
 
 	list->data[at] = *value;
@@ -69,9 +66,6 @@ void fck_sparse_lookup_set(fck_sparse_lookup<index_type, value_type> *list, type
 template <typename index_type, typename value_type>
 value_type *fck_sparse_lookup_view(fck_sparse_lookup<index_type, value_type> *list, typename fck_ignore_deduction<index_type>::type at)
 {
-	SDL_assert(list != nullptr);
-	SDL_assert(list->data != nullptr);
-	SDL_assert(list->capacity > at);
 	fck_sparse_lookup_assert_in_range(list, at);
 
 	return &list->data[at];

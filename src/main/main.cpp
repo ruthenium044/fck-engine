@@ -355,7 +355,7 @@ void networking_setup(fck_ecs *ecs, fck_system_once_info *)
 	fck_instance_info *info = fck_ecs_unique_view<fck_instance_info>(ecs);
 
 	cnt_session *session = fck_ecs_unique_set_empty<cnt_session>(ecs);
-	constexpr size_t tick_rate = 1000; // 1000 / 120; // 120 tick server, baby. Esports ready
+	constexpr size_t tick_rate = 1000 / 120; // 120 tick server, baby. Esports ready
 	cnt_session_alloc(session, 4, 128, 64, tick_rate);
 	cnt_socket_handle socket_handle = cnt_session_socket_create(session, info->ip, info->source_port);
 	if (info->destination_port != 0)

@@ -5,6 +5,12 @@
 #include "fck_type_pack.h"
 #include <SDL3/SDL_stdinc.h>
 
+template <typename first, typename... types>
+struct fck_first_type
+{
+	using type = first;
+};
+
 // TODO: this file needs some cleanup for sure
 template <bool B, class T, class F>
 struct fck_conditional

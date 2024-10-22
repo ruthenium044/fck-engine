@@ -175,11 +175,12 @@ void input_process(fck_ecs *ecs, fck_system_update_info *)
 
 void gameplay_process(fck_ecs *ecs, fck_system_update_info *)
 {
+	cnt_session *session = fck_ecs_unique_view<cnt_session>(ecs);
 	fck_engine *engine = fck_ecs_unique_view<fck_engine>(ecs);
 
 	// STATE EVAL
 	// Movement
-	fck_ecs_apply(ecs, [](fck_controller *controller, fck_position *position) {
+	fck_ecs_apply(ecs, [session](fck_controller *controller, fck_position *position) {
 		fck_input_flag input_flag = controller->input;
 		if (input_flag < FCK_INPUT_FLAG_MOVEMENT_END)
 		{
@@ -343,10 +344,30 @@ void fck_serialize(fck_stream_reader *reader, type *data)
 	data = (type *)fck_memory_stream_read(reader->stream, sizeof(*data));
 }
 
-constexpr uint32_t fck_start_port = 42069;
-uint32_t fck_end_port = fck_start_port;
+void networking_process(fck_ecs *ecs, fck_system_update_info *)
+{
+	cnt_session *session = fck_ecs_unique_view<cnt_session>(ecs);
+	fck_time *time = fck_ecs_unique_view<fck_time>(ecs);
 
-uint16_t port_dispenser = 42069;
+	fck_ecs::entity_list *outgoing_entities = &ecs->entities.dense;
+	cnt_session_send_to_all(session, &outgoing_entities->count, sizeof(outgoing_entities->count));
+	cnt_session_send_to_all(session, outgoing_entities->data, outgoing_entities->count);
+
+	cnt_memory_view view;
+	if (cnt_session_try_receive_from(session, &view))
+	{
+		fck_ecs::entity_type count = *(fck_ecs::entity_type *)view.data;
+		if (cnt_session_try_receive_from(session, &view))
+		{
+			fck_ecs::entity_list incoming_entities;
+			incoming_entities.data = (fck_ecs::entity_type *)view.data;
+			incoming_entities.count = count;
+			incoming_entities.capacity = count;
+		}
+	}
+
+	cnt_session_tick(session, time->current, time->delta);
+}
 
 void networking_setup(fck_ecs *ecs, fck_system_once_info *)
 {
@@ -363,14 +384,8 @@ void networking_setup(fck_ecs *ecs, fck_system_once_info *)
 		cnt_address_handle address_handle = cnt_session_address_create(session, info->ip, info->destination_port);
 		cnt_session_connect(session, &socket_handle, &address_handle);
 	}
-}
 
-void networking_process(fck_ecs *ecs, fck_system_update_info *)
-{
-	cnt_session *session = fck_ecs_unique_view<cnt_session>(ecs);
-	fck_time *time = fck_ecs_unique_view<fck_time>(ecs);
-
-	cnt_session_tick(session, time->current, time->delta);
+	fck_ecs_system_add(ecs, networking_process);
 }
 
 void cammy_setup(fck_ecs *ecs, fck_system_once_info *)
@@ -423,7 +438,6 @@ void fck_instance_alloc(fck_instance *instance, fck_instance_info const *info)
 	fck_ecs_system_add(&instance->ecs, cammy_setup);
 
 	// Good old fasioned update systems
-	fck_ecs_system_add(&instance->ecs, networking_process);
 	fck_ecs_system_add(&instance->ecs, input_process);
 	fck_ecs_system_add(&instance->ecs, gameplay_process);
 	fck_ecs_system_add(&instance->ecs, animations_process);

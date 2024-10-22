@@ -43,6 +43,11 @@ struct fck_ecs
 	template <typename value_type>
 	using sparse_array = fck_sparse_array<entity_type, value_type>;
 
+	template <typename value_type>
+	using dense_list = fck_dense_list<entity_type, value_type>;
+
+	using entity_list = dense_list<entity_type>;
+
 	fck_sparse_array<component_id, fck_component_element_header> component_headers;
 	fck_sparse_array<component_id, sparse_array_void_type> components;
 	entity_type capacity;
@@ -120,6 +125,17 @@ inline fck_ecs::entity_type fck_ecs_entity_create(fck_ecs *ecs)
 
 	ecs->entity_counter++;
 	return fck_sparse_list_add(&ecs->entities, &ecs->entity_counter);
+}
+
+inline void fck_ecs_entity_emplace(fck_ecs *ecs, fck_ecs::entity_type entity)
+{
+	SDL_assert(ecs != nullptr);
+
+	if (!fck_sparse_list_exists(&ecs->entities, entity))
+	{
+		ecs->entity_counter++;
+		fck_sparse_list_emplace(&ecs->entities, entity, &ecs->entity_counter);
+	}
 }
 
 inline void fck_ecs_entity_destroy(fck_ecs *ecs, fck_ecs::entity_type entity)
@@ -239,6 +255,17 @@ fck_sparse_arrays<fck_ecs::entity_type, types...> fck_ecs_view(fck_ecs *table)
 	SDL_zero(result);
 
 	fck_ecs_fetch_multi(table, &result.tuple);
+
+	return result;
+}
+
+template <typename type>
+fck_ecs::sparse_array<type> fck_ecs_view_single(fck_ecs *table)
+{
+	fck_ecs::sparse_array<type> result;
+	SDL_zero(result);
+
+	fck_ecs_fetch_single(table, &result.tuple);
 
 	return result;
 }

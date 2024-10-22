@@ -71,7 +71,7 @@ struct cnt_frame
 	cnt_socket_id owner;
 	uint64_t generation;
 
-	uint8_t at;
+	uint16_t at;
 	uint16_t length;
 };
 
@@ -80,9 +80,17 @@ struct cnt_socket_memory_buffer
 	// Maybe using the dense list here is a bit shit
 	static constexpr uint16_t capacity = ~0;
 	uint8_t *data;
-	uint16_t count;
+	uint16_t length;
 
 	uint64_t generation;
+};
+
+struct cnt_memory_view
+{
+	cnt_frame_info info;
+
+	uint8_t *data;
+	uint16_t length;
 };
 
 struct cnt_session
@@ -113,6 +121,6 @@ void cnt_session_free(cnt_session *session);
 void cnt_session_tick(cnt_session *session, uint64_t time, uint64_t delta_time);
 
 void cnt_session_send_to_all(cnt_session *session, void *data, size_t count);
-bool cnt_session_try_receive_from(cnt_session *session, cnt_frame_info *frame, void *data, size_t count);
+bool cnt_session_try_receive_from(cnt_session *session, cnt_memory_view *view);
 
 #endif // CNT_CONNECTION_INCLUDED

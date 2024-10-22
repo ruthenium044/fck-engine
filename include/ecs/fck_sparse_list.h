@@ -71,13 +71,13 @@ void fck_sparse_list_free(fck_sparse_list<index_type, value_type> *list)
 }
 
 template <typename index_type, typename value_type>
-bool fck_sparse_list_exists(fck_sparse_list<index_type, value_type> *list, typename fck_ignore_deduction<index_type>::type *index)
+bool fck_sparse_list_exists(fck_sparse_list<index_type, value_type> *list, typename fck_ignore_deduction<index_type>::type index)
 {
 	SDL_assert(list != nullptr);
 
 	static constexpr index_type free_mask = fck_sparse_list<index_type, value_type>::index_info::free_mask;
 
-	return (fck_sparse_lookup_get(list->sparse, index) & free_mask) != free_mask;
+	return (fck_sparse_lookup_get(&list->sparse, index) & free_mask) != free_mask;
 }
 
 template <typename index_type, typename value_type>

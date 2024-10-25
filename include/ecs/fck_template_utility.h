@@ -89,7 +89,7 @@ struct fck_indexer_info<uint64_t>
 	using type = uint64_t;
 	static constexpr bool is_implemented = true;
 	static constexpr uint64_t invalid = ~0ul;
-	static constexpr uint64_t free_mask = 1ul << 63;
+	static constexpr uint64_t free_mask = 1ull << 63;
 };
 
 template <typename pointer_type>

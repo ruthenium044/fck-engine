@@ -1,6 +1,7 @@
 #ifndef CNT_CONNECTION_INCLUDED
 #define CNT_CONNECTION_INCLUDED
 
+// TODO: Get rid of this header and move it to src
 #include "cnt_transport.h"
 #include "ecs/fck_queue.h"
 #include "ecs/fck_sparse_array.h"
@@ -54,7 +55,7 @@ struct cnt_socket_data
 
 struct cnt_address_data
 {
-	cnt_address *address;
+	cnt_address address;
 	char debug[64];
 };
 

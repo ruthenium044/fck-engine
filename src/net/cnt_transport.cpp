@@ -202,11 +202,11 @@ cnt_socket cnt_socket_create(const char *ip, uint16_t port)
 	return socket_handle;
 }
 
-size_t cnt_send(cnt_socket socket, void *buf, size_t count, cnt_address *to)
+int cnt_send(cnt_socket socket, void *buf, size_t count, cnt_address *to)
 {
 	SDL_assert(socket != -1);
 	cnt_address_internal *address = as_internal_address(to);
-	size_t bytes_sent = sendto(socket, (char *)buf, count, 0, &address->addr, address->addrlen);
+	int bytes_sent = sendto(socket, (char *)buf, count, 0, &address->addr, address->addrlen);
 
 	if (bytes_sent == -1)
 	{
@@ -220,13 +220,13 @@ size_t cnt_send(cnt_socket socket, void *buf, size_t count, cnt_address *to)
 	return bytes_sent;
 }
 
-size_t cnt_recv(cnt_socket socket, uint8_t *buf, size_t count, cnt_address *from)
+int cnt_recv(cnt_socket socket, uint8_t *buf, size_t count, cnt_address *from)
 {
 	SDL_assert(socket != -1);
 	cnt_sockaddr_storage storage;
 
 	cnt_socklen socket_length = sizeof(storage);
-	size_t bytes_rcvd = recvfrom(socket, (char *)buf, count, 0, (struct sockaddr *)&storage, &socket_length);
+	int bytes_rcvd = recvfrom(socket, (char *)buf, count, 0, (struct sockaddr *)&storage, &socket_length);
 
 	if (bytes_rcvd == -1)
 	{
@@ -281,6 +281,6 @@ void cnt_address_as_string(cnt_address *addr, char *buffer, size_t length)
 	{
 		sockaddr_in *in_addr = &address->in;
 		uint8_t *ptr = (uint8_t *)&in_addr->sin_addr;
-		SDL_snprintf(buffer, length, "%d.%d.%d.%d:%d", ptr[0], ptr[1], ptr[2], ptr[3], ntohs(in_addr->sin_port));
+		SDL_snprintf(buffer, length, "%d.%d.%d.%d:%d", ptr[0], ptr[1], ptr[2], ptr[3], in_addr->sin_port);
 	}
 }

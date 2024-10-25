@@ -7,7 +7,7 @@
 #include "ecs/fck_sparse_array.h"
 #include "ecs/fck_sparse_list.h"
 
-using fck_millisecond = uint64_t;
+using fck_milliseconds = uint64_t;
 
 using cnt_socket_id = uint8_t;
 using cnt_address_id = uint8_t;
@@ -44,6 +44,7 @@ struct cnt_connection
 	cnt_socket_id source;
 	cnt_address_id destination;
 
+	fck_milliseconds last_timestamp;
 	uint32_t secret;
 };
 
@@ -108,8 +109,8 @@ struct cnt_session
 	fck_queue<uint16_t, cnt_frame> recv_frames;
 
 	uint64_t tick;
-	fck_millisecond tick_rate;
-	fck_millisecond tick_time_accumulator;
+	fck_milliseconds tick_rate;
+	fck_milliseconds tick_time_accumulator;
 };
 
 cnt_address_handle cnt_session_address_create(cnt_session *session, char const *ip, uint16_t port);
@@ -119,7 +120,7 @@ void cnt_session_connect(cnt_session *session, cnt_socket_handle const *socket, 
 void cnt_session_alloc(cnt_session *session, cnt_socket_id socket_capacity, cnt_address_id address_capacity,
                        cnt_connection_id connection_capacity, uint64_t tick_rate);
 void cnt_session_free(cnt_session *session);
-void cnt_session_tick(cnt_session *session, uint64_t time, uint64_t delta_time);
+void cnt_session_tick(cnt_session *session, fck_milliseconds time, fck_milliseconds delta_time);
 
 void cnt_session_send_to_all(cnt_session *session, void *data, size_t count);
 bool cnt_session_try_receive_from(cnt_session *session, cnt_memory_view *view);

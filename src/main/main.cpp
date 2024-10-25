@@ -87,13 +87,13 @@ enum fck_input_flag
 	FCK_INPUT_FLAG_KICK_B = 1 << FCK_INPUT_TYPE_KICK_B,
 };
 
-using fck_millisecond = uint64_t;
+using fck_milliseconds = uint64_t;
 
 struct fck_time
 {
-	fck_millisecond delta;
+	fck_milliseconds delta;
 	// TODO: make it per-instance so each instance has its own instance time
-	fck_millisecond current;
+	fck_milliseconds current;
 };
 
 struct fck_controller
@@ -648,12 +648,12 @@ int main(int argc, char **argv)
 		fck_instance *instance = fck_instances_add(&instances, &info);
 	}
 
-	fck_millisecond tp = SDL_GetTicks();
+	fck_milliseconds tp = SDL_GetTicks();
 	while (fck_instances_any_active(&instances))
 	{
 		// Maybe global control later
-		fck_millisecond now = SDL_GetTicks();
-		fck_millisecond delta_time = now - tp;
+		fck_milliseconds now = SDL_GetTicks();
+		fck_milliseconds delta_time = now - tp;
 		tp = now;
 
 		for (fck_instance *instance : &instances)

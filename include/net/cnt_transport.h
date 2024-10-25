@@ -15,9 +15,9 @@ constexpr const char *CNT_IPV4_ANY = "0.0.0.0";
 
 cnt_socket cnt_socket_create(const char *ip, uint16_t port);
 
-size_t cnt_send(cnt_socket socket, void *buf, size_t count, cnt_address *to);
+int cnt_send(cnt_socket socket, void *buf, size_t count, cnt_address *to);
 
-size_t cnt_recv(cnt_socket socket, uint8_t *buf, size_t count, cnt_address *from);
+int cnt_recv(cnt_socket socket, uint8_t *buf, size_t count, cnt_address *from);
 
 void cnt_socket_destroy(cnt_socket socket);
 

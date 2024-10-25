@@ -191,7 +191,7 @@ void cnt_session_connect(cnt_session *session, cnt_socket_handle const *socket, 
 	cnt_connection connection;
 	connection.source = socket->id;
 	connection.destination = address->id;
-
+	connection.last_timestamp = 0;
 	for (fck_item<cnt_address_id, cnt_connection> item : &session->connections)
 	{
 		cnt_connection *current = item.value;
@@ -220,7 +220,7 @@ bool cnt_session_fetch_data(cnt_session *session, cnt_connection *connection, cn
 	return true;
 }
 
-void cnt_session_tick_connecting(cnt_session *session, cnt_connection *connection, uint64_t time, uint64_t delta_time)
+void cnt_session_tick_connecting(cnt_session *session, cnt_connection *connection, fck_milliseconds time, fck_milliseconds delta_time)
 {
 	cnt_socket_data sock;
 	cnt_address_data address;
@@ -244,9 +244,10 @@ void cnt_session_tick_connecting(cnt_session *session, cnt_connection *connectio
 	SDL_Log("%llu, %s connects to %s", (uint64_t)session, socket_to_string(session, connection->source), address.debug);
 
 	connection->state = CNT_CONNECTION_STATE_REQUEST_OUTGOING;
+	connection->last_timestamp = time;
 }
 
-void cnt_session_tick_accepts(cnt_session *session, cnt_connection *connection, uint64_t time, uint64_t delta_time)
+void cnt_session_tick_accepts(cnt_session *session, cnt_connection *connection, fck_milliseconds time, fck_milliseconds delta_time)
 {
 	cnt_socket_data sock;
 	cnt_address_data address;
@@ -274,7 +275,7 @@ void cnt_session_tick_accepts(cnt_session *session, cnt_connection *connection, 
 	        connection->secret);
 }
 
-void cnt_session_tick_rejects(cnt_session *session, cnt_connection *connection, uint64_t time, uint64_t delta_time)
+void cnt_session_tick_rejects(cnt_session *session, cnt_connection *connection, fck_milliseconds time, fck_milliseconds delta_time)
 {
 	// TODO: All these patterns with early return and fetching should NEVER actually be true and cause early return. Fix and make asserts
 	cnt_socket_data sock;
@@ -295,7 +296,7 @@ void cnt_session_tick_rejects(cnt_session *session, cnt_connection *connection, 
 	connection->state = CNT_CONNECTION_STATE_REJECTED;
 }
 
-void cnt_session_tick_data_send(cnt_session *session, cnt_connection *connection, uint64_t time, uint64_t delta_time)
+void cnt_session_tick_data_send(cnt_session *session, cnt_connection *connection, fck_milliseconds time, fck_milliseconds delta_time)
 {
 	cnt_socket_data sock;
 	cnt_address_data address;
@@ -313,7 +314,7 @@ void cnt_session_tick_data_send(cnt_session *session, cnt_connection *connection
 	cnt_send(sock.socket, socket_memory->data, socket_memory->length, &address.address);
 }
 
-void cnt_session_tick_ok(cnt_session *session, cnt_connection *connection, uint64_t time, uint64_t delta_time)
+void cnt_session_tick_ok(cnt_session *session, cnt_connection *connection, fck_milliseconds time, fck_milliseconds delta_time)
 {
 	cnt_socket_data sock;
 	cnt_address_data address;
@@ -334,15 +335,15 @@ void cnt_session_tick_ok(cnt_session *session, cnt_connection *connection, uint6
 	connection->state = CNT_CONNECTION_STATE_CONNECTED;
 }
 
-void cnt_session_tick_receive(cnt_session *session, uint64_t time, uint64_t delta_time)
+void cnt_session_tick_receive(cnt_session *session, fck_milliseconds time, fck_milliseconds delta_time)
 {
 	cnt_connection_packet packet;
 	for (fck_item<cnt_socket_id, cnt_socket_data> item : &session->sockets)
 	{
 		cnt_socket sock = item.value->socket;
 		cnt_address incoming_address;
+		packet.index = 0;
 		packet.length = cnt_recv(sock, packet.payload, packet.capacity, &incoming_address);
-
 		if (packet.length > 0)
 		{
 			cnt_connection_packet_type type;
@@ -449,7 +450,7 @@ void cnt_session_tick_receive(cnt_session *session, uint64_t time, uint64_t delt
 	}
 }
 
-void cnt_session_tick_send(cnt_session *session, uint64_t time, uint64_t delta_time)
+void cnt_session_tick_send(cnt_session *session, fck_milliseconds time, fck_milliseconds delta_time)
 {
 	// Instead of using dynamic allocation, we "inject" our own stack allocated buffer
 	constexpr cnt_connection_id remove_buffer_capacity = 32;
@@ -481,9 +482,14 @@ void cnt_session_tick_send(cnt_session *session, uint64_t time, uint64_t delta_t
 		case CNT_CONNECTION_STATE_CONNECTED:
 			cnt_session_tick_data_send(session, connection, time, session->tick_rate);
 			break;
-		case CNT_CONNECTION_STATE_REQUEST_OUTGOING:
+		case CNT_CONNECTION_STATE_REQUEST_OUTGOING: {
 			// Retry a few times if it takes too long
+			if (time - connection->last_timestamp > 1000)
+			{
+				cnt_session_tick_connecting(session, connection, time, session->tick_rate);
+			}
 			break;
+		}
 		case CNT_CONNECTION_STATE_WAITING_FOR_ACKNOWLDGEMENT:
 			// Retry a few times if it takes too long
 			break;
@@ -502,7 +508,7 @@ void cnt_session_tick_send(cnt_session *session, uint64_t time, uint64_t delta_t
 	}
 }
 
-void cnt_session_tick(cnt_session *session, uint64_t time, uint64_t delta_time)
+void cnt_session_tick(cnt_session *session, fck_milliseconds time, fck_milliseconds delta_time)
 {
 	cnt_session_tick_receive(session, time, delta_time);
 

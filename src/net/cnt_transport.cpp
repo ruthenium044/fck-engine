@@ -197,8 +197,8 @@ cnt_socket cnt_socket_create(const char *ip, uint16_t port)
 	CHECK_CRITICAL(non_block_sucess, "Failed to make socket non-blocking", close_socket(socket_handle); return -1);
 
 	const int binding_failed = bind(socket_handle, &address->addr, address->addrlen);
-
 	CHECK_CRITICAL(binding_failed != -1, "Failed to bint socket", close_socket(socket_handle); return -1);
+
 	return socket_handle;
 }
 

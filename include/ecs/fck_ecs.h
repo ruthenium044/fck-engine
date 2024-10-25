@@ -231,8 +231,7 @@ void fck_ecs_fetch_single(fck_ecs *table, fck_ecs::sparse_array<type> **out_arra
 	}
 }
 
-template <typename... types>
-void fck_ecs_fetch_multi(fck_ecs *table, fck_tuple<fck_sparse_array<fck_ecs::entity_type, types> *...> *tuple)
+inline void fck_ecs_fetch_multi(fck_ecs *table, fck_tuple<> *tuple)
 {
 }
 
@@ -245,7 +244,7 @@ void fck_ecs_fetch_multi(
 	fck_ecs::sparse_array<head_type> *current;
 	fck_ecs_fetch_single<head_type>(table, &current);
 	tuple->value = current;
-	fck_ecs_fetch_multi<types...>(table, (fck_tuple<fck_sparse_array<fck_ecs::entity_type, types> *...> *)tuple);
+	fck_ecs_fetch_multi(table, (fck_tuple<fck_sparse_array<fck_ecs::entity_type, types> *...> *)tuple);
 }
 
 template <typename... types>
@@ -348,7 +347,7 @@ void fck_ecs_apply(fck_ecs *ecs, function func)
 
 	if constexpr (has_enough_args && has_legal_return_type)
 	{
-		auto arrays = fck_ecs_view_from_type_pack(ecs, (typename traits::arguments_no_pointer){});
+		auto arrays = fck_ecs_view_from_type_pack(ecs, typename traits::arguments_no_pointer{});
 
 		fck_sparse_arrays_apply(&arrays, func);
 	}

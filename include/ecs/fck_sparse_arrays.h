@@ -32,8 +32,8 @@ bool fck_sparse_arrays_tuple_is_valid_combine(
 						 (fck_tuple<fck_sparse_array<index_type, types> *...> *)tuple, index);
 }
 
-template <typename index_type, typename... types>
-bool fck_sparse_arrays_tuple_exists_combine(fck_tuple<fck_sparse_array<index_type, types> *...> *)
+template <typename index_type>
+bool fck_sparse_arrays_tuple_exists_combine(fck_tuple<> *)
 {
 	return true;
 }

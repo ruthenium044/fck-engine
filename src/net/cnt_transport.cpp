@@ -1,25 +1,12 @@
 #include "net/cnt_transport.h"
 
-#include <errno.h>
 #include <SDL3/SDL_stdinc.h>
+#include <errno.h>
 #include <string.h>
 
+// Windows
 #ifdef _WIN32
 #include <ws2tcpip.h>
-#else
-#include <arpa/inet.h>
-#include <fcntl.h>
-#include <netdb.h>
-#include <sys/socket.h>
-#include <unistd.h>
-#endif
-
-#include "SDL3/SDL_assert.h"
-#include "fck_checks.h"
-
-typedef socklen_t cnt_socklen;
-typedef struct sockaddr_storage cnt_sockaddr_storage;
-
 struct cnt_address_internal
 {
 	union {
@@ -28,8 +15,34 @@ struct cnt_address_internal
 		sockaddr_in in;   // ipv4
 		sockaddr_in6 in6; // ipv6
 	};
-	size_t addrlen;
+	uint8_t addrlen;
 };
+#else // MacOS (Maybe Linux, idk)
+#include <arpa/inet.h>
+#include <fcntl.h>
+#include <netdb.h>
+#include <sys/socket.h>
+#include <unistd.h>
+struct cnt_address_internal // Not tested on Linux, only MacOS
+{
+	union {
+		struct
+		{
+			uint8_t addrlen;    // Addrlen is part of BSD header info
+			sa_family_t family; // Address family.
+		};
+		sockaddr addr;    // base
+		sockaddr_in in;   // ipv4
+		sockaddr_in6 in6; // ipv6
+	};
+};
+#endif
+
+#include "SDL3/SDL_assert.h"
+#include "fck_checks.h"
+
+typedef socklen_t cnt_socklen;
+typedef struct sockaddr_storage cnt_sockaddr_storage;
 
 static_assert(sizeof(cnt_address) >= sizeof(cnt_address_internal),
               "User address type must be large enough than the internal address type!");

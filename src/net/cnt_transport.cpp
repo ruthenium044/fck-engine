@@ -1,7 +1,7 @@
 #include "net/cnt_transport.h"
 
-#include <SDL3/SDL_stdinc.h>
 #include <errno.h>
+#include <SDL3/SDL_stdinc.h>
 #include <string.h>
 
 // Windows
@@ -10,10 +10,10 @@
 struct cnt_address_internal
 {
 	union {
-		uint16_t family;  // Address family.
-		sockaddr addr;    // base
-		sockaddr_in in;   // ipv4
-		sockaddr_in6 in6; // ipv6
+		ADDRESS_FAMILY family; // Address family.
+		sockaddr addr;         // base
+		sockaddr_in in;        // ipv4
+		sockaddr_in6 in6;      // ipv6
 	};
 	uint8_t addrlen;
 };

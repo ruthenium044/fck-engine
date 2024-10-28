@@ -98,7 +98,7 @@ inline void fck_ecs_free(fck_ecs *ecs)
 		fck_ecs::component_id *id = item.index;
 		fck_components_header *header = item.value;
 		fck_ecs::sparse_array_void *components = fck_sparse_array_view(&ecs->components, *id);
-		if (header->destructor)
+		if (header->destructor != nullptr)
 		{
 			for (fck_ecs::entity_type entity = 0; entity < components->dense.count; entity++)
 			{
@@ -209,7 +209,7 @@ inline void fck_ecs_entity_destroy_all(fck_ecs *ecs)
 		fck_ecs::component_id *id = item.index;
 		fck_components_header *header = item.value;
 		fck_ecs::sparse_array_void *components = fck_sparse_array_view(&ecs->components, *id);
-		if (header->destructor)
+		if (header->destructor != nullptr)
 		{
 			for (fck_ecs::entity_type entity = 0; entity < components->dense.count; entity++)
 			{

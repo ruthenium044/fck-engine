@@ -1,7 +1,15 @@
 #include "cnt_protocol.h"
 #include "fck_checks.h"
 #include "net/cnt_session.h"
-#include "SDL3/SDL_assert.h"
+#include <SDL3/SDL_assert.h>
+#include <SDL3/SDL_atomic.h>
+
+#include <winsock.h>
+
+#if _WIN32
+// Make atomic?
+static SDL_AtomicInt wsa_reference_counter = {0};
+#endif // _WIN32
 
 void cnt_socket_memory_buffer_alloc(cnt_socket_memory_buffer *memory)
 {
@@ -68,6 +76,18 @@ void cnt_session_alloc(cnt_session *session, cnt_socket_id socket_capacity, cnt_
 	fck_queue_alloc(&session->recv_frames, cnt_session::maximum_frame_capacity);
 
 	fck_queue_alloc(&session->new_connections, ~0); // Full capacity 255
+
+#if _WIN32
+	// TODO: Fix this non-sense up.
+	int reference_counter = SDL_AtomicGet(&wsa_reference_counter);
+	if (reference_counter == 0)
+	{
+		WSADATA wsaData;
+		WSAStartup(MAKEWORD(2, 2), &wsaData);
+	}
+	SDL_AtomicIncRef(&wsa_reference_counter);
+
+#endif // _WIN32
 }
 
 void cnt_session_free(cnt_session *session)
@@ -95,6 +115,15 @@ void cnt_session_free(cnt_session *session)
 	fck_queue_free(&session->new_connections);
 
 	SDL_zerop(session);
+
+#if _WIN32
+	SDL_AtomicDecRef(&wsa_reference_counter);
+	int reference_counter = SDL_AtomicGet(&wsa_reference_counter);
+	if (reference_counter == 0)
+	{
+		WSACleanup();
+	}
+#endif // _WIN32
 }
 
 const char *cnt_address_to_string(cnt_session *session, cnt_address_id id)

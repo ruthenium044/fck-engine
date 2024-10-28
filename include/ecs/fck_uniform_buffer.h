@@ -14,7 +14,6 @@ struct fck_uniform_element_header
 	size_t offset;
 	size_t stride;
 	fck_uniform_buffer_cleanup_void destructor;
-	//  TODO: Implement destructor setting and calling
 };
 
 struct fck_uniform_element_debug_info

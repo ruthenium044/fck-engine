@@ -119,6 +119,16 @@ struct fck_engine
 	bool is_running;
 };
 
+void fck_engine_free(fck_engine *engine)
+{
+	SDL_assert(engine != nullptr);
+
+	SDL_DestroyRenderer(engine->renderer);
+	SDL_DestroyWindow(engine->window);
+
+	SDL_zerop(engine);
+}
+
 struct fck_instance_info
 {
 	char const *ip;
@@ -530,7 +540,7 @@ void fck_instance_alloc(fck_instance *instance, fck_instance_info const *info)
 	// We place the engine inside of the ECS as a unique - this way anything that
 	// can access the ecs, can also access the engine. Ergo, we intigrate the
 	// engine as part of the ECS workflow
-	instance->engine = fck_ecs_unique_set_empty<fck_engine>(&instance->ecs);
+	instance->engine = fck_ecs_unique_set_empty<fck_engine>(&instance->ecs, fck_engine_free);
 	// We flush the once systems since they might be relevant for startup
 	// Adding once system during once system might file - We should enable that
 	// If we queue a once system during a once system, what should happen?
@@ -550,9 +560,6 @@ void fck_instance_free(fck_instance *instance)
 	// I mean the ECS quite literally collects all the garbage in the application since it takes ownership
 	// and then it decides to free... it just so happens it's at the very end
 	fck_ecs_free(&instance->ecs);
-
-	SDL_DestroyRenderer(instance->engine->renderer);
-	SDL_DestroyWindow(instance->engine->window);
 
 	SDL_zerop(instance);
 }

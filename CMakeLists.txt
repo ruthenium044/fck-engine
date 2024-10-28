@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project("fck")
+project(fck)
 
 # Verbosity settings
 #set(FETCHCONTENT_QUIET TRUE)

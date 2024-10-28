@@ -14,8 +14,8 @@ static constexpr uint32_t CNT_PROTOCOL_VERSION = '0.1'; // NOLINT
 
 struct cnt_connection_packet_header
 {
-	uint8_t type;   // 255 tyoes
-	uint8_t length; // 255 max bytes per packet segment
+	uint8_t type;    // 255 tyoes
+	uint16_t length; // 255 max bytes per packet segment
 };
 
 struct cnt_connection_request

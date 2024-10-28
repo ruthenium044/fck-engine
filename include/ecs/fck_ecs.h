@@ -14,9 +14,15 @@
 template <typename index_type>
 using fck_sparse_array_void_type = fck_sparse_array<index_type, void>;
 
-struct fck_component_element_header
+template <typename value_type>
+using fck_ecs_component_cleanup = void (*)(value_type *);
+
+using fck_ecs_component_cleanup_void = fck_ecs_component_cleanup<void>;
+
+struct fck_components_header
 {
 	size_t size;
+	fck_ecs_component_cleanup_void destructor;
 };
 
 struct fck_ecs
@@ -24,7 +30,7 @@ struct fck_ecs
 	using entity_type = uint32_t;
 	using component_id = uint16_t;
 	using system_id = uint16_t;
-	using sparse_array_void_type = fck_sparse_array_void_type<entity_type>;
+	using sparse_array_void = fck_sparse_array_void_type<entity_type>;
 	using scheduler_type = fck_systems_scheduler<system_id>;
 	fck_uniform_buffer uniform_buffer;
 
@@ -48,8 +54,8 @@ struct fck_ecs
 
 	using entity_list = dense_list<entity_type>;
 
-	fck_sparse_array<component_id, fck_component_element_header> component_headers;
-	fck_sparse_array<component_id, sparse_array_void_type> components;
+	fck_sparse_array<component_id, fck_components_header> component_headers;
+	fck_sparse_array<component_id, sparse_array_void> components;
 	entity_type capacity;
 
 	fck_sparse_lookup<system_id, fck_ecs_system_state> update_system_states;
@@ -87,6 +93,23 @@ inline void fck_ecs_free(fck_ecs *ecs)
 {
 	SDL_assert(ecs != nullptr);
 
+	for (fck_item<fck_ecs::component_id, fck_components_header> item : &ecs->component_headers)
+	{
+		fck_ecs::component_id *id = item.index;
+		fck_components_header *header = item.value;
+		fck_ecs::sparse_array_void *components = fck_sparse_array_view(&ecs->components, *id);
+		if (header->destructor)
+		{
+			for (fck_ecs::entity_type entity = 0; entity < components->dense.count; entity++)
+			{
+				void *data = fck_dense_list_view_raw(&components->dense, entity, header->size);
+				header->destructor(data);
+			}
+		}
+
+		fck_sparse_array_free(components);
+	}
+
 	fck_uniform_buffer_free(&ecs->uniform_buffer);
 	fck_sparse_array_free(&ecs->component_headers);
 	fck_sparse_array_free(&ecs->components);
@@ -99,17 +122,17 @@ inline void fck_ecs_free(fck_ecs *ecs)
 }
 
 template <typename type>
-type *fck_ecs_unique_set(fck_ecs *ecs, type const *value)
+type *fck_ecs_unique_set(fck_ecs *ecs, type const *value, fck_uniform_buffer_cleanup<type> destructor = nullptr)
 {
 	SDL_assert(ecs != nullptr);
-	return fck_uniform_buffer_set(&ecs->uniform_buffer, value);
+	return fck_uniform_buffer_set(&ecs->uniform_buffer, value, destructor);
 }
 
 template <typename type>
-type *fck_ecs_unique_set_empty(fck_ecs *ecs)
+type *fck_ecs_unique_set_empty(fck_ecs *ecs, fck_uniform_buffer_cleanup<type> destructor = nullptr)
 {
 	SDL_assert(ecs != nullptr);
-	return fck_uniform_buffer_set_empty<type>(&ecs->uniform_buffer);
+	return fck_uniform_buffer_set_empty<type>(&ecs->uniform_buffer, destructor);
 }
 
 template <typename type>
@@ -117,6 +140,11 @@ type *fck_ecs_unique_view(fck_ecs *ecs)
 {
 	SDL_assert(ecs != nullptr);
 	return fck_uniform_buffer_view<type>(&ecs->uniform_buffer);
+}
+
+inline void fck_ecs_unique_clear_all(fck_ecs *ecs)
+{
+	fck_uniform_buffer_clear(&ecs->uniform_buffer);
 }
 
 inline fck_ecs::entity_type fck_ecs_entity_create(fck_ecs *ecs)
@@ -127,11 +155,16 @@ inline fck_ecs::entity_type fck_ecs_entity_create(fck_ecs *ecs)
 	return fck_sparse_list_add(&ecs->entities, &ecs->entity_counter);
 }
 
+inline bool fck_ecs_entity_exists(fck_ecs *ecs, fck_ecs::entity_type entity)
+{
+	return fck_sparse_list_exists(&ecs->entities, entity);
+}
+
 inline void fck_ecs_entity_emplace(fck_ecs *ecs, fck_ecs::entity_type entity)
 {
 	SDL_assert(ecs != nullptr);
 
-	if (!fck_sparse_list_exists(&ecs->entities, entity))
+	if (!fck_ecs_entity_exists(ecs, entity))
 	{
 		ecs->entity_counter++;
 		fck_sparse_list_emplace(&ecs->entities, entity, &ecs->entity_counter);
@@ -142,19 +175,54 @@ inline void fck_ecs_entity_destroy(fck_ecs *ecs, fck_ecs::entity_type entity)
 {
 	SDL_assert(ecs != nullptr);
 
-	for (fck_item<fck_ecs::component_id, fck_component_element_header> item : &ecs->component_headers)
+	if (!fck_ecs_entity_exists(ecs, entity))
+	{
+		return;
+	}
+
+	for (fck_item<fck_ecs::component_id, fck_components_header> item : &ecs->component_headers)
 	{
 		fck_ecs::component_id *id = item.index;
-		fck_component_element_header *header = item.value;
-		fck_ecs::sparse_array_void_type *components = fck_sparse_array_view(&ecs->components, *id);
+		fck_components_header *header = item.value;
+		fck_ecs::sparse_array_void *components = fck_sparse_array_view(&ecs->components, *id);
 		if (fck_sparse_array_exists(components, entity))
 		{
-			fck_sparse_array_remove(components, entity, header->size);
+			if (header->destructor != nullptr)
+			{
+				void *data = fck_sparse_array_view_raw(components, entity, header->size);
+				header->destructor(data);
+			}
+			fck_sparse_array_remove_raw(components, entity, header->size);
 		}
 	}
 
 	ecs->entity_counter--;
-	return fck_sparse_list_remove(&ecs->entities, entity);
+	fck_sparse_list_remove(&ecs->entities, entity);
+}
+
+inline void fck_ecs_entity_destroy_all(fck_ecs *ecs)
+{
+	SDL_assert(ecs != nullptr);
+
+	for (fck_item<fck_ecs::component_id, fck_components_header> item : &ecs->component_headers)
+	{
+		fck_ecs::component_id *id = item.index;
+		fck_components_header *header = item.value;
+		fck_ecs::sparse_array_void *components = fck_sparse_array_view(&ecs->components, *id);
+		if (header->destructor)
+		{
+			for (fck_ecs::entity_type entity = 0; entity < components->dense.count; entity++)
+			{
+				void *data = fck_dense_list_view_raw(&components->dense, entity, header->size);
+				header->destructor(data);
+			}
+		}
+
+		fck_sparse_array_clear(components);
+	}
+
+	ecs->entity_counter = 0;
+	fck_sparse_list_clear(&ecs->entities);
 }
 
 template <typename type>
@@ -166,51 +234,81 @@ uint16_t fck_unique_id_get()
 }
 
 template <typename type>
-void fck_ecs_component_set(fck_ecs *table, fck_ecs::entity_type index, type const *value)
+void fck_ecs_component_set(fck_ecs *ecs, fck_ecs::entity_type index, type const *value)
 {
-	SDL_assert(table != nullptr);
+	SDL_assert(ecs != nullptr);
 
-	uint16_t component_id = fck_unique_id_get<type>();
-	fck_ecs::sparse_array_void_type *out_ptr;
-	if (!fck_sparse_array_try_view(&table->components, component_id, &out_ptr))
+	fck_ecs::component_id component_id = fck_unique_id_get<type>();
+	fck_ecs::sparse_array_void *out_ptr;
+	if (!fck_sparse_array_try_view(&ecs->components, component_id, &out_ptr))
 	{
-		fck_component_element_header header;
+
+		fck_components_header header;
+		SDL_zero(header); // No destructor was set! Can be nulled
 		header.size = sizeof(*value);
-		fck_sparse_array_emplace(&table->component_headers, component_id, &header);
+		fck_sparse_array_emplace(&ecs->component_headers, component_id, &header);
 
 		fck_ecs::sparse_array<type> components;
-		fck_sparse_array_alloc(&components, table->capacity);
+		fck_sparse_array_alloc(&components, ecs->capacity);
 
-		fck_ecs::sparse_array_void_type *as_void = (fck_ecs::sparse_array_void_type *)&components;
+		fck_ecs::sparse_array_void *as_void = (fck_ecs::sparse_array_void *)&components;
 		fck_sparse_array_emplace(&components, index, value);
-		fck_sparse_array_emplace(&table->components, component_id, as_void);
-		// fck_sparse_array_emplace(&table->data, component_id, );
+		fck_sparse_array_emplace(&ecs->components, component_id, as_void);
 		return;
 	}
+
+	fck_ecs_entity_emplace(ecs, index);
+
 	fck_ecs::sparse_array<type> *components = (fck_ecs::sparse_array<type> *)out_ptr;
 	fck_sparse_array_emplace(components, index, value);
 }
 
 template <typename type>
-type *fck_ecs_component_set_empty(fck_ecs *table, fck_ecs::entity_type index)
+void fck_ecs_component_remove(fck_ecs *ecs, fck_ecs::entity_type index)
 {
-	SDL_assert(table != nullptr);
+	SDL_assert(ecs != nullptr);
 
-	uint16_t component_id = fck_unique_id_get<type>();
-	fck_ecs::sparse_array_void_type *out_ptr;
-	if (!fck_sparse_array_try_view(&table->components, component_id, &out_ptr))
+	fck_ecs::component_id component_id = fck_unique_id_get<type>();
+	fck_ecs::sparse_array_void *out_ptr;
+	if (!fck_sparse_array_try_view(&ecs->components, component_id, &out_ptr))
 	{
-		fck_component_element_header header;
-		header.size = sizeof(type);
-		fck_sparse_array_emplace(&table->component_headers, component_id, &header);
+		return;
+	}
+
+	fck_ecs::sparse_array<type> *components = (fck_ecs::sparse_array<type> *)out_ptr;
+	fck_sparse_array_remove(components, index);
+}
+
+template <typename type>
+type *fck_ecs_component_set_empty(fck_ecs *ecs, fck_ecs::entity_type index)
+{
+	// Very similar to set, might be useful to refactor this into one internal set... but also, not having so much noise is nice
+	SDL_assert(ecs != nullptr);
+
+	fck_ecs::component_id component_id = fck_unique_id_get<type>();
+	fck_ecs::sparse_array_void *out_ptr;
+	if (!fck_sparse_array_try_view(&ecs->components, component_id, &out_ptr))
+	{
+		if (!fck_sparse_array_exists(&ecs->component_headers, component_id))
+		{
+			fck_components_header header;
+			SDL_zero(header); // No destructor was set! Can be nulled
+			header.size = sizeof(type);
+			fck_sparse_array_emplace(&ecs->component_headers, component_id, &header);
+		}
 
 		fck_ecs::sparse_array<type> components;
-		fck_sparse_array_alloc(&components, table->capacity);
+		fck_sparse_array_alloc(&components, ecs->capacity);
 
-		fck_ecs::sparse_array_void_type *as_void = (fck_ecs::sparse_array_void_type *)&components;
-		fck_sparse_array_emplace(&table->components, component_id, as_void);
-		out_ptr = fck_sparse_array_view(&table->components, component_id);
+		fck_ecs::sparse_array_void *as_void = (fck_ecs::sparse_array_void *)&components;
+		fck_sparse_array_emplace(&ecs->components, component_id, as_void);
+		out_ptr = fck_sparse_array_view(&ecs->components, component_id);
 	}
+
+	// emplacing and checking is so cheap, we can just do it again
+	// The laternative is checking whether it exists and throw or return if not...
+	// But in this case we still access the same data and have the same overhead
+	fck_ecs_entity_emplace(ecs, index);
 
 	fck_ecs::sparse_array<type> *components = (fck_ecs::sparse_array<type> *)out_ptr;
 	fck_sparse_array_emplace_empty(components, index);
@@ -220,9 +318,8 @@ type *fck_ecs_component_set_empty(fck_ecs *table, fck_ecs::entity_type index)
 template <typename type>
 void fck_ecs_fetch_single(fck_ecs *table, fck_ecs::sparse_array<type> **out_array_ptr)
 {
-
-	uint16_t component_id = fck_unique_id_get<type>();
-	fck_ecs::sparse_array_void_type *out_ptr;
+	fck_ecs::component_id component_id = fck_unique_id_get<type>();
+	fck_ecs::sparse_array_void *out_ptr;
 
 	*out_array_ptr = nullptr;
 	if (fck_sparse_array_try_view(&table->components, component_id, &out_ptr))
@@ -259,9 +356,9 @@ fck_sparse_arrays<fck_ecs::entity_type, types...> fck_ecs_view(fck_ecs *table)
 }
 
 template <typename type>
-fck_ecs::sparse_array<type> fck_ecs_view_single(fck_ecs *table)
+fck_ecs::sparse_array<type> *fck_ecs_view_single(fck_ecs *table)
 {
-	fck_ecs::sparse_array<type> result;
+	fck_ecs::sparse_array<type> *result;
 	SDL_zero(result);
 
 	fck_ecs_fetch_single(table, &result.tuple);
@@ -277,6 +374,24 @@ inline void fck_ecs_system_add(fck_ecs *ecs, fck_system_update on_update)
 inline void fck_ecs_system_add(fck_ecs *ecs, fck_system_once on_once)
 {
 	fck_systems_scheduler_push(&ecs->system_scheduler, FCK_ECS_SYSTEM_TYPE_ONCE, (fck_system_generic)on_once);
+}
+
+template <typename type>
+void fck_ecs_component_clean_up_add(fck_ecs *ecs, fck_ecs_component_cleanup<type> destructor)
+{
+	fck_ecs::component_id component_id = fck_unique_id_get<type>();
+	fck_components_header *out_header;
+	if (!fck_sparse_array_try_view(&ecs->component_headers, component_id, &out_header))
+	{
+		fck_components_header header;
+		SDL_zero(header);
+		header.destructor = (fck_ecs_component_cleanup_void)destructor;
+		header.size = sizeof(type);
+		fck_sparse_array_emplace(&ecs->component_headers, component_id, &header);
+		return;
+	}
+
+	out_header->destructor = (fck_ecs_component_cleanup_void)destructor;
 }
 
 inline void fck_ecs_flush_system_once(fck_ecs *ecs)

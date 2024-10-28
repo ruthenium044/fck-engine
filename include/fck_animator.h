@@ -33,6 +33,12 @@ struct fck_animation
 	SDL_FPoint offset;
 };
 
+struct fck_static_sprite
+{
+	size_t sprite_index;
+	SDL_FPoint offset;
+};
+
 struct fck_animator
 {
 	// fck_spritesheet *spritesheet;

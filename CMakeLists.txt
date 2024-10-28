@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(fck)
+project("fck")
 
 # Verbosity settings
 #set(FETCHCONTENT_QUIET TRUE)
@@ -110,6 +110,6 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE "FCK_RESOURCE_DIRECTORY_PATH=
 list(APPEND LIBRARIES SDL3::SDL3 SDL3_image::SDL3_image SDL3_net::SDL3_net)
 list(APPEND LIBRARIES Vulkan::Vulkan)
 
-add_dependencies(fck ${LIBRARIES})
+add_dependencies(${PROJECT_NAME} ${LIBRARIES})
 
 target_link_libraries(${PROJECT_NAME} ${LIBRARIES})

@@ -22,29 +22,40 @@ struct fck_sparse_array
 };
 
 template <typename index_type, typename value_type>
-void fck_sparse_array_alloc(fck_sparse_array<index_type, value_type> *array, typename fck_ignore_deduction<index_type>::type capacity)
+void fck_sparse_array_alloc(fck_sparse_array<index_type, value_type> *arr, typename fck_ignore_deduction<index_type>::type capacity)
 {
-	SDL_assert(array != nullptr);
-	SDL_zerop(array);
+	SDL_assert(arr != nullptr);
+	SDL_zerop(arr);
 
 	using index_info = typename fck_sparse_array<index_type, value_type>::index_info;
 
-	fck_sparse_lookup_alloc(&array->sparse, capacity, index_info::invalid);
+	fck_sparse_lookup_alloc(&arr->sparse, capacity, index_info::invalid);
 
-	fck_dense_list_alloc(&array->owner, capacity);
-	fck_dense_list_alloc(&array->dense, capacity);
+	fck_dense_list_alloc(&arr->owner, capacity);
+	fck_dense_list_alloc(&arr->dense, capacity);
 }
 
 template <typename index_type, typename value_type>
 void fck_sparse_array_free(fck_sparse_array<index_type, value_type> *list)
 {
 	SDL_assert(list != nullptr);
-	SDL_zerop(list);
 
 	fck_sparse_lookup_free(&list->sparse);
 
 	fck_dense_list_free(&list->owner);
 	fck_dense_list_free(&list->dense);
+	SDL_zerop(list);
+}
+
+template <typename index_type, typename value_type>
+void fck_sparse_array_clear(fck_sparse_array<index_type, value_type> *list)
+{
+	SDL_assert(list != nullptr);
+
+	fck_sparse_lookup_clear(&list->sparse);
+
+	fck_dense_list_clear(&list->owner);
+	fck_dense_list_clear(&list->dense);
 }
 
 template <typename index_type, typename value_type>
@@ -68,6 +79,22 @@ value_type *fck_sparse_array_view(fck_sparse_array<index_type, value_type> *list
 	if (dense_index != invalid)
 	{
 		return fck_dense_list_view(&list->dense, dense_index);
+	}
+	return nullptr;
+}
+
+template <typename index_type>
+void *fck_sparse_array_view_raw(fck_sparse_array<index_type, void> *list, typename fck_ignore_deduction<index_type>::type index,
+                                size_t type_size_bytes)
+{
+	SDL_assert(list != nullptr);
+
+	const index_type dense_index = fck_sparse_lookup_get(&list->sparse, index);
+
+	static constexpr index_type invalid = fck_sparse_array<index_type, void>::index_info::invalid;
+	if (dense_index != invalid)
+	{
+		return fck_dense_list_view_raw(&list->dense, dense_index, type_size_bytes);
 	}
 	return nullptr;
 }
@@ -154,8 +181,8 @@ void fck_sparse_array_remove(fck_sparse_array<index_type, value_type> *list, typ
 }
 
 template <typename index_type>
-void fck_sparse_array_remove(fck_sparse_array<index_type, void> *list, typename fck_ignore_deduction<index_type>::type index,
-                             size_t type_size_bytes)
+void fck_sparse_array_remove_raw(fck_sparse_array<index_type, void> *list, typename fck_ignore_deduction<index_type>::type index,
+                                 size_t type_size_bytes)
 {
 	SDL_assert(list != nullptr);
 
@@ -165,7 +192,7 @@ void fck_sparse_array_remove(fck_sparse_array<index_type, void> *list, typename 
 	index_type last_owner = fck_dense_list_get(&list->owner, list->dense.count - 1);
 
 	// Update structure
-	fck_dense_list_remove(&list->dense, dense_index, type_size_bytes);
+	fck_dense_list_remove_raw(&list->dense, dense_index, type_size_bytes);
 
 	fck_dense_list_remove(&list->owner, dense_index);
 	fck_sparse_lookup_set(&list->sparse, last_owner, &dense_index);

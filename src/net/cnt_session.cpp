@@ -66,6 +66,8 @@ void cnt_session_alloc(cnt_session *session, cnt_socket_id socket_capacity, cnt_
 	fck_sparse_array_alloc(&session->send_buffer, socket_capacity);
 	fck_sparse_array_alloc(&session->recv_buffer, socket_capacity);
 	fck_queue_alloc(&session->recv_frames, cnt_session::maximum_frame_capacity);
+
+	fck_queue_alloc(&session->new_connections, ~0); // Full capacity 255
 }
 
 void cnt_session_free(cnt_session *session)
@@ -90,16 +92,17 @@ void cnt_session_free(cnt_session *session)
 	fck_sparse_array_free(&session->recv_buffer);
 
 	fck_queue_free(&session->recv_frames);
+	fck_queue_free(&session->new_connections);
 
 	SDL_zerop(session);
 }
 
-static const char *address_to_string(cnt_session *session, cnt_address_id id)
+const char *cnt_address_to_string(cnt_session *session, cnt_address_id id)
 {
 	return fck_sparse_list_view(&session->addresses, id)->debug;
 }
 
-static const char *socket_to_string(cnt_session *session, cnt_socket_id id)
+const char *cnt_socket_to_string(cnt_session *session, cnt_socket_id id)
 {
 	cnt_address_id address_id = fck_sparse_list_view(&session->sockets, id)->address;
 	return fck_sparse_list_view(&session->addresses, address_id)->debug;
@@ -189,6 +192,8 @@ cnt_socket_handle cnt_session_socket_create(cnt_session *session, char const *ip
 void cnt_session_connect(cnt_session *session, cnt_socket_handle const *socket, cnt_address_handle const *address)
 {
 	cnt_connection connection;
+	SDL_zero(connection);
+
 	connection.source = socket->id;
 	connection.destination = address->id;
 	connection.last_timestamp = 0;
@@ -201,6 +206,7 @@ void cnt_session_connect(cnt_session *session, cnt_socket_handle const *socket, 
 		}
 	}
 	connection.state = CNT_CONNECTION_STATE_CONNECTING;
+	connection.flags = CNT_CONNECTION_FLAG_INITIATOR;
 	cnt_connection_id connection_id = fck_sparse_list_add(&session->connections, &connection);
 }
 
@@ -241,7 +247,7 @@ void cnt_session_tick_connecting(cnt_session *session, cnt_connection *connectio
 	cnt_connection_packet_push(&packet, CNT_CONNECTION_PACKET_TYPE_REQUEST, &request, sizeof(request));
 
 	cnt_send(sock.socket, packet.payload, packet.length, &address.address);
-	SDL_Log("%llu, %s connects to %s", (uint64_t)session, socket_to_string(session, connection->source), address.debug);
+	SDL_Log("%llu, %s connects to %s", (uint64_t)session, cnt_socket_to_string(session, connection->source), address.debug);
 
 	connection->state = CNT_CONNECTION_STATE_REQUEST_OUTGOING;
 	connection->last_timestamp = time;
@@ -271,7 +277,7 @@ void cnt_session_tick_accepts(cnt_session *session, cnt_connection *connection, 
 	connection->secret = accept.directed_secret;
 	connection->state = CNT_CONNECTION_STATE_WAITING_FOR_ACKNOWLDGEMENT;
 
-	SDL_Log("%llu, %s accepts %s - secret: %d", (uint64_t)session, socket_to_string(session, connection->source), address.debug,
+	SDL_Log("%llu, %s accepts %s - secret: %d", (uint64_t)session, cnt_socket_to_string(session, connection->source), address.debug,
 	        connection->secret);
 }
 
@@ -291,7 +297,7 @@ void cnt_session_tick_rejects(cnt_session *session, cnt_connection *connection, 
 	cnt_connection_packet_push(&packet, CNT_CONNECTION_PACKET_TYPE_REJECT, nullptr, 0);
 	cnt_send(sock.socket, packet.payload, packet.length, &address.address);
 
-	SDL_Log("%llu, %s rejects %s", (uint64_t)session, socket_to_string(session, connection->source), address.debug);
+	SDL_Log("%llu, %s rejects %s", (uint64_t)session, cnt_socket_to_string(session, connection->source), address.debug);
 
 	connection->state = CNT_CONNECTION_STATE_REJECTED;
 }
@@ -314,11 +320,13 @@ void cnt_session_tick_data_send(cnt_session *session, cnt_connection *connection
 	cnt_send(sock.socket, socket_memory->data, socket_memory->length, &address.address);
 }
 
-void cnt_session_tick_ok(cnt_session *session, cnt_connection *connection, fck_milliseconds time, fck_milliseconds delta_time)
+void cnt_session_tick_ok(cnt_session *session, fck_item<cnt_connection_id, cnt_connection> *item, fck_milliseconds time,
+                         fck_milliseconds delta_time)
 {
 	cnt_socket_data sock;
 	cnt_address_data address;
 
+	cnt_connection *connection = item->value;
 	if (!cnt_session_fetch_data(session, connection, &sock, &address))
 	{
 		return;
@@ -330,9 +338,12 @@ void cnt_session_tick_ok(cnt_session *session, cnt_connection *connection, fck_m
 	cnt_connection_packet_push(&packet, CNT_CONNECTION_PACKET_TYPE_OK, nullptr, 0);
 	cnt_send(sock.socket, packet.payload, packet.length, &address.address);
 
-	SDL_Log("%llu, %s established with %s", (uint64_t)session, socket_to_string(session, connection->source), address.debug);
+	SDL_Log("%llu, %s established with %s", (uint64_t)session, cnt_socket_to_string(session, connection->source), address.debug);
 
 	connection->state = CNT_CONNECTION_STATE_CONNECTED;
+
+	cnt_connection_handle handle = {*item->index};
+	fck_queue_push(&session->new_connections, &handle);
 }
 
 void cnt_session_tick_receive(cnt_session *session, fck_milliseconds time, fck_milliseconds delta_time)
@@ -361,12 +372,13 @@ void cnt_session_tick_receive(cnt_session *session, fck_milliseconds time, fck_m
 						cnt_connection_request *request = (cnt_connection_request *)data;
 						cnt_address_handle address_handle = cnt_session_address_create(session, &incoming_address);
 						cnt_connection connection;
+						SDL_zero(connection);
 						connection.source = *item.index;
 						connection.destination = address_handle.id;
 						connection.secret = request->suggested_secret;
 						bool is_valid_protocol = request->protocol == CNT_PROTOCOL_ID && request->version == CNT_PROTOCOL_VERSION;
-						SDL_Log("%llu, %s gets request from %s", (uint64_t)session, socket_to_string(session, connection.source),
-						        address_to_string(session, connection.destination));
+						SDL_Log("%llu, %s gets request from %s", (uint64_t)session, cnt_socket_to_string(session, connection.source),
+						        cnt_address_to_string(session, connection.destination));
 						if (is_valid_protocol)
 						{
 							connection.state = CNT_CONNECTION_STATE_REQUEST_INCOMING;
@@ -381,8 +393,8 @@ void cnt_session_tick_receive(cnt_session *session, fck_milliseconds time, fck_m
 					{
 						// If we are connecting ourselves, we will end up here
 						connection->state = CNT_CONNECTION_STATE_REQUEST_INCOMING;
-						SDL_Log("%llu, %s gets request from %s", (uint64_t)session, socket_to_string(session, connection->source),
-						        address_to_string(session, connection->destination));
+						SDL_Log("%llu, %s gets request from %s", (uint64_t)session, cnt_socket_to_string(session, connection->source),
+						        cnt_address_to_string(session, connection->destination));
 					}
 				}
 				break;
@@ -394,7 +406,7 @@ void cnt_session_tick_receive(cnt_session *session, fck_milliseconds time, fck_m
 						connection->secret = accept->directed_secret;
 						connection->state = CNT_CONNECTION_STATE_ACKNOWLEDGE_CONNECTION;
 						SDL_Log("%llu, %s got accepted by %s - secret: %d", (uint64_t)session,
-						        socket_to_string(session, connection->source), address_to_string(session, connection->destination),
+						        cnt_socket_to_string(session, connection->source), cnt_address_to_string(session, connection->destination),
 						        accept->directed_secret);
 					}
 				}
@@ -408,18 +420,22 @@ void cnt_session_tick_receive(cnt_session *session, fck_milliseconds time, fck_m
 						// Rejected :(
 						fck_sparse_list_remove(&session->connections, id);
 						SDL_Log("%llu, %s got rejected by %s - secret: %d", (uint64_t)session,
-						        socket_to_string(session, connection->source), address_to_string(session, connection->destination),
+						        cnt_socket_to_string(session, connection->source), cnt_address_to_string(session, connection->destination),
 						        accept->directed_secret);
 					}
 				}
 				break;
 				case CNT_CONNECTION_PACKET_TYPE_OK: {
-					cnt_connection *connection = cnt_session_connection_find_with_socket(session, item.index, &incoming_address);
+					cnt_connection_id id;
+					cnt_connection *connection = cnt_session_connection_find_with_socket(session, item.index, &incoming_address, &id);
 					if (connection != nullptr)
 					{
 						connection->state = CNT_CONNECTION_STATE_CONNECTED;
-						SDL_Log("%llu, %s established with %s", (uint64_t)session, socket_to_string(session, connection->source),
-						        address_to_string(session, connection->destination));
+						SDL_Log("%llu, %s established with %s", (uint64_t)session, cnt_socket_to_string(session, connection->source),
+						        cnt_address_to_string(session, connection->destination));
+
+						cnt_connection_handle handle = {id};
+						fck_queue_push(&session->new_connections, &handle);
 					}
 				}
 				break;
@@ -433,14 +449,29 @@ void cnt_session_tick_receive(cnt_session *session, fck_milliseconds time, fck_m
 						SDL_assert(buffer_exists);
 						cnt_socket_memory_buffer_append(socket_memory, (uint8_t *)data, length);
 
-						cnt_frame frame;
+						uint16_t frame_at = socket_memory->length - length;
+						while (frame_at < socket_memory->length)
+						{
+							uint16_t frame_length = *(uint16_t *)((uint8_t *)(data) + frame_at);
+
+							cnt_frame frame;
+							frame.generation = socket_memory->generation;
+							frame.at = frame_at + sizeof(frame_length);
+							frame.length = frame_length;
+							frame.owner = *item.index;
+							frame.info.connection = id;
+							frame.info.tick = session->tick; // Maybe tick as param
+							fck_queue_push(&session->recv_frames, &frame);
+							frame_at = frame_at + frame_length + sizeof(frame_length);
+						}
+						/* cnt_frame frame;
 						frame.at = socket_memory->length - length;
 						frame.generation = socket_memory->generation;
 						frame.length = length;
 						frame.owner = *item.index;
 						frame.info.connection = id;
 						frame.info.tick = session->tick; // Maybe tick as param?
-						fck_queue_push(&session->recv_frames, &frame);
+						fck_queue_push(&session->recv_frames, &frame);*/
 					}
 				}
 				break;
@@ -477,7 +508,7 @@ void cnt_session_tick_send(cnt_session *session, fck_milliseconds time, fck_mill
 			fck_dense_list_add(&remove_list, item.index);
 			break;
 		case CNT_CONNECTION_STATE_ACKNOWLEDGE_CONNECTION:
-			cnt_session_tick_ok(session, connection, time, session->tick_rate);
+			cnt_session_tick_ok(session, &item, time, session->tick_rate);
 			break;
 		case CNT_CONNECTION_STATE_CONNECTED:
 			cnt_session_tick_data_send(session, connection, time, session->tick_rate);
@@ -508,6 +539,12 @@ void cnt_session_tick_send(cnt_session *session, fck_milliseconds time, fck_mill
 	}
 }
 
+bool cnt_session_will_tick(cnt_session *session, fck_milliseconds delta_time)
+{
+	fck_milliseconds next_tick_time = session->tick_time_accumulator + delta_time;
+	return next_tick_time >= session->tick_rate;
+}
+
 void cnt_session_tick(cnt_session *session, fck_milliseconds time, fck_milliseconds delta_time)
 {
 	cnt_session_tick_receive(session, time, delta_time);
@@ -531,7 +568,7 @@ void cnt_session_send_to_all(cnt_session *session, void *data, size_t count)
 		cnt_socket_memory_buffer *socket_memory;
 		bool socket_memory_exists = fck_sparse_array_try_view(&session->send_buffer, *item.index, &socket_memory);
 		SDL_assert(socket_memory_exists && "Socket memory is associative and cannot exist without a socket");
-
+		cnt_socket_memory_buffer_append(socket_memory, (uint8_t *)&count, sizeof(uint16_t));
 		cnt_socket_memory_buffer_append(socket_memory, (uint8_t *)data, count);
 	}
 }
@@ -554,4 +591,15 @@ bool cnt_session_try_receive_from(cnt_session *session, cnt_memory_view *view)
 	view->data = socket_memory->data + frame->at;
 	view->length = frame->length;
 	return true;
+}
+
+bool cnt_session_try_dequeue_new_connection(cnt_session *session, cnt_connection *connection)
+{
+	cnt_connection_handle *new_connection;
+	if (fck_queue_try_pop(&session->new_connections, &new_connection))
+	{
+		*connection = *fck_sparse_list_view(&session->connections, new_connection->id);
+		return true;
+	}
+	return false;
 }

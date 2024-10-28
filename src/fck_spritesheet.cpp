@@ -217,10 +217,13 @@ static void spritesheet_config_load(const char *file_name, fck_spritesheet *out_
 	fck_file_memory file_memory;
 	CHECK_CRITICAL(fck_file_read("", file_name, ".sprites", &file_memory), "Failed to read file", return);
 
+	out_sprites->file_handle = file_memory.data;
+
 	stream.data = file_memory.data;
 	stream.capacity = file_memory.size;
 
 	out_sprites->rect_list.count = *(size_t *)fck_memory_stream_read(&stream, sizeof(out_sprites->rect_list.count));
+	out_sprites->rect_list.capacity = out_sprites->rect_list.count;
 
 	const size_t data_byte_size = sizeof(*out_sprites->rect_list.data) * out_sprites->rect_list.count;
 	out_sprites->rect_list.data = (SDL_FRect *)fck_memory_stream_read(&stream, data_byte_size);
@@ -250,8 +253,18 @@ SDL_FRect const *fck_rect_list_view_get(fck_rect_list *rect_source, fck_rect_lis
 void fck_spritesheet_free(fck_spritesheet *sprites)
 {
 	SDL_DestroyTexture(sprites->texture);
-	sprites->texture = nullptr;
-	rect_list_free(&sprites->rect_list);
+
+	// Dirty little hack since we can either create a sprite sheet during runtime or load it from files
+	// MEEEEEHH....
+	if (sprites->file_handle != nullptr)
+	{
+		SDL_free(sprites->file_handle);
+	}
+	else
+	{
+		rect_list_free(&sprites->rect_list);
+	}
+	SDL_zerop(sprites);
 }
 
 bool fck_spritesheet_load(SDL_Renderer *renderer, const char *file_name, fck_spritesheet *out_sprites, bool force_rebuild)
@@ -259,6 +272,7 @@ bool fck_spritesheet_load(SDL_Renderer *renderer, const char *file_name, fck_spr
 	SDL_assert(renderer != nullptr);
 	SDL_assert(file_name != nullptr);
 	SDL_assert(out_sprites != nullptr);
+	SDL_zerop(out_sprites);
 
 	fck_file_memory file_memory;
 	if (!fck_file_read("", file_name, "", &file_memory))

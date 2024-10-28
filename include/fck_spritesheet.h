@@ -29,6 +29,7 @@ struct fck_rect_list_view
 
 struct fck_spritesheet
 {
+	void *file_handle;
 	SDL_Texture *texture;
 	fck_rect_list rect_list;
 };

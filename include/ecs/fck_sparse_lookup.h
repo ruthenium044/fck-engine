@@ -47,6 +47,13 @@ void fck_sparse_lookup_free(fck_sparse_lookup<index_type, value_type> *list)
 }
 
 template <typename index_type, typename value_type>
+void fck_sparse_lookup_clear(fck_sparse_lookup<index_type, value_type> *list)
+{
+	SDL_assert(list != nullptr);
+	SDL_memset(list->data, 0, sizeof(*list->data) * list->capacity);
+}
+
+template <typename index_type, typename value_type>
 void fck_sparse_lookup_assert_in_range(fck_sparse_lookup<index_type, value_type> *list, typename fck_ignore_deduction<index_type>::type at)
 {
 	SDL_assert(list != nullptr);

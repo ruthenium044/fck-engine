@@ -1,9 +1,9 @@
 #ifndef FCK_DENSE_LIST_INCLUDED
 #define FCK_DENSE_LIST_INCLUDED
 
-#include "SDL3/SDL_assert.h"
 #include "fck_iterator.h"
 #include "fck_template_utility.h"
+#include "SDL3/SDL_assert.h"
 
 template <typename index_type, typename T>
 struct fck_dense_list
@@ -45,9 +45,6 @@ void fck_dense_list_assert_in_range(fck_dense_list<index_type, T> *list, typenam
 template <typename index_type, typename T>
 void fck_dense_list_set(fck_dense_list<index_type, T> *list, typename fck_ignore_deduction<index_type>::type at, T const *value)
 {
-	SDL_assert(list != nullptr);
-	SDL_assert(list->data != nullptr);
-	SDL_assert(list->count > at);
 	fck_dense_list_assert_in_range(list, at);
 
 	list->data[at] = *value;
@@ -56,9 +53,6 @@ void fck_dense_list_set(fck_dense_list<index_type, T> *list, typename fck_ignore
 template <typename index_type, typename T>
 void fck_dense_list_set_empty(fck_dense_list<index_type, T> *list, typename fck_ignore_deduction<index_type>::type at)
 {
-	SDL_assert(list != nullptr);
-	SDL_assert(list->data != nullptr);
-	SDL_assert(list->count > at);
 	fck_dense_list_assert_in_range(list, at);
 
 	SDL_zerop(list->data + at);
@@ -67,12 +61,18 @@ void fck_dense_list_set_empty(fck_dense_list<index_type, T> *list, typename fck_
 template <typename index_type, typename T>
 T *fck_dense_list_view(fck_dense_list<index_type, T> *list, typename fck_ignore_deduction<index_type>::type at)
 {
-	SDL_assert(list != nullptr);
-	SDL_assert(list->data != nullptr);
-	SDL_assert(list->count > at);
 	fck_dense_list_assert_in_range(list, at);
 
 	return &list->data[at];
+}
+
+template <typename index_type>
+void *fck_dense_list_view_raw(fck_dense_list<index_type, void> *list, typename fck_ignore_deduction<index_type>::type at,
+                              size_t type_size_in_bytes)
+{
+	fck_dense_list_assert_in_range(list, at);
+
+	return (uint8_t *)list->data + (at * type_size_in_bytes);
 }
 
 template <typename index_type, typename T>
@@ -133,8 +133,8 @@ void fck_dense_list_remove(fck_dense_list<index_type, T> *list, typename fck_ign
 }
 
 template <typename index_type>
-void fck_dense_list_remove(fck_dense_list<index_type, void> *list, typename fck_ignore_deduction<index_type>::type at,
-                           size_t type_size_bytes)
+void fck_dense_list_remove_raw(fck_dense_list<index_type, void> *list, typename fck_ignore_deduction<index_type>::type at,
+                               size_t type_size_bytes)
 {
 	SDL_assert(list != nullptr);
 	SDL_assert(list->data != nullptr);

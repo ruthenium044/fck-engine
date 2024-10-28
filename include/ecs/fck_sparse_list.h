@@ -61,13 +61,25 @@ template <typename index_type, typename value_type>
 void fck_sparse_list_free(fck_sparse_list<index_type, value_type> *list)
 {
 	SDL_assert(list != nullptr);
-	SDL_zerop(list);
 
 	fck_sparse_lookup_free(&list->sparse);
 	fck_sparse_lookup_free(&list->free_list_prev);
 
 	fck_dense_list_free(&list->owner);
 	fck_dense_list_free(&list->dense);
+	SDL_zerop(list);
+}
+
+template <typename index_type, typename value_type>
+void fck_sparse_list_clear(fck_sparse_list<index_type, value_type> *list)
+{
+	SDL_assert(list != nullptr);
+
+	fck_sparse_lookup_clear(&list->sparse);
+	fck_sparse_lookup_clear(&list->free_list_prev);
+
+	fck_dense_list_clear(&list->owner);
+	fck_dense_list_clear(&list->dense);
 }
 
 template <typename index_type, typename value_type>

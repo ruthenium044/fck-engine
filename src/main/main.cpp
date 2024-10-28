@@ -274,6 +274,21 @@ void render_process(fck_ecs *ecs, fck_system_update_info *)
 	SDL_SetRenderDrawColor(engine->renderer, 0, 0, 0, 255);
 	SDL_RenderClear(engine->renderer);
 
+	fck_ecs_apply(ecs, [engine, time](fck_static_sprite *sprite, fck_spritesheet *spritesheet, fck_position *position) {
+		SDL_FRect const *source = spritesheet->rect_list.data + sprite->sprite_index;
+
+		float target_x = position->x;
+		float target_y = position->y;
+		float target_width = source->w * fck_engine::screen_scale;
+		float target_height = source->h * fck_engine::screen_scale;
+		SDL_FRect dst = {target_x, target_y, target_width, target_height};
+
+		dst.x = dst.x + (sprite->offset.x * fck_engine::screen_scale);
+		dst.y = dst.y + (sprite->offset.y * fck_engine::screen_scale);
+
+		SDL_RenderTextureRotated(engine->renderer, spritesheet->texture, source, &dst, 0.0f, nullptr, SDL_FLIP_HORIZONTAL);
+	});
+
 	fck_ecs_apply(ecs, [engine, time](fck_animator *animator, fck_spritesheet *spritesheet, fck_position *position) {
 		fck_animator_update(animator, time->delta);
 		SDL_FRect const *source = fck_animator_get_rect(animator, spritesheet);
@@ -289,6 +304,12 @@ void render_process(fck_ecs *ecs, fck_system_update_info *)
 	});
 
 	SDL_RenderPresent(engine->renderer);
+}
+
+void resources_setup(fck_ecs *ecs, fck_system_once_info *)
+{
+	fck_ecs_component_clean_up_add<fck_animator>(ecs, fck_animator_free);
+	fck_ecs_component_clean_up_add<fck_spritesheet>(ecs, fck_spritesheet_free);
 }
 
 void engine_setup(fck_ecs *ecs, fck_system_once_info *)
@@ -307,7 +328,7 @@ void engine_setup(fck_ecs *ecs, fck_system_once_info *)
 
 	fck_font_asset_load(engine->renderer, "special", &engine->default_editor_font);
 
-	fck_drop_file_context *drop_file_context = fck_ecs_unique_set_empty<fck_drop_file_context>(ecs);
+	fck_drop_file_context *drop_file_context = fck_ecs_unique_set_empty<fck_drop_file_context>(ecs, fck_drop_file_context_free);
 
 	fck_keyboard_state *keyboard = fck_ecs_unique_set_empty<fck_keyboard_state>(ecs);
 	fck_mouse_state *mouse = fck_ecs_unique_set_empty<fck_mouse_state>(ecs);
@@ -320,72 +341,6 @@ void engine_setup(fck_ecs *ecs, fck_system_once_info *)
 	SDL_EnumerateDirectory(FCK_RESOURCE_DIRECTORY_PATH, fck_print_directory, nullptr);
 
 	engine->is_running = true;
-}
-
-struct fck_stream_writer
-{
-	fck_memory_stream *stream;
-};
-
-struct fck_stream_reader
-{
-	fck_memory_stream *stream;
-};
-
-template <typename type>
-void fck_serialize(fck_stream_writer *writer, type *data)
-{
-	fck_memory_stream_write(writer->stream, data, sizeof(*data));
-}
-
-template <typename type>
-void fck_serialize(fck_stream_reader *reader, type *data)
-{
-	data = (type *)fck_memory_stream_read(reader->stream, sizeof(*data));
-}
-
-void networking_process(fck_ecs *ecs, fck_system_update_info *)
-{
-	cnt_session *session = fck_ecs_unique_view<cnt_session>(ecs);
-	fck_time *time = fck_ecs_unique_view<fck_time>(ecs);
-
-	fck_ecs::entity_list *outgoing_entities = &ecs->entities.dense;
-	cnt_session_send_to_all(session, &outgoing_entities->count, sizeof(outgoing_entities->count));
-	cnt_session_send_to_all(session, outgoing_entities->data, outgoing_entities->count);
-
-	cnt_memory_view view;
-	if (cnt_session_try_receive_from(session, &view))
-	{
-		fck_ecs::entity_type count = *(fck_ecs::entity_type *)view.data;
-		if (cnt_session_try_receive_from(session, &view))
-		{
-			fck_ecs::entity_list incoming_entities;
-			incoming_entities.data = (fck_ecs::entity_type *)view.data;
-			incoming_entities.count = count;
-			incoming_entities.capacity = count;
-		}
-	}
-
-	cnt_session_tick(session, time->current, time->delta);
-}
-
-void networking_setup(fck_ecs *ecs, fck_system_once_info *)
-{
-	int local_address_count;
-
-	fck_instance_info *info = fck_ecs_unique_view<fck_instance_info>(ecs);
-
-	cnt_session *session = fck_ecs_unique_set_empty<cnt_session>(ecs);
-	constexpr size_t tick_rate = 1000 / 120; // 120 tick server, baby. Esports ready
-	cnt_session_alloc(session, 4, 128, 64, tick_rate);
-	cnt_socket_handle socket_handle = cnt_session_socket_create(session, info->ip, info->source_port);
-	if (info->destination_port != 0)
-	{
-		cnt_address_handle address_handle = cnt_session_address_create(session, info->ip, info->destination_port);
-		cnt_session_connect(session, &socket_handle, &address_handle);
-	}
-
-	fck_ecs_system_add(ecs, networking_process);
 }
 
 void cammy_setup(fck_ecs *ecs, fck_system_once_info *)
@@ -416,6 +371,134 @@ void cammy_setup(fck_ecs *ecs, fck_system_once_info *)
 	// Something is missing for this anim
 	fck_animator_insert(animator, spritesheet, FCK_COMMON_ANIMATION_KICK_B, FCK_ANIMATION_TYPE_ONCE, 145, 3, 120, -24.0f, -16.0f);
 	fck_animator_set(animator, FCK_COMMON_ANIMATION_IDLE);
+
+	// fck_ecs_component_remove<fck_controller>(ecs, cammy);
+}
+
+void cammy_setup_2(fck_ecs *ecs, fck_system_once_info *)
+{
+	fck_engine *engine = fck_ecs_unique_view<fck_engine>(ecs);
+	fck_ecs::entity_type cammy = fck_ecs_entity_create(ecs);
+
+	fck_animator *animator = fck_ecs_component_set_empty<fck_animator>(ecs, cammy);
+	fck_position *position = fck_ecs_component_set_empty<fck_position>(ecs, cammy);
+	fck_spritesheet *spritesheet = fck_ecs_component_set_empty<fck_spritesheet>(ecs, cammy);
+	CHECK_ERROR(fck_spritesheet_load(engine->renderer, "cammy.png", spritesheet, false), SDL_GetError());
+	position->x = 0.0f;
+	position->y = 128.0f + (cammy * 32);
+
+	fck_animator_alloc(animator, spritesheet);
+
+	fck_animator_insert(animator, spritesheet, FCK_COMMON_ANIMATION_IDLE, FCK_ANIMATION_TYPE_LOOP, 24, 8, 60, 0.0f, 0.0f);
+	fck_animator_insert(animator, spritesheet, FCK_COMMON_ANIMATION_CROUCH, FCK_ANIMATION_TYPE_ONCE, 35, 3, 40, 0.0f, 0.0f);
+	fck_animator_insert(animator, spritesheet, FCK_COMMON_ANIMATION_JUMP_UP, FCK_ANIMATION_TYPE_ONCE, 58, 7, 120, 0.0f, -32.0f);
+	fck_animator_insert(animator, spritesheet, FCK_COMMON_ANIMATION_JUMP_FORWARD, FCK_ANIMATION_TYPE_ONCE, 52, 6, 120, 0.0f, -32.0f);
+	fck_animator_insert(animator, spritesheet, FCK_COMMON_ANIMATION_JUMP_BACKWARD, FCK_ANIMATION_TYPE_ONCE, 65, 6, 120, 0.0f, -32.0f);
+	fck_animator_insert(animator, spritesheet, FCK_COMMON_ANIMATION_WALK_FORWARD, FCK_ANIMATION_TYPE_LOOP, 84, 12, 40, -5.0f, -10.0f);
+	fck_animator_insert(animator, spritesheet, FCK_COMMON_ANIMATION_WALK_BACKWARD, FCK_ANIMATION_TYPE_LOOP, 96, 12, 40, -5.0f, -10.0f);
+	fck_animator_insert(animator, spritesheet, FCK_COMMON_ANIMATION_PUNCH_A, FCK_ANIMATION_TYPE_ONCE, 118, 3, 60, 0.0f, 0.0f);
+	fck_animator_insert(animator, spritesheet, FCK_COMMON_ANIMATION_PUNCH_B, FCK_ANIMATION_TYPE_ONCE, 121, 3, 60, 0.0f, 0.0f);
+	fck_animator_insert(animator, spritesheet, FCK_COMMON_ANIMATION_KICK_A, FCK_ANIMATION_TYPE_ONCE, 130, 5, 60, 0.0f, 0.0f);
+	// Something is missing for this anim
+	fck_animator_insert(animator, spritesheet, FCK_COMMON_ANIMATION_KICK_B, FCK_ANIMATION_TYPE_ONCE, 145, 3, 120, -24.0f, -16.0f);
+	fck_animator_set(animator, FCK_COMMON_ANIMATION_IDLE);
+
+	// fck_ecs_component_remove<fck_controller>(ecs, cammy);
+}
+
+struct fck_stream_writer
+{
+	fck_memory_stream *stream;
+};
+
+struct fck_stream_reader
+{
+	fck_memory_stream *stream;
+};
+
+template <typename type>
+void fck_serialize(fck_stream_writer *writer, type *data)
+{
+	fck_memory_stream_write(writer->stream, data, sizeof(*data));
+}
+
+template <typename type>
+void fck_serialize(fck_stream_reader *reader, type *data)
+{
+	data = (type *)fck_memory_stream_read(reader->stream, sizeof(*data));
+}
+
+enum network_payload_type
+{
+	NETWORK_PAYLOAD_TYPE_DEFAULT,
+	NETWORK_PAYLOAD_TYPE_SYNC_REQUEST,
+	NETWORK_PAYLOAD_TYPE_SYNC_RESPONSE,
+};
+
+void networking_process(fck_ecs *ecs, fck_system_update_info *)
+{
+	cnt_session *session = fck_ecs_unique_view<cnt_session>(ecs);
+	fck_time *time = fck_ecs_unique_view<fck_time>(ecs);
+
+	/*
+	cnt_connection connection;
+	while (cnt_session_try_dequeue_new_connection(session, &connection))
+	{
+	    SDL_Log("New connection: %d %s", connection.flags, cnt_address_to_string(session, connection.destination));
+	    if ((connection.flags & CNT_CONNECTION_FLAG_INITIATOR) == CNT_CONNECTION_FLAG_INITIATOR)
+	    {
+	        uint8_t payload_type = NETWORK_PAYLOAD_TYPE_SYNC_REQUEST;
+	        fck_ecs::entity_list *outgoing_entities = &ecs->entities.owner;
+	        cnt_session_send_to_all(session, &payload_type, sizeof(payload_type));
+	        cnt_session_send_to_all(session, &outgoing_entities->count, sizeof(outgoing_entities->count));
+	        cnt_session_send_to_all(session, outgoing_entities->data, outgoing_entities->count * (sizeof(*outgoing_entities->data)));
+	    }
+	}
+
+	cnt_memory_view view;
+	if (cnt_session_try_receive_from(session, &view))
+	{
+	    uint8_t payload_type = *(uint8_t *)view.data;
+	    if (cnt_session_try_receive_from(session, &view))
+	    {
+	        fck_ecs::entity_type count = *(fck_ecs::entity_type *)view.data;
+	        if (cnt_session_try_receive_from(session, &view))
+	        {
+	            fck_ecs::entity_list incoming_entities;
+	            incoming_entities.data = (fck_ecs::entity_type *)view.data;
+	            incoming_entities.count = count;
+	            incoming_entities.capacity = count;
+
+	            if (payload_type == NETWORK_PAYLOAD_TYPE_SYNC_REQUEST)
+	            {
+	                for (fck_ecs::entity_type *entity : &incoming_entities)
+	                {
+	                    // fck_ecs_entity_create(ecs);
+	                    cammy_setup_2(ecs, {});
+	                }
+	            }
+	        }
+	    }
+	}*/
+
+	cnt_session_tick(session, time->current, time->delta);
+}
+
+void networking_setup(fck_ecs *ecs, fck_system_once_info *)
+{
+	fck_instance_info *info = fck_ecs_unique_view<fck_instance_info>(ecs);
+	cnt_session *session = fck_ecs_unique_set_empty<cnt_session>(ecs, cnt_session_free);
+
+	constexpr size_t tick_rate = 1000 / 120; // 120 tick server, baby. Esports ready
+	cnt_session_alloc(session, 4, 128, 64, tick_rate);
+	cnt_socket_handle socket_handle = cnt_session_socket_create(session, info->ip, info->source_port);
+	if (info->destination_port != 0)
+	{
+		cnt_address_handle address_handle = cnt_session_address_create(session, info->ip, info->destination_port);
+		cnt_session_connect(session, &socket_handle, &address_handle);
+	}
+
+	fck_ecs_system_add(ecs, networking_process);
 }
 
 struct fck_instance
@@ -433,6 +516,7 @@ void fck_instance_alloc(fck_instance *instance, fck_instance_info const *info)
 	fck_ecs_alloc(&instance->ecs, &ecs_alloc_info);
 
 	// Good old fashioned init systems
+	fck_ecs_system_add(&instance->ecs, resources_setup);
 	fck_ecs_system_add(&instance->ecs, engine_setup);
 	fck_ecs_system_add(&instance->ecs, networking_setup);
 	fck_ecs_system_add(&instance->ecs, cammy_setup);
@@ -460,12 +544,6 @@ void fck_instance_free(fck_instance *instance)
 {
 	SDL_assert(instance != nullptr);
 
-	// Not so pretty for now, but for development (ports) reasons, we would like to dealloc it
-	cnt_session *session = fck_ecs_unique_view<cnt_session>(&instance->ecs);
-	if (session != nullptr)
-	{
-		cnt_session_free(session);
-	}
 	// We ignore free-ing memory for now
 	// Since the ECS exists in this scope and we pass it along, we are pretty much
 	// guaranteed that the OS will clean it up
@@ -673,7 +751,7 @@ int main(int argc, char **argv)
 
 	fck_instances_free(&instances);
 
-	IMG_Quit();
+	SDL_QuitSubSystem(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
 	SDL_Quit();
 
 	return 0;

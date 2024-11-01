@@ -94,6 +94,25 @@ void fck_dense_list_add(fck_dense_list<index_type, T> *list, typename fck_ignore
 	list->data[last] = *value;
 }
 
+template <typename index_type>
+void fck_dense_list_add_raw(fck_dense_list<index_type, void> *list, typename fck_ignore_deduction<void>::type const *value,
+                            size_t type_size_bytes)
+{
+	SDL_assert(list != nullptr);
+	SDL_assert(list->data != nullptr);
+
+	index_type last = list->count;
+	list->count = last + 1;
+
+	fck_dense_list_assert_in_range(list, last);
+
+	uint8_t *start_as_byte = (uint8_t *)list->data;
+	size_t offset_last = last * type_size_bytes;
+	uint8_t *ptr_last = start_as_byte + offset_last;
+
+	SDL_memcpy(ptr_last, value, type_size_bytes);
+}
+
 template <typename index_type, typename T>
 void fck_dense_list_add_empty(fck_dense_list<index_type, T> *list)
 {
@@ -127,11 +146,15 @@ void fck_dense_list_remove(fck_dense_list<index_type, T> *list, typename fck_ign
 	SDL_assert(list->data != nullptr);
 	fck_dense_list_assert_in_range(list, at);
 
+	// TODO: Ash suggested to not swap, instead just overwrite
+	// Let's do that!
 	index_type last = list->count - 1;
 	fck_dense_list_swap(list, at, last);
 	list->count = last;
 }
 
+// It comforts me a bit more that the size is coming from the caller-side, but should it?
+// This is an exercise for the reader of this comment
 template <typename index_type>
 void fck_dense_list_remove_raw(fck_dense_list<index_type, void> *list, typename fck_ignore_deduction<index_type>::type at,
                                size_t type_size_bytes)

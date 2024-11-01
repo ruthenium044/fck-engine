@@ -16,7 +16,8 @@ enum fck_common_animations
 	FCK_COMMON_ANIMATION_PUNCH_B,
 	FCK_COMMON_ANIMATION_KICK_A,
 	FCK_COMMON_ANIMATION_KICK_B,
-	FCK_COMMON_ANIMATION_COUNT
+	FCK_COMMON_ANIMATION_COUNT,
+	FCK_COMMON_ANIMATION_INVALID = FCK_COMMON_ANIMATION_COUNT
 };
 
 enum fck_animation_type
@@ -44,8 +45,8 @@ struct fck_animator
 	// fck_spritesheet *spritesheet;
 	fck_animation animations[FCK_COMMON_ANIMATION_COUNT];
 
-	fck_animation *active_oneshot;
-	fck_animation *active_animation;
+	fck_common_animations active_oneshot;
+	fck_common_animations active_animation;
 
 	uint64_t time_accumulator_ms;
 	size_t current_frame;

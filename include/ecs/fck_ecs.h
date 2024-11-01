@@ -3,6 +3,7 @@
 
 #include <SDL3/SDL_assert.h>
 
+#include "fck_checks.h"
 #include "fck_sparse_array.h"
 #include "fck_sparse_arrays.h"
 #include "fck_sparse_list.h"
@@ -62,6 +63,111 @@ struct fck_ecs
 	// probably no scheduler... more like buckets atm, hehe
 	fck_systems_scheduler<system_id> system_scheduler;
 };
+
+struct fck_ecs_snapshot
+{
+	uint8_t *data;
+	size_t count;
+	size_t capacity;
+	size_t index;
+};
+
+inline void fck_ecs_snapshot_alloc(fck_ecs_snapshot *blob)
+{
+	SDL_assert(blob != nullptr);
+	SDL_zerop(blob);
+
+	constexpr size_t dafault_capacity = 1024;
+	blob->data = (uint8_t *)SDL_malloc(dafault_capacity);
+	blob->capacity = dafault_capacity;
+	blob->count = 0;
+	blob->index = 0;
+}
+
+inline void fck_ecs_snapshot_free(fck_ecs_snapshot *blob)
+{
+	SDL_assert(blob != nullptr);
+	SDL_free(blob->data);
+	SDL_zerop(blob);
+}
+
+inline void fck_ecs_snapshot_maybe_realloc(fck_ecs_snapshot *blob, size_t slack_count)
+{
+	SDL_assert(blob != nullptr);
+
+	// Fix it with a smart calculation :D
+	// Just lazy at the moment
+	while (blob->capacity < blob->count + slack_count)
+	{
+		const size_t new_capacity = blob->capacity * 2;
+		uint8_t *old_mem = blob->data;
+		uint8_t *new_mem = (uint8_t *)SDL_realloc(blob->data, new_capacity);
+
+		if (new_mem != nullptr)
+		{
+			SDL_LogCritical(0, "Failed to reallocate memory!");
+			blob->data = new_mem;
+		}
+
+		blob->capacity = new_capacity;
+	}
+}
+
+inline void fck_ecs_snapshot_serialise(fck_ecs_snapshot *snapshot, fck_components_header *header, fck_ecs::sparse_array_void *opaque_array)
+{
+	SDL_assert(snapshot != nullptr);
+
+	const size_t count_size = sizeof(opaque_array->owner.count);
+	const size_t full_dense_data_size = header->size * opaque_array->dense.count;
+	const size_t full_dense_owner_size = sizeof(*opaque_array->owner.data) * opaque_array->dense.count;
+
+	fck_ecs_snapshot_maybe_realloc(snapshot, full_dense_data_size + full_dense_owner_size);
+
+	uint8_t *at = snapshot->data + snapshot->count;
+	SDL_memcpy(at, &opaque_array->owner.count, count_size);
+
+	at = at + count_size;
+	SDL_memcpy(at, opaque_array->dense.data, full_dense_data_size);
+	at = at + full_dense_data_size;
+
+	SDL_memcpy(at, opaque_array->owner.data, full_dense_owner_size);
+	snapshot->count = snapshot->count + count_size + full_dense_data_size + full_dense_owner_size;
+}
+
+inline void fck_ecs_snapshot_deserialise(fck_ecs_snapshot *snapshot, fck_components_header *header,
+                                         fck_ecs::sparse_array_void *opaque_array)
+{
+	SDL_assert(snapshot != nullptr);
+
+	const size_t count_size = sizeof(opaque_array->owner.count);
+
+	fck_sparse_array_clear(opaque_array);
+
+	uint8_t *at = snapshot->data + snapshot->index;
+	fck_ecs::entity_type count = *(fck_ecs::entity_type *)at;
+	at = at + count_size;
+
+	const size_t full_dense_data_size = header->size * count;
+	const size_t full_dense_owner_size = sizeof(*opaque_array->owner.data) * count;
+
+	uint8_t *data = at;
+	at = at + full_dense_data_size;
+
+	fck_ecs::entity_type *owners = (fck_ecs::entity_type *)at;
+
+	SDL_memcpy(opaque_array->dense.data, data, full_dense_data_size);
+	SDL_memcpy(opaque_array->owner.data, owners, full_dense_owner_size);
+
+	opaque_array->owner.count = count;
+	opaque_array->dense.count = count;
+
+	for (fck_ecs::entity_type index = 0; index < count; index++)
+	{
+		fck_ecs::entity_type *data_owner = owners + index;
+		fck_sparse_lookup_set(&opaque_array->sparse, *data_owner, &index);
+	}
+	snapshot->index = snapshot->index + count_size + full_dense_data_size + full_dense_owner_size;
+}
 
 struct fck_ecs_alloc_info
 {
@@ -223,6 +329,37 @@ inline void fck_ecs_entity_destroy_all(fck_ecs *ecs)
 
 	ecs->entity_counter = 0;
 	fck_sparse_list_clear(&ecs->entities);
+}
+
+inline void fck_ecs_snapshot_store(fck_ecs *ecs, fck_ecs_snapshot *snapshot)
+{
+	SDL_assert(ecs != nullptr);
+
+	fck_ecs_snapshot_alloc(snapshot);
+
+	for (fck_item<fck_ecs::component_id, fck_components_header> item : &ecs->component_headers)
+	{
+		fck_ecs::component_id *id = item.index;
+		fck_components_header *header = item.value;
+		fck_ecs::sparse_array_void *components = fck_sparse_array_view(&ecs->components, *id);
+
+		fck_ecs_snapshot_serialise(snapshot, header, components);
+	}
+}
+
+inline void fck_ecs_snapshot_load(fck_ecs *ecs, fck_ecs_snapshot *snapshot)
+{
+	SDL_assert(ecs != nullptr);
+
+	// Not optimal. We might destroy something we want to keep! :((
+	for (fck_item<fck_ecs::component_id, fck_components_header> item : &ecs->component_headers)
+	{
+		fck_ecs::component_id *id = item.index;
+		fck_components_header *header = item.value;
+		fck_ecs::sparse_array_void *components = fck_sparse_array_view(&ecs->components, *id);
+
+		fck_ecs_snapshot_deserialise(snapshot, header, components);
+	}
 }
 
 template <typename type>

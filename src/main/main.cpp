@@ -96,6 +96,32 @@ struct fck_time
 	fck_milliseconds current;
 };
 
+struct fck_control_layout
+{
+	SDL_Scancode left;
+	SDL_Scancode right;
+	SDL_Scancode up;
+	SDL_Scancode down;
+
+	SDL_Scancode light_punch;
+	SDL_Scancode hard_punch;
+	SDL_Scancode light_kick;
+	SDL_Scancode hard_kick;
+};
+
+struct fck_gamepad_layout
+{
+	SDL_Scancode left;
+	SDL_Scancode right;
+	SDL_Scancode up;
+	SDL_Scancode down;
+
+	SDL_Scancode light_punch;
+	SDL_Scancode hard_punch;
+	SDL_Scancode light_kick;
+	SDL_Scancode hard_kick;
+};
+
 struct fck_controller
 {
 	fck_input_flag input;
@@ -142,40 +168,40 @@ void input_process(fck_ecs *ecs, fck_system_update_info *)
 
 	// TODO: fck_controller_layout*, fck_controller
 	// This would enable multiplayer - for now, whatever
-	fck_ecs_apply(ecs, [keyboard](fck_controller *controller, fck_animator *animator) {
+	fck_ecs_apply(ecs, [keyboard](fck_control_layout *layout, fck_controller *controller, fck_animator *animator) {
 		int input_flag = 0;
 		if (!fck_animator_is_playing(animator))
 		{
-			if (fck_key_down(keyboard, SDL_SCANCODE_LEFT))
+			if (fck_key_down(keyboard, layout->left))
 			{
 				input_flag = input_flag | FCK_INPUT_FLAG_LEFT;
 			}
-			if (fck_key_down(keyboard, SDL_SCANCODE_RIGHT))
+			if (fck_key_down(keyboard, layout->right))
 			{
 				input_flag = input_flag | FCK_INPUT_FLAG_RIGHT;
 			}
-			if (fck_key_down(keyboard, SDL_SCANCODE_DOWN))
+			if (fck_key_down(keyboard, layout->down))
 			{
 				input_flag = input_flag | FCK_INPUT_FLAG_DOWN;
 			}
-			if (fck_key_down(keyboard, SDL_SCANCODE_UP))
+			if (fck_key_down(keyboard, layout->up))
 			{
 				input_flag = input_flag | FCK_INPUT_FLAG_UP;
 			}
 		}
-		if (fck_key_just_down(keyboard, SDL_SCANCODE_A))
+		if (fck_key_just_down(keyboard, layout->light_punch))
 		{
 			input_flag = input_flag | FCK_INPUT_FLAG_PUNCH_A;
 		}
-		if (fck_key_just_down(keyboard, SDL_SCANCODE_S))
+		if (fck_key_just_down(keyboard, layout->hard_punch))
 		{
 			input_flag = input_flag | FCK_INPUT_FLAG_PUNCH_B;
 		}
-		if (fck_key_just_down(keyboard, SDL_SCANCODE_X))
+		if (fck_key_just_down(keyboard, layout->light_kick))
 		{
 			input_flag = input_flag | FCK_INPUT_FLAG_KICK_A;
 		}
-		if (fck_key_just_down(keyboard, SDL_SCANCODE_Z))
+		if (fck_key_just_down(keyboard, layout->hard_kick))
 		{
 			input_flag = input_flag | FCK_INPUT_FLAG_KICK_B;
 		}
@@ -190,7 +216,7 @@ void gameplay_process(fck_ecs *ecs, fck_system_update_info *)
 
 	// STATE EVAL
 	// Movement
-	fck_ecs_apply(ecs, [session](fck_controller *controller, fck_position *position) {
+	fck_ecs_apply(ecs, [](fck_controller *controller, fck_position *position) {
 		fck_input_flag input_flag = controller->input;
 		if (input_flag < FCK_INPUT_FLAG_MOVEMENT_END)
 		{
@@ -284,7 +310,7 @@ void render_process(fck_ecs *ecs, fck_system_update_info *)
 	SDL_SetRenderDrawColor(engine->renderer, 0, 0, 0, 255);
 	SDL_RenderClear(engine->renderer);
 
-	fck_ecs_apply(ecs, [engine, time](fck_static_sprite *sprite, fck_spritesheet *spritesheet, fck_position *position) {
+	fck_ecs_apply(ecs, [engine](fck_static_sprite *sprite, fck_spritesheet *spritesheet, fck_position *position) {
 		SDL_FRect const *source = spritesheet->rect_list.data + sprite->sprite_index;
 
 		float target_x = position->x;
@@ -300,17 +326,19 @@ void render_process(fck_ecs *ecs, fck_system_update_info *)
 	});
 
 	fck_ecs_apply(ecs, [engine, time](fck_animator *animator, fck_spritesheet *spritesheet, fck_position *position) {
-		fck_animator_update(animator, time->delta);
-		SDL_FRect const *source = fck_animator_get_rect(animator, spritesheet);
+		if (fck_animator_update(animator, time->delta))
+		{
+			SDL_FRect const *source = fck_animator_get_rect(animator, spritesheet);
 
-		float target_x = position->x;
-		float target_y = position->y;
-		float target_width = source->w * fck_engine::screen_scale;
-		float target_height = source->h * fck_engine::screen_scale;
-		SDL_FRect dst = {target_x, target_y, target_width, target_height};
-		fck_animator_apply(animator, &dst, fck_engine::screen_scale);
+			float target_x = position->x;
+			float target_y = position->y;
+			float target_width = source->w * fck_engine::screen_scale;
+			float target_height = source->h * fck_engine::screen_scale;
+			SDL_FRect dst = {target_x, target_y, target_width, target_height};
+			fck_animator_apply(animator, &dst, fck_engine::screen_scale);
 
-		SDL_RenderTextureRotated(engine->renderer, spritesheet->texture, source, &dst, 0.0f, nullptr, SDL_FLIP_HORIZONTAL);
+			SDL_RenderTextureRotated(engine->renderer, spritesheet->texture, source, &dst, 0.0f, nullptr, SDL_FLIP_HORIZONTAL);
+		}
 	});
 
 	SDL_RenderPresent(engine->renderer);
@@ -358,13 +386,21 @@ void cammy_setup(fck_ecs *ecs, fck_system_once_info *)
 	fck_engine *engine = fck_ecs_unique_view<fck_engine>(ecs);
 	fck_ecs::entity_type cammy = fck_ecs_entity_create(ecs);
 
+	static fck_control_layout control_layout[2] = {
+		{SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT, SDL_SCANCODE_UP, SDL_SCANCODE_DOWN},
+		{SDL_SCANCODE_A, SDL_SCANCODE_D, SDL_SCANCODE_W, SDL_SCANCODE_S},
+	};
+
+	fck_control_layout *layout = fck_ecs_component_set_empty<fck_control_layout>(ecs, cammy);
 	fck_controller *controller = fck_ecs_component_set_empty<fck_controller>(ecs, cammy);
 	fck_animator *animator = fck_ecs_component_set_empty<fck_animator>(ecs, cammy);
 	fck_position *position = fck_ecs_component_set_empty<fck_position>(ecs, cammy);
 	fck_spritesheet *spritesheet = fck_ecs_component_set_empty<fck_spritesheet>(ecs, cammy);
 	CHECK_ERROR(fck_spritesheet_load(engine->renderer, "cammy.png", spritesheet, false), SDL_GetError());
 	position->x = 0.0f;
-	position->y = 128.0f + (cammy * 32);
+	position->y = 128.0f + (cammy * 64);
+
+	*layout = control_layout[cammy];
 
 	fck_animator_alloc(animator, spritesheet);
 
@@ -491,6 +527,10 @@ void networking_process(fck_ecs *ecs, fck_system_update_info *)
 	    }
 	}*/
 
+	if (cnt_session_will_tick(session, time->delta))
+	{
+	}
+
 	cnt_session_tick(session, time->current, time->delta);
 }
 
@@ -548,6 +588,11 @@ void fck_instance_alloc(fck_instance *instance, fck_instance_info const *info)
 	instance->info = fck_ecs_unique_set<fck_instance_info>(&instance->ecs, info);
 
 	fck_ecs_flush_system_once(&instance->ecs);
+
+	fck_ecs_snapshot snapshot;
+	fck_ecs_snapshot_store(&instance->ecs, &snapshot);
+	fck_ecs_snapshot_load(&instance->ecs, &snapshot);
+	fck_ecs_snapshot_free(&snapshot);
 }
 
 void fck_instance_free(fck_instance *instance)

@@ -406,36 +406,6 @@ uint16_t fck_unique_id_get()
 }
 
 template <typename type>
-void fck_ecs_component_set(fck_ecs *ecs, fck_ecs::entity_type index, type const *value)
-{
-	SDL_assert(ecs != nullptr);
-
-	fck_ecs::component_id component_id = fck_unique_id_get<type>();
-	fck_ecs::sparse_array_void *out_ptr;
-	if (!fck_sparse_array_try_view(&ecs->components, component_id, &out_ptr))
-	{
-
-		fck_components_header header;
-		SDL_zero(header); // No destructor was set! Can be nulled
-		header.size = sizeof(*value);
-		fck_sparse_array_emplace(&ecs->component_headers, component_id, &header);
-
-		fck_ecs::sparse_array<type> components;
-		fck_sparse_array_alloc(&components, ecs->capacity);
-
-		fck_ecs::sparse_array_void *as_void = (fck_ecs::sparse_array_void *)&components;
-		fck_sparse_array_emplace(&components, index, value);
-		fck_sparse_array_emplace(&ecs->components, component_id, as_void);
-		return;
-	}
-
-	fck_ecs_entity_emplace(ecs, index);
-
-	fck_ecs::sparse_array<type> *components = (fck_ecs::sparse_array<type> *)out_ptr;
-	fck_sparse_array_emplace(components, index, value);
-}
-
-template <typename type>
 void fck_ecs_component_remove(fck_ecs *ecs, fck_ecs::entity_type index)
 {
 	SDL_assert(ecs != nullptr);
@@ -452,46 +422,74 @@ void fck_ecs_component_remove(fck_ecs *ecs, fck_ecs::entity_type index)
 }
 
 template <typename type>
-type *fck_ecs_component_set_empty(fck_ecs *ecs, fck_ecs::entity_type index)
+void fck_ecs_component_interface_override(fck_ecs *ecs, fck_components_interface<type> const *interface)
 {
-	// Make this function the center point so we do not have the same code in different bodies lying around!!
+	fck_ecs::component_id component_id = fck_unique_id_get<type>();
+	fck_components_header *out_header;
+	if (!fck_sparse_array_try_view(&ecs->component_headers, component_id, &out_header))
+	{
+		fck_components_header header;
+		SDL_zero(header);
+		header.size = sizeof(type);
+		out_header = fck_sparse_array_emplace(&ecs->component_headers, component_id, &header);
+	}
 
-	// Very similar to set, might be useful to refactor this into one internal set... but also, not having so much noise is nice
+	out_header->interface = *(fck_components_interface_void const *)interface;
+}
+
+template <typename type>
+fck_ecs::sparse_array<type> *fck_ecs_component_register(fck_ecs *ecs)
+{
 	SDL_assert(ecs != nullptr);
 
 	fck_ecs::component_id component_id = fck_unique_id_get<type>();
 	fck_ecs::sparse_array_void *out_ptr;
 	if (!fck_sparse_array_try_view(&ecs->components, component_id, &out_ptr))
 	{
-		if (!fck_sparse_array_exists(&ecs->component_headers, component_id))
+		fck_components_interface<type> interface;
+		SDL_zero(interface);
+		if constexpr (fck_ecs_free_trait<type>::value)
 		{
-			fck_components_header header;
-			SDL_zero(header);
-			if constexpr (fck_ecs_free_trait<type>::value)
-			{
-				fck_ecs_component_cleanup<type> function = fck_free;
-				header.interface.destructor = (fck_ecs_component_cleanup_void)function;
-			}
-			header.size = sizeof(type);
-			fck_sparse_array_emplace(&ecs->component_headers, component_id, &header);
+			interface.destructor = fck_free;
 		}
+		fck_ecs_component_interface_override(ecs, &interface);
 
 		fck_ecs::sparse_array<type> components;
 		fck_sparse_array_alloc(&components, ecs->capacity);
-
 		fck_ecs::sparse_array_void *as_void = (fck_ecs::sparse_array_void *)&components;
-		fck_sparse_array_emplace(&ecs->components, component_id, as_void);
-		out_ptr = fck_sparse_array_view(&ecs->components, component_id);
+		out_ptr = fck_sparse_array_emplace(&ecs->components, component_id, as_void);
 	}
+	return (fck_ecs::sparse_array<type> *)out_ptr;
+}
+
+template <typename type>
+type *fck_ecs_component_set_empty(fck_ecs *ecs, fck_ecs::entity_type index)
+{
+	// Make this function the center point so we do not have the same code in different bodies lying around!!
+
+	// Very similar to set, might be useful to refactor this into one internal set... but also, not having so much noise is nice
+	SDL_assert(ecs != nullptr);
+	fck_ecs::sparse_array<type> *components = fck_ecs_component_register<type>(ecs);
 
 	// emplacing and checking is so cheap, we can just do it again
 	// The laternative is checking whether it exists and throw or return if not...
 	// But in this case we still access the same data and have the same overhead
 	fck_ecs_entity_emplace(ecs, index);
 
-	fck_ecs::sparse_array<type> *components = (fck_ecs::sparse_array<type> *)out_ptr;
 	fck_sparse_array_emplace_empty(components, index);
 	return fck_sparse_array_view(components, index);
+}
+
+template <typename type>
+void fck_ecs_component_set(fck_ecs *ecs, fck_ecs::entity_type index, type const *value)
+{
+	SDL_assert(ecs != nullptr);
+
+	fck_ecs::sparse_array<type> *components = fck_ecs_component_register<type>(ecs);
+
+	fck_ecs_entity_emplace(ecs, index);
+
+	fck_sparse_array_emplace(components, index, value);
 }
 
 template <typename type>
@@ -553,24 +551,6 @@ inline void fck_ecs_system_add(fck_ecs *ecs, fck_system_update on_update)
 inline void fck_ecs_system_add(fck_ecs *ecs, fck_system_once on_once)
 {
 	fck_systems_scheduler_push(&ecs->system_scheduler, FCK_ECS_SYSTEM_TYPE_ONCE, (fck_system_generic)on_once);
-}
-
-template <typename type>
-void fck_ecs_component_interface_set(fck_ecs *ecs, fck_components_interface<type> interface)
-{
-	fck_ecs::component_id component_id = fck_unique_id_get<type>();
-	fck_components_header *out_header;
-	if (!fck_sparse_array_try_view(&ecs->component_headers, component_id, &out_header))
-	{
-		fck_components_header header;
-		SDL_zero(header);
-		header.size = sizeof(type);
-		header.interface = *(fck_components_interface_void *)&interface;
-		fck_sparse_array_emplace(&ecs->component_headers, component_id, &header);
-		return;
-	}
-
-	out_header->interface = *(fck_components_interface_void *)&interface;
 }
 
 inline void fck_ecs_flush_system_once(fck_ecs *ecs)

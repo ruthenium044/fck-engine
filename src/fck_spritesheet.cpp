@@ -250,7 +250,7 @@ SDL_FRect const *fck_rect_list_view_get(fck_rect_list *rect_source, fck_rect_lis
 	return view_begin + at;
 }
 
-void fck_spritesheet_free(fck_spritesheet *sprites)
+void fck_free(fck_spritesheet *sprites)
 {
 	SDL_DestroyTexture(sprites->texture);
 

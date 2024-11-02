@@ -12,18 +12,45 @@
 #include "fck_type_pack.h"
 #include "fck_uniform_buffer.h"
 
+#include <type_traits>
+
+// Primary template: Assumes fck_serialise does not exist for T
 template <typename index_type>
 using fck_sparse_array_void_type = fck_sparse_array<index_type, void>;
+
+template <typename value_type>
+using fck_ecs_component_serialise = void (*)(value_type *, size_t);
+
+using fck_ecs_component_serialise_void = fck_ecs_component_serialise<void>;
 
 template <typename value_type>
 using fck_ecs_component_cleanup = void (*)(value_type *);
 
 using fck_ecs_component_cleanup_void = fck_ecs_component_cleanup<void>;
 
+template <typename value_type>
+struct fck_components_interface
+{
+	fck_ecs_component_cleanup<value_type> destructor;
+	fck_ecs_component_serialise<value_type> serialise;
+};
+
+using fck_components_interface_void = fck_components_interface<void>;
+
+template <typename value_type, typename = void>
+struct fck_ecs_free_trait : fck_false_type
+{
+};
+
+template <typename value_type>
+struct fck_ecs_free_trait<value_type, fck_void<decltype(fck_free((value_type *)nullptr))>> : fck_true_type
+{
+};
+
 struct fck_components_header
 {
 	size_t size;
-	fck_ecs_component_cleanup_void destructor;
+	fck_components_interface_void interface;
 };
 
 struct fck_ecs
@@ -33,6 +60,14 @@ struct fck_ecs
 	using system_id = uint16_t;
 	using sparse_array_void = fck_sparse_array_void_type<entity_type>;
 	using scheduler_type = fck_systems_scheduler<system_id>;
+
+	template <typename value_type>
+	using sparse_array = fck_sparse_array<entity_type, value_type>;
+
+	template <typename value_type>
+	using dense_list = fck_dense_list<entity_type, value_type>;
+	using entity_list = dense_list<entity_type>;
+
 	fck_uniform_buffer uniform_buffer;
 
 	// The value type should and could become somthing more useful!
@@ -47,14 +82,7 @@ struct fck_ecs
 	fck_sparse_list<entity_type, entity_type> entities;
 	entity_type entity_counter;
 
-	template <typename value_type>
-	using sparse_array = fck_sparse_array<entity_type, value_type>;
-
-	template <typename value_type>
-	using dense_list = fck_dense_list<entity_type, value_type>;
-
-	using entity_list = dense_list<entity_type>;
-
+	// Duplicate count and capacity (overhead)
 	fck_sparse_array<component_id, fck_components_header> component_headers;
 	fck_sparse_array<component_id, sparse_array_void> components;
 	entity_type capacity;
@@ -127,11 +155,11 @@ inline void fck_ecs_snapshot_serialise(fck_ecs_snapshot *snapshot, fck_component
 	SDL_memcpy(at, &opaque_array->owner.count, count_size);
 
 	at = at + count_size;
-	SDL_memcpy(at, opaque_array->dense.data, full_dense_data_size);
-	at = at + full_dense_data_size;
-
 	SDL_memcpy(at, opaque_array->owner.data, full_dense_owner_size);
-	snapshot->count = snapshot->count + count_size + full_dense_data_size + full_dense_owner_size;
+	at = at + full_dense_owner_size;
+
+	SDL_memcpy(at, opaque_array->dense.data, full_dense_data_size);
+	snapshot->count = snapshot->count + count_size + full_dense_owner_size + full_dense_data_size;
 }
 
 inline void fck_ecs_snapshot_deserialise(fck_ecs_snapshot *snapshot, fck_components_header *header,
@@ -150,13 +178,13 @@ inline void fck_ecs_snapshot_deserialise(fck_ecs_snapshot *snapshot, fck_compone
 	const size_t full_dense_data_size = header->size * count;
 	const size_t full_dense_owner_size = sizeof(*opaque_array->owner.data) * count;
 
-	uint8_t *data = at;
-	at = at + full_dense_data_size;
-
 	fck_ecs::entity_type *owners = (fck_ecs::entity_type *)at;
+	at = at + full_dense_owner_size;
 
-	SDL_memcpy(opaque_array->dense.data, data, full_dense_data_size);
+	uint8_t *data = at;
+
 	SDL_memcpy(opaque_array->owner.data, owners, full_dense_owner_size);
+	SDL_memcpy(opaque_array->dense.data, data, full_dense_data_size);
 
 	opaque_array->owner.count = count;
 	opaque_array->dense.count = count;
@@ -204,12 +232,13 @@ inline void fck_ecs_free(fck_ecs *ecs)
 		fck_ecs::component_id *id = item.index;
 		fck_components_header *header = item.value;
 		fck_ecs::sparse_array_void *components = fck_sparse_array_view(&ecs->components, *id);
-		if (header->destructor != nullptr)
+		fck_components_interface_void *interface = &header->interface;
+		if (interface->destructor != nullptr)
 		{
 			for (fck_ecs::entity_type entity = 0; entity < components->dense.count; entity++)
 			{
 				void *data = fck_dense_list_view_raw(&components->dense, entity, header->size);
-				header->destructor(data);
+				interface->destructor(data);
 			}
 		}
 
@@ -291,12 +320,13 @@ inline void fck_ecs_entity_destroy(fck_ecs *ecs, fck_ecs::entity_type entity)
 		fck_ecs::component_id *id = item.index;
 		fck_components_header *header = item.value;
 		fck_ecs::sparse_array_void *components = fck_sparse_array_view(&ecs->components, *id);
+		fck_components_interface_void *interface = &header->interface;
 		if (fck_sparse_array_exists(components, entity))
 		{
-			if (header->destructor != nullptr)
+			if (interface->destructor != nullptr)
 			{
 				void *data = fck_sparse_array_view_raw(components, entity, header->size);
-				header->destructor(data);
+				interface->destructor(data);
 			}
 			fck_sparse_array_remove_raw(components, entity, header->size);
 		}
@@ -315,12 +345,13 @@ inline void fck_ecs_entity_destroy_all(fck_ecs *ecs)
 		fck_ecs::component_id *id = item.index;
 		fck_components_header *header = item.value;
 		fck_ecs::sparse_array_void *components = fck_sparse_array_view(&ecs->components, *id);
-		if (header->destructor != nullptr)
+		fck_components_interface_void *interface = &header->interface;
+		if (interface->destructor != nullptr)
 		{
 			for (fck_ecs::entity_type entity = 0; entity < components->dense.count; entity++)
 			{
 				void *data = fck_dense_list_view_raw(&components->dense, entity, header->size);
-				header->destructor(data);
+				interface->destructor(data);
 			}
 		}
 
@@ -342,7 +373,11 @@ inline void fck_ecs_snapshot_store(fck_ecs *ecs, fck_ecs_snapshot *snapshot)
 		fck_ecs::component_id *id = item.index;
 		fck_components_header *header = item.value;
 		fck_ecs::sparse_array_void *components = fck_sparse_array_view(&ecs->components, *id);
-
+		fck_components_interface_void *interface = &header->interface;
+		if (interface->serialise != nullptr)
+		{
+			interface->serialise(components->dense.data, components->dense.count);
+		}
 		fck_ecs_snapshot_serialise(snapshot, header, components);
 	}
 }
@@ -419,6 +454,8 @@ void fck_ecs_component_remove(fck_ecs *ecs, fck_ecs::entity_type index)
 template <typename type>
 type *fck_ecs_component_set_empty(fck_ecs *ecs, fck_ecs::entity_type index)
 {
+	// Make this function the center point so we do not have the same code in different bodies lying around!!
+
 	// Very similar to set, might be useful to refactor this into one internal set... but also, not having so much noise is nice
 	SDL_assert(ecs != nullptr);
 
@@ -429,7 +466,12 @@ type *fck_ecs_component_set_empty(fck_ecs *ecs, fck_ecs::entity_type index)
 		if (!fck_sparse_array_exists(&ecs->component_headers, component_id))
 		{
 			fck_components_header header;
-			SDL_zero(header); // No destructor was set! Can be nulled
+			SDL_zero(header);
+			if constexpr (fck_ecs_free_trait<type>::value)
+			{
+				fck_ecs_component_cleanup<type> function = fck_free;
+				header.interface.destructor = (fck_ecs_component_cleanup_void)function;
+			}
 			header.size = sizeof(type);
 			fck_sparse_array_emplace(&ecs->component_headers, component_id, &header);
 		}
@@ -514,7 +556,7 @@ inline void fck_ecs_system_add(fck_ecs *ecs, fck_system_once on_once)
 }
 
 template <typename type>
-void fck_ecs_component_clean_up_add(fck_ecs *ecs, fck_ecs_component_cleanup<type> destructor)
+void fck_ecs_component_interface_set(fck_ecs *ecs, fck_components_interface<type> interface)
 {
 	fck_ecs::component_id component_id = fck_unique_id_get<type>();
 	fck_components_header *out_header;
@@ -522,13 +564,13 @@ void fck_ecs_component_clean_up_add(fck_ecs *ecs, fck_ecs_component_cleanup<type
 	{
 		fck_components_header header;
 		SDL_zero(header);
-		header.destructor = (fck_ecs_component_cleanup_void)destructor;
 		header.size = sizeof(type);
+		header.interface = *(fck_components_interface_void *)&interface;
 		fck_sparse_array_emplace(&ecs->component_headers, component_id, &header);
 		return;
 	}
 
-	out_header->destructor = (fck_ecs_component_cleanup_void)destructor;
+	out_header->interface = *(fck_components_interface_void *)&interface;
 }
 
 inline void fck_ecs_flush_system_once(fck_ecs *ecs)

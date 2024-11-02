@@ -5,6 +5,9 @@
 #include "fck_type_pack.h"
 #include <SDL3/SDL_stdinc.h>
 
+template <typename... types>
+using fck_void = void;
+
 template <typename first, typename... types>
 struct fck_first_type
 {

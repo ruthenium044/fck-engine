@@ -273,6 +273,7 @@ void cnt_session_tick_connecting(cnt_session *session, cnt_connection *connectio
 	cnt_connection_request request;
 	request.protocol = CNT_PROTOCOL_ID;
 	request.version = CNT_PROTOCOL_VERSION;
+	request.is_little_endian = cnt_connection_is_little_endian();
 	request.suggested_secret = 0;
 
 	cnt_connection_packet_push(&packet, CNT_CONNECTION_PACKET_TYPE_REQUEST, &request, sizeof(request));
@@ -425,8 +426,10 @@ void cnt_session_tick_receive(cnt_session *session, fck_milliseconds time)
 					cnt_connection_request *request = (cnt_connection_request *)data;
 					connection->secret = request->suggested_secret;
 					bool is_valid_protocol = request->protocol == CNT_PROTOCOL_ID && request->version == CNT_PROTOCOL_VERSION;
-					SDL_Log("%llu, %s gets request from %s", (uint64_t)session, cnt_socket_to_string(session, connection->source),
-					        cnt_address_to_string(session, connection->destination));
+
+					bool is_valid_endian = request->is_little_endian == cnt_connection_is_little_endian();
+					CHECK_WARNING(is_valid_endian, "Endianess is different. Data flow will fail when endianess matters!")
+
 					if (is_valid_protocol)
 					{
 						connection->state = CNT_CONNECTION_STATE_REQUEST_INCOMING;
@@ -435,6 +438,9 @@ void cnt_session_tick_receive(cnt_session *session, fck_milliseconds time)
 					{
 						connection->state = CNT_CONNECTION_STATE_REJECTED;
 					}
+
+					SDL_Log("%llu, %s gets request from %s", (uint64_t)session, cnt_socket_to_string(session, connection->source),
+					        cnt_address_to_string(session, connection->destination));
 				}
 				break;
 				case CNT_CONNECTION_PACKET_TYPE_ACCEPT: {
@@ -516,6 +522,10 @@ void cnt_session_tick_send(cnt_session *session, fck_milliseconds time)
 		cnt_connection *connection = item.value;
 		switch (connection->state)
 		{
+		case CNT_CONNECTION_STATE_NONE:
+			// What to do... what to do?
+			// We can time out and such at some point
+			break;
 		case CNT_CONNECTION_STATE_CONNECTING:
 			cnt_session_tick_connecting(session, connection, time, session->tick_rate);
 			break;

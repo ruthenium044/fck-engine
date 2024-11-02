@@ -73,3 +73,10 @@ bool cnt_connection_packet_try_pop(cnt_connection_packet *packet, cnt_connection
 	}
 	return true;
 }
+
+bool cnt_connection_is_little_endian()
+{
+	unsigned int x = 1;
+	char *c = (char *)&x;
+	return ((int)*c) == 1;
+}

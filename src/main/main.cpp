@@ -344,12 +344,6 @@ void render_process(fck_ecs *ecs, fck_system_update_info *)
 	SDL_RenderPresent(engine->renderer);
 }
 
-void resources_setup(fck_ecs *ecs, fck_system_once_info *)
-{
-	fck_ecs_component_clean_up_add<fck_animator>(ecs, fck_animator_free);
-	fck_ecs_component_clean_up_add<fck_spritesheet>(ecs, fck_spritesheet_free);
-}
-
 void engine_setup(fck_ecs *ecs, fck_system_once_info *)
 {
 	fck_engine *engine = fck_ecs_unique_view<fck_engine>(ecs);
@@ -566,7 +560,6 @@ void fck_instance_alloc(fck_instance *instance, fck_instance_info const *info)
 	fck_ecs_alloc(&instance->ecs, &ecs_alloc_info);
 
 	// Good old fashioned init systems
-	fck_ecs_system_add(&instance->ecs, resources_setup);
 	fck_ecs_system_add(&instance->ecs, engine_setup);
 	fck_ecs_system_add(&instance->ecs, networking_setup);
 	fck_ecs_system_add(&instance->ecs, cammy_setup);

@@ -34,7 +34,8 @@ struct fck_spritesheet
 	fck_rect_list rect_list;
 };
 
-void fck_spritesheet_free(fck_spritesheet *sprites);
+// ECS Trait
+void fck_free(fck_spritesheet *sprites);
 bool fck_spritesheet_load(SDL_Renderer *renderer, const char *file_name, fck_spritesheet *out_sprites, bool force_rebuild = false);
 
 void fck_rect_list_view_create(fck_rect_list *list, size_t at, size_t count, fck_rect_list_view *view);

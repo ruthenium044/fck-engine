@@ -54,7 +54,8 @@ struct fck_animator
 
 void fck_animator_alloc(fck_animator *animator, fck_spritesheet *spritsheet);
 
-void fck_animator_free(fck_animator *animator);
+// ECS Trait
+void fck_free(fck_animator *animator);
 
 void fck_animator_insert(fck_animator *animator, fck_spritesheet *spritesheet, fck_common_animations anim,
                          fck_animation_type animation_type, size_t start, size_t count, uint64_t frame_time_ms, float offset_x,

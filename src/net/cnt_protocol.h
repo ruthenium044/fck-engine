@@ -23,6 +23,7 @@ struct cnt_connection_request
 	uint32_t protocol;
 	uint32_t version;
 	uint32_t suggested_secret;
+	uint8_t is_little_endian;
 };
 
 struct cnt_connection_accept
@@ -41,3 +42,5 @@ struct cnt_connection_packet
 
 void cnt_connection_packet_push(cnt_connection_packet *packet, cnt_connection_packet_type type, void *data, uint8_t length);
 bool cnt_connection_packet_try_pop(cnt_connection_packet *packet, cnt_connection_packet_type *type, void **data, uint8_t *length);
+
+bool cnt_connection_is_little_endian();

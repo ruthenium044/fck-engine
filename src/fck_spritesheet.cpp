@@ -6,7 +6,9 @@
 #include <SDL3/SDL_surface.h>
 #include <SDL3_image/SDL_image.h>
 
-#include "ecs/fck_ecs.h"
+#include "ecs/fck_ecs_component_traits.h"
+#include "ecs/fck_serialiser.h"
+
 static void rect_list_allocate(fck_rect_list *list, size_t capacity)
 {
 	list->data = (SDL_FRect *)SDL_calloc(capacity, sizeof(*list->data));

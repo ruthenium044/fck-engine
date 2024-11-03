@@ -157,6 +157,8 @@ struct fck_function_traits : fck_function_traits<decltype(&function::operator())
 template <typename return_t, typename... args>
 struct fck_function_traits<return_t (*)(args...)>
 {
+	using function_type = return_t (*)(args...);
+
 	using caller_type = void;
 	using return_type = return_t;
 	using arguments = fck_type_pack<args...>;
@@ -167,6 +169,8 @@ struct fck_function_traits<return_t (*)(args...)>
 template <typename caller, typename return_t, typename... args>
 struct fck_function_traits<return_t (caller::*)(args...) const>
 {
+	using function_type = return_t (caller::*)(args...);
+
 	using caller_type = caller;
 	using return_type = return_t;
 	using arguments = fck_type_pack<args...>;

@@ -4,6 +4,8 @@
 #include <SDL3/SDL_assert.h>
 
 #include "fck_checks.h"
+#include "fck_ecs_component_traits.h"
+#include "fck_serialiser.h"
 #include "fck_sparse_array.h"
 #include "fck_sparse_arrays.h"
 #include "fck_sparse_list.h"
@@ -12,44 +14,23 @@
 #include "fck_type_pack.h"
 #include "fck_uniform_buffer.h"
 
-// Primary template: Assumes fck_serialise does not exist for T
-template <typename index_type>
-using fck_sparse_array_void_type = fck_sparse_array<index_type, void>;
-
-template <typename value_type>
-using fck_ecs_component_serialise = void (*)(value_type *, size_t);
-
-using fck_ecs_component_serialise_void = fck_ecs_component_serialise<void>;
-
-template <typename value_type>
-using fck_ecs_component_cleanup = void (*)(value_type *);
-
-using fck_ecs_component_cleanup_void = fck_ecs_component_cleanup<void>;
-
 template <typename value_type>
 struct fck_components_interface
 {
-	fck_ecs_component_cleanup<value_type> destructor;
+	fck_ecs_component_free<value_type> free;
 	fck_ecs_component_serialise<value_type> serialise;
 };
 
 using fck_components_interface_void = fck_components_interface<void>;
-
-template <typename value_type, typename = void>
-struct fck_ecs_free_trait : fck_false_type
-{
-};
-
-template <typename value_type>
-struct fck_ecs_free_trait<value_type, fck_void<decltype(fck_free((value_type *)nullptr))>> : fck_true_type
-{
-};
 
 struct fck_components_header
 {
 	size_t size;
 	fck_components_interface_void interface;
 };
+
+template <typename index_type>
+using fck_sparse_array_void_type = fck_sparse_array<index_type, void>;
 
 struct fck_ecs
 {
@@ -92,72 +73,39 @@ struct fck_ecs
 
 struct fck_ecs_snapshot
 {
-	uint8_t *data;
-	size_t count;
-	size_t capacity;
-	size_t index;
+	fck_serialiser serialiser;
 };
-
-inline void fck_ecs_snapshot_alloc(fck_ecs_snapshot *blob)
-{
-	SDL_assert(blob != nullptr);
-	SDL_zerop(blob);
-
-	constexpr size_t dafault_capacity = 1024;
-	blob->data = (uint8_t *)SDL_malloc(dafault_capacity);
-	blob->capacity = dafault_capacity;
-	blob->count = 0;
-	blob->index = 0;
-}
-
-inline void fck_ecs_snapshot_free(fck_ecs_snapshot *blob)
-{
-	SDL_assert(blob != nullptr);
-	SDL_free(blob->data);
-	SDL_zerop(blob);
-}
-
-inline void fck_ecs_snapshot_maybe_realloc(fck_ecs_snapshot *blob, size_t slack_count)
-{
-	SDL_assert(blob != nullptr);
-
-	// Fix it with a smart calculation :D
-	// Just lazy at the moment
-	while (blob->capacity < blob->count + slack_count)
-	{
-		const size_t new_capacity = blob->capacity * 2;
-		uint8_t *old_mem = blob->data;
-		uint8_t *new_mem = (uint8_t *)SDL_realloc(blob->data, new_capacity);
-
-		if (new_mem != nullptr)
-		{
-			SDL_LogCritical(0, "Failed to reallocate memory!");
-			blob->data = new_mem;
-		}
-
-		blob->capacity = new_capacity;
-	}
-}
 
 inline void fck_ecs_snapshot_serialise(fck_ecs_snapshot *snapshot, fck_components_header *header, fck_ecs::sparse_array_void *opaque_array)
 {
 	SDL_assert(snapshot != nullptr);
 
+	fck_serialiser *serialiser = &snapshot->serialiser;
+
 	const size_t count_size = sizeof(opaque_array->owner.count);
 	const size_t full_dense_data_size = header->size * opaque_array->dense.count;
 	const size_t full_dense_owner_size = sizeof(*opaque_array->owner.data) * opaque_array->dense.count;
 
-	fck_ecs_snapshot_maybe_realloc(snapshot, full_dense_data_size + full_dense_owner_size);
+	fck_serialiser_maybe_realloc(serialiser, full_dense_data_size + full_dense_owner_size);
 
-	uint8_t *at = snapshot->data + snapshot->count;
-	SDL_memcpy(at, &opaque_array->owner.count, count_size);
+	// Count and owner data as data header!
+	SDL_memcpy(serialiser->data + serialiser->count, &opaque_array->owner.count, count_size);
+	serialiser->count = serialiser->count + count_size;
 
-	at = at + count_size;
-	SDL_memcpy(at, opaque_array->owner.data, full_dense_owner_size);
-	at = at + full_dense_owner_size;
+	SDL_memcpy(serialiser->data + serialiser->count, opaque_array->owner.data, full_dense_owner_size);
+	serialiser->count = serialiser->count + full_dense_owner_size;
 
-	SDL_memcpy(at, opaque_array->dense.data, full_dense_data_size);
-	snapshot->count = snapshot->count + count_size + full_dense_owner_size + full_dense_data_size;
+	// Write data
+	if (header->interface.serialise != nullptr)
+	{
+		header->interface.serialise(serialiser, opaque_array->owner.data, opaque_array->owner.count);
+	}
+	else
+	{
+		// Default memcpy write when nothing else specified - Size ensured due to maybe_realloc on top
+		SDL_memcpy(serialiser->data + serialiser->count, opaque_array->dense.data, full_dense_data_size);
+		serialiser->count = serialiser->count + full_dense_data_size;
+	}
 }
 
 inline void fck_ecs_snapshot_deserialise(fck_ecs_snapshot *snapshot, fck_components_header *header,
@@ -165,11 +113,13 @@ inline void fck_ecs_snapshot_deserialise(fck_ecs_snapshot *snapshot, fck_compone
 {
 	SDL_assert(snapshot != nullptr);
 
+	fck_serialiser *serialiser = &snapshot->serialiser;
+
 	const size_t count_size = sizeof(opaque_array->owner.count);
 
 	fck_sparse_array_clear(opaque_array);
 
-	uint8_t *at = snapshot->data + snapshot->index;
+	uint8_t *at = serialiser->data + serialiser->index;
 	fck_ecs::entity_type count = *(fck_ecs::entity_type *)at;
 	at = at + count_size;
 
@@ -192,7 +142,7 @@ inline void fck_ecs_snapshot_deserialise(fck_ecs_snapshot *snapshot, fck_compone
 		fck_ecs::entity_type *data_owner = owners + index;
 		fck_sparse_lookup_set(&opaque_array->sparse, *data_owner, &index);
 	}
-	snapshot->index = snapshot->index + count_size + full_dense_data_size + full_dense_owner_size;
+	serialiser->index = serialiser->index + count_size + full_dense_data_size + full_dense_owner_size;
 }
 
 struct fck_ecs_alloc_info
@@ -231,12 +181,12 @@ inline void fck_ecs_free(fck_ecs *ecs)
 		fck_components_header *header = item.value;
 		fck_ecs::sparse_array_void *components = fck_sparse_array_view(&ecs->components, *id);
 		fck_components_interface_void *interface = &header->interface;
-		if (interface->destructor != nullptr)
+		if (interface->free != nullptr)
 		{
 			for (fck_ecs::entity_type entity = 0; entity < components->dense.count; entity++)
 			{
 				void *data = fck_dense_list_view_raw(&components->dense, entity, header->size);
-				interface->destructor(data);
+				interface->free(data);
 			}
 		}
 
@@ -321,10 +271,10 @@ inline void fck_ecs_entity_destroy(fck_ecs *ecs, fck_ecs::entity_type entity)
 		fck_components_interface_void *interface = &header->interface;
 		if (fck_sparse_array_exists(components, entity))
 		{
-			if (interface->destructor != nullptr)
+			if (interface->free != nullptr)
 			{
 				void *data = fck_sparse_array_view_raw(components, entity, header->size);
-				interface->destructor(data);
+				interface->free(data);
 			}
 			fck_sparse_array_remove_raw(components, entity, header->size);
 		}
@@ -344,12 +294,12 @@ inline void fck_ecs_entity_destroy_all(fck_ecs *ecs)
 		fck_components_header *header = item.value;
 		fck_ecs::sparse_array_void *components = fck_sparse_array_view(&ecs->components, *id);
 		fck_components_interface_void *interface = &header->interface;
-		if (interface->destructor != nullptr)
+		if (interface->free != nullptr)
 		{
 			for (fck_ecs::entity_type entity = 0; entity < components->dense.count; entity++)
 			{
 				void *data = fck_dense_list_view_raw(&components->dense, entity, header->size);
-				interface->destructor(data);
+				interface->free(data);
 			}
 		}
 
@@ -363,8 +313,9 @@ inline void fck_ecs_entity_destroy_all(fck_ecs *ecs)
 inline void fck_ecs_snapshot_store(fck_ecs *ecs, fck_ecs_snapshot *snapshot)
 {
 	SDL_assert(ecs != nullptr);
+	SDL_assert(snapshot != nullptr);
 
-	fck_ecs_snapshot_alloc(snapshot);
+	fck_serialiser_alloc(&snapshot->serialiser);
 
 	for (fck_item<fck_ecs::component_id, fck_components_header> item : &ecs->component_headers)
 	{
@@ -372,10 +323,7 @@ inline void fck_ecs_snapshot_store(fck_ecs *ecs, fck_ecs_snapshot *snapshot)
 		fck_components_header *header = item.value;
 		fck_ecs::sparse_array_void *components = fck_sparse_array_view(&ecs->components, *id);
 		fck_components_interface_void *interface = &header->interface;
-		if (interface->serialise != nullptr)
-		{
-			interface->serialise(components->dense.data, components->dense.count);
-		}
+
 		fck_ecs_snapshot_serialise(snapshot, header, components);
 	}
 }
@@ -383,6 +331,7 @@ inline void fck_ecs_snapshot_store(fck_ecs *ecs, fck_ecs_snapshot *snapshot)
 inline void fck_ecs_snapshot_load(fck_ecs *ecs, fck_ecs_snapshot *snapshot)
 {
 	SDL_assert(ecs != nullptr);
+	SDL_assert(snapshot != nullptr);
 
 	// Not optimal. We might destroy something we want to keep! :((
 	for (fck_item<fck_ecs::component_id, fck_components_header> item : &ecs->component_headers)
@@ -393,6 +342,13 @@ inline void fck_ecs_snapshot_load(fck_ecs *ecs, fck_ecs_snapshot *snapshot)
 
 		fck_ecs_snapshot_deserialise(snapshot, header, components);
 	}
+}
+
+inline void fck_ecs_snapshot_free(fck_ecs_snapshot *snapshot)
+{
+	SDL_assert(snapshot != nullptr);
+
+	fck_serialiser_free(&snapshot->serialiser);
 }
 
 template <typename type>
@@ -446,12 +402,10 @@ fck_ecs::sparse_array<type> *fck_ecs_component_register(fck_ecs *ecs)
 	{
 		fck_components_interface<type> interface;
 		SDL_zero(interface);
-		if constexpr (fck_ecs_free_trait<type>::value)
-		{
-			void fck_free(type *);
-			interface.destructor = fck_free;
-		}
+		interface.free = fck_ecs_free_trait<type>::template fetch<type>();
+		interface.serialise = fck_ecs_serialise_trait<type>::template fetch<type>();
 		// TODO: More traits!!
+
 		fck_ecs_component_interface_override(ecs, &interface);
 
 		fck_ecs::sparse_array<type> components;

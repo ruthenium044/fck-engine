@@ -4,10 +4,8 @@
 #include <SDL3/SDL_assert.h>
 #include <SDL3/SDL_atomic.h>
 
-#include <winsock.h>
-
 #if _WIN32
-// Make atomic?
+#include <winsock.h>
 static SDL_AtomicInt wsa_reference_counter = {0};
 #endif // _WIN32
 

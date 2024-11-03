@@ -12,8 +12,6 @@
 #include "fck_type_pack.h"
 #include "fck_uniform_buffer.h"
 
-#include <type_traits>
-
 // Primary template: Assumes fck_serialise does not exist for T
 template <typename index_type>
 using fck_sparse_array_void_type = fck_sparse_array<index_type, void>;
@@ -452,6 +450,7 @@ fck_ecs::sparse_array<type> *fck_ecs_component_register(fck_ecs *ecs)
 		{
 			interface.destructor = fck_free;
 		}
+		// TODO: More traits!!
 		fck_ecs_component_interface_override(ecs, &interface);
 
 		fck_ecs::sparse_array<type> components;

@@ -538,7 +538,7 @@ fck_ecs::sparse_array<type> *fck_ecs_view_single(fck_ecs *table)
 	fck_ecs::sparse_array<type> *result;
 	SDL_zero(result);
 
-	fck_ecs_fetch_single(table, &result.tuple);
+	fck_ecs_fetch_single(table, &result);
 
 	return result;
 }

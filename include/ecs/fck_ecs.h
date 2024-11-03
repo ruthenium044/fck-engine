@@ -448,6 +448,7 @@ fck_ecs::sparse_array<type> *fck_ecs_component_register(fck_ecs *ecs)
 		SDL_zero(interface);
 		if constexpr (fck_ecs_free_trait<type>::value)
 		{
+			void fck_free(type *);
 			interface.destructor = fck_free;
 		}
 		// TODO: More traits!!

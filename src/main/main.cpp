@@ -133,10 +133,6 @@ struct fck_position
 	float y;
 };
 
-// void fck_serialise(fck_serialiser *serialiser, fck_position *positions, size_t count)
-//{
-// }
-
 struct fck_engine
 {
 	static constexpr float screen_scale = 2.0f;

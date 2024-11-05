@@ -79,10 +79,10 @@ static void byte_read_uint64(fck_serialiser *serialiser, uint64_t *value, size_t
 	         | ((uint64_t)at[1] << 8ull)   // 0x00FF000000000000
 	         | ((uint64_t)at[2] << 16ull)  // 0x0000FF0000000000
 	         | ((uint64_t)at[3] << 24ull)  // 0x000000FF00000000
-	         | ((uint64_t)at[0] << 32ull)  // 0x00000000FF000000
-	         | ((uint64_t)at[1] << 40ull)  // 0x0000000000FF0000
-	         | ((uint64_t)at[2] << 48ull)  // 0x000000000000FF00
-	         | ((uint64_t)at[3] << 56ull); // 0x00000000000000FF
+	         | ((uint64_t)at[4] << 32ull)  // 0x00000000FF000000
+	         | ((uint64_t)at[5] << 40ull)  // 0x0000000000FF0000
+	         | ((uint64_t)at[6] << 48ull)  // 0x000000000000FF00
+	         | ((uint64_t)at[7] << 56ull); // 0x00000000000000FF
 
 	serialiser->index = serialiser->index + sizeof(*value);
 }
@@ -121,10 +121,10 @@ static void byte_read_int64(fck_serialiser *serialiser, int64_t *value, size_t c
 	         | ((int64_t)at[1] << 8ull)   // 0x00FF000000000000
 	         | ((int64_t)at[2] << 16ull)  // 0x0000FF0000000000
 	         | ((int64_t)at[3] << 24ull)  // 0x000000FF00000000
-	         | ((int64_t)at[0] << 32ull)  // 0x00000000FF000000
-	         | ((int64_t)at[1] << 40ull)  // 0x0000000000FF0000
-	         | ((int64_t)at[2] << 48ull)  // 0x000000000000FF00
-	         | ((int64_t)at[3] << 56ull); // 0x00000000000000FF
+	         | ((int64_t)at[4] << 32ull)  // 0x00000000FF000000
+	         | ((int64_t)at[5] << 40ull)  // 0x0000000000FF0000
+	         | ((int64_t)at[6] << 48ull)  // 0x000000000000FF00
+	         | ((int64_t)at[7] << 56ull); // 0x00000000000000FF
 
 	serialiser->index = serialiser->index + sizeof(*value);
 }

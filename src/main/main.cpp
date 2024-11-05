@@ -23,6 +23,7 @@
 #include <fck_animator.h>
 
 #include "fck_student_testbed.h"
+#include "rnd/rnd_renderer.h"
 
 // NOTE: CHANGE THIS TO USE THE CONTENT OF THE student_program.cpp source
 // file!!!
@@ -771,6 +772,9 @@ int main(int argc, char **argv)
 		fck_instance *instance = fck_instances_add(&instances, &info);
 	}
 
+	rnd_renderer rnd;
+	rnd_init(&rnd);
+
 	fck_milliseconds tp = SDL_GetTicks();
 	while (fck_instances_any_active(&instances))
 	{
@@ -792,7 +796,11 @@ int main(int argc, char **argv)
 		{
 			fck_ecs_tick(&instance->ecs);
 		}
+
+		rnd_render(&rnd);
 	}
+
+	rnd_cleanup(&rnd);
 
 	fck_instances_free(&instances);
 

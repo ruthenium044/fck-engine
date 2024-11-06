@@ -133,6 +133,11 @@ struct fck_position
 	float y;
 };
 
+void fck_serialise(fck_serialiser *serialiser, fck_position *positions, size_t count)
+{
+	fck_serialise(serialiser, (float *)positions, 2);
+}
+
 struct fck_engine
 {
 	static constexpr float screen_scale = 2.0f;
@@ -480,49 +485,18 @@ void networking_process(fck_ecs *ecs, fck_system_update_info *)
 	cnt_session *session = fck_ecs_unique_view<cnt_session>(ecs);
 	fck_time *time = fck_ecs_unique_view<fck_time>(ecs);
 
-	/*
-	cnt_connection connection;
-	while (cnt_session_try_dequeue_new_connection(session, &connection))
+	cnt_memory_view memory_view;
+	while (cnt_session_try_receive_from(session, &memory_view))
 	{
-	    SDL_Log("New connection: %d %s", connection.flags, cnt_address_to_string(session, connection.destination));
-	    if ((connection.flags & CNT_CONNECTION_FLAG_INITIATOR) == CNT_CONNECTION_FLAG_INITIATOR)
-	    {
-	        uint8_t payload_type = NETWORK_PAYLOAD_TYPE_SYNC_REQUEST;
-	        fck_ecs::entity_list *outgoing_entities = &ecs->entities.owner;
-	        cnt_session_send_to_all(session, &payload_type, sizeof(payload_type));
-	        cnt_session_send_to_all(session, &outgoing_entities->count, sizeof(outgoing_entities->count));
-	        cnt_session_send_to_all(session, outgoing_entities->data, outgoing_entities->count * (sizeof(*outgoing_entities->data)));
-	    }
+		fck_ecs_snapshot_load(ecs, memory_view.data, memory_view.length);
 	}
-
-	cnt_memory_view view;
-	if (cnt_session_try_receive_from(session, &view))
-	{
-	    uint8_t payload_type = *(uint8_t *)view.data;
-	    if (cnt_session_try_receive_from(session, &view))
-	    {
-	        fck_ecs::entity_type count = *(fck_ecs::entity_type *)view.data;
-	        if (cnt_session_try_receive_from(session, &view))
-	        {
-	            fck_ecs::entity_list incoming_entities;
-	            incoming_entities.data = (fck_ecs::entity_type *)view.data;
-	            incoming_entities.count = count;
-	            incoming_entities.capacity = count;
-
-	            if (payload_type == NETWORK_PAYLOAD_TYPE_SYNC_REQUEST)
-	            {
-	                for (fck_ecs::entity_type *entity : &incoming_entities)
-	                {
-	                    // fck_ecs_entity_create(ecs);
-	                    cammy_setup_2(ecs, {});
-	                }
-	            }
-	        }
-	    }
-	}*/
 
 	if (cnt_session_will_tick(session, time->delta))
 	{
+		fck_serialiser snapshot;
+		fck_ecs_snapshot_store(ecs, &snapshot);
+		cnt_session_send_to_all(session, snapshot.data, snapshot.count);
+		fck_serialiser_free(&snapshot);
 	}
 
 	cnt_session_tick(session, time->current, time->delta);
@@ -533,7 +507,7 @@ void networking_setup(fck_ecs *ecs, fck_system_once_info *)
 	fck_instance_info *info = fck_ecs_unique_view<fck_instance_info>(ecs);
 	cnt_session *session = fck_ecs_unique_set_empty<cnt_session>(ecs, cnt_session_free);
 
-	constexpr size_t tick_rate = 1000 / 120; // 120 tick server, baby. Esports ready
+	constexpr size_t tick_rate = 1000 / 60;
 	cnt_session_alloc(session, 4, 128, 64, tick_rate);
 	cnt_socket_handle socket_handle = cnt_session_socket_create(session, info->ip, info->source_port);
 	if (info->destination_port != 0)
@@ -581,11 +555,6 @@ void fck_instance_alloc(fck_instance *instance, fck_instance_info const *info)
 	instance->info = fck_ecs_unique_set<fck_instance_info>(&instance->ecs, info);
 
 	fck_ecs_flush_system_once(&instance->ecs);
-
-	fck_ecs_snapshot snapshot;
-	fck_ecs_snapshot_store(&instance->ecs, &snapshot);
-	fck_ecs_snapshot_load(&instance->ecs, &snapshot);
-	fck_ecs_snapshot_free(&snapshot);
 }
 
 void fck_instance_free(fck_instance *instance)

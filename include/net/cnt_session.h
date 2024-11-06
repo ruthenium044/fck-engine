@@ -119,10 +119,12 @@ struct cnt_session
 
 	fck_queue<cnt_connection_id, cnt_connection_handle> new_connections;
 
-	// About 64kb
+	// About 64kb each
 	fck_sparse_array<cnt_socket_id, cnt_socket_memory_buffer> send_buffer;
 	fck_sparse_array<cnt_socket_id, cnt_socket_memory_buffer> recv_buffer;
 	fck_queue<uint16_t, cnt_frame> recv_frames;
+
+	uint8_t *temp_recv_buffer;
 
 	uint64_t tick;
 	fck_milliseconds tick_rate;

@@ -12,6 +12,14 @@ enum cnt_connection_packet_type
 static constexpr uint32_t CNT_PROTOCOL_ID = 'FCK';      // NOLINT
 static constexpr uint32_t CNT_PROTOCOL_VERSION = '0.1'; // NOLINT
 
+// send handshake packet
+// - Constructed via cnt_connection_packet with a static size of 64 bytes
+
+// Send data packet:
+// - Header on top, manually constructed by appending buffer
+
+// cnt_connection_recv_packet generically reads handshake and data packets alike!
+
 struct cnt_connection_packet_header
 {
 	uint8_t type;    // 255 tyoes
@@ -33,14 +41,21 @@ struct cnt_connection_accept
 
 struct cnt_connection_packet
 {
-	constexpr static size_t capacity = 64;
+	constexpr static size_t write_capacity = 60;
 
-	uint8_t payload[capacity]; // enough for now?
-	uint8_t length;
-	uint8_t index;
+	uint16_t length;
+	uint16_t index;
+	uint8_t payload[write_capacity]; // enough for now?
 };
 
-void cnt_connection_packet_push(cnt_connection_packet *packet, cnt_connection_packet_type type, void *data, uint8_t length);
-bool cnt_connection_packet_try_pop(cnt_connection_packet *packet, cnt_connection_packet_type *type, void **data, uint8_t *length);
+struct cnt_connection_recv_packet
+{
+	uint16_t length;
+	uint16_t index;
+	uint8_t *payload; // enough for now?
+};
+
+void cnt_connection_packet_push(cnt_connection_packet *packet, cnt_connection_packet_type type, void *data, uint16_t length);
+bool cnt_connection_packet_try_pop(cnt_connection_recv_packet *packet, cnt_connection_packet_type *type, void **data, uint16_t *length);
 
 bool cnt_connection_is_little_endian();

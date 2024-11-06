@@ -2,6 +2,7 @@
 #define FCK_SERIALISER_INCLUDED
 
 #include <SDL3/SDL_assert.h>
+#include <SDL3/SDL_log.h>
 #include <SDL3/SDL_stdinc.h>
 
 struct fck_serialiser_interface
@@ -34,8 +35,8 @@ struct fck_serialiser
 };
 
 void fck_serialiser_alloc(fck_serialiser *serialiser);
+void fck_serialiser_create(fck_serialiser *serialiser, uint8_t *data, uint8_t count);
 void fck_serialiser_free(fck_serialiser *serialiser);
-void fck_serialiser_maybe_realloc(fck_serialiser *serialiser, size_t slack_count);
 
 void fck_serialiser_byte_reader(fck_serialiser_interface *interface);
 void fck_serialiser_byte_writer(fck_serialiser_interface *interface);

@@ -71,39 +71,34 @@ struct fck_ecs
 	fck_systems_scheduler<system_id> system_scheduler;
 };
 
-struct fck_ecs_snapshot
-{
-	fck_serialiser serialiser;
-};
+typedef fck_serialiser fck_serialiser;
 
-inline void fck_ecs_snapshot_serialise(fck_ecs_snapshot *snapshot, fck_components_header *header, fck_ecs::sparse_array_void *sparse_array)
+inline void fck_ecs_snapshot_serialise(fck_serialiser *serialiser, fck_components_header *header, fck_ecs::sparse_array_void *sparse_array)
 {
-	SDL_assert(snapshot != nullptr);
-
-	fck_serialiser *serialiser = &snapshot->serialiser;
+	SDL_assert(serialiser != nullptr);
 
 	fck_serialise(serialiser, &sparse_array->owner.count);
-	fck_serialise(serialiser, sparse_array->owner.data, sparse_array->owner.count);
 
+	fck_serialise(serialiser, sparse_array->owner.data, sparse_array->owner.count);
 	if (header->interface.serialise != nullptr)
 	{
 		header->interface.serialise(serialiser, sparse_array->dense.data, sparse_array->dense.count);
 	}
 	else
 	{
-		fck_serialise(serialiser, (uint8_t *)sparse_array->dense.data, sparse_array->dense.count);
+		fck_serialise(serialiser, (uint8_t *)sparse_array->dense.data, sparse_array->dense.count * header->size);
 	}
 }
 
-inline void fck_ecs_snapshot_deserialise(fck_ecs_snapshot *snapshot, fck_components_header *header,
+inline void fck_ecs_snapshot_deserialise(fck_serialiser *serialiser, fck_components_header *header,
                                          fck_ecs::sparse_array_void *sparse_array)
 {
-	SDL_assert(snapshot != nullptr);
-
-	fck_serialiser *serialiser = &snapshot->serialiser;
+	SDL_assert(serialiser != nullptr);
 
 	fck_serialise(serialiser, &sparse_array->owner.count);
+
 	fck_serialise(serialiser, sparse_array->owner.data, sparse_array->owner.count);
+	sparse_array->dense.count = sparse_array->owner.count;
 
 	if (header->interface.serialise != nullptr)
 	{
@@ -111,7 +106,7 @@ inline void fck_ecs_snapshot_deserialise(fck_ecs_snapshot *snapshot, fck_compone
 	}
 	else
 	{
-		fck_serialise(serialiser, (uint8_t *)sparse_array->dense.data, sparse_array->dense.count);
+		fck_serialise(serialiser, (uint8_t *)sparse_array->dense.data, sparse_array->dense.count * header->size);
 	}
 
 	for (fck_ecs::entity_type index = 0; index < sparse_array->owner.count; index++)
@@ -286,13 +281,16 @@ inline void fck_ecs_entity_destroy_all(fck_ecs *ecs)
 	fck_sparse_list_clear(&ecs->entities);
 }
 
-inline void fck_ecs_snapshot_store(fck_ecs *ecs, fck_ecs_snapshot *snapshot)
+inline void fck_ecs_snapshot_store(fck_ecs *ecs, fck_serialiser *serialiser)
 {
 	SDL_assert(ecs != nullptr);
-	SDL_assert(snapshot != nullptr);
+	SDL_assert(serialiser != nullptr);
 
-	fck_serialiser_alloc(&snapshot->serialiser);
-	fck_serialiser_byte_writer(&snapshot->serialiser.interface);
+	fck_serialiser_alloc(serialiser);
+	fck_serialiser_byte_writer(&serialiser->interface);
+
+	uint64_t ecs_id = (uint64_t)ecs;
+	fck_serialise(serialiser, &ecs_id);
 
 	for (fck_item<fck_ecs::component_id, fck_components_header> item : &ecs->component_headers)
 	{
@@ -300,16 +298,22 @@ inline void fck_ecs_snapshot_store(fck_ecs *ecs, fck_ecs_snapshot *snapshot)
 		fck_components_header *header = item.value;
 		fck_ecs::sparse_array_void *components = fck_sparse_array_view(&ecs->components, *id);
 
-		fck_ecs_snapshot_serialise(snapshot, header, components);
+		fck_ecs_snapshot_serialise(serialiser, header, components);
 	}
 }
 
-inline void fck_ecs_snapshot_load(fck_ecs *ecs, fck_ecs_snapshot *snapshot)
+inline void fck_ecs_snapshot_load(fck_ecs *ecs, uint8_t *data, uint8_t count)
 {
 	SDL_assert(ecs != nullptr);
-	SDL_assert(snapshot != nullptr);
+	SDL_assert(data != nullptr);
 
-	fck_serialiser_byte_reader(&snapshot->serialiser.interface);
+	fck_serialiser serialiser;
+	fck_serialiser_create(&serialiser, data, count);
+	fck_serialiser_byte_reader(&serialiser.interface);
+
+	uint64_t ecs_id = 0;
+	fck_serialise(&serialiser, &ecs_id);
+	SDL_assert(ecs_id != (uint64_t)ecs);
 
 	for (fck_item<fck_ecs::component_id, fck_components_header> item : &ecs->component_headers)
 	{
@@ -317,15 +321,15 @@ inline void fck_ecs_snapshot_load(fck_ecs *ecs, fck_ecs_snapshot *snapshot)
 		fck_components_header *header = item.value;
 		fck_ecs::sparse_array_void *components = fck_sparse_array_view(&ecs->components, *id);
 
-		fck_ecs_snapshot_deserialise(snapshot, header, components);
+		fck_ecs_snapshot_deserialise(&serialiser, header, components);
 	}
 }
 
-inline void fck_ecs_snapshot_free(fck_ecs_snapshot *snapshot)
+inline void fck_ecs_snapshot_free(fck_serialiser *serialiser)
 {
-	SDL_assert(snapshot != nullptr);
+	SDL_assert(serialiser != nullptr);
 
-	fck_serialiser_free(&snapshot->serialiser);
+	fck_serialiser_free(serialiser);
 }
 
 template <typename type>

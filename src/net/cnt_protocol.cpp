@@ -1,10 +1,10 @@
 #include "cnt_protocol.h"
 #include <SDL3/SDL_assert.h>
 
-void cnt_connection_packet_push(cnt_connection_packet *packet, cnt_connection_packet_type type, void *data, uint8_t length)
+void cnt_connection_packet_push(cnt_connection_packet *packet, cnt_connection_packet_type type, void *data, uint16_t length)
 {
 	SDL_assert(packet != nullptr);
-	SDL_assert(packet->length + length + sizeof(cnt_connection_packet_header) <= packet->capacity &&
+	SDL_assert(packet->length + length + sizeof(cnt_connection_packet_header) <= packet->write_capacity &&
 	           "Make sure the payload buffer is large enough!");
 
 	cnt_connection_packet_header header;
@@ -21,37 +21,7 @@ void cnt_connection_packet_push(cnt_connection_packet *packet, cnt_connection_pa
 	}
 }
 
-void cnt_connection_packet_write_uint32(cnt_connection_packet *packet, uint32_t value)
-{
-	constexpr size_t length = sizeof(value);
-	SDL_assert(packet != nullptr);
-	SDL_assert(packet->length + length + sizeof(cnt_connection_packet_header) <= packet->capacity &&
-	           "Make sure the payload buffer is large enough!");
-
-	packet->payload[packet->length + 0] = value & 0x000000ff;
-	packet->payload[packet->length + 1] = value & 0x0000ff00;
-	packet->payload[packet->length + 2] = value & 0x00ff0000;
-	packet->payload[packet->length + 3] = value & 0xff000000;
-
-	packet->length = packet->length + sizeof(value);
-}
-
-void cnt_connection_packet_read_uint32(cnt_connection_packet *packet, uint32_t *value)
-{
-	constexpr size_t length = sizeof(*value);
-	SDL_assert(packet != nullptr);
-	SDL_assert(packet->length + length + sizeof(cnt_connection_packet_header) <= packet->capacity &&
-	           "Make sure the payload buffer is large enough!");
-
-	*value |= (packet->payload[packet->index + 0] << 0);
-	*value |= (packet->payload[packet->index + 1] << 8);
-	*value |= (packet->payload[packet->index + 2] << 16);
-	*value |= (packet->payload[packet->index + 3] << 24);
-
-	packet->index = packet->index + sizeof(*value);
-}
-
-bool cnt_connection_packet_try_pop(cnt_connection_packet *packet, cnt_connection_packet_type *type, void **data, uint8_t *length)
+bool cnt_connection_packet_try_pop(cnt_connection_recv_packet *packet, cnt_connection_packet_type *type, void **data, uint16_t *length)
 {
 	SDL_assert(packet != nullptr);
 

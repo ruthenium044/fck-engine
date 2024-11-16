@@ -102,7 +102,7 @@ source_group("Header Files" FILES ${FOUND_CXX_HEADERS})
 set(FCK_RESOURCE_DIRECTORY_PATH "${CMAKE_CURRENT_SOURCE_DIR}/resources/")
 
 # We can also use file commands for a release non-engine build 
-add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS} "include/rnd/rnd_renderer.h")
+add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS} "include/rnd/rnd_renderer.h" "include/rnd/rnd_debug.h" "src/rnd/rnd_debug.cpp")
 
 # Maybe later
 target_compile_definitions(${PROJECT_NAME} PRIVATE "FCK_RESOURCE_DIRECTORY_PATH= \"${FCK_RESOURCE_DIRECTORY_PATH}\"")

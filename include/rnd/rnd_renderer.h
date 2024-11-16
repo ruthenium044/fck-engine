@@ -2,15 +2,17 @@
 #define FCK_RND_RENDERER_INCLUDED
 
 #include "SDL3/SDL_log.h"
+
+#include <vector>
 #include <vulkan/vulkan.h>
 
-#define VK_CHECK(x)                                                                                                                        \
+#define VK_CHECK(x, msg)                                                                                                                   \
 	do                                                                                                                                     \
 	{                                                                                                                                      \
 		VkResult err = x;                                                                                                                  \
 		if (err)                                                                                                                           \
 		{                                                                                                                                  \
-			SDL_Log("Detected Vulkan error: {}", string_VkResult(err));                                                                    \
+			SDL_Log("Detected Vulkan error: {}", msg);                                                                                     \
 			abort();                                                                                                                       \
 		}                                                                                                                                  \
 	} while (0)
@@ -22,10 +24,25 @@ struct rnd_renderer
 	static constexpr VkExtent2D windowExtent{666, 666};
 
 	struct SDL_Window *window{nullptr};
+
+	VkInstance instance;
+	VkDebugUtilsMessengerEXT debugMessenger;
+
+	const std::vector<const char *> validationLayers = {"VK_LAYER_KHRONOS_validation"};
+
+#ifdef NDEBUG
+	const bool enableValidationLayers = false;
+#else
+	const bool enableValidationLayers = true;
+#endif
 };
 
 void rnd_init(rnd_renderer *renderer);
 void rnd_render(rnd_renderer *renderer);
 void rnd_cleanup(rnd_renderer *renderer);
+
+void rnd_createInstance(rnd_renderer *renderer);
+std::vector<const char *> rnd_getRequiredExtensions(const rnd_renderer *renderer);
+bool rnd_checkValidationLayerSupport(const rnd_renderer *renderer);
 
 #endif // FCK_RND_RENDERER_INCLUDED

@@ -19,6 +19,8 @@ struct fck_components_interface
 {
 	fck_ecs_component_free<value_type> free;
 	fck_ecs_component_serialise<value_type> serialise;
+
+	bool is_serialise_on;
 };
 
 using fck_components_interface_void = fck_components_interface<void>;
@@ -32,11 +34,23 @@ struct fck_components_header
 template <typename index_type>
 using fck_sparse_array_void_type = fck_sparse_array<index_type, void>;
 
-struct fck_ecs
+struct fck_ecs_alloc_info
 {
 	using entity_type = uint32_t;
 	using component_id = uint16_t;
 	using system_id = uint16_t;
+
+	entity_type entity_capacity;
+	component_id component_capacity;
+	system_id system_capacity;
+};
+
+struct fck_ecs
+{
+	using entity_type = fck_ecs_alloc_info::entity_type;
+	using component_id = fck_ecs_alloc_info::component_id;
+	using system_id = fck_ecs_alloc_info::system_id;
+
 	using sparse_array_void = fck_sparse_array_void_type<entity_type>;
 	using scheduler_type = fck_systems_scheduler<system_id>;
 
@@ -47,6 +61,9 @@ struct fck_ecs
 	using dense_list = fck_dense_list<entity_type, value_type>;
 	using entity_list = dense_list<entity_type>;
 
+	fck_ecs_alloc_info alloc_info;
+
+	// Unique type data - Singleton ECS data
 	fck_uniform_buffer uniform_buffer;
 
 	// The value type should and could become somthing more useful!
@@ -55,27 +72,27 @@ struct fck_ecs
 	// - Internally created entities
 	// - Externally created entities... oh boy
 	// Oh what a fucking nightmare this is...
-	// If user emplaces entities externally just for frun and then uses the entity create function
+	// If user emplaces entities externally just for fun and then uses the entity create function
 	// the user will just overwrite previously written data... Well, we can flag the interface at one point
 	// that way the user must declare how the interactions with the ECS should look like
 	fck_sparse_list<entity_type, entity_type> entities;
-	entity_type entity_counter;
 
 	// Duplicate count and capacity (overhead)
-	fck_sparse_array<component_id, fck_components_header> component_headers;
-	fck_sparse_array<component_id, sparse_array_void> components;
-	entity_type capacity;
+	fck_sparse_array<component_id, fck_components_header> component_headers; // owner plus content serialisation
+	fck_sparse_array<component_id, sparse_array_void> components;            // owner plus content serialisation
 
-	fck_sparse_lookup<system_id, fck_ecs_system_state> update_system_states;
 	// probably no scheduler... more like buckets atm, hehe
+	fck_sparse_lookup<system_id, fck_ecs_system_state> update_system_states;
 	fck_systems_scheduler<system_id> system_scheduler;
 };
-
-typedef fck_serialiser fck_serialiser;
 
 inline void fck_ecs_snapshot_serialise(fck_serialiser *serialiser, fck_components_header *header, fck_ecs::sparse_array_void *sparse_array)
 {
 	SDL_assert(serialiser != nullptr);
+	if (!header->interface.is_serialise_on)
+	{
+		return;
+	}
 
 	fck_serialise(serialiser, &sparse_array->owner.count);
 
@@ -94,6 +111,10 @@ inline void fck_ecs_snapshot_deserialise(fck_serialiser *serialiser, fck_compone
                                          fck_ecs::sparse_array_void *sparse_array)
 {
 	SDL_assert(serialiser != nullptr);
+	if (!header->interface.is_serialise_on)
+	{
+		return;
+	}
 
 	fck_serialise(serialiser, &sparse_array->owner.count);
 
@@ -108,7 +129,10 @@ inline void fck_ecs_snapshot_deserialise(fck_serialiser *serialiser, fck_compone
 	{
 		fck_serialise(serialiser, (uint8_t *)sparse_array->dense.data, sparse_array->dense.count * header->size);
 	}
-
+	// THIS will break - it will break so absolutely fucking badly... It is sad
+	// This stupid fucking sparse free list...
+	// TODO: Fix this
+	fck_sparse_lookup_clear(&sparse_array->sparse);
 	for (fck_ecs::entity_type index = 0; index < sparse_array->owner.count; index++)
 	{
 		fck_ecs::entity_type *owner = fck_dense_list_view(&sparse_array->owner, index);
@@ -116,19 +140,12 @@ inline void fck_ecs_snapshot_deserialise(fck_serialiser *serialiser, fck_compone
 	}
 }
 
-struct fck_ecs_alloc_info
-{
-	fck_ecs::entity_type entity_capacity;
-	fck_ecs::component_id component_capacity;
-	fck_ecs::system_id system_capacity;
-};
-
 inline void fck_ecs_alloc(fck_ecs *ecs, fck_ecs_alloc_info const *info)
 {
 	SDL_assert(ecs != nullptr);
 	SDL_zerop(ecs);
 
-	ecs->capacity = info->entity_capacity;
+	ecs->alloc_info = *info;
 
 	// This should grow by itself as needed!!
 	fck_uniform_buffer_alloc_info buffer_alloc_info = {4096, 32};
@@ -183,7 +200,7 @@ type *fck_ecs_unique_set(fck_ecs *ecs, type const *value, fck_uniform_buffer_cle
 }
 
 template <typename type>
-type *fck_ecs_unique_set_empty(fck_ecs *ecs, fck_uniform_buffer_cleanup<type> destructor = nullptr)
+type *fck_ecs_unique_create(fck_ecs *ecs, fck_uniform_buffer_cleanup<type> destructor = nullptr)
 {
 	SDL_assert(ecs != nullptr);
 	return fck_uniform_buffer_set_empty<type>(&ecs->uniform_buffer, destructor);
@@ -205,8 +222,9 @@ inline fck_ecs::entity_type fck_ecs_entity_create(fck_ecs *ecs)
 {
 	SDL_assert(ecs != nullptr);
 
-	ecs->entity_counter++;
-	return fck_sparse_list_add(&ecs->entities, &ecs->entity_counter);
+	fck_ecs::entity_type entity = fck_sparse_list_add(&ecs->entities, &ecs->entities.dense.count);
+
+	return entity;
 }
 
 inline bool fck_ecs_entity_exists(fck_ecs *ecs, fck_ecs::entity_type entity)
@@ -220,8 +238,7 @@ inline void fck_ecs_entity_emplace(fck_ecs *ecs, fck_ecs::entity_type entity)
 
 	if (!fck_ecs_entity_exists(ecs, entity))
 	{
-		ecs->entity_counter++;
-		fck_sparse_list_emplace(&ecs->entities, entity, &ecs->entity_counter);
+		fck_sparse_list_emplace(&ecs->entities, entity, &ecs->entities.dense.count);
 	}
 }
 
@@ -251,7 +268,6 @@ inline void fck_ecs_entity_destroy(fck_ecs *ecs, fck_ecs::entity_type entity)
 		}
 	}
 
-	ecs->entity_counter--;
 	fck_sparse_list_remove(&ecs->entities, entity);
 }
 
@@ -277,7 +293,6 @@ inline void fck_ecs_entity_destroy_all(fck_ecs *ecs)
 		fck_sparse_array_clear(components);
 	}
 
-	ecs->entity_counter = 0;
 	fck_sparse_list_clear(&ecs->entities);
 }
 
@@ -286,11 +301,11 @@ inline void fck_ecs_snapshot_store(fck_ecs *ecs, fck_serialiser *serialiser)
 	SDL_assert(ecs != nullptr);
 	SDL_assert(serialiser != nullptr);
 
-	fck_serialiser_alloc(serialiser);
-	fck_serialiser_byte_writer(&serialiser->interface);
-
 	uint64_t ecs_id = (uint64_t)ecs;
 	fck_serialise(serialiser, &ecs_id);
+
+	fck_serialise(serialiser, &ecs->entities.owner.count);
+	fck_serialise(serialiser, ecs->entities.owner.data, ecs->entities.owner.count);
 
 	for (fck_item<fck_ecs::component_id, fck_components_header> item : &ecs->component_headers)
 	{
@@ -302,18 +317,16 @@ inline void fck_ecs_snapshot_store(fck_ecs *ecs, fck_serialiser *serialiser)
 	}
 }
 
-inline void fck_ecs_snapshot_load(fck_ecs *ecs, uint8_t *data, uint8_t count)
+inline void fck_ecs_snapshot_store_partial(fck_ecs *ecs, fck_serialiser *serialiser, fck_ecs::dense_list<fck_ecs::entity_type> *entities)
 {
 	SDL_assert(ecs != nullptr);
-	SDL_assert(data != nullptr);
+	SDL_assert(serialiser != nullptr);
 
-	fck_serialiser serialiser;
-	fck_serialiser_create(&serialiser, data, count);
-	fck_serialiser_byte_reader(&serialiser.interface);
+	uint64_t ecs_id = (uint64_t)ecs;
+	fck_serialise(serialiser, &ecs_id);
 
-	uint64_t ecs_id = 0;
-	fck_serialise(&serialiser, &ecs_id);
-	SDL_assert(ecs_id != (uint64_t)ecs);
+	fck_serialise(serialiser, &entities->count);
+	fck_serialise(serialiser, entities->data, entities->count);
 
 	for (fck_item<fck_ecs::component_id, fck_components_header> item : &ecs->component_headers)
 	{
@@ -321,7 +334,162 @@ inline void fck_ecs_snapshot_load(fck_ecs *ecs, uint8_t *data, uint8_t count)
 		fck_components_header *header = item.value;
 		fck_ecs::sparse_array_void *components = fck_sparse_array_view(&ecs->components, *id);
 
-		fck_ecs_snapshot_deserialise(&serialiser, header, components);
+		if (!header->interface.is_serialise_on)
+		{
+			return;
+		}
+
+		fck_ecs::entity_type total = 0;
+		size_t total_at = serialiser->at;
+		fck_serialise(serialiser, &total);
+
+		for (fck_ecs::entity_type *entity : entities)
+		{
+			if (fck_sparse_array_exists(components, *entity))
+			{
+				total = total + 1;
+				fck_serialise(serialiser, entity);
+
+				void *data = fck_sparse_array_view_raw(components, *entity, header->size);
+				if (header->interface.serialise != nullptr)
+				{
+					header->interface.serialise(serialiser, data, 1);
+				}
+				else
+				{
+					fck_serialise(serialiser, (uint8_t *)data, header->size);
+				}
+			}
+		}
+
+		// hacky overwrite of previously written data
+		size_t at = serialiser->at;
+		serialiser->at = total_at;
+		fck_serialise(serialiser, &total);
+		serialiser->at = at;
+	}
+}
+
+inline void fck_ecs_snapshot_load(fck_ecs *ecs, fck_serialiser *serialiser)
+{
+	SDL_assert(ecs != nullptr);
+
+	uint64_t ecs_id = 0;
+	fck_serialise(serialiser, &ecs_id);
+	SDL_assert(ecs_id != (uint64_t)ecs);
+
+	fck_sparse_list_clear(&ecs->entities);
+	// Create a page to temp store entities up to N
+	constexpr fck_ecs::entity_type entity_page_size = 32;
+	fck_ecs::entity_type entities[entity_page_size];
+
+	// Deserialise the required count
+	fck_ecs::entity_type total_entities;
+	fck_serialise(serialiser, &total_entities);
+
+	// Cut of slack so we can align to N (32)
+	fck_ecs::entity_type slack = total_entities % entity_page_size;
+	fck_serialise(serialiser, entities, slack);
+	for (fck_ecs::entity_type index = 0; index < slack; index++)
+	{
+		fck_ecs::entity_type entity = entities[index];
+		fck_sparse_list_emplace(&ecs->entities, entity, &entity);
+	}
+
+	// Read the remaining data in 32 pages
+	for (fck_ecs::entity_type current = slack; current < total_entities; current += entity_page_size)
+	{
+		fck_serialise(serialiser, entities, entity_page_size);
+		for (fck_ecs::entity_type index = 0; index < entity_page_size; index++)
+		{
+			fck_ecs::entity_type entity = entities[index];
+			fck_sparse_list_emplace(&ecs->entities, entity, &entity);
+		}
+	}
+
+	// This will also break fucking badly. FUCK LOL
+	// We need to have some sort of shared manifest OR rely on both sides having a deterministic flow
+	// Is it smart that every fucking client needs to manage their own fucking free list? I do not know... Ok ye, it is
+	// TODO: Fix this shit too
+	for (fck_item<fck_ecs::component_id, fck_components_header> item : &ecs->component_headers)
+	{
+		fck_ecs::component_id *id = item.index;
+		fck_components_header *header = item.value;
+		fck_ecs::sparse_array_void *components = fck_sparse_array_view(&ecs->components, *id);
+
+		fck_ecs_snapshot_deserialise(serialiser, header, components);
+	}
+}
+
+inline void fck_ecs_snapshot_load_partial(fck_ecs *ecs, fck_serialiser *serialiser)
+{
+	SDL_assert(ecs != nullptr);
+	SDL_assert(serialiser != nullptr);
+
+	uint64_t ecs_id = (uint64_t)ecs;
+	fck_serialise(serialiser, &ecs_id);
+
+	// Entities
+	// Create a page to temp store entities up to N
+	constexpr fck_ecs::entity_type entity_page_size = 32;
+	fck_ecs::entity_type entities[entity_page_size];
+
+	// Deserialise the required count
+	fck_ecs::entity_type total_entities;
+	fck_serialise(serialiser, &total_entities);
+
+	// Cut of slack so we can align to N (32)
+	fck_ecs::entity_type slack = total_entities % entity_page_size;
+	fck_serialise(serialiser, entities, slack);
+	for (fck_ecs::entity_type index = 0; index < slack; index++)
+	{
+		fck_ecs::entity_type entity = entities[index];
+		fck_sparse_list_emplace(&ecs->entities, entity, &entity);
+	}
+
+	// Read the remaining data in 32 pages
+	for (fck_ecs::entity_type current = slack; current < total_entities; current += entity_page_size)
+	{
+		fck_serialise(serialiser, entities, entity_page_size);
+		for (fck_ecs::entity_type index = 0; index < entity_page_size; index++)
+		{
+			fck_ecs::entity_type entity = entities[index];
+			fck_sparse_list_emplace(&ecs->entities, entity, &entity);
+		}
+	}
+
+	// Data
+	for (fck_item<fck_ecs::component_id, fck_components_header> item : &ecs->component_headers)
+	{
+		fck_ecs::component_id *id = item.index;
+		fck_components_header *header = item.value;
+		fck_ecs::sparse_array_void *components = fck_sparse_array_view(&ecs->components, *id);
+
+		if (!header->interface.is_serialise_on)
+		{
+			return;
+		}
+
+		fck_ecs::entity_type total = 0;
+		fck_serialise(serialiser, &total);
+
+		for (size_t index = 0; index < total; index++)
+		{
+			fck_ecs::entity_type entity;
+			fck_serialise(serialiser, &entity);
+
+			fck_sparse_array_reserve_raw(components, entity, header->size);
+
+			void *data = fck_sparse_array_view_raw(components, entity, header->size);
+			if (header->interface.serialise != nullptr)
+			{
+				header->interface.serialise(serialiser, data, 1);
+			}
+			else
+			{
+				fck_serialise(serialiser, (uint8_t *)data, header->size);
+			}
+		}
 	}
 }
 
@@ -357,6 +525,37 @@ void fck_ecs_component_remove(fck_ecs *ecs, fck_ecs::entity_type index)
 }
 
 template <typename type>
+inline void fck_ecs_component_clear(fck_ecs *ecs)
+{
+	SDL_assert(ecs != nullptr);
+
+	fck_ecs::component_id component_id = fck_unique_id_get<type>();
+	fck_components_header *header;
+	if (!fck_sparse_array_try_view(&ecs->component_headers, component_id, &header))
+	{
+		return;
+	}
+
+	fck_ecs::sparse_array_void *out_ptr;
+	if (!fck_sparse_array_try_view(&ecs->components, component_id, &out_ptr))
+	{
+		return;
+	}
+
+	fck_ecs::sparse_array<type> *components = (fck_ecs::sparse_array<type> *)out_ptr;
+
+	if (header->interface.free != nullptr)
+	{
+		for (type *component : &components->dense)
+		{
+			header->interface.free(component);
+		}
+	}
+
+	fck_sparse_array_clear(components);
+}
+
+template <typename type>
 void fck_ecs_component_interface_override(fck_ecs *ecs, fck_components_interface<type> const *interface)
 {
 	fck_ecs::component_id component_id = fck_unique_id_get<type>();
@@ -372,6 +571,12 @@ void fck_ecs_component_interface_override(fck_ecs *ecs, fck_components_interface
 	out_header->interface = *(fck_components_interface_void const *)interface;
 }
 
+inline fck_ecs::entity_type fck_ecs_entities_capacity(fck_ecs const *ecs)
+{
+	SDL_assert(ecs != nullptr);
+	return ecs->entities.dense.capacity;
+}
+
 template <typename type>
 fck_ecs::sparse_array<type> *fck_ecs_component_register(fck_ecs *ecs)
 {
@@ -385,12 +590,13 @@ fck_ecs::sparse_array<type> *fck_ecs_component_register(fck_ecs *ecs)
 		SDL_zero(interface);
 		interface.free = fck_ecs_free_trait<type>::template fetch<type>();
 		interface.serialise = fck_ecs_serialise_trait<type>::template fetch<type>();
+		interface.is_serialise_on = !fck_ecs_serialise_is_on<type>::value;
 		// TODO: More traits!!
 
 		fck_ecs_component_interface_override(ecs, &interface);
 
 		fck_ecs::sparse_array<type> components;
-		fck_sparse_array_alloc(&components, ecs->capacity);
+		fck_sparse_array_alloc(&components, fck_ecs_entities_capacity(ecs));
 		fck_ecs::sparse_array_void *as_void = (fck_ecs::sparse_array_void *)&components;
 		out_ptr = fck_sparse_array_emplace(&ecs->components, component_id, as_void);
 	}
@@ -398,7 +604,7 @@ fck_ecs::sparse_array<type> *fck_ecs_component_register(fck_ecs *ecs)
 }
 
 template <typename type>
-type *fck_ecs_component_set_empty(fck_ecs *ecs, fck_ecs::entity_type index)
+type *fck_ecs_component_create(fck_ecs *ecs, fck_ecs::entity_type index)
 {
 	// Make this function the center point so we do not have the same code in different bodies lying around!!
 
@@ -407,12 +613,24 @@ type *fck_ecs_component_set_empty(fck_ecs *ecs, fck_ecs::entity_type index)
 	fck_ecs::sparse_array<type> *components = fck_ecs_component_register<type>(ecs);
 
 	// emplacing and checking is so cheap, we can just do it again
-	// The laternative is checking whether it exists and throw or return if not...
+	// The alternative is checking whether it exists and throw or return if not...
 	// But in this case we still access the same data and have the same overhead
 	fck_ecs_entity_emplace(ecs, index);
 
 	fck_sparse_array_emplace_empty(components, index);
 	return fck_sparse_array_view(components, index);
+}
+
+template <typename type>
+bool fck_ecs_component_exists(fck_ecs *ecs, fck_ecs::entity_type index)
+{
+	SDL_assert(ecs != nullptr);
+
+	fck_ecs::sparse_array<type> *components = fck_ecs_component_register<type>(ecs);
+
+	fck_ecs_entity_emplace(ecs, index);
+
+	return fck_sparse_array_exists(components, index);
 }
 
 template <typename type>

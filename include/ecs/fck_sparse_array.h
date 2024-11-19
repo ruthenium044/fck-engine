@@ -141,6 +141,29 @@ value_type *fck_sparse_array_emplace(fck_sparse_array<index_type, value_type> *l
 }
 
 template <typename index_type>
+void fck_sparse_array_reserve_raw(fck_sparse_array<index_type, void> *list, typename fck_ignore_deduction<index_type>::type index,
+                                  size_t type_size_bytes)
+{
+	SDL_assert(list != nullptr);
+
+	static constexpr index_type invalid = fck_sparse_array<index_type, void>::index_info::invalid;
+
+	index_type *dense_index = fck_sparse_lookup_view(&list->sparse, index);
+
+	if (*dense_index == invalid)
+	{
+		*dense_index = list->dense.count;
+		fck_dense_list_reserve_raw(&list->dense, type_size_bytes);
+		fck_dense_list_add(&list->owner, &index);
+		return;
+	}
+
+	// Set dense data
+	void *entry = fck_dense_list_view_raw(&list->dense, *dense_index, type_size_bytes);
+	SDL_memset(entry, 0, type_size_bytes);
+}
+
+template <typename index_type>
 void fck_sparse_array_emplace_raw(fck_sparse_array<index_type, void> *list, typename fck_ignore_deduction<index_type>::type index,
                                   void const *data, size_t type_size_bytes)
 {

@@ -15,7 +15,7 @@ struct cnt_address_internal
 		sockaddr_in in;        // ipv4
 		sockaddr_in6 in6;      // ipv6
 	};
-	uint8_t addrlen;
+	uint8_t addrlen; // Fucking asshole Win32 doesn't have length
 };
 #else // MacOS (Maybe Linux, idk)
 #include <arpa/inet.h>
@@ -143,7 +143,7 @@ cnt_address cnt_address_from_string(const char *text, uint16_t port)
 		SDL_zero(result_address);
 
 		result_address.in.sin_family = AF_INET;
-		result_address.in.sin_addr = *(in_addr *)&buffer;
+		result_address.in.sin_addr = *(in_addr *)buffer;
 		result_address.in.sin_port = port;
 		result_address.addrlen = sizeof(sockaddr_in);
 		return *as_user_address(&result_address);
@@ -155,7 +155,7 @@ cnt_address cnt_address_from_string(const char *text, uint16_t port)
 	cnt_address_internal result_address;
 	SDL_zero(result_address);
 
-	result_address.in6.sin6_addr = *(in6_addr *)&buffer;
+	result_address.in6.sin6_addr = *(in6_addr *)buffer;
 	result_address.in6.sin6_family = AF_INET6;
 	result_address.in6.sin6_port = port;
 	result_address.addrlen = sizeof(sockaddr_in6);
@@ -202,7 +202,7 @@ cnt_socket cnt_socket_create(const char *ip, uint16_t port)
 	return socket_handle;
 }
 
-int cnt_send(cnt_socket socket, void *buf, size_t count, cnt_address *to)
+int cnt_sendto(cnt_socket socket, void *buf, size_t count, cnt_address *to)
 {
 	SDL_assert(socket != -1);
 	cnt_address_internal *address = as_internal_address(to);
@@ -220,7 +220,7 @@ int cnt_send(cnt_socket socket, void *buf, size_t count, cnt_address *to)
 	return bytes_sent;
 }
 
-int cnt_recv(cnt_socket socket, uint8_t *buf, size_t count, cnt_address *from)
+int cnt_recvfrom(cnt_socket socket, uint8_t *buf, size_t count, cnt_address *from)
 {
 	SDL_assert(socket != -1);
 	cnt_sockaddr_storage storage;

@@ -71,6 +71,7 @@ void fck_sparse_arrays_apply(fck_sparse_arrays<index_type, value_type, types...>
 
 		// Since we receive a dense index for current column existence is implied
 		using next_tuple = typename fck_sparse_arrays_tuple<index_type, types...>::type;
+
 		if (fck_sparse_arrays_tuple_is_valid_combine<index_type>((next_tuple *)&arrays->tuple, index))
 		{
 			// Let's keep the design simple - by default iterations are read/write

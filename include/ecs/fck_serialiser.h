@@ -2,8 +2,25 @@
 #define FCK_SERIALISER_INCLUDED
 
 #include <SDL3/SDL_assert.h>
-#include <SDL3/SDL_log.h>
 #include <SDL3/SDL_stdinc.h>
+
+/* TODO: Dynamic array allocation instead of what we have atm
+struct cool_array
+{
+    size_t capacity;
+    uint8_t data[0];
+};
+
+struct cool_array *cool_array_alloc(size_t capacity)
+{
+    struct cool_array *arr;
+
+    arr = (struct cool_array *)SDL_malloc(sizeof(*arr) + capacity);
+    arr->capacity = capacity;
+    return arr;
+}
+This way we can always send the header information along...
+*/
 
 struct fck_serialiser_interface
 {
@@ -25,17 +42,18 @@ struct fck_serialiser_interface
 
 struct fck_serialiser
 {
-	fck_serialiser_interface interface;
+	fck_serialiser_interface self;
 
-	uint8_t *data;
 	size_t capacity;
+	uint8_t *data;
 
-	size_t count; // Write
-	size_t index; // Read
+	size_t at;
 };
 
 void fck_serialiser_alloc(fck_serialiser *serialiser);
-void fck_serialiser_create(fck_serialiser *serialiser, uint8_t *data, uint8_t count);
+void fck_serialiser_create(fck_serialiser *serialiser, uint8_t *data, size_t count);
+void fck_serialiser_create(fck_serialiser *serialiser, uint8_t *data, size_t count, size_t capacity);
+void fck_serialiser_reset(fck_serialiser *serialiser);
 void fck_serialiser_free(fck_serialiser *serialiser);
 
 void fck_serialiser_byte_reader(fck_serialiser_interface *interface);
@@ -44,65 +62,65 @@ void fck_serialiser_byte_writer(fck_serialiser_interface *interface);
 inline void fck_serialise(fck_serialiser *serialisers, uint8_t *value, size_t count = 1)
 {
 	SDL_assert(serialisers != nullptr);
-	SDL_assert(serialisers->interface.u8 != nullptr);
+	SDL_assert(serialisers->self.u8 != nullptr);
 
-	serialisers->interface.u8(serialisers, value, count);
+	serialisers->self.u8(serialisers, value, count);
 }
 inline void fck_serialise(fck_serialiser *serialisers, uint16_t *value, size_t count = 1)
 {
 	SDL_assert(serialisers != nullptr);
-	SDL_assert(serialisers->interface.u16 != nullptr);
+	SDL_assert(serialisers->self.u16 != nullptr);
 
-	serialisers->interface.u16(serialisers, value, count);
+	serialisers->self.u16(serialisers, value, count);
 }
 inline void fck_serialise(fck_serialiser *serialisers, uint32_t *value, size_t count = 1)
 {
 	SDL_assert(serialisers != nullptr);
-	SDL_assert(serialisers->interface.u32 != nullptr);
+	SDL_assert(serialisers->self.u32 != nullptr);
 
-	serialisers->interface.u32(serialisers, value, count);
+	serialisers->self.u32(serialisers, value, count);
 }
 inline void fck_serialise(fck_serialiser *serialisers, uint64_t *value, size_t count = 1)
 {
 	SDL_assert(serialisers != nullptr);
-	SDL_assert(serialisers->interface.u64 != nullptr);
+	SDL_assert(serialisers->self.u64 != nullptr);
 
-	serialisers->interface.u64(serialisers, value, count);
+	serialisers->self.u64(serialisers, value, count);
 }
 inline void fck_serialise(fck_serialiser *serialisers, int8_t *value, size_t count = 1)
 {
 	SDL_assert(serialisers != nullptr);
-	SDL_assert(serialisers->interface.i8 != nullptr);
+	SDL_assert(serialisers->self.i8 != nullptr);
 
-	serialisers->interface.i8(serialisers, value, count);
+	serialisers->self.i8(serialisers, value, count);
 }
 inline void fck_serialise(fck_serialiser *serialisers, int16_t *value, size_t count = 1)
 {
 	SDL_assert(serialisers != nullptr);
-	SDL_assert(serialisers->interface.i16 != nullptr);
+	SDL_assert(serialisers->self.i16 != nullptr);
 
-	serialisers->interface.i16(serialisers, value, count);
+	serialisers->self.i16(serialisers, value, count);
 }
 inline void fck_serialise(fck_serialiser *serialisers, int32_t *value, size_t count = 1)
 {
 	SDL_assert(serialisers != nullptr);
-	SDL_assert(serialisers->interface.i32 != nullptr);
+	SDL_assert(serialisers->self.i32 != nullptr);
 
-	serialisers->interface.i32(serialisers, value, count);
+	serialisers->self.i32(serialisers, value, count);
 }
 inline void fck_serialise(fck_serialiser *serialisers, int64_t *value, size_t count = 1)
 {
 	SDL_assert(serialisers != nullptr);
-	SDL_assert(serialisers->interface.i64 != nullptr);
+	SDL_assert(serialisers->self.i64 != nullptr);
 
-	serialisers->interface.i64(serialisers, value, count);
+	serialisers->self.i64(serialisers, value, count);
 }
 inline void fck_serialise(fck_serialiser *serialisers, float *value, size_t count = 1)
 {
 	SDL_assert(serialisers != nullptr);
-	SDL_assert(serialisers->interface.f32 != nullptr);
+	SDL_assert(serialisers->self.f32 != nullptr);
 
-	serialisers->interface.f32(serialisers, value, count);
+	serialisers->self.f32(serialisers, value, count);
 }
 
 #endif // FCK_SERIALISER_INCLUDED

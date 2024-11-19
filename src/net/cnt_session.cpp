@@ -5,7 +5,7 @@
 #include <SDL3/SDL_atomic.h>
 
 #if _WIN32
-#include <winsock.h>
+#include <winsock2.h>
 static SDL_AtomicInt wsa_reference_counter = {0};
 #endif // _WIN32
 
@@ -45,18 +45,6 @@ void cnt_socket_memory_buffer_append(cnt_socket_memory_buffer *memory, uint8_t *
 	memory->length = memory->length + size;
 }
 
-void cnt_socket_memory_buffer_prepare_send(cnt_socket_memory_buffer *socket_memory)
-{
-	cnt_socket_memory_buffer_clear(socket_memory);
-
-	// Emplace a header at the start to propagate package info!
-	cnt_connection_packet_header header;
-	SDL_zero(header);
-	header.type = CNT_CONNECTION_PACKET_TYPE_DATA;
-	header.length = 0;
-	cnt_socket_memory_buffer_append(socket_memory, (uint8_t *)&header, sizeof(header));
-}
-
 void cnt_session_alloc(cnt_session *session, cnt_socket_id socket_capacity, cnt_address_id address_capacity,
                        cnt_connection_id connection_capacity, uint64_t tick_rate)
 {
@@ -69,11 +57,11 @@ void cnt_session_alloc(cnt_session *session, cnt_socket_id socket_capacity, cnt_
 	fck_sparse_list_alloc(&session->connections, connection_capacity);
 	fck_sparse_list_alloc(&session->sockets, socket_capacity);
 
-	fck_sparse_array_alloc(&session->send_buffer, socket_capacity);
 	fck_sparse_array_alloc(&session->recv_buffer, socket_capacity);
 	fck_queue_alloc(&session->recv_frames, cnt_session::maximum_frame_capacity);
 
 	session->temp_recv_buffer = (uint8_t *)SDL_malloc(cnt_socket_memory_buffer::capacity);
+	session->temp_send_buffer = (uint8_t *)SDL_malloc(cnt_socket_memory_buffer::capacity);
 
 	fck_queue_alloc(&session->new_connections, ~0); // Full capacity 255
 
@@ -94,11 +82,6 @@ void cnt_session_free(cnt_session *session)
 {
 	SDL_assert(session != nullptr);
 
-	for (cnt_socket_memory_buffer *memory : &session->send_buffer.dense)
-	{
-		cnt_socket_memory_buffer_free(memory);
-	}
-
 	for (cnt_socket_memory_buffer *memory : &session->recv_buffer.dense)
 	{
 		cnt_socket_memory_buffer_free(memory);
@@ -108,10 +91,10 @@ void cnt_session_free(cnt_session *session)
 	fck_sparse_list_free(&session->connections);
 	fck_sparse_list_free(&session->sockets);
 
-	fck_sparse_array_free(&session->send_buffer);
 	fck_sparse_array_free(&session->recv_buffer);
 
 	SDL_free(session->temp_recv_buffer);
+	SDL_free(session->temp_send_buffer);
 
 	fck_queue_free(&session->recv_frames);
 	fck_queue_free(&session->new_connections);
@@ -142,7 +125,7 @@ const char *cnt_socket_to_string(cnt_session *session, cnt_socket_id id)
 }
 
 cnt_connection *cnt_session_connection_find_with_socket(cnt_session *session, cnt_socket_id const *socket_id, cnt_address *address,
-                                                        cnt_connection_id *connection_id = nullptr)
+                                                        cnt_connection_id *connection_id)
 {
 	for (fck_item<cnt_connection_id, cnt_connection> item : &session->connections)
 	{
@@ -213,10 +196,6 @@ cnt_socket_handle cnt_session_socket_create(cnt_session *session, char const *ip
 	cnt_socket_memory_buffer_alloc(&socket_send_memory);
 	cnt_socket_memory_buffer_alloc(&socket_recv_memory);
 
-	// Initial preparation for send buffer
-	cnt_socket_memory_buffer_prepare_send(&socket_send_memory);
-
-	fck_sparse_array_emplace(&session->send_buffer, socket_id, &socket_send_memory);
 	fck_sparse_array_emplace(&session->recv_buffer, socket_id, &socket_recv_memory);
 
 	return {socket_id};
@@ -239,7 +218,7 @@ void cnt_session_connect(cnt_session *session, cnt_socket_handle const *socket, 
 		}
 	}
 	connection.state = CNT_CONNECTION_STATE_CONNECTING;
-	connection.flags = CNT_CONNECTION_FLAG_INITIATOR;
+	connection.flags = CNT_CONNECTION_FLAG_CLIENT;
 	cnt_connection_id connection_id = fck_sparse_list_add(&session->connections, &connection);
 }
 
@@ -280,7 +259,7 @@ void cnt_session_tick_connecting(cnt_session *session, cnt_connection *connectio
 
 	cnt_connection_packet_push(&packet, CNT_CONNECTION_PACKET_TYPE_REQUEST, &request, sizeof(request));
 
-	cnt_send(sock.socket, packet.payload, packet.length, &address.address);
+	cnt_sendto(sock.socket, packet.payload, packet.length, &address.address);
 
 	connection->state = CNT_CONNECTION_STATE_REQUEST_OUTGOING;
 	connection->last_timestamp = time;
@@ -306,13 +285,18 @@ void cnt_session_tick_accepts(cnt_session *session, cnt_connection *connection, 
 
 	if (connection->secret != 0)
 	{
-		uint64_t secret = time | (time >> 31);
 		connection->secret = accept.directed_secret;
+	}
+	else
+	{
+		int random_nunber = rand(); // NO LINT
+		uint32_t secret_base = *(uint32_t *)&random_nunber;
+		connection->secret = secret_base | (secret_base << 16);
 	}
 
 	accept.directed_secret = connection->secret;
 	cnt_connection_packet_push(&packet, CNT_CONNECTION_PACKET_TYPE_ACCEPT, &accept, sizeof(accept));
-	cnt_send(sock.socket, packet.payload, packet.length, &address.address);
+	cnt_sendto(sock.socket, packet.payload, packet.length, &address.address);
 
 	connection->state = CNT_CONNECTION_STATE_WAITING_FOR_ACKNOWLDGEMENT;
 	connection->last_timestamp = time;
@@ -335,32 +319,12 @@ void cnt_session_tick_rejects(cnt_session *session, cnt_connection *connection, 
 	SDL_zero(packet);
 
 	cnt_connection_packet_push(&packet, CNT_CONNECTION_PACKET_TYPE_REJECT, nullptr, 0);
-	cnt_send(sock.socket, packet.payload, packet.length, &address.address);
+	cnt_sendto(sock.socket, packet.payload, packet.length, &address.address);
 
 	SDL_Log("%llu, %s rejects %s", (uint64_t)session, cnt_socket_to_string(session, connection->source), address.debug);
 
 	connection->last_timestamp = time;
 	connection->state = CNT_CONNECTION_STATE_REJECTED;
-}
-
-void cnt_session_tick_data_send(cnt_session *session, cnt_connection *connection, fck_milliseconds time, fck_milliseconds delta_time)
-{
-	cnt_socket_data sock;
-	cnt_address_data address;
-	if (!cnt_session_fetch_data(session, connection, &sock, &address))
-	{
-		return;
-	}
-	cnt_socket_memory_buffer *socket_memory;
-	bool buffer_exists = fck_sparse_array_try_view(&session->send_buffer, connection->source, &socket_memory);
-	SDL_assert(buffer_exists);
-
-	// Edit the header with the correct length to read the data correctly
-	cnt_connection_packet_header *header = (cnt_connection_packet_header *)socket_memory->data;
-	header->length = socket_memory->length;
-	cnt_send(sock.socket, socket_memory->data, socket_memory->length, &address.address);
-
-	connection->last_timestamp = time;
 }
 
 void cnt_session_tick_ok(cnt_session *session, fck_item<cnt_connection_id, cnt_connection> *item, fck_milliseconds time,
@@ -379,7 +343,7 @@ void cnt_session_tick_ok(cnt_session *session, fck_item<cnt_connection_id, cnt_c
 	SDL_zero(packet);
 
 	cnt_connection_packet_push(&packet, CNT_CONNECTION_PACKET_TYPE_OK, nullptr, 0);
-	cnt_send(sock.socket, packet.payload, packet.length, &address.address);
+	cnt_sendto(sock.socket, packet.payload, packet.length, &address.address);
 
 	SDL_Log("%llu, %s established with %s", (uint64_t)session, cnt_socket_to_string(session, connection->source), address.debug);
 
@@ -396,14 +360,13 @@ void cnt_session_tick_receive(cnt_session *session, fck_milliseconds time)
 	// TODO: replace cnt_connection_packet with THE RECV BUFFER!! WE NEED MORE SPAAACE
 	for (fck_item<cnt_socket_id, cnt_socket_data> item : &session->sockets)
 	{
-
 		cnt_socket sock = item.value->socket;
 		cnt_address incoming_address;
 
 		cnt_connection_recv_packet packet;
 		packet.payload = session->temp_recv_buffer;
 		packet.index = 0;
-		packet.length = cnt_recv(sock, packet.payload, cnt_socket_memory_buffer::capacity, &incoming_address);
+		packet.length = cnt_recvfrom(sock, packet.payload, cnt_socket_memory_buffer::capacity, &incoming_address);
 		if (packet.length > 0)
 		{
 			cnt_connection_id id;
@@ -480,33 +443,18 @@ void cnt_session_tick_receive(cnt_session *session, fck_milliseconds time)
 					{
 						break;
 					}
+
 					cnt_socket_memory_buffer *socket_memory;
 					bool buffer_exists = fck_sparse_array_try_view(&session->recv_buffer, *item.index, &socket_memory);
 					SDL_assert(buffer_exists);
 					cnt_socket_memory_buffer_append(socket_memory, (uint8_t *)data, length);
-
-					/* uint16_t frame_at = socket_memory->length - length;
-					while (frame_at < socket_memory->length)
-					{
-					    uint16_t frame_length = *(uint16_t *)((uint8_t *)(data) + frame_at);
-
-					    cnt_frame frame;
-					    frame.generation = socket_memory->generation;
-					    frame.at = frame_at + sizeof(frame_length);
-					    frame.length = frame_length;
-					    frame.owner = *item.index;
-					    frame.info.connection = id;
-					    frame.info.tick = session->tick; // Maybe tick as param
-					    fck_queue_push(&session->recv_frames, &frame);
-					    frame_at = frame_at + frame_length + sizeof(frame_length);
-					}*/
 
 					cnt_frame frame;
 					frame.at = socket_memory->length - length;
 					frame.generation = socket_memory->generation;
 					frame.length = length;
 					frame.owner = *item.index;
-					frame.info.connection = id;
+					frame.info.connection = {id};
 					frame.info.tick = session->tick; // Maybe tick as param?
 					fck_queue_push(&session->recv_frames, &frame);
 				}
@@ -551,17 +499,17 @@ void cnt_session_tick_send(cnt_session *session, fck_milliseconds time)
 			cnt_session_tick_ok(session, &item, time, session->tick_rate);
 			break;
 		case CNT_CONNECTION_STATE_CONNECTED:
-			cnt_session_tick_data_send(session, connection, time, session->tick_rate);
+			// ... I do not know. Maybe keep alive stuff?
 			break;
 		case CNT_CONNECTION_STATE_REQUEST_OUTGOING: {
-			if (time - connection->last_timestamp > 1000)
+			if (time - connection->last_timestamp > 5000)
 			{
 				cnt_session_tick_connecting(session, connection, time, session->tick_rate);
 			}
 			break;
 		}
 		case CNT_CONNECTION_STATE_WAITING_FOR_ACKNOWLDGEMENT:
-			if (time - connection->last_timestamp > 1000)
+			if (time - connection->last_timestamp > 5000)
 			{
 				cnt_session_tick_accepts(session, connection, time, session->tick_rate);
 			}
@@ -572,12 +520,6 @@ void cnt_session_tick_send(cnt_session *session, fck_milliseconds time)
 	for (cnt_connection_id *id : &remove_list)
 	{
 		fck_sparse_list_remove(&session->connections, *id);
-	}
-
-	// Reset the buffers
-	for (cnt_socket_memory_buffer *socket_memory : &session->send_buffer.dense)
-	{
-		cnt_socket_memory_buffer_prepare_send(socket_memory);
 	}
 }
 
@@ -603,16 +545,66 @@ void cnt_session_tick(cnt_session *session, fck_milliseconds time, fck_milliseco
 	cnt_session_tick_send(session, time);
 }
 
-void cnt_session_send_to_all(cnt_session *session, void *data, size_t count)
+void cnt_session_broadcast(cnt_session *session, void *data, size_t count)
 {
-	for (fck_item<cnt_socket_id, cnt_socket_data> item : &session->sockets)
+	// Does the boardcast logic still make sense? Should we really do it like this?
+	// Couldn't we just prepare a single buffer and hand it out multiple times (each socket)
+	// Let's rethink that approach here! It is too complicated for no fucking reason. Look at send
+	fck_serialiser seraliser;
+	fck_serialiser_alloc(&seraliser);
+	fck_serialiser_byte_writer(&seraliser.self);
+
+	cnt_connection_packet_header header;
+	SDL_zero(header);
+	header.type = CNT_CONNECTION_PACKET_TYPE_DATA;
+	header.length = count + sizeof(header);
+	fck_serialise(&seraliser, &header);
+	fck_serialise(&seraliser, (uint8_t *)data, count);
+
+	for (cnt_connection *connection : &session->connections.dense)
 	{
-		cnt_socket_memory_buffer *socket_memory;
-		bool socket_memory_exists = fck_sparse_array_try_view(&session->send_buffer, *item.index, &socket_memory);
-		SDL_assert(socket_memory_exists && "Socket memory is associative and cannot exist without a socket");
-		// cnt_socket_memory_buffer_append(socket_memory, (uint8_t *)&count, sizeof(uint16_t));
-		cnt_socket_memory_buffer_append(socket_memory, (uint8_t *)data, count);
+		cnt_socket_data sock;
+		cnt_address_data address;
+		if (cnt_session_fetch_data(session, connection, &sock, &address))
+		{
+			cnt_sendto(sock.socket, seraliser.data, seraliser.at, &address.address);
+		}
 	}
+
+	fck_serialiser_free(&seraliser);
+}
+
+bool cnt_session_send(cnt_session *session, cnt_connection_handle *connection_handle, void *data, size_t count)
+{
+	cnt_connection *connection = fck_sparse_list_view(&session->connections, connection_handle->id);
+	if (connection == nullptr)
+	{
+		return false;
+	}
+
+	cnt_socket_data sock;
+	cnt_address_data address;
+	if (!cnt_session_fetch_data(session, connection, &sock, &address))
+	{
+		return false;
+	}
+
+	fck_serialiser seraliser;
+	fck_serialiser_alloc(&seraliser);
+	fck_serialiser_byte_writer(&seraliser.self);
+
+	cnt_connection_packet_header header;
+	SDL_zero(header);
+	header.type = CNT_CONNECTION_PACKET_TYPE_DATA;
+	header.length = count + sizeof(header);
+	fck_serialise(&seraliser, &header);
+	fck_serialise(&seraliser, (uint8_t *)data, count);
+
+	cnt_sendto(sock.socket, seraliser.data, seraliser.at, &address.address);
+
+	fck_serialiser_free(&seraliser);
+
+	return true;
 }
 
 bool cnt_session_try_receive_from(cnt_session *session, cnt_memory_view *view)
@@ -635,11 +627,12 @@ bool cnt_session_try_receive_from(cnt_session *session, cnt_memory_view *view)
 	return true;
 }
 
-bool cnt_session_try_dequeue_new_connection(cnt_session *session, cnt_connection *connection)
+bool cnt_session_try_dequeue_new_connection(cnt_session *session, cnt_connection_handle *handle, cnt_connection *connection)
 {
 	cnt_connection_handle *new_connection;
 	if (fck_queue_try_pop(&session->new_connections, &new_connection))
 	{
+		*handle = *new_connection;
 		*connection = *fck_sparse_list_view(&session->connections, new_connection->id);
 		return true;
 	}

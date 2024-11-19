@@ -223,12 +223,6 @@ int fck_run_student_testbed(int, char **)
 	SDL_Renderer *renderer = SDL_CreateRenderer(window, nullptr);
 	CHECK_CRITICAL(renderer != nullptr, SDL_GetError());
 
-	SDL_bool input_previous[SDL_SCANCODE_COUNT];
-	SDL_zero(input_previous);
-
-	SDL_bool input_current[SDL_SCANCODE_COUNT];
-	SDL_zero(input_current);
-
 	SDL_Texture *player_texture = IMG_LoadTexture(renderer, FCK_RESOURCE_DIRECTORY_PATH "player.png");
 	CHECK_CRITICAL(player_texture != nullptr, SDL_GetError());
 
@@ -237,6 +231,9 @@ int fck_run_student_testbed(int, char **)
 	CHECK_CRITICAL(SDL_GetTextureSize(player_texture, &tw, &th), SDL_GetError());
 
 	const int sprite_count = 5;
+
+	fck_keyboard_state keyboard;
+	SDL_zero(keyboard);
 
 	fck_sprite_storage sprite_storage;
 	fck_sprite_storage_alloc(&sprite_storage, player_texture, sprite_count);
@@ -298,8 +295,6 @@ int fck_run_student_testbed(int, char **)
 
 		tp = now;
 
-		SDL_memcpy(input_previous, input_current, sizeof(input_current));
-
 		SDL_Event event;
 		while (SDL_PollEvent(&event))
 		{
@@ -311,7 +306,6 @@ int fck_run_student_testbed(int, char **)
 			}
 			case SDL_EVENT_KEY_DOWN:
 			case SDL_EVENT_KEY_UP: {
-				input_current[event.key.scancode] = event.type == SDL_EVENT_KEY_DOWN;
 				break;
 			}
 			default:
@@ -319,14 +313,16 @@ int fck_run_student_testbed(int, char **)
 			}
 		}
 
+		fck_keyboard_state_update(&keyboard);
+
 		// Update
 		float direction = 0.0f;
-		if (input_current[SDL_SCANCODE_D])
+		if (fck_key_down(&keyboard, SDL_SCANCODE_D))
 		{
 			fck_anim_storage_current_set(&anim_storage, FCK_FROG_ANIMATION_TYPE_MOVE_RIGHT);
 			direction = direction + 0.5f;
 		}
-		if (input_current[SDL_SCANCODE_A])
+		if (fck_key_down(&keyboard, SDL_SCANCODE_A))
 		{
 			fck_anim_storage_current_set(&anim_storage, FCK_FROG_ANIMATION_TYPE_MOVE_LEFT);
 			direction = direction - 0.5f;
@@ -341,7 +337,7 @@ int fck_run_student_testbed(int, char **)
 		dash_cooldown_timer = SDL_max(dash_cooldown_timer, 0.0f);
 		if (dash_cooldown_timer <= 0.0f)
 		{
-			if (input_current[SDL_SCANCODE_SPACE] && !input_previous[SDL_SCANCODE_SPACE])
+			if (fck_key_just_down(&keyboard, SDL_SCANCODE_SPACE))
 			{
 				y = y - 64.0f;
 				dash_cooldown_timer = dash_cooldown_duration;
@@ -371,7 +367,7 @@ int fck_run_student_testbed(int, char **)
 		fck_anim const *anim = fck_anim_storage_current_get(&anim_storage);
 		size_t sprite_index = anim_storage.current_frame_index + anim->frame_start;
 
-		SDL_FRect dst{x, y, 48.0f * 8.0f, 48.0f * 8.0f};
+		SDL_FRect dst{x, y, 48.0f * 2.0f, 48.0f * 2.0f};
 		fck_anim_storage_draw(&anim_storage, &dst);
 
 		// Present final image

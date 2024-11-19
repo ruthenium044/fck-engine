@@ -5,6 +5,7 @@
 #include "fck_item.h"
 #include "fck_sparse_lookup.h"
 
+// TODO: This whole list is a mess, we might need to rethink it's implementation
 template <typename index_type, typename value_type>
 struct fck_sparse_list
 {
@@ -80,6 +81,23 @@ void fck_sparse_list_clear(fck_sparse_list<index_type, value_type> *list)
 
 	fck_dense_list_clear(&list->owner);
 	fck_dense_list_clear(&list->dense);
+
+	using index_info = typename fck_sparse_list<index_type, value_type>::index_info;
+
+	const index_type capacity = list->sparse.capacity;
+	const index_type last = capacity - 1;
+	for (index_type index = 0; index < capacity; index++)
+	{
+		index_type reverse_index = last - index;
+		fck_sparse_lookup_set(&list->sparse, reverse_index, &list->free_list_head);
+		list->free_list_head = reverse_index | index_info::free_mask;
+	}
+	index_type next = index_info::invalid;
+	for (index_type index = 0; index < capacity; index++)
+	{
+		fck_sparse_lookup_set(&list->free_list_prev, index, &next);
+		next = index;
+	}
 }
 
 template <typename index_type, typename value_type>

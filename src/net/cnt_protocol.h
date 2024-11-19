@@ -58,4 +58,6 @@ struct cnt_connection_recv_packet
 void cnt_connection_packet_push(cnt_connection_packet *packet, cnt_connection_packet_type type, void *data, uint16_t length);
 bool cnt_connection_packet_try_pop(cnt_connection_recv_packet *packet, cnt_connection_packet_type *type, void **data, uint16_t *length);
 
+void fck_serialise(struct fck_serialiser *serialiser, cnt_connection_packet_header *header);
+
 bool cnt_connection_is_little_endian();

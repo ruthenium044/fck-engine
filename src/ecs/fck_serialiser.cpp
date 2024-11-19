@@ -12,11 +12,10 @@ void fck_serialiser_alloc(fck_serialiser *serialiser)
 	constexpr size_t dafault_capacity = 1024;
 	serialiser->data = (uint8_t *)SDL_malloc(dafault_capacity);
 	serialiser->capacity = dafault_capacity;
-	serialiser->count = 0;
-	serialiser->index = 0;
+	serialiser->at = 0;
 }
 
-void fck_serialiser_create(fck_serialiser *serialiser, uint8_t *data, uint8_t count)
+void fck_serialiser_create(fck_serialiser *serialiser, uint8_t *data, size_t count)
 {
 	SDL_assert(serialiser != nullptr);
 
@@ -24,16 +23,25 @@ void fck_serialiser_create(fck_serialiser *serialiser, uint8_t *data, uint8_t co
 
 	serialiser->data = data;
 	serialiser->capacity = count;
-	serialiser->count = count;
-	serialiser->index = 0;
+	serialiser->at = 0;
+}
+
+void fck_serialiser_create(fck_serialiser *serialiser, uint8_t *data, size_t count, size_t capacity)
+{
+	SDL_assert(serialiser != nullptr);
+
+	SDL_zerop(serialiser);
+
+	serialiser->data = data;
+	serialiser->capacity = capacity;
+	serialiser->at = 0;
 }
 
 void fck_serialiser_reset(fck_serialiser *serialiser)
 {
 	SDL_assert(serialiser != nullptr);
 
-	serialiser->count = 0;
-	serialiser->index = 0;
+	serialiser->at = 0;
 }
 
 void fck_serialiser_free(fck_serialiser *serialiser)
@@ -49,7 +57,7 @@ void fck_serialiser_maybe_realloc(fck_serialiser *serialiser, size_t slack_count
 
 	// Fix it with a smart calculation :D
 	// Just lazy at the moment
-	while (serialiser->capacity < serialiser->count + slack_count)
+	while (serialiser->capacity < serialiser->at + slack_count)
 	{
 		const size_t new_capacity = serialiser->capacity * 2;
 		uint8_t *old_mem = serialiser->data;
@@ -57,8 +65,11 @@ void fck_serialiser_maybe_realloc(fck_serialiser *serialiser, size_t slack_count
 
 		if (new_mem != nullptr)
 		{
-			SDL_LogCritical(0, "Failed to reallocate memory!");
 			serialiser->data = new_mem;
+		}
+		else
+		{
+			SDL_LogCritical(0, "Failed to reallocate memory!");
 		}
 
 		serialiser->capacity = new_capacity;
@@ -69,43 +80,43 @@ static void byte_read_uint8(fck_serialiser *serialiser, uint8_t *value, size_t c
 {
 	for (int i = 0; i < count; i++)
 	{
-		uint8_t *at = serialiser->data + serialiser->index;
+		uint8_t *at = serialiser->data + serialiser->at;
 
 		value[i] = *at;
-		serialiser->index = serialiser->index + sizeof(*value);
+		serialiser->at = serialiser->at + sizeof(*value);
 	}
 }
 static void byte_read_uint16(fck_serialiser *serialiser, uint16_t *value, size_t count)
 {
 	for (int i = 0; i < count; i++)
 	{
-		uint8_t *at = serialiser->data + serialiser->index;
+		uint8_t *at = serialiser->data + serialiser->at;
 
 		value[i] = ((uint16_t)at[0] << 0)    // 0xFF000000
 		           | ((uint16_t)at[1] << 8); // 0x00FF0000
 
-		serialiser->index = serialiser->index + sizeof(*value);
+		serialiser->at = serialiser->at + sizeof(*value);
 	}
 }
 static void byte_read_uint32(fck_serialiser *serialiser, uint32_t *value, size_t count)
 {
 	for (int i = 0; i < count; i++)
 	{
-		uint8_t *at = serialiser->data + serialiser->index;
+		uint8_t *at = serialiser->data + serialiser->at;
 
-		value[i] = ((uint32_t)at[0] << 0)     // 0xFF000000
-		           | ((uint32_t)at[1] << 8)   // 0x00FF0000
-		           | ((uint32_t)at[2] << 16)  // 0x0000FF00
-		           | ((uint32_t)at[3] << 24); // 0x000000FF
+		value[i] = (uint32_t(at[0]) << 0)     // 0xFF000000
+		           | (uint32_t(at[1]) << 8)   // 0x00FF0000
+		           | (uint32_t(at[2]) << 16)  // 0x0000FF00
+		           | (uint32_t(at[3]) << 24); // 0x000000FF
 
-		serialiser->index = serialiser->index + sizeof(*value);
+		serialiser->at = serialiser->at + sizeof(*value);
 	}
 }
 static void byte_read_uint64(fck_serialiser *serialiser, uint64_t *value, size_t count)
 {
 	for (int i = 0; i < count; i++)
 	{
-		uint8_t *at = serialiser->data + serialiser->index;
+		uint8_t *at = serialiser->data + serialiser->at;
 
 		value[i] = ((uint64_t)at[0] << 0ull)     // 0xFF00000000000000
 		           | ((uint64_t)at[1] << 8ull)   // 0x00FF000000000000
@@ -116,50 +127,50 @@ static void byte_read_uint64(fck_serialiser *serialiser, uint64_t *value, size_t
 		           | ((uint64_t)at[6] << 48ull)  // 0x000000000000FF00
 		           | ((uint64_t)at[7] << 56ull); // 0x00000000000000FF
 
-		serialiser->index = serialiser->index + sizeof(*value);
+		serialiser->at = serialiser->at + sizeof(*value);
 	}
 }
 static void byte_read_int8(fck_serialiser *serialiser, int8_t *value, size_t count)
 {
 	for (int i = 0; i < count; i++)
 	{
-		uint8_t *at = serialiser->data + serialiser->index;
+		uint8_t *at = serialiser->data + serialiser->at;
 
 		value[i] = *at;
-		serialiser->index = serialiser->index + sizeof(*value);
+		serialiser->at = serialiser->at + sizeof(*value);
 	}
 }
 static void byte_read_int16(fck_serialiser *serialiser, int16_t *value, size_t count)
 {
 	for (int i = 0; i < count; i++)
 	{
-		uint8_t *at = serialiser->data + serialiser->index;
+		uint8_t *at = serialiser->data + serialiser->at;
 
 		value[i] = ((uint16_t)at[0] << 0)    // 0xFF000000
 		           | ((uint16_t)at[1] << 8); // 0x00FF0000
 
-		serialiser->index = serialiser->index + sizeof(*value);
+		serialiser->at = serialiser->at + sizeof(*value);
 	}
 }
 static void byte_read_int32(fck_serialiser *serialiser, int32_t *value, size_t count)
 {
 	for (int i = 0; i < count; i++)
 	{
-		uint8_t *at = serialiser->data + serialiser->index;
+		uint8_t *at = serialiser->data + serialiser->at;
 
 		value[i] = ((uint32_t)at[0] << 0)     // 0xFF000000
 		           | ((uint32_t)at[1] << 8)   // 0x00FF0000
 		           | ((uint32_t)at[2] << 16)  // 0x0000FF00
 		           | ((uint32_t)at[3] << 24); // 0x000000FF
 
-		serialiser->index = serialiser->index + sizeof(*value);
+		serialiser->at = serialiser->at + sizeof(*value);
 	}
 }
 static void byte_read_int64(fck_serialiser *serialiser, int64_t *value, size_t count)
 {
 	for (int i = 0; i < count; i++)
 	{
-		uint8_t *at = serialiser->data + serialiser->index;
+		uint8_t *at = serialiser->data + serialiser->at;
 
 		value[i] = ((int64_t)at[0] << 0ull)     // 0xFF00000000000000
 		           | ((int64_t)at[1] << 8ull)   // 0x00FF000000000000
@@ -170,12 +181,12 @@ static void byte_read_int64(fck_serialiser *serialiser, int64_t *value, size_t c
 		           | ((int64_t)at[6] << 48ull)  // 0x000000000000FF00
 		           | ((int64_t)at[7] << 56ull); // 0x00000000000000FF
 
-		serialiser->index = serialiser->index + sizeof(*value);
+		serialiser->at = serialiser->at + sizeof(*value);
 	}
 }
 static void byte_read_float32(fck_serialiser *serialiser, float *value, size_t count)
 {
-	byte_read_uint32(serialiser, (uint32_t *)&value, count);
+	byte_read_uint32(serialiser, (uint32_t *)value, count);
 }
 
 static void byte_write_uint8(fck_serialiser *serialiser, uint8_t *value, size_t count)
@@ -184,10 +195,10 @@ static void byte_write_uint8(fck_serialiser *serialiser, uint8_t *value, size_t 
 	{
 		fck_serialiser_maybe_realloc(serialiser, sizeof(*value));
 
-		uint8_t *at = serialiser->data + serialiser->count;
+		uint8_t *at = serialiser->data + serialiser->at;
 
 		*at = value[i];
-		serialiser->count = serialiser->count + sizeof(*value);
+		serialiser->at = serialiser->at + sizeof(*value);
 	}
 }
 static void byte_write_uint16(fck_serialiser *serialiser, uint16_t *value, size_t count)
@@ -196,12 +207,12 @@ static void byte_write_uint16(fck_serialiser *serialiser, uint16_t *value, size_
 	{
 		fck_serialiser_maybe_realloc(serialiser, sizeof(*value));
 
-		uint8_t *at = serialiser->data + serialiser->count;
+		uint8_t *at = serialiser->data + serialiser->at;
 
 		at[0] = (uint8_t)((value[i] >> 0) & 0xFF);
 		at[1] = (uint8_t)((value[i] >> 8) & 0xFF);
 
-		serialiser->count = serialiser->count + sizeof(*value);
+		serialiser->at = serialiser->at + sizeof(*value);
 	}
 }
 static void byte_write_uint32(fck_serialiser *serialiser, uint32_t *value, size_t count)
@@ -210,14 +221,14 @@ static void byte_write_uint32(fck_serialiser *serialiser, uint32_t *value, size_
 	{
 		fck_serialiser_maybe_realloc(serialiser, sizeof(*value));
 
-		uint8_t *at = serialiser->data + serialiser->count;
+		uint8_t *at = serialiser->data + serialiser->at;
 
 		at[0] = (uint8_t)((value[i] >> 0) & 0xFF);
 		at[1] = (uint8_t)((value[i] >> 8) & 0xFF);
 		at[2] = (uint8_t)((value[i] >> 16) & 0xFF);
 		at[3] = (uint8_t)((value[i] >> 24) & 0xFF);
 
-		serialiser->count = serialiser->count + sizeof(*value);
+		serialiser->at = serialiser->at + sizeof(*value);
 	}
 }
 static void byte_write_uint64(fck_serialiser *serialiser, uint64_t *value, size_t count)
@@ -226,7 +237,7 @@ static void byte_write_uint64(fck_serialiser *serialiser, uint64_t *value, size_
 	{
 		fck_serialiser_maybe_realloc(serialiser, sizeof(*value));
 
-		uint8_t *at = serialiser->data + serialiser->count;
+		uint8_t *at = serialiser->data + serialiser->at;
 
 		at[0] = (uint8_t)((value[i] >> 0) & 0xFF);
 		at[1] = (uint8_t)((value[i] >> 8) & 0xFF);
@@ -237,7 +248,7 @@ static void byte_write_uint64(fck_serialiser *serialiser, uint64_t *value, size_
 		at[6] = (uint8_t)((value[i] >> 48) & 0xFF);
 		at[7] = (uint8_t)((value[i] >> 56) & 0xFF);
 
-		serialiser->count = serialiser->count + sizeof(*value);
+		serialiser->at = serialiser->at + sizeof(*value);
 	}
 }
 static void byte_write_int8(fck_serialiser *serialiser, int8_t *value, size_t count)
@@ -246,10 +257,10 @@ static void byte_write_int8(fck_serialiser *serialiser, int8_t *value, size_t co
 	{
 		fck_serialiser_maybe_realloc(serialiser, sizeof(*value));
 
-		uint8_t *at = serialiser->data + serialiser->count;
+		uint8_t *at = serialiser->data + serialiser->at;
 
 		*at = value[i];
-		serialiser->count = serialiser->count + sizeof(*value);
+		serialiser->at = serialiser->at + sizeof(*value);
 	}
 }
 static void byte_write_int16(fck_serialiser *serialiser, int16_t *value, size_t count)
@@ -258,12 +269,12 @@ static void byte_write_int16(fck_serialiser *serialiser, int16_t *value, size_t 
 	{
 		fck_serialiser_maybe_realloc(serialiser, sizeof(*value));
 
-		uint8_t *at = serialiser->data + serialiser->count;
+		uint8_t *at = serialiser->data + serialiser->at;
 
 		at[0] = (uint8_t)((value[i] >> 0) & 0xFF);
 		at[1] = (uint8_t)((value[i] >> 8) & 0xFF);
 
-		serialiser->count = serialiser->count + sizeof(*value);
+		serialiser->at = serialiser->at + sizeof(*value);
 	}
 }
 static void byte_write_int32(fck_serialiser *serialiser, int32_t *value, size_t count)
@@ -272,14 +283,14 @@ static void byte_write_int32(fck_serialiser *serialiser, int32_t *value, size_t 
 	{
 		fck_serialiser_maybe_realloc(serialiser, sizeof(*value));
 
-		uint8_t *at = serialiser->data + serialiser->count;
+		uint8_t *at = serialiser->data + serialiser->at;
 
 		at[0] = (uint8_t)((value[i] >> 0) & 0xFF);
 		at[1] = (uint8_t)((value[i] >> 8) & 0xFF);
 		at[2] = (uint8_t)((value[i] >> 16) & 0xFF);
 		at[3] = (uint8_t)((value[i] >> 24) & 0xFF);
 
-		serialiser->count = serialiser->count + sizeof(*value);
+		serialiser->at = serialiser->at + sizeof(*value);
 	}
 }
 static void byte_write_int64(fck_serialiser *serialiser, int64_t *value, size_t count)
@@ -288,7 +299,7 @@ static void byte_write_int64(fck_serialiser *serialiser, int64_t *value, size_t 
 	{
 		fck_serialiser_maybe_realloc(serialiser, sizeof(*value));
 
-		uint8_t *at = serialiser->data + serialiser->count;
+		uint8_t *at = serialiser->data + serialiser->at;
 
 		at[0] = (uint8_t)((value[i] >> 0) & 0xFF);
 		at[1] = (uint8_t)((value[i] >> 8) & 0xFF);
@@ -299,12 +310,12 @@ static void byte_write_int64(fck_serialiser *serialiser, int64_t *value, size_t 
 		at[6] = (uint8_t)((value[i] >> 48) & 0xFF);
 		at[7] = (uint8_t)((value[i] >> 56) & 0xFF);
 
-		serialiser->count = serialiser->count + sizeof(*value);
+		serialiser->at = serialiser->at + sizeof(*value);
 	}
 }
 static void byte_write_float32(fck_serialiser *serialiser, float *value, size_t count)
 {
-	byte_write_uint32(serialiser, (uint32_t *)&value, count);
+	byte_write_uint32(serialiser, (uint32_t *)value, count);
 }
 
 void fck_serialiser_byte_reader(fck_serialiser_interface *interface)

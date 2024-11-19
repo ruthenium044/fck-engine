@@ -4,8 +4,11 @@
 // TODO: Get rid of this header and move it to src
 #include "cnt_transport.h"
 #include "ecs/fck_queue.h"
+#include "ecs/fck_serialiser.h"
 #include "ecs/fck_sparse_array.h"
 #include "ecs/fck_sparse_list.h"
+
+// TODO: Rewrite most memory usages to use fck_serialiser instead for well... convenience!
 
 using fck_milliseconds = uint64_t;
 
@@ -32,6 +35,8 @@ struct cnt_connection_handle
 	cnt_connection_id id;
 };
 
+constexpr static cnt_connection_handle CNT_CONNECTION_HANDLE_INVALID = {CNT_CONNECTION_INVALID_ID};
+
 enum cnt_connection_state
 {
 	CNT_CONNECTION_STATE_NONE,
@@ -44,10 +49,10 @@ enum cnt_connection_state
 	CNT_CONNECTION_STATE_ACKNOWLEDGE_CONNECTION
 };
 
-enum cnt_connection_flag
+enum cnt_connection_flag : uint8_t
 {
 	CNT_CONNECTION_FLAG_NONE,
-	CNT_CONNECTION_FLAG_INITIATOR = 1 << 0,
+	CNT_CONNECTION_FLAG_CLIENT = 1 << 0,
 };
 
 struct cnt_connection
@@ -78,7 +83,7 @@ struct cnt_frame_info
 {
 	uint64_t tick;
 	// ... Maybe time/
-	cnt_connection_id connection;
+	cnt_connection_handle connection;
 };
 
 struct cnt_frame
@@ -120,10 +125,12 @@ struct cnt_session
 	fck_queue<cnt_connection_id, cnt_connection_handle> new_connections;
 
 	// About 64kb each
-	fck_sparse_array<cnt_socket_id, cnt_socket_memory_buffer> send_buffer;
 	fck_sparse_array<cnt_socket_id, cnt_socket_memory_buffer> recv_buffer;
 	fck_queue<uint16_t, cnt_frame> recv_frames;
 
+	// capacity is equal to cnt_socket_memory_buffer::capacity
+	// Should probably call it "udp_memory_buffer" to indicate the max capacity being around 64kb
+	uint8_t *temp_send_buffer;
 	uint8_t *temp_recv_buffer;
 
 	uint64_t tick;
@@ -145,8 +152,12 @@ void cnt_session_free(cnt_session *session);
 bool cnt_session_will_tick(cnt_session *session, fck_milliseconds delta_time);
 void cnt_session_tick(cnt_session *session, fck_milliseconds time, fck_milliseconds delta_time);
 
-bool cnt_session_try_dequeue_new_connection(cnt_session *session, cnt_connection *connection);
-void cnt_session_send_to_all(cnt_session *session, void *data, size_t count);
+bool cnt_session_try_dequeue_new_connection(cnt_session *session, cnt_connection_handle *handle, cnt_connection *connection);
+void cnt_session_broadcast(cnt_session *session, void *data, size_t count);
+
+// What if we mix and match sessions and connections? Maybe cnt_send(cnt_connection_handle*, void*, size_t) would be good enough?
+bool cnt_session_send(cnt_session *session, cnt_connection_handle *connection, void *data, size_t count);
+
 bool cnt_session_try_receive_from(cnt_session *session, cnt_memory_view *view);
 
 #endif // CNT_CONNECTION_INCLUDED

@@ -1,5 +1,12 @@
 #include "cnt_protocol.h"
+#include "ecs/fck_serialiser.h"
 #include <SDL3/SDL_assert.h>
+
+void fck_serialise(struct fck_serialiser *serialiser, cnt_connection_packet_header *header)
+{
+	fck_serialise(serialiser, &header->type);
+	fck_serialise(serialiser, &header->length);
+}
 
 void cnt_connection_packet_push(cnt_connection_packet *packet, cnt_connection_packet_type type, void *data, uint16_t length)
 {
@@ -7,17 +14,20 @@ void cnt_connection_packet_push(cnt_connection_packet *packet, cnt_connection_pa
 	SDL_assert(packet->length + length + sizeof(cnt_connection_packet_header) <= packet->write_capacity &&
 	           "Make sure the payload buffer is large enough!");
 
+	fck_serialiser seraliser;
+	fck_serialiser_create(&seraliser, packet->payload, packet->length, packet->write_capacity);
+	fck_serialiser_byte_writer(&seraliser.self);
+
 	cnt_connection_packet_header header;
 	header.type = type;
 	header.length = length;
-
-	SDL_memcpy(packet->payload + packet->length, &header, sizeof(header));
-	packet->length = packet->length + sizeof(header);
+	fck_serialise(&seraliser, &header);
+	packet->length = seraliser.at;
 
 	if (length != 0)
 	{
-		SDL_memcpy(packet->payload + packet->length, data, length);
-		packet->length = packet->length + length;
+		fck_serialise(&seraliser, (uint8_t *)data, length);
+		packet->length = seraliser.at;
 	}
 }
 
@@ -30,16 +40,23 @@ bool cnt_connection_packet_try_pop(cnt_connection_recv_packet *packet, cnt_conne
 		return false;
 	}
 
-	cnt_connection_packet_header *header = (cnt_connection_packet_header *)(packet->payload + packet->index);
-	*type = (cnt_connection_packet_type)header->type;
-	*length = header->length;
+	fck_serialiser seraliser;
+	fck_serialiser_create(&seraliser, packet->payload, packet->length);
+	fck_serialiser_byte_reader(&seraliser.self);
 
-	packet->index = packet->index + sizeof(*header);
+	cnt_connection_packet_header header;
+	fck_serialise(&seraliser, &header);
 
-	if (header->length != 0)
+	*type = (cnt_connection_packet_type)header.type;
+	*length = header.length;
+
+	packet->index = seraliser.at;
+
+	if (header.length != 0)
 	{
-		*data = packet->payload + packet->index;
-		packet->index = packet->index + header->length;
+		// Ehhh...
+		*data = seraliser.data + seraliser.at;
+		packet->index = seraliser.at + *length;
 	}
 	return true;
 }

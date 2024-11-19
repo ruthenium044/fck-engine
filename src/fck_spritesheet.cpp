@@ -269,10 +269,6 @@ void fck_free(fck_spritesheet *sprites)
 	SDL_zerop(sprites);
 }
 
-void fck_serialise(struct fck_serialiser *, fck_spritesheet *, size_t)
-{
-}
-
 bool fck_spritesheet_load(SDL_Renderer *renderer, const char *file_name, fck_spritesheet *out_sprites, bool force_rebuild)
 {
 	SDL_assert(renderer != nullptr);

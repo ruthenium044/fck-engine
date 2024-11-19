@@ -8,11 +8,6 @@ void fck_animator_alloc(fck_animator *animator, fck_spritesheet *spritsheet)
 	SDL_zerop(animator);
 }
 
-void fck_free(fck_animator *animator)
-{
-	SDL_assert(animator != nullptr);
-}
-
 void fck_animator_insert(fck_animator *animator, fck_spritesheet *spritesheet, fck_common_animations anim,
                          fck_animation_type animation_type, size_t start, size_t count, uint64_t frame_time_ms, float offset_x,
                          float offset_y)

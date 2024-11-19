@@ -50,7 +50,11 @@ template <typename index_type, typename value_type>
 void fck_sparse_lookup_clear(fck_sparse_lookup<index_type, value_type> *list)
 {
 	SDL_assert(list != nullptr);
-	SDL_memset(list->data, 0, sizeof(*list->data) * list->capacity);
+	// SDL_memset(list->data, 0, sizeof(*list->data) * list->capacity);
+	for (size_t index = 0; index < list->capacity; index++)
+	{
+		list->data[index] = list->tombstone;
+	}
 }
 
 template <typename index_type, typename value_type>
@@ -82,6 +86,18 @@ template <typename index_type, typename value_type>
 value_type fck_sparse_lookup_get(fck_sparse_lookup<index_type, value_type> *list, typename fck_ignore_deduction<index_type>::type at)
 {
 	return *fck_sparse_lookup_view(list, at);
+}
+
+template <typename index_type, typename value_type>
+bool fck_sparse_lookup_try_get(fck_sparse_lookup<index_type, value_type> *list, typename fck_ignore_deduction<index_type>::type at,
+                               value_type *value)
+{
+	if (list->capacity < at)
+	{
+		return false;
+	}
+	*value = *fck_sparse_lookup_view(list, at);
+	return true;
 }
 
 #endif // FCK_SPARSE_LOOKUP_INCLUDED

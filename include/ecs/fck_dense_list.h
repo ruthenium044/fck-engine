@@ -95,8 +95,7 @@ void fck_dense_list_add(fck_dense_list<index_type, T> *list, typename fck_ignore
 }
 
 template <typename index_type>
-void fck_dense_list_add_raw(fck_dense_list<index_type, void> *list, typename fck_ignore_deduction<void>::type const *value,
-                            size_t type_size_bytes)
+void fck_dense_list_reserve_raw(fck_dense_list<index_type, void> *list, size_t type_size_bytes)
 {
 	SDL_assert(list != nullptr);
 	SDL_assert(list->data != nullptr);
@@ -109,6 +108,13 @@ void fck_dense_list_add_raw(fck_dense_list<index_type, void> *list, typename fck
 	uint8_t *start_as_byte = (uint8_t *)list->data;
 	size_t offset_last = last * type_size_bytes;
 	uint8_t *ptr_last = start_as_byte + offset_last;
+}
+
+template <typename index_type>
+void fck_dense_list_add_raw(fck_dense_list<index_type, void> *list, typename fck_ignore_deduction<void>::type const *value,
+                            size_t type_size_bytes)
+{
+	fck_dense_list_reserve_raw(list, type_size_bytes);
 
 	SDL_memcpy(ptr_last, value, type_size_bytes);
 }

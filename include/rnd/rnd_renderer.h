@@ -42,7 +42,6 @@ void rnd_render(rnd_renderer *renderer);
 void rnd_cleanup(rnd_renderer *renderer);
 
 void rnd_createInstance(rnd_renderer *renderer);
-std::vector<const char *> rnd_getRequiredExtensions(const rnd_renderer *renderer);
 bool rnd_checkValidationLayerSupport(const rnd_renderer *renderer);
 
 #endif // FCK_RND_RENDERER_INCLUDED

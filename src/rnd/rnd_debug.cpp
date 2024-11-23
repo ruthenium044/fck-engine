@@ -1,5 +1,5 @@
+#include "rnd_debug.h"
 #include "SDL3/SDL_assert.h"
-#include <rnd/rnd_debug.h>
 
 void rnd_setupDebugMessenger(rnd_renderer *renderer)
 {

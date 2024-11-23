@@ -1,7 +1,7 @@
 ﻿#include "rnd/rnd_renderer.h"
 
 #include "ecs/fck_dense_list.h"
-#include "rnd/rnd_debug.h"
+#include "rnd_debug.h"
 
 #include <vulkan/vulkan.h>
 
@@ -13,6 +13,9 @@
 #include <vector>
 
 constexpr bool bUseValidationLayers = false;
+
+template <typename value_type>
+using dense_list = fck_dense_list<uint32_t, value_type>;
 
 void rnd_init(rnd_renderer *renderer)
 {
@@ -109,6 +112,40 @@ void rnd_cleanup(rnd_renderer *renderer)
 	renderer = nullptr;
 }
 
+dense_list<const char *> rnd_getRequiredExtensions(const rnd_renderer *renderer)
+{
+	uint32_t extensionCount = 0;
+	vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
+
+	// std::vector<VkExtensionProperties> extensionsProperties(extensionCount);
+	// vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensionsProperties.data());
+	const char **extensionsProperties = nullptr; // todo init this somehow?
+
+	if (!extensionsProperties)
+	{
+		return {};
+	}
+
+	const uint32_t maximum_extensions = 16;
+	dense_list<const char *> target_extensions;
+	fck_dense_list_alloc(&target_extensions, maximum_extensions);
+
+	if (renderer->enableValidationLayers)
+	{
+		const char *debug_extension = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
+		fck_dense_list_add(&target_extensions, &debug_extension);
+	}
+
+	uint32_t sdlExtensionCount;
+	char const *const *sdlExtensions = SDL_Vulkan_GetInstanceExtensions(&sdlExtensionCount);
+	for (uint32_t index = 0; index < sdlExtensionCount; index++)
+	{
+		fck_dense_list_add(&target_extensions, &sdlExtensions[index]);
+	}
+
+	return target_extensions;
+}
+
 void rnd_createInstance(rnd_renderer *renderer)
 {
 	if (renderer->enableValidationLayers && !rnd_checkValidationLayerSupport(renderer))
@@ -132,8 +169,8 @@ void rnd_createInstance(rnd_renderer *renderer)
 	createInfo.pApplicationInfo = &appInfo;
 
 	auto extensions = rnd_getRequiredExtensions(renderer);
-	createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
-	createInfo.ppEnabledExtensionNames = extensions.data();
+	createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.count);
+	createInfo.ppEnabledExtensionNames = extensions.data;
 
 	VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
 	if (renderer->enableValidationLayers)
@@ -151,30 +188,6 @@ void rnd_createInstance(rnd_renderer *renderer)
 	}
 
 	VK_CHECK(vkCreateInstance(&createInfo, nullptr, &renderer->instance), "failed to create instance");
-}
-
-std::vector<const char *> rnd_getRequiredExtensions(const rnd_renderer *renderer)
-{
-	uint32_t extensionCount = 0;
-	vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
-
-	// std::vector<VkExtensionProperties> extensionsProperties(extensionCount);
-	// vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensionsProperties.data());
-	const char **extensionsProperties = nullptr; // todo init this somehow?
-
-	if (!extensionsProperties)
-	{
-		return {};
-	}
-
-	std::vector<const char *> extensions(extensionsProperties, extensionsProperties + extensionCount);
-
-	if (renderer->enableValidationLayers)
-	{
-		extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-	}
-
-	return extensions;
 }
 
 bool rnd_checkValidationLayerSupport(const rnd_renderer *renderer)

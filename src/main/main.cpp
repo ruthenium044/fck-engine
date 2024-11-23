@@ -25,9 +25,7 @@
 #include "core/fck_engine.h"
 #include "core/fck_instance.h"
 #include "core/fck_instances.h"
-#include "net/cnt_peers.h"
-
-fck_ecs::entity_type create_cammy(fck_ecs *ecs);
+#include "net/cnt_core.h"
 
 enum fck_input_type
 {
@@ -56,11 +54,6 @@ enum fck_input_flag
 	FCK_INPUT_FLAG_PUNCH_B = 1 << FCK_INPUT_TYPE_PUNCH_B,
 	FCK_INPUT_FLAG_KICK_A = 1 << FCK_INPUT_TYPE_KICK_A,
 	FCK_INPUT_FLAG_KICK_B = 1 << FCK_INPUT_TYPE_KICK_B,
-};
-
-FCK_SERIALISE_OFF(fck_authority)
-struct fck_authority
-{
 };
 
 FCK_SERIALISE_OFF(fck_control_layout)
@@ -93,6 +86,10 @@ void fck_serialise(fck_serialiser *serialiser, fck_position *positions, size_t c
 	const size_t total_floats = count * 2;
 	fck_serialise(serialiser, (float *)positions, total_floats);
 }
+
+fck_ecs::entity_type create_cammy(fck_ecs *ecs);
+
+// Gameplay tick processes
 
 void input_process(fck_ecs *ecs, fck_system_update_info *)
 {
@@ -340,56 +337,54 @@ void local_cammy_setup(fck_ecs *ecs, fck_system_once_info *)
 	}
 }
 
-enum cnt_networking_communication_mode : uint32_t
+void networking_on_connect_as_host(cnt_on_connect_as_host_params const *in)
 {
-	FCK_NETWORK_COMMUNICATION_MODE_MESSAGE_UNICAST,
-	FCK_NETWORK_COMMUNICATION_MODE_REPLICATION_BROADCAST
-};
+	fck_ecs *ecs = in->ecs;
+	cnt_peer *peer = in->peer;
+	cnt_connection_handle *handle = in->connection_handle;
+	cnt_session *session = fck_ecs_unique_view<cnt_session>(ecs);
 
-void fck_serialise(fck_serialiser *serialiser, cnt_networking_communication_mode *value)
-{
-	fck_serialise(serialiser, (uint32_t *)value);
+	fck_ecs::entity_type avatar = create_cammy(ecs);
+
+	uint8_t buffer[32];
+	fck_serialiser serialiser;
+	fck_serialiser_create(&serialiser, buffer, sizeof(buffer));
+	fck_serialiser_byte_writer(&serialiser.self);
+
+	// Header
+	cnt_networking_communication_mode mode = CNT_NETWORK_COMMUNICATION_MODE_MESSAGE_UNICAST;
+	fck_serialise(&serialiser, &mode);
+
+	// Message
+	cnt_welcome_message message;
+	message.id = 0xB055;
+
+	message.peer = *peer;
+	message.avatar = avatar;
+	fck_serialise(&serialiser, &message);
+
+	cnt_session_send(session, handle, serialiser.data, serialiser.at);
+	SDL_Log("Created Avatar: %d", avatar);
 }
 
-enum cnt_networking_segment_type : uint32_t
+void networking_on_connect_as_client(cnt_on_connect_as_client_params const *in)
 {
-	FCK_NETWORK_SEGMENT_TYPE_ECS = 0xEC5,
-	FCK_NETWORK_SEGMENT_TYPE_PEERS = 0xBEEF,
-	FCK_NETWORK_SEGMENT_TYPE_EOF = 0xFFFF
-};
-
-void fck_serialise(fck_serialiser *serialiser, cnt_networking_segment_type *value)
-{
-	fck_serialise(serialiser, (uint32_t *)value);
-}
-
-struct cnt_welcome_message
-{
-	uint64_t id;
-
-	cnt_peer_id self;
-	cnt_peer_id host;
-
-	fck_ecs::entity_type avatar;
-
-	cnt_peer peer;
-};
-
-void fck_serialise(fck_serialiser *serialiser, cnt_welcome_message *value)
-{
-	fck_serialise(serialiser, &value->id);
-	fck_serialise(serialiser, &value->self);
-	fck_serialise(serialiser, &value->host);
-
-	fck_serialise(serialiser, &value->peer);
-	fck_serialise(serialiser, &value->avatar);
-}
-
-void cnt_networking_process_recv_message_unicast(fck_ecs *ecs, fck_serialiser *serialiser, cnt_connection_handle const *connection)
-{
-	// callback required
+	fck_ecs *ecs = in->ecs;
 
 	cnt_peers *peers = fck_ecs_unique_view<cnt_peers>(ecs);
+
+	fck_ecs_entity_destroy_all(ecs);
+	cnt_peers_clear(peers);
+}
+
+void networking_on_message(cnt_on_message_params const *in)
+{
+	fck_ecs *ecs = in->ecs;
+	fck_serialiser *serialiser = in->serialiser;
+	cnt_connection_handle const *connection = in->connection;
+
+	cnt_peers *peers = fck_ecs_unique_view<cnt_peers>(ecs);
+
 	cnt_welcome_message message;
 
 	fck_serialise(serialiser, &message);
@@ -407,238 +402,17 @@ void cnt_networking_process_recv_message_unicast(fck_ecs *ecs, fck_serialiser *s
 	cnt_peers_emplace(peers, &message.peer, connection);
 }
 
-void cnt_networking_process_recv_replication_broadcast(fck_ecs *ecs, fck_serialiser *serialiser, cnt_connection_handle const *connection)
-{
-	cnt_peers *peers = fck_ecs_unique_view<cnt_peers>(ecs);
-	cnt_session *session = fck_ecs_unique_view<cnt_session>(ecs);
-
-	// Peer info
-	cnt_networking_segment_type peers_segment;
-	fck_serialise(serialiser, &peers_segment);
-	SDL_assert(peers_segment == FCK_NETWORK_SEGMENT_TYPE_PEERS);
-
-	cnt_peer_id peer_count = 0;
-	fck_serialise(serialiser, &peer_count);
-	for (cnt_peer_id index = 0; index < peer_count; index++)
-	{
-		cnt_peer avatar = {cnt_peers::invalid_peer};
-		fck_serialise(serialiser, &avatar);
-		SDL_assert(avatar.peer_id != cnt_peers::invalid_peer);
-
-		cnt_peer *peer = cnt_peers_view_peer_from_index(peers, index);
-		if (peer != nullptr)
-		{
-			// We can only BUILD up peer state, never go back.
-			// If a peer reached a specific state, it can only remain in there
-			avatar.state = SDL_max(avatar.state, peer->state);
-		}
-		cnt_peers_emplace(peers, &avatar, nullptr);
-	}
-
-	cnt_peer peer;
-	if (cnt_peers_try_get_peer_from_connection(peers, connection, &peer))
-	{
-		// Receive from... client
-		if (peer.state == cnt_peer_STATE_OK)
-		{
-			// ECS snapshot
-			cnt_networking_segment_type ecs_segment;
-			fck_serialise(serialiser, &ecs_segment);
-			SDL_assert(ecs_segment == FCK_NETWORK_SEGMENT_TYPE_ECS);
-
-			if (cnt_peers_is_hosting(peers))
-			{
-				// Receive from client - Partial is ok
-				fck_ecs_snapshot_load_partial(ecs, serialiser);
-			}
-			else
-			{
-				// Receive from host - Always FULL state
-				// TODO: Implement a backbuffer ECS so we have a reliable storage
-				fck_serialiser temp;
-				fck_serialiser_alloc(&temp);
-				fck_serialiser_byte_writer(&temp.self);
-
-				fck_ecs::sparse_array<fck_authority> *entities = fck_ecs_view_single<fck_authority>(ecs);
-				fck_ecs_snapshot_store_partial(ecs, &temp, &entities->owner);
-
-				fck_ecs_snapshot_load(ecs, serialiser);
-				fck_serialiser_reset(&temp);
-
-				fck_serialiser_byte_reader(&temp.self);
-				fck_ecs_snapshot_load_partial(ecs, &temp);
-
-				fck_serialiser_free(&temp);
-			}
-		}
-	}
-}
-
-void cnt_networking_process_recv(fck_ecs *ecs)
-{
-	cnt_session *session = fck_ecs_unique_view<cnt_session>(ecs);
-
-	cnt_memory_view memory_view;
-	while (cnt_session_try_receive_from(session, &memory_view))
-	{
-		// Setup
-		fck_serialiser serialiser;
-		fck_serialiser_create(&serialiser, memory_view.data, memory_view.length);
-		fck_serialiser_byte_reader(&serialiser.self);
-
-		// Header
-		cnt_networking_communication_mode mode;
-		fck_serialise(&serialiser, &mode);
-
-		// This shit can happen in ANY order
-		// FUCK ME
-		switch (mode)
-		{
-		case FCK_NETWORK_COMMUNICATION_MODE_MESSAGE_UNICAST:
-			cnt_networking_process_recv_message_unicast(ecs, &serialiser, &memory_view.info.connection);
-			break;
-		case FCK_NETWORK_COMMUNICATION_MODE_REPLICATION_BROADCAST:
-			cnt_networking_process_recv_replication_broadcast(ecs, &serialiser, &memory_view.info.connection);
-			break;
-		default:
-			SDL_assert(false && "Great message buddy. The communication mode we received is unknown lol");
-			break;
-		}
-	}
-}
-
-void cnt_networking_process_send(fck_ecs *ecs)
-{
-	cnt_session *session = fck_ecs_unique_view<cnt_session>(ecs);
-	cnt_peers *peers = fck_ecs_unique_view<cnt_peers>(ecs);
-
-	// Setup
-	fck_serialiser serialiser;
-	fck_serialiser_alloc(&serialiser);
-	fck_serialiser_byte_writer(&serialiser.self);
-
-	// Header
-	cnt_networking_communication_mode mode = FCK_NETWORK_COMMUNICATION_MODE_REPLICATION_BROADCAST;
-	fck_serialise(&serialiser, &mode);
-
-	// Peer info
-	cnt_networking_segment_type peers_segment = FCK_NETWORK_SEGMENT_TYPE_PEERS;
-	fck_serialise(&serialiser, &peers_segment);
-
-	cnt_peer_id peer_count = peers->peers.dense.count;
-	fck_serialise(&serialiser, &peer_count);
-	for (fck_item<cnt_peer_id, cnt_peer> item : &peers->peers)
-	{
-		SDL_assert(*item.index == item.value->peer_id);
-		fck_serialise(&serialiser, item.value);
-	}
-
-	// ECS snapshot
-	// Send out
-	if (cnt_peers_is_ok(peers))
-	{
-		cnt_networking_segment_type ecs_segment = FCK_NETWORK_SEGMENT_TYPE_ECS;
-		fck_serialise(&serialiser, &ecs_segment);
-
-		if (cnt_peers_is_hosting(peers))
-		{
-			// Send to client - ALWAYS full state
-			fck_ecs_snapshot_store(ecs, &serialiser);
-		}
-		else
-		{
-			// Send to host - Partial is ok
-			fck_ecs::sparse_array<fck_authority> *entities = fck_ecs_view_single<fck_authority>(ecs);
-			fck_ecs_snapshot_store_partial(ecs, &serialiser, &entities->owner);
-		}
-	}
-
-	cnt_session_broadcast(session, serialiser.data, serialiser.at);
-
-	fck_serialiser_free(&serialiser);
-}
-
-typedef void (*cnt_peer_on_connect_function)(fck_ecs *ecs, cnt_peer *);
-
-void cnt_networking_process_setup_new_connections(fck_ecs *ecs)
-{
-	cnt_session *session = fck_ecs_unique_view<cnt_session>(ecs);
-	cnt_peers *peers = fck_ecs_unique_view<cnt_peers>(ecs);
-
-	cnt_connection_handle handle;
-	cnt_connection connection;
-	while (cnt_session_try_dequeue_new_connection(session, &handle, &connection))
-	{
-		// callback required
-		//
-		// The requester is never responsible, the one accepting is responsible!
-		bool is_hosting = (connection.flags & CNT_CONNECTION_FLAG_CLIENT) != CNT_CONNECTION_FLAG_CLIENT;
-		if (is_hosting)
-		{
-			cnt_peer *peer;
-			if (cnt_peers_try_add(peers, &handle, &peer))
-			{
-				fck_ecs::entity_type avatar = create_cammy(ecs);
-
-				uint8_t buffer[32];
-				fck_serialiser serialiser;
-				fck_serialiser_create(&serialiser, buffer, sizeof(buffer));
-				fck_serialiser_byte_writer(&serialiser.self);
-
-				// Header
-				cnt_networking_communication_mode mode = FCK_NETWORK_COMMUNICATION_MODE_MESSAGE_UNICAST;
-				fck_serialise(&serialiser, &mode);
-
-				// Message
-				cnt_welcome_message message;
-				message.id = 0xB055;
-
-				message.peer = *peer;
-				message.avatar = avatar;
-				fck_serialise(&serialiser, &message);
-
-				cnt_session_send(session, &handle, serialiser.data, serialiser.at);
-				SDL_Log("Created Avatar: %d", avatar);
-			}
-		}
-		else
-		{
-			fck_ecs_entity_destroy_all(ecs);
-			cnt_peers_clear(peers);
-		}
-	}
-}
-
-void networking_process(fck_ecs *ecs, fck_system_update_info *)
-{
-	cnt_session *session = fck_ecs_unique_view<cnt_session>(ecs);
-	fck_time *time = fck_ecs_unique_view<fck_time>(ecs);
-
-	cnt_networking_process_recv(ecs);
-
-	bool will_tick_this_frame = cnt_session_will_tick(session, time->delta);
-	if (will_tick_this_frame)
-	{
-		cnt_networking_process_send(ecs);
-	}
-
-	cnt_session_tick(session, time->current, time->delta);
-
-	if (will_tick_this_frame)
-	{
-		// Technically on a connection (from tick) we will first process networking events
-		// AND THEN we will send the on connect setup message to the player
-		// Man... I suck
-		cnt_networking_process_setup_new_connections(ecs);
-	}
-}
-
 void networking_setup(fck_ecs *ecs, fck_system_once_info *)
 {
 	fck_instance_info *info = fck_ecs_unique_view<fck_instance_info>(ecs);
 
 	cnt_session *session = fck_ecs_unique_create<cnt_session>(ecs, cnt_session_free);
 	cnt_peers *peers = fck_ecs_unique_create<cnt_peers>(ecs, cnt_peers_free);
+	cnt_session_callbacks *callbacks = fck_ecs_unique_create<cnt_session_callbacks>(ecs);
+
+	callbacks->on_connect_as_host = networking_on_connect_as_host;
+	callbacks->on_connect_as_client = networking_on_connect_as_client;
+	callbacks->on_message = networking_on_message;
 
 	cnt_peers_alloc(peers);
 

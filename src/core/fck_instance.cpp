@@ -35,6 +35,16 @@ int fck_print_directory(void *userdata, const char *dirname, const char *fname)
 	return 1;
 }
 
+void fck_engine_free(fck_engine *engine)
+{
+	SDL_assert(engine != nullptr);
+
+	SDL_DestroyRenderer(engine->renderer);
+	SDL_DestroyWindow(engine->window);
+
+	SDL_zerop(engine);
+}
+
 void engine_setup(fck_ecs *ecs, fck_system_once_info *)
 {
 	fck_instance_info *info = fck_ecs_unique_view<fck_instance_info>(ecs);

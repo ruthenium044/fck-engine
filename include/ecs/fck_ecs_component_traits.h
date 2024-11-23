@@ -77,9 +77,6 @@ struct fck_ecs_serialise_is_on<value_type, fck_void<decltype(fck_serialise((valu
 	constexpr static bool value = true;
 };
 
-#define FCK_SERIALISE_OFF(value_type)                                                                                                      \
-	void fck_serialise(struct value_type *, struct fck_off_tag *)                                                                          \
-	{                                                                                                                                      \
-	}
+#define FCK_SERIALISE_OFF(value_type) inline void fck_serialise(struct value_type *, struct fck_off_tag *);
 
 #endif // !FCK_ECS_COMPONENT_TRAITS_INCLUDED

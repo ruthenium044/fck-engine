@@ -7,7 +7,7 @@
 #include "ecs/fck_serialiser.h"
 #include "ecs/fck_sparse_array.h"
 #include "ecs/fck_sparse_list.h"
-#include "net/cnt_net_types.h"
+#include "net/cnt_common_types.h"
 
 // TODO: Rewrite most memory usages to use fck_serialiser instead for well... convenience!
 

@@ -45,6 +45,7 @@ struct fck_ecs_alloc_info
 	system_id system_capacity;
 };
 
+// TODO: Maybe separate the data from the functions B)
 struct fck_ecs
 {
 	using entity_type = fck_ecs_alloc_info::entity_type;

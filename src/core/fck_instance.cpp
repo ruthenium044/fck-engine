@@ -45,7 +45,7 @@ void fck_engine_free(fck_engine *engine)
 	SDL_zerop(engine);
 }
 
-void engine_setup(fck_ecs *ecs, fck_system_once_info *)
+static void engine_setup(fck_ecs *ecs, fck_system_once_info *)
 {
 	fck_instance_info *info = fck_ecs_unique_view<fck_instance_info>(ecs);
 

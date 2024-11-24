@@ -71,19 +71,18 @@ FetchContent_Declare(
     GIT_PROGRESS TRUE
 )
 
-# Fetch SDL3_net
-FetchContent_Declare(
-    SDL_net
-    GIT_REPOSITORY https://github.com/libsdl-org/SDL_net.git
-    GIT_TAG 7ffe77830cad41c7edbacc8eda35cf99a7557072
-    GIT_PROGRESS TRUE
-)
+# Fetch SDL3_net - Removed
+# FetchContent_Declare(
+#     SDL_net
+#     GIT_REPOSITORY https://github.com/libsdl-org/SDL_net.git
+#     GIT_TAG 7ffe77830cad41c7edbacc8eda35cf99a7557072
+#     GIT_PROGRESS TRUE
+# )
 
 # For each SDL module, we should set on a GIT_TAG so we do not have funny renames and other issues!
-FetchContent_MakeAvailable(SDL SDL_image SDL_net)
+FetchContent_MakeAvailable(SDL SDL_image)
 
 find_package(Vulkan REQUIRED)
-
 
 # LOCAL PROJECT
 file(GLOB_RECURSE FOUND_CXX_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/include/**.h")
@@ -107,9 +106,13 @@ add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
 # Maybe later
 target_compile_definitions(${PROJECT_NAME} PRIVATE "FCK_RESOURCE_DIRECTORY_PATH= \"${FCK_RESOURCE_DIRECTORY_PATH}\"")
 
-list(APPEND LIBRARIES SDL3::SDL3 SDL3_image::SDL3_image SDL3_net::SDL3_net)
+
+list(APPEND LIBRARIES SDL3::SDL3 SDL3_image::SDL3_image)
 list(APPEND LIBRARIES Vulkan::Vulkan)
 
 add_dependencies(${PROJECT_NAME} ${LIBRARIES})
 
+if(WIN32)
+    list(APPEND LIBRARIES iphlpapi ws2_32)
+endif()
 target_link_libraries(${PROJECT_NAME} ${LIBRARIES})

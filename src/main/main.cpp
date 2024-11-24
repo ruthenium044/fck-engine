@@ -20,8 +20,6 @@
 #include <ecs/fck_ecs.h>
 #include <fck_animator.h>
 
-#include "fck_student_testbed.h"
-
 #include "core/fck_engine.h"
 #include "core/fck_instance.h"
 #include "core/fck_instances.h"
@@ -328,7 +326,7 @@ void local_cammy_setup(fck_ecs *ecs, fck_system_once_info *)
 	cnt_peers *peers = fck_ecs_unique_view<cnt_peers>(ecs);
 
 	cnt_peer *peer;
-	if (cnt_peers_try_add(peers, nullptr, &peer))
+	if (peers != nullptr && cnt_peers_try_add(peers, nullptr, &peer))
 	{
 		peer->state = cnt_peer_STATE_OK;
 		cnt_peers_set_host(peers, peer->peer_id);
@@ -410,6 +408,7 @@ void networking_setup(fck_ecs *ecs, fck_system_once_info *)
 	cnt_peers *peers = fck_ecs_unique_create<cnt_peers>(ecs, cnt_peers_free);
 	cnt_session_callbacks *callbacks = fck_ecs_unique_create<cnt_session_callbacks>(ecs);
 
+	// TODO: Tidying this up would be nice
 	callbacks->on_connect_as_host = networking_on_connect_as_host;
 	callbacks->on_connect_as_client = networking_on_connect_as_client;
 	callbacks->on_message = networking_on_message;

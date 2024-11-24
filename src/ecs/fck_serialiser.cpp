@@ -1,6 +1,6 @@
 #include "ecs/fck_serialiser.h"
 
-#include "fck_checks.h"
+#include "shared/fck_checks.h"
 #include <SDL3/SDL_assert.h>
 
 void fck_serialiser_alloc(fck_serialiser *serialiser)

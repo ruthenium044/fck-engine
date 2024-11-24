@@ -1,9 +1,9 @@
 #ifndef FCK_UI_INCLUDED
 #define FCK_UI_INCLUDED
 
-#include "fck_checks.h"
-#include "fck_file.h"
-#include "fck_mouse.h"
+#include "core/fck_mouse.h"
+#include "shared/fck_checks.h"
+#include "shared/fck_file.h"
 
 #include <SDL3/SDL_assert.h>
 #include <SDL3/SDL_error.h>
@@ -82,14 +82,13 @@ struct fck_ui_button_style
 	fck_ui_style hover;
 };
 
-float fck_calculate_vertical_offset(fck_layout_vertical_alignment alignment, SDL_FRect const *dst,
-                                    int32_t text_row_count, int32_t glyph_height);
+float fck_calculate_vertical_offset(fck_layout_vertical_alignment alignment, SDL_FRect const *dst, int32_t text_row_count,
+                                    int32_t glyph_height);
 
-float fck_calculate_horizontal_offset(fck_layout_horizontal_alignment alignment, SDL_FRect const *dst,
-                                      int32_t text_length, int32_t glyph_width);
+float fck_calculate_horizontal_offset(fck_layout_horizontal_alignment alignment, SDL_FRect const *dst, int32_t text_length,
+                                      int32_t glyph_width);
 
-void fck_render_text(fck_font_asset const *font_asset, const char *text, fck_layout const *layout,
-                     SDL_FRect const *draw_area);
+void fck_render_text(fck_font_asset const *font_asset, const char *text, fck_layout const *layout, SDL_FRect const *draw_area);
 
 SDL_FRect fck_rect_apply_padding(SDL_FRect const *rect, fck_ui_padding const *padding);
 

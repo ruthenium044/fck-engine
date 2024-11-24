@@ -1,6 +1,6 @@
 #include "cnt_protocol.h"
-#include "fck_checks.h"
 #include "net/cnt_session.h"
+#include "shared/fck_checks.h"
 #include <SDL3/SDL_assert.h>
 #include <SDL3/SDL_atomic.h>
 

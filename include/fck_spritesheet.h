@@ -1,9 +1,8 @@
 #ifndef FCK_SPRITESHEET_INCLUDED
 #define FCK_SPRITESHEET_INCLUDED
 
-#include <fck_file.h>
+#include "shared/fck_file.h"
 
-#include "ecs/fck_trait_utility.h"
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_render.h>
 #include <SDL3/SDL_stdinc.h>
@@ -35,11 +34,7 @@ struct fck_spritesheet
 	fck_rect_list rect_list;
 };
 
-// ECS Trait
-void fck_free(fck_spritesheet *sprites);
-
-// TODO: We need to create a spritesheet FOR EACH instance, otherwise we cannot draw with it since textures are per renderer
-// FCK_SERIALISE_DEACTIVATE(fck_spritesheet);
+void fck_spritesheet_free(fck_spritesheet *sprites);
 
 bool fck_spritesheet_load(SDL_Renderer *renderer, const char *file_name, fck_spritesheet *out_sprites, bool force_rebuild = false);
 

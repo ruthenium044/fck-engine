@@ -2,8 +2,11 @@ cmake_minimum_required(VERSION 3.20)
 project(fck)
 
 # Verbosity settings
-#set(FETCHCONTENT_QUIET TRUE)
-#set(CMAKE_MESSAGE_LOG_LEVEL ERROR)
+message("Setting up fck-engine...")
+message("Setup might be silent - Downloading dependencies and configuring cmake project")
+
+set(FETCHCONTENT_QUIET TRUE)
+set(CMAKE_MESSAGE_LOG_LEVEL ERROR)
 
 include(FetchContent)
 
@@ -41,16 +44,8 @@ set(BUILD_SHARED_LIBS OFF)
 set(SDL_SHARED FALSE)
 set(SDL_STATIC TRUE)
 
-# Sets the library file ending so we can build for windows, apple and others
-if(APPLE)
-    set(PLATFORM_LIBRARY_EXTENSION ".a")
-    enable_language(OBJC)
-elseif(UNIX)
-    set(PLATFORM_LIBRARY_EXTENSION ".a")
-else()
-    set(PLATFORM_LIBRARY_EXTENSION ".lib")
-endif()
-
+# After checking the SDL CMakeLists, I keep this off
+# Might cause overhead, we will see what else that cascades into
 set(SDL_TESTS OFF)
 set(SDL_TEST OFF)
 
@@ -71,14 +66,6 @@ FetchContent_Declare(
     GIT_PROGRESS TRUE
 )
 
-# Fetch SDL3_net - Removed
-# FetchContent_Declare(
-#     SDL_net
-#     GIT_REPOSITORY https://github.com/libsdl-org/SDL_net.git
-#     GIT_TAG 7ffe77830cad41c7edbacc8eda35cf99a7557072
-#     GIT_PROGRESS TRUE
-# )
-
 # For each SDL module, we should set on a GIT_TAG so we do not have funny renames and other issues!
 FetchContent_MakeAvailable(SDL SDL_image)
 
@@ -92,7 +79,7 @@ file(GLOB_RECURSE FOUND_CXX_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/**.cpp")
 list(APPEND SOURCES ${FOUND_CXX_SOURCES})
 
 # We need to check out if this is needed 
-include_directories(fck include)
+include_directories(${PROJECT_NAME} include)
 
 # Idk if this is needed
 source_group("Header Files" FILES ${FOUND_CXX_HEADERS})
@@ -105,7 +92,6 @@ add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
 
 # Maybe later
 target_compile_definitions(${PROJECT_NAME} PRIVATE "FCK_RESOURCE_DIRECTORY_PATH= \"${FCK_RESOURCE_DIRECTORY_PATH}\"")
-
 
 list(APPEND LIBRARIES SDL3::SDL3 SDL3_image::SDL3_image)
 list(APPEND LIBRARIES Vulkan::Vulkan)

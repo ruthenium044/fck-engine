@@ -1,7 +1,7 @@
 #include "fck_spritesheet.h"
 
-#include "fck_checks.h"
-#include "fck_memory_stream.h"
+#include "shared/fck_checks.h"
+#include "shared/fck_memory_stream.h"
 #include <SDL3/SDL_assert.h>
 #include <SDL3/SDL_surface.h>
 #include <SDL3_image/SDL_image.h>
@@ -252,7 +252,7 @@ SDL_FRect const *fck_rect_list_view_get(fck_rect_list *rect_source, fck_rect_lis
 	return view_begin + at;
 }
 
-void fck_free(fck_spritesheet *sprites)
+void fck_spritesheet_free(fck_spritesheet *sprites)
 {
 	SDL_DestroyTexture(sprites->texture);
 

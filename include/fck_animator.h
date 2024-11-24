@@ -1,7 +1,6 @@
 #ifndef FCK_ANIMATOR_INCLUDED
 #define FCK_ANIMATOR_INCLUDED
 
-#include "ecs/fck_trait_utility.h"
 #include "fck_spritesheet.h"
 
 enum fck_common_animations
@@ -53,9 +52,8 @@ struct fck_animator
 	size_t current_frame;
 };
 
+// Rethink this one
 void fck_animator_alloc(fck_animator *animator, fck_spritesheet *spritsheet);
-
-// FCK_SERIALISE_DEACTIVATE(fck_animator);
 
 void fck_animator_insert(fck_animator *animator, fck_spritesheet *spritesheet, fck_common_animations anim,
                          fck_animation_type animation_type, size_t start, size_t count, uint64_t frame_time_ms, float offset_x,

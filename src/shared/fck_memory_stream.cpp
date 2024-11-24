@@ -1,6 +1,6 @@
-#include "fck_memory_stream.h"
+#include "shared/fck_checks.h"
+#include "shared/fck_memory_stream.h"
 #include <SDL3/SDL_error.h>
-#include <fck_checks.h>
 
 bool fck_memory_stream_write(fck_memory_stream *stream, void const *data, size_t size)
 {

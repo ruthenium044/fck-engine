@@ -1,9 +1,8 @@
+#include "core/fck_drop_file.h"
 #include "core/fck_engine.h"
 #include "core/fck_instance.h"
-#include "fck_drop_file.h"
-#include "fck_keyboard.h"
-#include "fck_mouse.h"
-#include "fck_spritesheet.h"
+#include "core/fck_keyboard.h"
+#include "core/fck_mouse.h"
 
 int fck_print_directory(void *userdata, const char *dirname, const char *fname)
 {
@@ -74,9 +73,6 @@ static void engine_setup(fck_ecs *ecs, fck_system_once_info *)
 	fck_drop_file_context_push(drop_file_context, fck_drop_file_receive_png);
 
 	SDL_EnumerateDirectory(FCK_RESOURCE_DIRECTORY_PATH, fck_print_directory, nullptr);
-
-	fck_spritesheet *spritesheet = fck_ecs_unique_create<fck_spritesheet>(ecs, fck_free);
-	CHECK_ERROR(fck_spritesheet_load(engine->renderer, "cammy.png", spritesheet, false), SDL_GetError());
 
 	engine->is_running = true;
 }

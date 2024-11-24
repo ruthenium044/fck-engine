@@ -38,8 +38,8 @@ struct cnt_address_internal // Not tested on Linux, only MacOS
 };
 #endif
 
-#include "SDL3/SDL_assert.h"
-#include "fck_checks.h"
+#include "shared/fck_checks.h"
+#include <SDL3/SDL_assert.h>
 
 typedef socklen_t cnt_socklen;
 typedef struct sockaddr_storage cnt_sockaddr_storage;

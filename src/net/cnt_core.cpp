@@ -2,6 +2,9 @@
 
 #include "core/fck_time.h"
 
+// TODO: Fix up unordered UDP packets problem! :)
+// TODO: correct Quake delta compression and snapshot interpolation, yaay
+
 void cnt_networking_process_recv_message_unicast(fck_ecs *ecs, fck_serialiser *serialiser, cnt_connection_handle const *connection)
 {
 	// callback required

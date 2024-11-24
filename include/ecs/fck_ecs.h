@@ -3,7 +3,6 @@
 
 #include <SDL3/SDL_assert.h>
 
-#include "fck_checks.h"
 #include "fck_ecs_component_traits.h"
 #include "fck_serialiser.h"
 #include "fck_sparse_array.h"
@@ -13,6 +12,7 @@
 #include "fck_tuple.h"
 #include "fck_type_pack.h"
 #include "fck_uniform_buffer.h"
+#include "shared/fck_checks.h"
 
 template <typename value_type>
 struct fck_components_interface

@@ -3,7 +3,7 @@
 
 #include "SDL3/SDL_iostream.h"
 #include "SDL3_image/SDL_image.h"
-#include "fck_checks.h"
+#include "shared/fck_checks.h"
 #include <SDL3/SDL_assert.h>
 
 struct fck_drop_file_context;

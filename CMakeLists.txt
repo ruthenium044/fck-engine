@@ -89,7 +89,7 @@ set(FCK_RESOURCE_DIRECTORY_PATH "${CMAKE_CURRENT_SOURCE_DIR}/resources/")
 
 # We can also use file commands for a release non-engine build 
 if(FCK_LIBRARY_MODE)
-    list(REMOVE_ITEM SOURCES "main.cpp")
+    list(REMOVE_ITEM SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/main/main.cpp")
 
     set(fck_target_name fck)
     add_library(${fck_target_name} ${SOURCES})

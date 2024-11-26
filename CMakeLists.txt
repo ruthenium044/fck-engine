@@ -88,7 +88,19 @@ source_group("Header Files" FILES ${FOUND_CXX_HEADERS})
 set(FCK_RESOURCE_DIRECTORY_PATH "${CMAKE_CURRENT_SOURCE_DIR}/resources/")
 
 # We can also use file commands for a release non-engine build 
-add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
+if(FCK_LIBRARY_MODE)
+    set(fck_target_name fck)
+    add_library(${fck_target_name} src/SDL_net.c)
+    add_library(fck::${fck_target_name} ALIAS ${fck_target_name})
+    set_property(TARGET ${fck_target_name} PROPERTY C_STANDARD 99)
+    target_include_directories(${fck_target_name}
+        PUBLIC
+            "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+            "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
+    )
+else()
+    add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
+endif()
 
 # Maybe later
 target_compile_definitions(${PROJECT_NAME} PRIVATE "FCK_RESOURCE_DIRECTORY_PATH= \"${FCK_RESOURCE_DIRECTORY_PATH}\"")

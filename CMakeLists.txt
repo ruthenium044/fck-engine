@@ -89,6 +89,8 @@ set(FCK_RESOURCE_DIRECTORY_PATH "${CMAKE_CURRENT_SOURCE_DIR}/resources/")
 
 # We can also use file commands for a release non-engine build 
 if(FCK_LIBRARY_MODE)
+    list(REMOVE_ITEM SOURCES "main.cpp")
+
     set(fck_target_name fck)
     add_library(${fck_target_name} ${SOURCES})
     add_library(fck::${fck_target_name} ALIAS ${fck_target_name})
@@ -98,7 +100,7 @@ if(FCK_LIBRARY_MODE)
             "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
             "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
     )
-      install(
+    install(
         TARGETS ${fck_target_name}
         EXPORT SDL3NetExports
         ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}" COMPONENT devel

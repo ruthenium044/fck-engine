@@ -2,7 +2,7 @@
 #define FCK_INSTANCES_INCLUDED
 
 #include "fck_instance.h"
-
+#include <SDL3/SDL_video.h>
 struct fck_instances
 {
 	fck_sparse_array<uint8_t, fck_instance> data;

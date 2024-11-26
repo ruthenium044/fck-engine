@@ -17,9 +17,10 @@ struct fck_instance_info
 
 struct fck_instance
 {
-	fck_ecs ecs;
-	struct fck_engine *engine;
 	fck_instance_info *info;
+	fck_ecs ecs;
+
+	struct fck_engine *engine;
 };
 
 void fck_instance_alloc(fck_instance *instance, fck_instance_info const *info, fck_instance_setup_function instance_setup);

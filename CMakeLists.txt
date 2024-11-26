@@ -98,6 +98,13 @@ if(FCK_LIBRARY_MODE)
             "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
             "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
     )
+      install(
+        TARGETS ${fck_target_name}
+        EXPORT SDL3NetExports
+        ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}" COMPONENT devel
+        LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}" COMPONENT library
+        RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}" COMPONENT library
+    )
 else()
     add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
 endif()

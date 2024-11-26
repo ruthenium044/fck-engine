@@ -3,8 +3,8 @@ project(fck)
 
 # Verbosity settings
 message("Setting up fck-engine...")
-message("Setup might be silent - Downloading dependencies and configuring cmake project")
 
+#message("Setup might be silent - Downloading dependencies and configuring cmake project")
 #set(FETCHCONTENT_QUIET TRUE)
 #set(CMAKE_MESSAGE_LOG_LEVEL ERROR)
 

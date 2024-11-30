@@ -102,7 +102,7 @@ if(FCK_LIBRARY_MODE)
     )
     install(
         TARGETS ${fck_target_name}
-        EXPORT SDL3NetExports
+        EXPORT fckExports
         ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}" COMPONENT devel
         LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}" COMPONENT library
         RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}" COMPONENT library

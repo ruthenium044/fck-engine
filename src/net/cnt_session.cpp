@@ -3,6 +3,7 @@
 #include "shared/fck_checks.h"
 #include <SDL3/SDL_assert.h>
 #include <SDL3/SDL_atomic.h>
+#include <stdlib.h>
 
 #if _WIN32
 #include <winsock2.h>

@@ -54,7 +54,7 @@ void fck_instances_add(fck_instances *instances, fck_instance_info const *info, 
 	fck_instance_alloc(&instance, info, instance_setup);
 	SDL_WindowID id = SDL_GetWindowID(instance.engine->window);
 
-	CHECK_ERROR(fck_instances_exists(instances, &id), "Instances with duplicate window IDs detected");
+	CHECK_ERROR(!fck_instances_exists(instances, &id), "Instances with duplicate window IDs detected");
 	instance.window_id = id;
 	fck_dense_list_add(&instances->data, &instance);
 }

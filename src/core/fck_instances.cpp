@@ -6,7 +6,7 @@
 void fck_instances_alloc(fck_instances *instances, uint8_t capacity)
 {
 	SDL_assert(instances != nullptr);
-	fck_sparse_array_alloc(&instances->data, capacity);
+	fck_dense_list_alloc(&instances->data, capacity);
 	fck_dense_list_alloc(&instances->pending_destroyed, capacity);
 }
 
@@ -18,7 +18,20 @@ void fck_instances_free(fck_instances *instances)
 	{
 		fck_instance_free(instance);
 	}
-	fck_sparse_array_free(&instances->data);
+	fck_dense_list_free(&instances->data);
+}
+
+bool fck_instances_exists(fck_instances *instances, SDL_WindowID const *window_id)
+{
+	SDL_assert(instances != nullptr);
+	for (fck_instance *instance : instances)
+	{
+		if (instance->window_id == *window_id)
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 bool fck_instances_any_active(fck_instances *instances)
@@ -33,33 +46,50 @@ bool fck_instances_any_active(fck_instances *instances)
 	return is_any_instance_running;
 }
 
-fck_instance *fck_instances_add(fck_instances *instances, fck_instance_info const *info, fck_instance_setup_function instance_setup)
+void fck_instances_add(fck_instances *instances, fck_instance_info const *info, fck_instance_setup_function instance_setup)
 {
 	SDL_assert(instances != nullptr);
 
 	fck_instance instance;
 	fck_instance_alloc(&instance, info, instance_setup);
 	SDL_WindowID id = SDL_GetWindowID(instance.engine->window);
-	return fck_sparse_array_emplace(&instances->data, id, &instance);
+
+	CHECK_ERROR(fck_instances_exists(instances, &id), "Instances with duplicate window IDs detected");
+	instance.window_id = id;
+	fck_dense_list_add(&instances->data, &instance);
 }
 
-fck_instance *fck_instances_view(fck_instances *instances, SDL_WindowID const *windowId)
+fck_instance *fck_instances_view(fck_instances *instances, SDL_WindowID const *window_id)
 {
 	SDL_assert(instances != nullptr);
-	return fck_sparse_array_view(&instances->data, *windowId);
+	for (fck_instance *instance : instances)
+	{
+		if (instance->window_id == *window_id)
+		{
+			return instance;
+		}
+	}
+	return nullptr;
 }
 
-void fck_instances_remove(fck_instances *instances, SDL_WindowID const *windowId)
+void fck_instances_remove(fck_instances *instances, SDL_WindowID const *window_id)
 {
 	SDL_assert(instances != nullptr);
 
-	SDL_WindowID id = *windowId;
-	fck_instance *instance = fck_instances_view(instances, &id);
-	// Hide the window before destroying it so MacOS deals with it better
-	CHECK_WARNING(SDL_HideWindow(instance->engine->window), SDL_GetError());
+	for (size_t index = 0; index < instances->data.count; index++)
+	{
+		fck_instance *instance = fck_dense_list_view(&instances->data, index);
+		if (instance->window_id == *window_id)
+		{
+			// Hide the window before destroying it so MacOS deals with it better
+			CHECK_WARNING(SDL_HideWindow(instance->engine->window), SDL_GetError());
+			fck_instance_free(instance);
+			fck_dense_list_remove(&instances->data, index);
+			return;
+		}
+	}
 
-	fck_instance_free(instance);
-	fck_sparse_array_remove(&instances->data, id);
+	// Log warning?
 }
 
 void fck_instances_process_events(fck_instances *instances)

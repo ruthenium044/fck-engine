@@ -19,8 +19,8 @@ void game_cammy_setup(fck_ecs *ecs, fck_system_once_info *)
 	// This one is not supposed to get repio
 	fck_ecs_component_create<fck_authority>(ecs, cammy);
 
+	// Annoying dependency on cnt? Unsure!
 	cnt_peers *peers = fck_ecs_unique_view<cnt_peers>(ecs);
-
 	cnt_peer *peer;
 	if (peers != nullptr && cnt_peers_try_add(peers, nullptr, &peer))
 	{
@@ -93,7 +93,6 @@ void game_input_process(fck_ecs *ecs, fck_system_update_info *)
 
 void game_gameplay_process(fck_ecs *ecs, fck_system_update_info *)
 {
-	cnt_session *session = fck_ecs_unique_view<cnt_session>(ecs);
 	fck_engine *engine = fck_ecs_unique_view<fck_engine>(ecs);
 
 	// STATE EVAL

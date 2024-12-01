@@ -17,9 +17,11 @@ struct fck_instance_info
 
 struct fck_instance
 {
-	fck_instance_info *info;
+	uint32_t window_id;
 	fck_ecs ecs;
 
+	// I hope this shit will never move
+	// Technically it should be View<Engine>(ecs);
 	struct fck_engine *engine;
 };
 

@@ -97,7 +97,7 @@ void fck_instance_alloc(fck_instance *instance, fck_instance_info const *info, f
 	// Adding once system during once system might file - We should enable that
 	// If we queue a once system during a once system, what should happen?
 
-	instance->info = fck_ecs_unique_set<fck_instance_info>(&instance->ecs, info);
+	fck_ecs_unique_set<fck_instance_info>(&instance->ecs, info);
 
 	fck_ecs_flush_system_once(&instance->ecs);
 }

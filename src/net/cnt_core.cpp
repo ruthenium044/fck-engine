@@ -54,8 +54,7 @@ void cnt_networking_process_recv_replication_broadcast(fck_ecs *ecs, fck_seriali
 	cnt_peer peer;
 	if (cnt_peers_try_get_peer_from_connection(peers, connection, &peer))
 	{
-		// Receive from... client
-		if (peer.state == cnt_peer_STATE_OK)
+		if (peer.state == CNT_PEER_STATE_OK)
 		{
 			// ECS snapshot
 			cnt_networking_segment_type ecs_segment;
@@ -71,10 +70,12 @@ void cnt_networking_process_recv_replication_broadcast(fck_ecs *ecs, fck_seriali
 			{
 				// Receive from host - Always FULL state
 				// TODO: Implement a backbuffer ECS so we have a reliable storage
+				// TODO: Using the serialiser for a back-copy is a bit hardcore
 				fck_serialiser temp;
 				fck_serialiser_alloc(&temp);
 				fck_serialiser_byte_writer(&temp.self);
 
+				// Copy all entity data that have the type fck_authority into a buffer
 				fck_ecs::sparse_array<fck_authority> *entities = fck_ecs_view_single<fck_authority>(ecs);
 				fck_ecs_snapshot_store_partial(ecs, &temp, &entities->owner);
 
@@ -82,6 +83,7 @@ void cnt_networking_process_recv_replication_broadcast(fck_ecs *ecs, fck_seriali
 				fck_serialiser_reset(&temp);
 
 				fck_serialiser_byte_reader(&temp.self);
+				// Re-apply previously stored buffer back on the ECS
 				fck_ecs_snapshot_load_partial(ecs, &temp);
 
 				fck_serialiser_free(&temp);

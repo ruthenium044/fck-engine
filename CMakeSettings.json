@@ -24,7 +24,18 @@
       "ctestCommandArgs": "",
       "inheritEnvironments": [ "clang_cl_x64_x64" ],
       "enableClangTidyCodeAnalysis": true,
-      "enableMicrosoftCodeAnalysis": false,
+      "enableMicrosoftCodeAnalysis": false
+    },
+    {
+      "name": "x64-clang-release",
+      "generator": "Ninja",
+      "configurationType": "Release",
+      "buildRoot": "${projectDir}\\build\\clang\\${name}",
+      "installRoot": "${projectDir}\\install\\clang\\${name}",
+      "cmakeCommandArgs": "",
+      "buildCommandArgs": "",
+      "ctestCommandArgs": "",
+      "inheritEnvironments": [ "clang_cl_x64_x64" ],
       "variables": []
     }
   ]

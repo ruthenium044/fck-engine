@@ -24,7 +24,7 @@ void game_cammy_setup(fck_ecs *ecs, fck_system_once_info *)
 	cnt_peer *peer;
 	if (peers != nullptr && cnt_peers_try_add(peers, nullptr, &peer))
 	{
-		peer->state = cnt_peer_STATE_OK;
+		peer->state = CNT_PEER_STATE_OK;
 		cnt_peers_set_host(peers, peer->peer_id);
 		cnt_peers_set_self(peers, peer->peer_id);
 		SDL_Log("Created Avatar: %d", cammy);

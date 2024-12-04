@@ -77,7 +77,7 @@ bool cnt_peers_is_ok(cnt_peers *peers)
 	cnt_peer *peer = cnt_peers_view_peer_from_index(peers, peers->self);
 	if (peer != nullptr)
 	{
-		return peer->state == cnt_peer_STATE_OK;
+		return peer->state == CNT_PEER_STATE_OK;
 	}
 	return false;
 }
@@ -89,7 +89,7 @@ bool cnt_peers_try_add(cnt_peers *peers, cnt_connection_handle const *connection
 	cnt_peer peer;
 	SDL_zero(peer);
 
-	peer.state = cnt_peer_STATE_NONE;
+	peer.state = CNT_PEER_STATE_NONE;
 	peer.peer_id = fck_sparse_list_add(&peers->peers, &peer);
 	if (!fck_sparse_list_exists(&peers->peers, peer.peer_id))
 	{

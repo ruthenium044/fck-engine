@@ -75,7 +75,6 @@ void cnt_session_alloc(cnt_session *session, cnt_socket_id socket_capacity, cnt_
 		WSAStartup(MAKEWORD(2, 2), &wsaData);
 	}
 	SDL_AtomicIncRef(&wsa_reference_counter);
-
 #endif // _WIN32
 }
 
@@ -356,6 +355,15 @@ void cnt_session_tick_ok(cnt_session *session, fck_item<cnt_connection_id, cnt_c
 	connection->last_timestamp = time;
 }
 
+static bool cnt_session_is_seq_acceptable(uint16_t seq_latest, uint16_t seq_recv)
+{
+	constexpr uint16_t seq_window = 0x8000;
+
+	uint16_t difference = seq_recv - seq_latest;
+
+	return difference < seq_window && difference > 0;
+}
+
 void cnt_session_tick_receive(cnt_session *session, fck_milliseconds time)
 {
 	// TODO: replace cnt_connection_packet with THE RECV BUFFER!! WE NEED MORE SPAAACE
@@ -448,7 +456,21 @@ void cnt_session_tick_receive(cnt_session *session, fck_milliseconds time)
 					cnt_socket_memory_buffer *socket_memory;
 					bool buffer_exists = fck_sparse_array_try_view(&session->recv_buffer, *item.index, &socket_memory);
 					SDL_assert(buffer_exists);
-					cnt_socket_memory_buffer_append(socket_memory, (uint8_t *)data, length);
+
+					fck_serialiser serialiser;
+					fck_serialiser_create(&serialiser, (uint8_t *)data, length);
+					fck_serialiser_byte_reader(&serialiser.self);
+
+					uint16_t seq_recv = 0;
+					fck_serialise(&serialiser, &seq_recv);
+					if (!cnt_session_is_seq_acceptable(connection->seq_last_recv, seq_recv))
+					{
+						break;
+					}
+
+					cnt_socket_memory_buffer_append(socket_memory, ((uint8_t *)data) + serialiser.at, length);
+
+					connection->seq_last_recv = seq_recv;
 
 					cnt_frame frame;
 					frame.at = socket_memory->length - length;
@@ -551,34 +573,48 @@ void cnt_session_broadcast(cnt_session *session, void *data, size_t count)
 	// Does the boardcast logic still make sense? Should we really do it like this?
 	// Couldn't we just prepare a single buffer and hand it out multiple times (each socket)
 	// Let's rethink that approach here! It is too complicated for no fucking reason. Look at send
-	fck_serialiser seraliser;
-	fck_serialiser_alloc(&seraliser);
-	fck_serialiser_byte_writer(&seraliser.self);
+	fck_serialiser serialiser;
+	fck_serialiser_create(&serialiser, session->temp_send_buffer, cnt_socket_memory_buffer::capacity);
+	fck_serialiser_byte_writer(&serialiser.self);
 
 	cnt_connection_packet_header header;
 	SDL_zero(header);
 	header.type = CNT_CONNECTION_PACKET_TYPE_DATA;
 	header.length = count + sizeof(header);
-	fck_serialise(&seraliser, &header);
-	fck_serialise(&seraliser, (uint8_t *)data, count);
+	fck_serialise(&serialiser, &header);
+
+	constexpr uint16_t max_seq = 0xFFFF;
+
+	fck_serialise(&serialiser, &session->seq);
+	session->seq = (session->seq + 1) % max_seq;
+
+	fck_serialise(&serialiser, (uint8_t *)data, count);
 
 	for (cnt_connection *connection : &session->connections.dense)
 	{
+		if (connection->state != CNT_CONNECTION_STATE_CONNECTED)
+		{
+			continue;
+		}
+
 		cnt_socket_data sock;
 		cnt_address_data address;
 		if (cnt_session_fetch_data(session, connection, &sock, &address))
 		{
-			cnt_sendto(sock.socket, seraliser.data, seraliser.at, &address.address);
+			cnt_sendto(sock.socket, serialiser.data, serialiser.at, &address.address);
 		}
 	}
-
-	fck_serialiser_free(&seraliser);
 }
 
 bool cnt_session_send(cnt_session *session, cnt_connection_handle *connection_handle, void *data, size_t count)
 {
 	cnt_connection *connection = fck_sparse_list_view(&session->connections, connection_handle->id);
 	if (connection == nullptr)
+	{
+		return false;
+	}
+
+	if (connection->state != CNT_CONNECTION_STATE_CONNECTED)
 	{
 		return false;
 	}
@@ -590,20 +626,24 @@ bool cnt_session_send(cnt_session *session, cnt_connection_handle *connection_ha
 		return false;
 	}
 
-	fck_serialiser seraliser;
-	fck_serialiser_alloc(&seraliser);
-	fck_serialiser_byte_writer(&seraliser.self);
+	fck_serialiser serialiser;
+	fck_serialiser_create(&serialiser, session->temp_send_buffer, cnt_socket_memory_buffer::capacity);
+	fck_serialiser_byte_writer(&serialiser.self);
 
 	cnt_connection_packet_header header;
 	SDL_zero(header);
 	header.type = CNT_CONNECTION_PACKET_TYPE_DATA;
 	header.length = count + sizeof(header);
-	fck_serialise(&seraliser, &header);
-	fck_serialise(&seraliser, (uint8_t *)data, count);
+	fck_serialise(&serialiser, &header);
 
-	cnt_sendto(sock.socket, seraliser.data, seraliser.at, &address.address);
+	constexpr uint16_t max_seq = 0xFFFF;
 
-	fck_serialiser_free(&seraliser);
+	fck_serialise(&serialiser, &session->seq);
+	session->seq = (session->seq + 1) % max_seq;
+
+	fck_serialise(&serialiser, (uint8_t *)data, count);
+
+	cnt_sendto(sock.socket, serialiser.data, serialiser.at, &address.address);
 
 	return true;
 }

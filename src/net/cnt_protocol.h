@@ -52,7 +52,7 @@ struct cnt_connection_recv_packet
 {
 	uint16_t length;
 	uint16_t index;
-	uint8_t *payload; // enough for now?
+	uint8_t *payload;
 };
 
 void cnt_connection_packet_push(cnt_connection_packet *packet, cnt_connection_packet_type type, void *data, uint16_t length);

@@ -4,6 +4,9 @@
 #include <SDL3/SDL_stdinc.h>
 #include <string.h>
 
+// TODO: Some cheeky delta compression
+// TODO: Seq number?
+
 // Windows
 #ifdef _WIN32
 #include <ws2tcpip.h>

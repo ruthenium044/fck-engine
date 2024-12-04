@@ -17,6 +17,8 @@ struct cnt_connection
 	cnt_socket_id source;
 	cnt_address_id destination;
 
+	uint16_t seq_last_recv;
+
 	fck_milliseconds last_timestamp;
 	uint32_t secret;
 
@@ -55,11 +57,11 @@ struct cnt_frame
 struct cnt_socket_memory_buffer
 {
 	// Maybe using the dense list here is a bit shit
+	uint64_t generation;
+
 	static constexpr uint16_t capacity = ~0;
 	uint8_t *data;
 	uint16_t length;
-
-	uint64_t generation;
 };
 
 struct cnt_memory_view
@@ -92,6 +94,8 @@ struct cnt_session
 	uint64_t tick;
 	fck_milliseconds tick_rate;
 	fck_milliseconds tick_time_accumulator;
+
+	uint16_t seq;
 };
 
 cnt_address_handle cnt_session_address_create(cnt_session *session, char const *ip, uint16_t port);

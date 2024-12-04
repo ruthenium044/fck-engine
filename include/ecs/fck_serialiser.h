@@ -52,7 +52,6 @@ struct fck_serialiser
 
 void fck_serialiser_alloc(fck_serialiser *serialiser);
 void fck_serialiser_create(fck_serialiser *serialiser, uint8_t *data, size_t count);
-void fck_serialiser_create(fck_serialiser *serialiser, uint8_t *data, size_t count, size_t capacity);
 void fck_serialiser_reset(fck_serialiser *serialiser);
 void fck_serialiser_free(fck_serialiser *serialiser);
 

@@ -9,9 +9,9 @@
 
 enum cnt_peer_state : uint8_t
 {
-	cnt_peer_STATE_NONE,
-	cnt_peer_STATE_CREATING,
-	cnt_peer_STATE_OK
+	CNT_PEER_STATE_NONE,
+	CNT_PEER_STATE_CREATING,
+	CNT_PEER_STATE_OK
 };
 
 typedef uint16_t cnt_peer_id;

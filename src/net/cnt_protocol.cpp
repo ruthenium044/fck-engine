@@ -15,7 +15,7 @@ void cnt_connection_packet_push(cnt_connection_packet *packet, cnt_connection_pa
 	           "Make sure the payload buffer is large enough!");
 
 	fck_serialiser seraliser;
-	fck_serialiser_create(&seraliser, packet->payload, packet->length, packet->write_capacity);
+	fck_serialiser_create(&seraliser, packet->payload, packet->write_capacity);
 	fck_serialiser_byte_writer(&seraliser.self);
 
 	cnt_connection_packet_header header;

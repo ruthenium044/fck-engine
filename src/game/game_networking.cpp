@@ -55,16 +55,19 @@ void networking_on_message(cnt_on_message_params const *in)
 
 	cnt_peers *peers = fck_ecs_unique_view<cnt_peers>(ecs);
 
+	// TODO: Messages need to get processed - This one only allows ONE
 	cnt_welcome_message message;
 
 	fck_serialise(serialiser, &message);
+
+	// TODO: message.id should be message.type lol
 	SDL_assert(message.id == 0xB055);
 
 	game_control_layout *layout = fck_ecs_component_create<game_control_layout>(ecs, message.avatar);
 	*layout = {SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT, SDL_SCANCODE_UP, SDL_SCANCODE_DOWN};
 	fck_ecs_component_create<fck_authority>(ecs, message.avatar);
 
-	message.peer.state = cnt_peer_STATE_OK;
+	message.peer.state = CNT_PEER_STATE_OK;
 
 	cnt_peers_set_host(peers, message.host);
 	cnt_peers_set_self(peers, message.peer.peer_id);

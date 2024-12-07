@@ -140,7 +140,7 @@ static void surface_flood_fill(SDL_Surface *surface, bool *is_closed, int sx, in
 		{
 			point_list_push(&open_list, SDL_Point{x - 1, y});
 		}
-		if (x <= surface->w)
+		if (x < surface->w - 1)
 		{
 			point_list_push(&open_list, SDL_Point{x + 1, y});
 		}
@@ -148,7 +148,7 @@ static void surface_flood_fill(SDL_Surface *surface, bool *is_closed, int sx, in
 		{
 			point_list_push(&open_list, SDL_Point{x, y - 1});
 		}
-		if (y <= surface->h)
+		if (y < surface->h - 1)
 		{
 			point_list_push(&open_list, SDL_Point{x, y + 1});
 		}

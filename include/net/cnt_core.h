@@ -30,8 +30,8 @@ struct cnt_welcome_message
 	cnt_peer peer;
 };
 
-FCK_SERIALISE_OFF(fck_authority)
-struct fck_authority
+FCK_SERIALISE_OFF(cnt_authority)
+struct cnt_authority
 {
 };
 

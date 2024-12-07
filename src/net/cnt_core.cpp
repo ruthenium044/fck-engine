@@ -76,7 +76,7 @@ void cnt_networking_process_recv_replication_broadcast(fck_ecs *ecs, fck_seriali
 				fck_serialiser_byte_writer(&temp.self);
 
 				// Copy all entity data that have the type fck_authority into a buffer
-				fck_ecs::sparse_array<fck_authority> *entities = fck_ecs_view_single<fck_authority>(ecs);
+				fck_ecs::sparse_array<cnt_authority> *entities = fck_ecs_view_single<cnt_authority>(ecs);
 				fck_ecs_snapshot_store_partial(ecs, &temp, &entities->owner);
 
 				fck_ecs_snapshot_load(ecs, serialiser);
@@ -166,7 +166,7 @@ void cnt_networking_process_send(fck_ecs *ecs)
 		else
 		{
 			// Send to host - Partial is ok
-			fck_ecs::sparse_array<fck_authority> *entities = fck_ecs_view_single<fck_authority>(ecs);
+			fck_ecs::sparse_array<cnt_authority> *entities = fck_ecs_view_single<cnt_authority>(ecs);
 			fck_ecs_snapshot_store_partial(ecs, &serialiser, &entities->owner);
 		}
 	}

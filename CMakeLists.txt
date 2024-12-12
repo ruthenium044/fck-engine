@@ -97,7 +97,7 @@ if(FCK_LIBRARY_MODE)
     set(fck_target_name fck)
     add_library(${fck_target_name} ${SOURCES})
     add_library(fck::${fck_target_name} ALIAS ${fck_target_name})
-    set_property(TARGET ${fck_target_name} PROPERTY C_STANDARD 99)
+
     target_include_directories(${fck_target_name}
         PUBLIC
             "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
@@ -126,3 +126,5 @@ if(WIN32)
     list(APPEND LIBRARIES iphlpapi ws2_32)
 endif()
 target_link_libraries(${PROJECT_NAME} ${LIBRARIES})
+
+add_subdirectory("gen")

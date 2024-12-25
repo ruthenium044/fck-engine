@@ -75,6 +75,7 @@ static void rnd_createInstance(rnd_renderer *renderer)
 	appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 	appInfo.pApplicationName = "More like Vulcan't";
 	appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
+	appInfo.apiVersion = VK_MAKE_VERSION(1, 0, 0);
 	appInfo.pEngineName = "FcK";
 	appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
 	appInfo.apiVersion = VK_API_VERSION_1_0;
@@ -83,10 +84,11 @@ static void rnd_createInstance(rnd_renderer *renderer)
 	VkInstanceCreateInfo createInfo{};
 	createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 	createInfo.pApplicationInfo = &appInfo;
+	createInfo.flags = 0;
 
 	auto extensions = rnd_getRequiredExtensions(renderer);
 	createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
-	createInfo.ppEnabledExtensionNames = extensions.data;
+	createInfo.ppEnabledExtensionNames = extensions.data();
 
 	VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
 	if (renderer->enableValidationLayers)

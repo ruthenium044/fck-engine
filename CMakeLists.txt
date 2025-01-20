@@ -81,6 +81,9 @@ list(APPEND HEADERS ${FOUND_CXX_HEADERS})
 file(GLOB_RECURSE FOUND_CXX_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/**.cpp")
 list(APPEND SOURCES ${FOUND_CXX_SOURCES})
 
+file(GLOB_RECURSE FOUND_C_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/**.c")
+list(APPEND SOURCES ${FOUND_C_SOURCES})
+
 # We need to check out if this is needed 
 include_directories(${PROJECT_NAME} include)
 

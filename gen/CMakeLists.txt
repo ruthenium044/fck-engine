@@ -2,15 +2,15 @@
 project(gen)
 
 # LOCAL PROJECT
-file(GLOB_RECURSE FOUND_CXX_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/include/**.h")
-list(APPEND HEADERS ${FOUND_CXX_HEADERS})
+file(GLOB_RECURSE FOUND_CXX_GEN_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/include/**.h")
+list(APPEND GEN_HEADERS ${FOUND_CXX_GEN_HEADERS})
 
-file(GLOB_RECURSE FOUND_CXX_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/**.cpp")
-list(APPEND SOURCES ${FOUND_CXX_SOURCES})
+file(GLOB_RECURSE FOUND_CXX_GEN_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/**.cpp")
+list(APPEND GEN_SOURCES ${FOUND_CXX_GEN_SOURCES})
 
 set(target_name ${PROJECT_NAME})
 
-add_library(${target_name} ${SOURCES} ${HEADERS})
+add_library(${target_name} ${GEN_SOURCES} ${GEN_HEADERS})
 add_library(${PROJECT_NAME}::${target_name} ALIAS ${target_name})
 
 target_include_directories(${target_name}

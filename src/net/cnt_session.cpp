@@ -10,6 +10,8 @@
 static SDL_AtomicInt wsa_reference_counter = {0};
 #endif // _WIN32
 
+#include "lz4.h"
+
 void cnt_socket_memory_buffer_alloc(cnt_socket_memory_buffer *memory)
 {
 	SDL_assert(memory != nullptr);
@@ -566,6 +568,132 @@ void cnt_session_tick(cnt_session *session, fck_milliseconds time, fck_milliseco
 	session->tick = session->tick + 1;
 
 	cnt_session_tick_send(session, time);
+}
+
+void fck_session_encode(fck_serialiser const *src, fck_serialiser *dst)
+{
+	char buffer[1024];
+
+	LZ4_stream_t stream;
+	LZ4_stream_t *stream_ptr = LZ4_initStream(&stream, sizeof(stream));
+	for (int inpOffset = 0; inpOffset < src->at; inpOffset += 512)
+	{
+		char const *at = (char const *)&src->data[inpOffset];
+
+		char buffer[1024];
+		const int cmpBytes = LZ4_compress_fast_continue(stream_ptr, at, buffer, 512, 512, 0);
+		if (cmpBytes <= 0)
+			break;
+	}
+
+	// Map byte to occurences counter
+	uint16_t occurences[UINT8_MAX];
+	SDL_zero(occurences);
+
+	uint16_t head = 0;
+	uint8_t count = 0;
+
+	// Count byte occurences
+	for (size_t at = 0; at < src->at; at++)
+	{
+		uint8_t byte = src->data[at];
+		occurences[byte] = occurences[byte] + 1;
+	}
+
+	// Map list to a byte priority list
+	uint8_t list[UINT8_MAX];
+	SDL_zero(list);
+	uint8_t list_count = 0;
+	// Add non-zero to list
+	for (uint8_t byte = 0; byte < UINT8_MAX; byte++)
+	{
+		if (occurences[byte] != 0)
+		{
+			list[list_count] = byte;
+			list_count = list_count + 1;
+		}
+	}
+
+	// Sort list
+	for (size_t list_at = 0; list_at < list_count; list_at++)
+	{
+		uint8_t byte = list[list_at];
+
+		size_t current_list_at = list_at;
+		while (current_list_at > 0 && occurences[list[current_list_at - 1]] < occurences[byte])
+		{
+			list[current_list_at] = list[current_list_at - 1];
+			current_list_at = current_list_at - 1;
+		}
+
+		list[current_list_at] = byte;
+	}
+
+	uint8_t byte_to_code[UINT8_MAX];
+	SDL_zero(byte_to_code);
+
+	// Write Header and generate codes
+	for (uint8_t list_at = 0; list_at < list_count; list_at++)
+	{
+		uint8_t byte = list[list_at];
+
+		uint8_t code = list_at;
+		fck_serialise(dst, &byte);
+		fck_serialise(dst, &code);
+
+		byte_to_code[byte] = code;
+		byte_to_code[code] = byte;
+
+		SDL_Log("At: %d - Byte: %c Code: %c%c%c%c%c%c%c%c", int(list_at), byte, ((code) & 0x80 ? '1' : '0'), ((code) & 0x40 ? '1' : '0'),
+		        ((code) & 0x20 ? '1' : '0'), ((code) & 0x10 ? '1' : '0'), ((code) & 0x08 ? '1' : '0'), ((code) & 0x04 ? '1' : '0'),
+		        ((code) & 0x02 ? '1' : '0'), ((code) & 0x01 ? '1' : '0'));
+	}
+
+	{
+		// Some of the codes are illegal!
+		// Make sure they become legal
+		uint8_t bit_at = 0;
+		uint8_t written_byte = 0;
+		for (size_t at = 0; at < src->at; at++)
+		{
+			uint8_t byte = src->data[at];
+			uint8_t code = byte_to_code[byte];
+			while (code != 0)
+			{
+				if (bit_at > 8)
+				{
+					SDL_Log("Written byte: %c%c%c%c%c%c%c%c", ((written_byte) & 0x80 ? '1' : '0'), ((written_byte) & 0x40 ? '1' : '0'),
+					        ((written_byte) & 0x20 ? '1' : '0'), ((written_byte) & 0x10 ? '1' : '0'), ((written_byte) & 0x08 ? '1' : '0'),
+					        ((written_byte) & 0x04 ? '1' : '0'), ((written_byte) & 0x02 ? '1' : '0'), ((written_byte) & 0x01 ? '1' : '0'));
+					fck_serialise(dst, &written_byte);
+					written_byte = 0;
+					bit_at = 0;
+				}
+				written_byte = written_byte | ((code & 0x01) << bit_at);
+				bit_at = bit_at + 1;
+				code = code >> 1;
+			}
+			if (bit_at > 8)
+			{
+				bit_at = 0;
+				SDL_Log("Written byte: %c%c%c%c%c%c%c%c", ((written_byte) & 0x80 ? '1' : '0'), ((written_byte) & 0x40 ? '1' : '0'),
+				        ((written_byte) & 0x20 ? '1' : '0'), ((written_byte) & 0x10 ? '1' : '0'), ((written_byte) & 0x08 ? '1' : '0'),
+				        ((written_byte) & 0x04 ? '1' : '0'), ((written_byte) & 0x02 ? '1' : '0'), ((written_byte) & 0x01 ? '1' : '0'));
+				fck_serialise(dst, &written_byte);
+				written_byte = 0;
+				bit_at = 0;
+			}
+			bit_at = bit_at + 1;
+		}
+		SDL_Log("Written last byte: %c%c%c%c%c%c%c%c", ((written_byte) & 0x80 ? '1' : '0'), ((written_byte) & 0x40 ? '1' : '0'),
+		        ((written_byte) & 0x20 ? '1' : '0'), ((written_byte) & 0x10 ? '1' : '0'), ((written_byte) & 0x08 ? '1' : '0'),
+		        ((written_byte) & 0x04 ? '1' : '0'), ((written_byte) & 0x02 ? '1' : '0'), ((written_byte) & 0x01 ? '1' : '0'));
+		fck_serialise(dst, &written_byte);
+	}
+}
+
+static void fck_session_decode(fck_serialiser *src, fck_serialiser *dst)
+{
 }
 
 void cnt_session_broadcast(cnt_session *session, void *data, size_t count)

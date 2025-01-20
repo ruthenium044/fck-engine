@@ -6,7 +6,7 @@ struct fck_constant
 {
 	static constexpr T value = v;
 	using value_type = T;
-	using type = fck_constant; // using injected-class-name
+	using type = fck_constant;
 };
 
 typedef fck_constant<bool, true> fck_true_type;

@@ -2,6 +2,7 @@
 
 #include "shared/fck_checks.h"
 #include <SDL3/SDL_assert.h>
+#include <SDL3/SDL_stdinc.h>
 
 void fck_serialiser_alloc(fck_serialiser *serialiser)
 {
@@ -49,7 +50,6 @@ void fck_serialiser_maybe_realloc(fck_serialiser *serialiser, size_t slack_count
 	while (serialiser->capacity < serialiser->at + slack_count)
 	{
 		const size_t new_capacity = serialiser->capacity * 2;
-		uint8_t *old_mem = serialiser->data;
 		uint8_t *new_mem = (uint8_t *)SDL_realloc(serialiser->data, new_capacity);
 
 		if (new_mem != nullptr)

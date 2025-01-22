@@ -44,6 +44,8 @@ struct cnt_address_internal // Not tested on Linux, only MacOS
 #include "shared/fck_checks.h"
 #include <SDL3/SDL_assert.h>
 
+#include "lz4.h"
+
 typedef socklen_t cnt_socklen;
 typedef struct sockaddr_storage cnt_sockaddr_storage;
 
@@ -209,7 +211,19 @@ int cnt_sendto(cnt_socket socket, void *buf, size_t count, cnt_address *to)
 {
 	SDL_assert(socket != -1);
 	cnt_address_internal *address = as_internal_address(to);
-	int bytes_sent = sendto(socket, (char *)buf, count, 0, &address->addr, address->addrlen);
+
+	// Need to make this thread-safe
+	// ... Technically we can make recv and sendto thread-safe by using a mutex...
+	// It is locked anyway, so might as well sync it on the application layer
+	constexpr int buffer_size = 1 << 16;
+	static char buffer[buffer_size];
+	int bytes_compressed = LZ4_compress_default((char *)buf, buffer, count, sizeof(buffer));
+	if (bytes_compressed <= 0)
+	{
+		return bytes_compressed;
+	}
+
+	int bytes_sent = sendto(socket, buffer, bytes_compressed, 0, &address->addr, address->addrlen);
 
 	if (bytes_sent == -1)
 	{
@@ -229,7 +243,10 @@ int cnt_recvfrom(cnt_socket socket, uint8_t *buf, size_t count, cnt_address *fro
 	cnt_sockaddr_storage storage;
 
 	cnt_socklen socket_length = sizeof(storage);
-	int bytes_rcvd = recvfrom(socket, (char *)buf, count, 0, (struct sockaddr *)&storage, &socket_length);
+
+	constexpr int buffer_size = 1 << 16;
+	static char buffer[buffer_size];
+	int bytes_rcvd = recvfrom(socket, (char *)buffer, buffer_size, 0, (struct sockaddr *)&storage, &socket_length);
 
 	if (bytes_rcvd == -1)
 	{
@@ -243,6 +260,8 @@ int cnt_recvfrom(cnt_socket socket, uint8_t *buf, size_t count, cnt_address *fro
 	if (bytes_rcvd > 0)
 	{
 		*from = get_address(&storage);
+		// Update bytes_rcvd since buffer gets decompressed
+		bytes_rcvd = LZ4_decompress_safe(buffer, (char *)buf, bytes_rcvd, count);
 	}
 
 	CHECK_ERROR(bytes_rcvd != -1, "Failed to recv bytes");

@@ -2,6 +2,9 @@
 
 #include "core/fck_time.h"
 
+#include "ecs/snapshot/fck_ecs_delta.h"
+#include "ecs/snapshot/fck_ecs_timeline.h"
+
 // TODO: Fix up unordered UDP packets problem! :)
 // TODO: correct Quake delta compression and snapshot interpolation, yaay
 
@@ -27,6 +30,7 @@ void cnt_networking_process_recv_replication_broadcast(fck_ecs *ecs, fck_seriali
 {
 	cnt_peers *peers = fck_ecs_unique_view<cnt_peers>(ecs);
 	cnt_session *session = fck_ecs_unique_view<cnt_session>(ecs);
+	fck_ecs_timeline *snapshot_timeline = fck_ecs_unique_view<fck_ecs_timeline>(ecs);
 
 	// Peer info
 	cnt_networking_segment_type peers_segment;
@@ -63,8 +67,11 @@ void cnt_networking_process_recv_replication_broadcast(fck_ecs *ecs, fck_seriali
 
 			if (cnt_peers_is_hosting(peers))
 			{
-				// Receive from client - Partial is ok
-				fck_ecs_snapshot_load_partial(ecs, serialiser);
+				// Receive from client - Partial is OK
+				fck_ecs_deserialise_partial(ecs, serialiser);
+
+				// ACK baseline
+				fck_serialise(serialiser, &snapshot_timeline->baseline_seq_ackd);
 			}
 			else
 			{
@@ -77,14 +84,17 @@ void cnt_networking_process_recv_replication_broadcast(fck_ecs *ecs, fck_seriali
 
 				// Copy all entity data that have the type fck_authority into a buffer
 				fck_ecs::sparse_array<cnt_authority> *entities = fck_ecs_view_single<cnt_authority>(ecs);
-				fck_ecs_snapshot_store_partial(ecs, &temp, &entities->owner);
+				fck_ecs_serialise_partial(ecs, &temp, &entities->owner);
 
-				fck_ecs_snapshot_load(ecs, serialiser);
+				fck_ecs_deserialise(ecs, serialiser);
+
+				fck_ecs_timeline_delta_apply(snapshot_timeline, ecs, serialiser);
+
 				fck_serialiser_reset(&temp);
 
 				fck_serialiser_byte_reader(&temp.self);
 				// Re-apply previously stored buffer back on the ECS
-				fck_ecs_snapshot_load_partial(ecs, &temp);
+				fck_ecs_deserialise_partial(ecs, &temp);
 
 				fck_serialiser_free(&temp);
 			}
@@ -129,6 +139,7 @@ void cnt_networking_process_send(fck_ecs *ecs)
 {
 	cnt_session *session = fck_ecs_unique_view<cnt_session>(ecs);
 	cnt_peers *peers = fck_ecs_unique_view<cnt_peers>(ecs);
+	fck_ecs_timeline *snapshot_timeline = fck_ecs_unique_view<fck_ecs_timeline>(ecs);
 
 	// Setup
 	fck_serialiser serialiser;
@@ -161,13 +172,19 @@ void cnt_networking_process_send(fck_ecs *ecs)
 		if (cnt_peers_is_hosting(peers))
 		{
 			// Send to client - ALWAYS full state
-			fck_ecs_snapshot_store(ecs, &serialiser);
+			fck_ecs_serialise(ecs, &serialiser);
+
+			fck_ecs_timeline_delta_capture(snapshot_timeline, ecs, &serialiser);
 		}
 		else
 		{
 			// Send to host - Partial is ok
 			fck_ecs::sparse_array<cnt_authority> *entities = fck_ecs_view_single<cnt_authority>(ecs);
-			fck_ecs_snapshot_store_partial(ecs, &serialiser, &entities->owner);
+			fck_ecs_serialise_partial(ecs, &serialiser, &entities->owner);
+
+			// ACK baseline
+			uint32_t ack = snapshot_timeline->baseline_seq_recv;
+			fck_serialise(&serialiser, &ack);
 		}
 	}
 

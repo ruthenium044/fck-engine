@@ -324,6 +324,19 @@ void fck_serialiser_byte_reader(fck_serialiser_interface *interface)
 	interface->f32 = byte_read_float32;
 }
 
+bool fck_serialiser_is_byte_reader(fck_serialiser *const serialiser)
+{
+	SDL_assert(serialiser != nullptr);
+
+	fck_serialiser_interface const *interface = &serialiser->self;
+
+	SDL_assert(interface != nullptr);
+
+	return interface->u8 == byte_read_uint8 && interface->u16 == byte_read_uint16 && interface->u32 == byte_read_uint32 &&
+	       interface->u64 == byte_read_uint64 && interface->i8 == byte_read_int8 && interface->i16 == byte_read_int16 &&
+	       interface->i32 == byte_read_int32 && interface->i64 == byte_read_int64 && interface->f32 == byte_read_float32;
+}
+
 void fck_serialiser_byte_writer(fck_serialiser_interface *interface)
 {
 	SDL_assert(interface != nullptr);
@@ -339,4 +352,17 @@ void fck_serialiser_byte_writer(fck_serialiser_interface *interface)
 	interface->i64 = byte_write_int64;
 
 	interface->f32 = byte_write_float32;
+}
+
+bool fck_serialiser_is_byte_writer(fck_serialiser *const serialiser)
+{
+	SDL_assert(serialiser != nullptr);
+
+	fck_serialiser_interface const *interface = &serialiser->self;
+
+	SDL_assert(interface != nullptr);
+
+	return interface->u8 == byte_write_uint8 && interface->u16 == byte_write_uint16 && interface->u32 == byte_write_uint32 &&
+	       interface->u64 == byte_write_uint64 && interface->i8 == byte_write_int8 && interface->i16 == byte_write_int16 &&
+	       interface->i32 == byte_write_int32 && interface->i64 == byte_write_int64 && interface->f32 == byte_write_float32;
 }

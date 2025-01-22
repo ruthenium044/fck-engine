@@ -120,6 +120,4 @@ bool cnt_session_send(cnt_session *session, cnt_connection_handle *connection, v
 
 bool cnt_session_try_receive_from(cnt_session *session, cnt_memory_view *view);
 
-void fck_session_encode(fck_serialiser const *src, fck_serialiser *dst);
-
 #endif // CNT_CONNECTION_INCLUDED

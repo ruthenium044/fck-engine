@@ -58,6 +58,9 @@ void fck_serialiser_free(fck_serialiser *serialiser);
 void fck_serialiser_byte_reader(fck_serialiser_interface *interface);
 void fck_serialiser_byte_writer(fck_serialiser_interface *interface);
 
+bool fck_serialiser_is_byte_reader(fck_serialiser *const serialiser);
+bool fck_serialiser_is_byte_writer(fck_serialiser *const serialiser);
+
 inline void fck_serialise(fck_serialiser *serialisers, uint8_t *value, size_t count = 1)
 {
 	SDL_assert(serialisers != nullptr);
@@ -120,6 +123,15 @@ inline void fck_serialise(fck_serialiser *serialisers, float *value, size_t coun
 	SDL_assert(serialisers->self.f32 != nullptr);
 
 	serialisers->self.f32(serialisers, value, count);
+}
+
+// Hope that works :D Maybe count for serialisers? Idk
+inline void fck_serialise(fck_serialiser *serialisers, fck_serialiser *other)
+{
+	SDL_assert(serialisers != nullptr);
+	SDL_assert(serialisers->self.f32 != nullptr);
+
+	serialisers->self.u8(serialisers, other->data, other->at);
 }
 
 #endif // FCK_SERIALISER_INCLUDED

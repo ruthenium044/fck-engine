@@ -4,6 +4,8 @@
 #include "core/fck_keyboard.h"
 #include "core/fck_mouse.h"
 
+#include "ecs/snapshot/fck_ecs_timeline.h"
+
 int fck_print_directory(void *userdata, const char *dirname, const char *fname)
 {
 	const char *extension = SDL_strrchr(fname, '.');
@@ -66,6 +68,10 @@ static void engine_setup(fck_ecs *ecs, fck_system_once_info *)
 
 	fck_keyboard_state *keyboard = fck_ecs_unique_create<fck_keyboard_state>(ecs);
 	fck_mouse_state *mouse = fck_ecs_unique_create<fck_mouse_state>(ecs);
+
+	fck_ecs_timeline *snapshot_timeline = fck_ecs_unique_create<fck_ecs_timeline>(ecs, fck_ecs_timeline_free);
+	// TODO: Maybe fix default capacities
+	fck_ecs_timeline_alloc(snapshot_timeline, 16, 8);
 
 	fck_time *time = fck_ecs_unique_create<fck_time>(ecs);
 

@@ -2,7 +2,6 @@
 #include "shared/fck_checks.h"
 
 #include "fck.h"
-#include "lz4.h"
 
 void game_instance_setup(fck_ecs *ecs)
 {
@@ -19,10 +18,10 @@ void game_instance_setup(fck_ecs *ecs)
 	fck_ecs_system_add(ecs, game_render_process);
 }
 
-#include "net/cnt_session.h"
-
 int main(int argc, char **argv)
 {
+	fck_ecs_delta_example();
+
 	fck fck;
 	fck_init(&fck, 2);
 	{

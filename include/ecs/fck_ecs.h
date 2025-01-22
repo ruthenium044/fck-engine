@@ -176,6 +176,8 @@ inline fck_ecs::entity_type fck_ecs_entity_create(fck_ecs *ecs)
 
 inline bool fck_ecs_entity_exists(fck_ecs *ecs, fck_ecs::entity_type entity)
 {
+	SDL_assert(ecs != nullptr);
+
 	return fck_sparse_list_exists(&ecs->entities, entity);
 }
 
@@ -491,24 +493,19 @@ void fck_ecs_apply_with_entity(fck_ecs *table, function func)
 }
 
 // Serialisation
-void fck_ecs_snapshot_serialise(fck_serialiser *serialiser, fck_components_header *header, fck_ecs::sparse_array_void *sparse_array);
-void fck_ecs_snapshot_deserialise(fck_serialiser *serialiser, fck_components_header *header, fck_ecs::sparse_array_void *sparse_array);
+void fck_ecs_serialise(fck_ecs *ecs, fck_serialiser *serialiser);
+void fck_ecs_serialise_partial(fck_ecs *ecs, fck_serialiser *serialiser, fck_ecs::dense_list<fck_ecs::entity_type> *entities);
+void fck_ecs_deserialise(fck_ecs *ecs, fck_serialiser *serialiser);
+void fck_ecs_deserialise_partial(fck_ecs *ecs, fck_serialiser *serialiser);
 
-void fck_ecs_snapshot_store(fck_ecs *ecs, fck_serialiser *serialiser);
-void fck_ecs_snapshot_store_partial(fck_ecs *ecs, fck_serialiser *serialiser, fck_ecs::dense_list<fck_ecs::entity_type> *entities);
-void fck_ecs_snapshot_load(fck_ecs *ecs, fck_serialiser *serialiser);
-void fck_ecs_snapshot_load_partial(fck_ecs *ecs, fck_serialiser *serialiser);
-
-inline void fck_ecs_snapshot_free(fck_serialiser *serialiser)
-{
-	SDL_assert(serialiser != nullptr);
-
-	fck_serialiser_free(serialiser);
-}
+void fck_ecs_snapshot_free(fck_serialiser *serialiser);
 
 // Systems
 void fck_ecs_system_add(fck_ecs *ecs, fck_system_once on_once);
 void fck_ecs_system_add(fck_ecs *ecs, fck_system_update on_update);
 void fck_ecs_flush_system_once(fck_ecs *ecs);
 void fck_ecs_tick(fck_ecs *ecs);
+
+void fck_ecs_delta_example();
+
 #endif // FCK_ECS_INCLUDED

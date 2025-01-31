@@ -6,7 +6,9 @@
 
 #include "ecs/snapshot/fck_ecs_timeline.h"
 
-int fck_print_directory(void *userdata, const char *dirname, const char *fname)
+#include "assets/fck_assets.h"
+
+SDL_EnumerationResult fck_print_directory(void *userdata, const char *dirname, const char *fname)
 {
 	const char *extension = SDL_strrchr(fname, '.');
 
@@ -33,7 +35,7 @@ int fck_print_directory(void *userdata, const char *dirname, const char *fname)
 
 	SDL_free(path);
 
-	return 1;
+	return SDL_ENUM_SUCCESS;
 }
 
 void fck_engine_free(fck_engine *engine)
@@ -59,6 +61,8 @@ static void engine_setup(fck_ecs *ecs, fck_system_once_info *)
 
 	engine->renderer = SDL_CreateRenderer(engine->window, SDL_SOFTWARE_RENDERER);
 	CHECK_CRITICAL(engine->renderer, SDL_GetError());
+
+	fck_assets_load_multi(engine->renderer, gen_assets_png_all, SDL_arraysize(gen_assets_png_all));
 
 	CHECK_WARNING(SDL_SetRenderVSync(engine->renderer, true), SDL_GetError());
 

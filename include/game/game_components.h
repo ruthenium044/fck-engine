@@ -2,7 +2,11 @@
 #define GAME_COMPONENTS_INCLUDED
 
 #include "ecs/fck_ecs_component_traits.h"
+
+#include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_scancode.h>
+
+#include "gen/gen_assets.h"
 
 enum game_input_type
 {
@@ -56,6 +60,23 @@ struct game_position
 {
 	float x;
 	float y;
+};
+
+struct game_size
+{
+	float w;
+	float h;
+};
+
+struct game_debug_colour
+{
+	uint8_t r, g, b, a;
+};
+
+struct game_sprite
+{
+	gen_assets_png texture;
+	SDL_FRect src;
 };
 
 // FCK_SERIALISE_TRAIT SECTION

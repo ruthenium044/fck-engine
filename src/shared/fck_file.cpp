@@ -15,7 +15,7 @@ bool fck_file_write(const char *path, const char *name, const char *extension, c
 	char path_buffer[512];
 	SDL_zero(path_buffer);
 
-	size_t added_length = SDL_strlcat(path_buffer, FCK_RESOURCE_DIRECTORY_PATH, sizeof(path_buffer));
+	size_t added_length = SDL_strlcat(path_buffer, FCK_RESOURCE_DIRECTORY_PATH"/", sizeof(path_buffer));
 	added_length = added_length + SDL_strlcat(path_buffer + added_length, path, sizeof(path_buffer));
 	added_length = added_length + SDL_strlcat(path_buffer + added_length, name, sizeof(path_buffer));
 	SDL_strlcat(path_buffer + added_length, extension, sizeof(path_buffer));
@@ -26,7 +26,7 @@ bool fck_file_write(const char *path, const char *name, const char *extension, c
 	size_t written_size = SDL_WriteIO(stream, source, size);
 	CHECK_WARNING(written_size >= 0, SDL_GetError());
 
-	SDL_bool result = SDL_CloseIO(stream);
+	bool result = SDL_CloseIO(stream);
 	CHECK_WARNING(result, SDL_GetError(), return false);
 
 	return true;
@@ -41,7 +41,7 @@ bool fck_file_exists(const char *path, const char *name, const char *extension)
 	char path_buffer[512];
 	SDL_zero(path_buffer);
 
-	size_t added_length = SDL_strlcat(path_buffer, FCK_RESOURCE_DIRECTORY_PATH, sizeof(path_buffer));
+	size_t added_length = SDL_strlcat(path_buffer, FCK_RESOURCE_DIRECTORY_PATH"/", sizeof(path_buffer));
 	added_length = added_length + SDL_strlcat(path_buffer + added_length, path, sizeof(path_buffer));
 	added_length = added_length + SDL_strlcat(path_buffer + added_length, name, sizeof(path_buffer));
 	SDL_strlcat(path_buffer + added_length, extension, sizeof(path_buffer));
@@ -59,7 +59,7 @@ bool fck_file_read(const char *path, const char *name, const char *extension, fc
 	char path_buffer[512];
 	SDL_zero(path_buffer);
 
-	size_t added_length = SDL_strlcat(path_buffer, FCK_RESOURCE_DIRECTORY_PATH, sizeof(path_buffer));
+	size_t added_length = SDL_strlcat(path_buffer, FCK_RESOURCE_DIRECTORY_PATH"/", sizeof(path_buffer));
 	added_length = added_length + SDL_strlcat(path_buffer + added_length, path, sizeof(path_buffer));
 	added_length = added_length + SDL_strlcat(path_buffer + added_length, name, sizeof(path_buffer));
 	SDL_strlcat(path_buffer + added_length, extension, sizeof(path_buffer));
@@ -73,10 +73,10 @@ bool fck_file_read(const char *path, const char *name, const char *extension, fc
 	Uint8 *data = (Uint8 *)SDL_malloc(stream_size);
 
 	size_t read_size = SDL_ReadIO(stream, data, stream_size);
-	SDL_bool has_error_in_reading = read_size < stream_size;
+	bool has_error_in_reading = read_size < stream_size;
 	CHECK_ERROR(!has_error_in_reading, SDL_GetError());
 
-	SDL_bool result = SDL_CloseIO(stream);
+	bool result = SDL_CloseIO(stream);
 	CHECK_ERROR(result, SDL_GetError());
 
 	if (has_error_in_reading)

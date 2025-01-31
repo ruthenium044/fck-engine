@@ -3,25 +3,23 @@
 
 #include "fck.h"
 
+#include "assets/fck_assets.h"
+
 void game_instance_setup(fck_ecs *ecs)
 {
 	// Good old fashioned init systems
 	// TODO: sprite_sheet_setup is loading: Cammy. That is not so muy bien
-	fck_ecs_system_add(ecs, game_spritesheet_setup);
 	fck_ecs_system_add(ecs, game_networking_setup);
 	fck_ecs_system_add(ecs, game_cammy_setup);
 
 	// Good old fasioned update systems
 	fck_ecs_system_add(ecs, game_input_process);
 	fck_ecs_system_add(ecs, game_gameplay_process);
-	fck_ecs_system_add(ecs, game_animation_process);
 	fck_ecs_system_add(ecs, game_render_process);
 }
 
 int main(int argc, char **argv)
 {
-	fck_ecs_delta_example();
-
 	fck fck;
 	fck_init(&fck, 2);
 	{

@@ -516,7 +516,7 @@ fck_ecs_snapshot *fck_ecs_timeline_capture(fck_ecs_timeline *timeline, fck_ecs *
 	return free;
 }
 
-fck_ecs_snapshot *fck_ecs_timeline_capture_empty(fck_ecs_timeline *timeline, size_t seq)
+fck_ecs_snapshot *fck_ecs_timeline_reserve_empty(fck_ecs_timeline *timeline, size_t seq)
 {
 	SDL_assert(timeline != nullptr);
 	SDL_assert(timeline->snapshots != nullptr);
@@ -620,7 +620,7 @@ void fck_ecs_timeline_delta_apply(fck_ecs_timeline *timeline, fck_ecs *ecs, fck_
 	delta.serialiser.data = external_serialiser->data + external_serialiser->at;
 
 	fck_ecs_snapshot *baseline = fck_ecs_timeline_snapshot_view(timeline, baseline_seq);
-	fck_ecs_snapshot *current = fck_ecs_timeline_capture_empty(timeline, current_seq);
+	fck_ecs_snapshot *current = fck_ecs_timeline_reserve_empty(timeline, current_seq);
 
 	SDL_Log("[Recv]: Snapshot %d to %d", baseline->seq, current->seq);
 	fck_ecs_snapshot_apply_delta(baseline, &delta, current);

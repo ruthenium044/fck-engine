@@ -57,7 +57,7 @@ set(SDL_TEST OFF)
 FetchContent_Declare(
     SDL
     GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
-    GIT_TAG 4f722d372ae7246f123762b0407cbec1e6e71d65
+    GIT_TAG release-3.2.0
     GIT_PROGRESS TRUE
 )
 
@@ -65,14 +65,19 @@ FetchContent_Declare(
 FetchContent_Declare(
     SDL_image
     GIT_REPOSITORY https://github.com/libsdl-org/SDL_image.git
-    GIT_TAG c1b272450d306db3845086cc231acae736b92f4f
+    GIT_TAG prerelease-3.1.1
     GIT_PROGRESS TRUE
 )
 
 # For each SDL module, we should set on a GIT_TAG so we do not have funny renames and other issues!
 FetchContent_MakeAvailable(SDL SDL_image)
 
+# Maybe disable Vulkan conditionally - is it even needed with SDL_GPU at this point?
 find_package(Vulkan REQUIRED)
+
+if(DEFINED FCK_LIBRARY_MODE AND NOT DEFINED FCK_RESOURCE_DIRECTORY_PATH) 
+	message(FATAL_ERROR "GEN_INPUT_DIRECTORY_PATH is not defined. Needs to define a path for output. (For example: set(FCK_RESOURCE_DIRECTORY_PATH [path]))")
+endif()
 
 # LOCAL PROJECT
 file(GLOB_RECURSE FOUND_CXX_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/include/**.h")
@@ -84,16 +89,29 @@ list(APPEND SOURCES ${FOUND_CXX_SOURCES})
 file(GLOB_RECURSE FOUND_C_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/**.c")
 list(APPEND SOURCES ${FOUND_C_SOURCES})
 
-# We need to check out if this is needed 
+# Define resource path
+if(NOT DEFINED FCK_LIBRARY_MODE) 
+    set(FCK_RESOURCE_DIRECTORY_PATH "${CMAKE_CURRENT_SOURCE_DIR}/resources")
+endif()
+
+set(GEN_OUTPUT_DIRECTORY_PATH "${CMAKE_CURRENT_SOURCE_DIR}/include")
+set(GEN_INPUT_DIRECTORY_PATH ${FCK_RESOURCE_DIRECTORY_PATH})
+
+# Generator
+
+add_subdirectory(gen)
+
+add_custom_target(gen_output
+     COMMAND ${CMAKE_CURRENT_BINARY_DIR}/gen/gen
+     DEPENDS gen)
+
 include_directories(${PROJECT_NAME} include)
 
 # Idk if this is needed
 source_group("Header Files" FILES ${FOUND_CXX_HEADERS})
 
-# Resource path
-set(FCK_RESOURCE_DIRECTORY_PATH "${CMAKE_CURRENT_SOURCE_DIR}/resources/")
-
 # We can also use file commands for a release non-engine build 
+# TODO: Revise library mode and its implementation later!
 if(FCK_LIBRARY_MODE)
     list(REMOVE_ITEM SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/main/main.cpp")
 
@@ -117,6 +135,10 @@ else()
     add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
 endif()
 
+# Generator
+add_dependencies(${PROJECT_NAME} gen_output)
+# !Generator
+
 # Maybe later
 target_compile_definitions(${PROJECT_NAME} PRIVATE "FCK_RESOURCE_DIRECTORY_PATH= \"${FCK_RESOURCE_DIRECTORY_PATH}\"")
 
@@ -129,5 +151,3 @@ if(WIN32)
     list(APPEND LIBRARIES iphlpapi ws2_32)
 endif()
 target_link_libraries(${PROJECT_NAME} ${LIBRARIES})
-
-add_subdirectory("gen")

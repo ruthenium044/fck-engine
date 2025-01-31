@@ -3,7 +3,6 @@
 #include "core/fck_engine.h"
 #include "core/fck_keyboard.h"
 #include "ecs/fck_ecs.h"
-#include "fck_animator.h"
 #include "game/game_components.h"
 #include "game/game_core.h"
 #include "net/cnt_core.h"
@@ -31,59 +30,28 @@ void game_cammy_setup(fck_ecs *ecs, fck_system_once_info *)
 	}
 }
 
-void game_spritesheet_setup(fck_ecs *ecs, fck_system_once_info *)
-{
-	fck_engine *engine = fck_ecs_unique_view<fck_engine>(ecs);
-
-	fck_spritesheet *spritesheet = fck_ecs_unique_create<fck_spritesheet>(ecs, fck_spritesheet_free);
-	CHECK_ERROR(fck_spritesheet_load(engine->renderer, "cammy.png", spritesheet, false), SDL_GetError());
-}
-
 void game_input_process(fck_ecs *ecs, fck_system_update_info *)
 {
 	fck_keyboard_state *keyboard = fck_ecs_unique_view<fck_keyboard_state>(ecs);
 
-	fck_ecs_apply(ecs, [ecs, keyboard](cnt_authority *, game_control_layout *layout, game_controller *controller, fck_animator *animator) {
+	fck_ecs_apply(ecs, [ecs, keyboard](cnt_authority *, game_control_layout *layout, game_controller *controller) {
 		int input_flag = 0;
-		if (!fck_animator_is_playing(animator))
+
+		if (fck_key_down(keyboard, layout->left))
 		{
-			if (fck_key_down(keyboard, layout->left))
-			{
-				input_flag = input_flag | FCK_INPUT_FLAG_LEFT;
-			}
-			if (fck_key_down(keyboard, layout->right))
-			{
-				input_flag = input_flag | FCK_INPUT_FLAG_RIGHT;
-			}
-			if (fck_key_down(keyboard, layout->down))
-			{
-				input_flag = input_flag | FCK_INPUT_FLAG_DOWN;
-			}
-			if (fck_key_down(keyboard, layout->up))
-			{
-				input_flag = input_flag | FCK_INPUT_FLAG_UP;
-			}
+			input_flag = input_flag | FCK_INPUT_FLAG_LEFT;
 		}
-		if (fck_key_just_down(keyboard, layout->light_punch))
+		if (fck_key_down(keyboard, layout->right))
 		{
-			input_flag = input_flag | FCK_INPUT_FLAG_PUNCH_A;
+			input_flag = input_flag | FCK_INPUT_FLAG_RIGHT;
 		}
-		if (fck_key_just_down(keyboard, layout->hard_punch))
+		if (fck_key_down(keyboard, layout->down))
 		{
-			input_flag = input_flag | FCK_INPUT_FLAG_PUNCH_B;
+			input_flag = input_flag | FCK_INPUT_FLAG_DOWN;
 		}
-		if (fck_key_just_down(keyboard, layout->light_kick))
+		if (fck_key_down(keyboard, layout->up))
 		{
-			input_flag = input_flag | FCK_INPUT_FLAG_KICK_A;
-		}
-		if (fck_key_just_down(keyboard, layout->hard_kick))
-		{
-			input_flag = input_flag | FCK_INPUT_FLAG_KICK_B;
-		}
-		if (fck_key_just_down(keyboard, SDL_SCANCODE_SPACE))
-		{
-			fck_ecs::entity_type cammy = game_cammy_create(ecs);
-			fck_ecs_component_create<cnt_authority>(ecs, cammy);
+			input_flag = input_flag | FCK_INPUT_FLAG_UP;
 		}
 		controller->input = (game_input_flag)input_flag;
 	});

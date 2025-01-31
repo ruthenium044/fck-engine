@@ -68,7 +68,7 @@ void cnt_session_alloc(cnt_session *session, cnt_socket_id socket_capacity, cnt_
 
 #if _WIN32
 	// TODO: Fix this non-sense up.
-	int reference_counter = SDL_AtomicGet(&wsa_reference_counter);
+	int reference_counter = SDL_GetAtomicInt(&wsa_reference_counter);
 	if (reference_counter == 0)
 	{
 		WSADATA wsaData;
@@ -103,7 +103,7 @@ void cnt_session_free(cnt_session *session)
 
 #if _WIN32
 	SDL_AtomicDecRef(&wsa_reference_counter);
-	int reference_counter = SDL_AtomicGet(&wsa_reference_counter);
+	int reference_counter = SDL_GetAtomicInt(&wsa_reference_counter);
 	SDL_assert(reference_counter >= 0);
 
 	if (reference_counter == 0)

@@ -10,13 +10,13 @@
 #include <core/fck_time.h>
 #include <SDL3_image/SDL_image.h>
 
+
 void fck_init(fck *core, uint8_t instance_capacity)
 {
 	SDL_assert(core != nullptr);
 	SDL_zerop(core);
 
 	CHECK_CRITICAL(SDL_InitSubSystem(SDL_INIT_VIDEO | SDL_INIT_EVENTS), SDL_GetError());
-	CHECK_CRITICAL(IMG_Init(IMG_INIT_PNG), SDL_GetError());
 
 	fck_instances_alloc(&core->instances, instance_capacity);
 }
@@ -63,7 +63,7 @@ void fck_quit(fck *core)
 	SDL_assert(core != nullptr);
 
 	fck_instances_free(&core->instances);
-
+	
 	SDL_QuitSubSystem(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
 	SDL_Quit();
 

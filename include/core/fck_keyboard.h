@@ -5,7 +5,7 @@
 
 struct fck_keyboard_state_frame
 {
-	SDL_bool state[SDL_SCANCODE_COUNT];
+	bool state[SDL_SCANCODE_COUNT];
 };
 
 enum
@@ -32,20 +32,20 @@ struct fck_keyboard_state
 inline void fck_keyboard_state_update(fck_keyboard_state *keyboard_state)
 {
 	int num_keys = 0;
-	SDL_bool const *current_state = SDL_GetKeyboardState(&num_keys);
+	bool const *current_state = SDL_GetKeyboardState(&num_keys);
 
 	const size_t size = num_keys * sizeof(*keyboard_state->current.state);
 
-	SDL_memcpy((SDL_bool *)keyboard_state->previous.state, (SDL_bool *)keyboard_state->current.state, size);
+	SDL_memcpy((bool *)keyboard_state->previous.state, (bool *)keyboard_state->current.state, size);
 
-	SDL_memcpy((SDL_bool *)keyboard_state->current.state, (SDL_bool *)current_state, size);
+	SDL_memcpy((bool *)keyboard_state->current.state, (bool *)current_state, size);
 }
 
 inline void fck_keyboard_state_update_empty(fck_keyboard_state *keyboard_state)
 {
 	const size_t size = SDL_SCANCODE_COUNT * sizeof(*keyboard_state->current.state);
 
-	SDL_memcpy((SDL_bool *)keyboard_state->previous.state, (SDL_bool *)keyboard_state->current.state, size);
+	SDL_memcpy((bool *)keyboard_state->previous.state, (bool *)keyboard_state->current.state, size);
 
 	SDL_memset(keyboard_state->current.state, 0, size);
 }

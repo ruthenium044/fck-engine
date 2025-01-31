@@ -111,5 +111,5 @@ bool fck_ui_button(SDL_Renderer *renderer, fck_mouse_state const *mouse, SDL_FRe
 
 bool fck_texture_load(SDL_Renderer *renderer, const char *relative_file_path, SDL_Texture **out_texture);
 
-SDL_bool fck_font_asset_load(SDL_Renderer *renderer, const char *file_name, fck_font_asset *font_asset);
+bool fck_font_asset_load(SDL_Renderer *renderer, const char *file_name, fck_font_asset *font_asset);
 #endif // FCK_UI_INCLUDED

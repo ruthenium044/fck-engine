@@ -75,8 +75,14 @@ FetchContent_MakeAvailable(SDL SDL_image)
 # Maybe disable Vulkan conditionally - is it even needed with SDL_GPU at this point?
 find_package(Vulkan REQUIRED)
 
+if(DEFINED FCK_LIBRARY_MODE AND NOT DEFINED FCK_RESOURCE_DIRECTORY_PATH) 
+	message(FATAL_ERROR "GEN_INPUT_DIRECTORY_PATH is not defined. Needs to define a path for output. (For example: set(FCK_RESOURCE_DIRECTORY_PATH [path]))")
+endif()
+
 # Define resource path
-set(FCK_RESOURCE_DIRECTORY_PATH "${CMAKE_CURRENT_SOURCE_DIR}/resources")
+if(NOT DEFINED FCK_LIBRARY_MODE) 
+    set(FCK_RESOURCE_DIRECTORY_PATH "${CMAKE_CURRENT_SOURCE_DIR}/resources")
+endif()
 
 # LOCAL PROJECT
 file(GLOB_RECURSE FOUND_CXX_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/include/**.h")
@@ -102,9 +108,6 @@ include_directories(${PROJECT_NAME} include)
 
 # Idk if this is needed
 source_group("Header Files" FILES ${FOUND_CXX_HEADERS})
-
-# Resource path
-
 
 # We can also use file commands for a release non-engine build 
 # TODO: Revise library mode and its implementation later!

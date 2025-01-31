@@ -102,7 +102,7 @@ set(GEN_INPUT_DIRECTORY_PATH ${FCK_RESOURCE_DIRECTORY_PATH})
 add_subdirectory(gen)
 
 add_custom_target(gen_output
-     COMMAND ${CMAKE_BINARY_DIR}/gen/gen
+     COMMAND ${CMAKE_CURRENT_BINARY_DIR}/gen/gen
      DEPENDS gen)
 
 include_directories(${PROJECT_NAME} include)

@@ -566,6 +566,10 @@ void fck_ecs_timeline_delta_capture(fck_ecs_timeline *timeline, fck_ecs *ecs, fc
 	SDL_assert(timeline->snapshots != nullptr);
 
 	fck_ecs_snapshot *current = fck_ecs_timeline_capture(timeline, ecs);
+	if (timeline->baseline_seq_ackd == current->seq)
+	{
+		timeline->baseline_seq_ackd = 0;
+	}
 	fck_ecs_snapshot *baseline = fck_ecs_timeline_snapshot_view(timeline, timeline->baseline_seq_ackd);
 
 	fck_ecs_delta *candidate_delta = timeline->deltas + timeline->delta_head;
@@ -589,7 +593,7 @@ void fck_ecs_timeline_delta_capture(fck_ecs_timeline *timeline, fck_ecs *ecs, fc
 	char buffer[4096];
 	size_t compressed =
 		LZ4_compress_default((char *)candidate_delta->serialiser.data, buffer, candidate_delta->serialiser.at, sizeof(buffer));
-	SDL_Log("Bytes send: %d - Snapshot %d to %d", compressed, baseline->seq, current->seq);
+	SDL_Log("[Send]: Snapshot %d to %d", baseline->seq, current->seq);
 }
 
 void fck_ecs_timeline_delta_apply(fck_ecs_timeline *timeline, fck_ecs *ecs, fck_serialiser *external_serialiser)
@@ -618,6 +622,7 @@ void fck_ecs_timeline_delta_apply(fck_ecs_timeline *timeline, fck_ecs *ecs, fck_
 	fck_ecs_snapshot *baseline = fck_ecs_timeline_snapshot_view(timeline, baseline_seq);
 	fck_ecs_snapshot *current = fck_ecs_timeline_capture_empty(timeline, current_seq);
 
+	SDL_Log("[Recv]: Snapshot %d to %d", baseline->seq, current->seq);
 	fck_ecs_snapshot_apply_delta(baseline, &delta, current);
 
 	fck_serialiser *serialiser = &current->serialiser;

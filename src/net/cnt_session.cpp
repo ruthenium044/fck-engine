@@ -1,5 +1,5 @@
-#include "cnt_protocol.h"
 #include "net/cnt_session.h"
+#include "cnt_protocol.h"
 #include "shared/fck_checks.h"
 #include <SDL3/SDL_assert.h>
 #include <SDL3/SDL_atomic.h>
@@ -358,7 +358,7 @@ void cnt_session_tick_ok(cnt_session *session, fck_item<cnt_connection_id, cnt_c
 static bool cnt_session_is_seq_acceptable(uint16_t seq_latest, uint16_t seq_recv)
 {
 	constexpr uint16_t seq_window = 0x8000;
-
+	// Ummm... I need to check this. Diff > 0 on unsigned seems weird
 	uint16_t difference = seq_recv - seq_latest;
 
 	return difference < seq_window && difference > 0;

@@ -2,8 +2,8 @@
 
 #include "core/fck_time.h"
 
-#include "ecs/snapshot/fck_ecs_delta.h"
 #include "ecs/snapshot/fck_ecs_timeline.h"
+#include <cstdlib>
 
 // TODO: Fix up unordered UDP packets problem! :)
 // TODO: correct Quake delta compression and snapshot interpolation, yaay
@@ -85,8 +85,6 @@ void cnt_networking_process_recv_replication_broadcast(fck_ecs *ecs, fck_seriali
 				// Copy all entity data that have the type fck_authority into a buffer
 				fck_ecs::sparse_array<cnt_authority> *entities = fck_ecs_view_single<cnt_authority>(ecs);
 				fck_ecs_serialise_partial(ecs, &temp, &entities->owner);
-
-				fck_ecs_deserialise(ecs, serialiser);
 
 				fck_ecs_timeline_delta_apply(snapshot_timeline, ecs, serialiser);
 
@@ -172,8 +170,6 @@ void cnt_networking_process_send(fck_ecs *ecs)
 		if (cnt_peers_is_hosting(peers))
 		{
 			// Send to client - ALWAYS full state
-			fck_ecs_serialise(ecs, &serialiser);
-
 			fck_ecs_timeline_delta_capture(snapshot_timeline, ecs, &serialiser);
 		}
 		else

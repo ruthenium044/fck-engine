@@ -1,6 +1,6 @@
+#include "core/fck_instance.h"
 #include "core/fck_drop_file.h"
 #include "core/fck_engine.h"
-#include "core/fck_instance.h"
 #include "core/fck_keyboard.h"
 #include "core/fck_mouse.h"
 
@@ -71,7 +71,7 @@ static void engine_setup(fck_ecs *ecs, fck_system_once_info *)
 
 	fck_ecs_timeline *snapshot_timeline = fck_ecs_unique_create<fck_ecs_timeline>(ecs, fck_ecs_timeline_free);
 	// TODO: Maybe fix default capacities
-	fck_ecs_timeline_alloc(snapshot_timeline, 16, 8);
+	fck_ecs_timeline_alloc(snapshot_timeline, 128, 16);
 
 	fck_time *time = fck_ecs_unique_create<fck_time>(ecs);
 

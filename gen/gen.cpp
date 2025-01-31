@@ -6,6 +6,7 @@
 #include <fstream>
 #include <stdio.h>
 #include <unordered_map>
+#include <vector>
 
 void make_enum_pretty(std::string &pretty, size_t offset = 0)
 {
@@ -31,9 +32,10 @@ int main(int argc, char **argv)
 	constexpr const char *path = GEN_OUTPUT_DIRECTORY_PATH "/gen/gen_assets.h";
 
 	printf("%s at: %s \n", "Running code generator...", path);
-	
-	struct element {
-		filesystem::path path; 
+
+	struct element
+	{
+		filesystem::path path;
 		size_t index;
 	};
 
@@ -50,10 +52,10 @@ int main(int argc, char **argv)
 	{
 		if (entry.is_regular_file())
 		{
-			filesystem::path target = entry.path();//relative(entry.path(), GEN_INPUT_DIRECTORY_PATH);
+			filesystem::path target = entry.path(); // relative(entry.path(), GEN_INPUT_DIRECTORY_PATH);
 			printf("Found: %ls\n", target.c_str());
 			output << '\t' << target << ",\n";
-			map[target.extension()].emplace_back(target, index);
+			map[target.extension()].push_back({target, index});
 			index = index + 1;
 		}
 	}
@@ -69,21 +71,23 @@ int main(int argc, char **argv)
 		for (const auto &element : files)
 		{
 			filesystem::path copy = element.path;
-			while(copy.has_extension()) {
+			while (copy.has_extension())
+			{
 				copy = copy.stem();
 			}
 			std::string target = copy.string();
-			
+
 			make_enum_pretty(target);
 			output << '\t' << target << " = " << element.index << ",\n";
 		}
 		output << "};\n\n";
 
 		output << "constexpr gen_assets_" << ext << " gen_assets_" << ext << "_all" << "[] = {\n";
-		for (const auto& element : files)
+		for (const auto &element : files)
 		{
 			filesystem::path copy = element.path;
-			while (copy.has_extension()) {
+			while (copy.has_extension())
+			{
 				copy = copy.stem();
 			}
 			std::string target = copy.string();
@@ -94,7 +98,7 @@ int main(int argc, char **argv)
 		output << "};\n\n";
 	}
 
-	for (auto& [extension, files] : map)
+	for (auto &[extension, files] : map)
 	{
 		std::string ext = extension.string();
 		ext = ext.erase(0, 1);
@@ -103,7 +107,7 @@ int main(int argc, char **argv)
 		output << '\n';
 		output << "{\n";
 		output << "\treturn GEN_FILE_PATHS[(int) value];\n";
-		//for (const auto& element : files)
+		// for (const auto& element : files)
 		//{
 		//	filesystem::path copy = element.path;
 		//	while (copy.has_extension()) {

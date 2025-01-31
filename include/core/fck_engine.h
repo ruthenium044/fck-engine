@@ -6,7 +6,7 @@
 
 struct fck_engine
 {
-	static constexpr float screen_scale = 2.0f;
+	static constexpr float screen_scale = 4.0f;
 
 	SDL_Window *window;
 	SDL_Renderer *renderer;

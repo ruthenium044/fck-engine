@@ -126,12 +126,12 @@ static int make_socket_non_blocking(cnt_socket handle)
 #endif
 }
 
-static SDL_bool would_block(const int err)
+static bool would_block(const int err)
 {
 #ifdef _WIN32
-	return (err == WSAEWOULDBLOCK) ? SDL_TRUE : SDL_FALSE;
+	return (err == WSAEWOULDBLOCK) ? true : false;
 #else
-	return ((err == EWOULDBLOCK) || (err == EAGAIN) || (err == EINPROGRESS)) ? SDL_TRUE : SDL_FALSE;
+	return ((err == EWOULDBLOCK) || (err == EAGAIN) || (err == EINPROGRESS)) ? true : false;
 #endif
 }
 

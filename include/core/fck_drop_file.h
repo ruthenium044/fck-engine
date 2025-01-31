@@ -86,7 +86,7 @@ inline bool fck_drop_file_receive_png(fck_drop_file_context const *context, SDL_
 		SDL_CloseIO(stream);
 		return false;
 	}
-	const char resource_path_base[] = FCK_RESOURCE_DIRECTORY_PATH;
+	const char resource_path_base[] = FCK_RESOURCE_DIRECTORY_PATH"/";
 
 	const char *target_file_path = drop_event->data;
 
@@ -103,7 +103,7 @@ inline bool fck_drop_file_receive_png(fck_drop_file_context const *context, SDL_
 	// just pray
 	SDL_strlcat(path_buffer + added_length, target_file_name, sizeof(path_buffer));
 
-	SDL_bool result = SDL_CopyFile(drop_event->data, path_buffer);
+	bool result = SDL_CopyFile(drop_event->data, path_buffer);
 	CHECK_INFO(result, SDL_GetError());
 
 	SDL_CloseIO(stream);

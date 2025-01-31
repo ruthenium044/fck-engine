@@ -64,8 +64,8 @@ inline void fck_mouse_state_update_empty(fck_mouse_state *mouse_state)
 inline bool fck_button_down(fck_mouse_state const *mouse_state, int button_index, int frame_index = 0)
 {
 	SDL_assert(frame_index < FCK_MOUSE_STATE_FRAME_COUNT && "Cannot go that much back in time - Should we fallback to previous?");
-
-	int button_mask = SDL_BUTTON(button_index);
+	
+	int button_mask = SDL_BUTTON_MASK(button_index);
 	return (mouse_state->frames[frame_index].button_state & button_mask) == button_mask;
 }
 

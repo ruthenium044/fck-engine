@@ -2,7 +2,7 @@
 #define FCK_ENGINE_INCLUDED
 
 #include "fck_time.h"
-#include "fck_ui.h"
+#include "SDL3/SDL_render.h"
 
 struct fck_engine
 {
@@ -10,9 +10,6 @@ struct fck_engine
 
 	SDL_Window *window;
 	SDL_Renderer *renderer;
-
-	// Remove this shit
-	fck_font_asset default_editor_font;
 
 	bool is_running;
 };

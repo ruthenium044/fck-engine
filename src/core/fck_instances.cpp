@@ -2,6 +2,7 @@
 #include "core/fck_engine.h"
 #include "core/fck_instances.h"
 #include "core/fck_keyboard.h"
+#include "core/fck_mouse.h"
 
 void fck_instances_alloc(fck_instances *instances, uint8_t capacity)
 {

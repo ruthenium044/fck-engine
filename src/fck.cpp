@@ -14,6 +14,8 @@
 #include <emscripten.h>
 #endif
 
+void fck_quit(fck* core);
+
 void fck_init(fck *core, uint8_t instance_capacity)
 {
 	SDL_assert(core != nullptr);
@@ -36,6 +38,7 @@ static void fck_tick(fck *core)
 #ifdef __EMSCRIPTEN__
 	if (!fck_instances_any_active(&core->instances))
 	{
+		fck_quit(core);
 		emscripten_cancel_main_loop(); /* this should "kill" the app. */
 	}
 #endif
@@ -70,8 +73,8 @@ int fck_run(fck *core)
 	{
 		fck_tick(core);
 	}
+	fck_quit(core);
 #endif
-
 	// If we get any other return codes or things that require error processing, we should just return it here
 
 	return 0;

@@ -66,10 +66,6 @@ static void engine_setup(fck_ecs *ecs, fck_system_once_info *)
 
 	CHECK_WARNING(SDL_SetRenderVSync(engine->renderer, true), SDL_GetError());
 
-	// TODO: Call it engine font, preferably
-	// TODO: Do not store the font like that, it's a bit cringe
-	fck_font_asset_load(engine->renderer, "special", &engine->default_editor_font);
-
 	fck_keyboard_state *keyboard = fck_ecs_unique_create<fck_keyboard_state>(ecs);
 	fck_mouse_state *mouse = fck_ecs_unique_create<fck_mouse_state>(ecs);
 

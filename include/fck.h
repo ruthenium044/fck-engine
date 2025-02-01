@@ -11,6 +11,5 @@ struct fck
 void fck_init(fck *core, uint8_t instance_capacity);
 void fck_prepare(fck *core, fck_instance_info const *info, fck_instance_setup_function setup_function);
 int fck_run(fck *core);
-void fck_quit(fck *core);
 
 #endif // !FCK_INCLUDED

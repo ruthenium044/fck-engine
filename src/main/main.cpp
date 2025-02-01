@@ -41,6 +41,5 @@ int main(int argc, char **argv)
 	int exit_code = fck_run(&fck);
 	SDL_Log("fck - exit code: %d", exit_code);
 
-	fck_quit(&fck);
 	return exit_code;
 }

@@ -39,10 +39,10 @@ int main(int argc, char **argv)
 		size_t index;
 	};
 
-	unordered_map<filesystem::path, vector<element>> map;
+	unordered_map<string, vector<element>> map;
 
 	ofstream output(path);
-	output << "#ifndef GEN_ASSETS_INCLUDED\n#define GEN_ASSETS_INCLUDED\n";
+	output << "#ifndef GEN_INCLUDED\n#define GEN_INCLUDED\n";
 	output << "// GENERATED\n";
 	output << "constexpr const char* GEN_FILE_PATHS[] = \n";
 	output << "{\n";
@@ -55,17 +55,23 @@ int main(int argc, char **argv)
 			filesystem::path target = entry.path(); // relative(entry.path(), GEN_INPUT_DIRECTORY_PATH);
 			printf("Found: %ls\n", target.c_str());
 			output << '\t' << target << ",\n";
-			map[target.extension()].push_back({target, index});
+
+			string ext = target.extension().string();
+			ext = ext.erase(0, 1);
+			transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return std::tolower(c); });
+
+			map[ext].push_back({target, index});
 			index = index + 1;
 		}
 	}
 	output << "};\n\n";
 
-	for (auto &[extension, files] : map)
+	for (auto &[ext, files] : map)
 	{
-		std::string ext = extension.string();
-		ext = ext.erase(0, 1);
-		output << "enum class gen_assets_" << ext;
+		string copy_ext = ext;
+		transform(copy_ext.begin(), copy_ext.end(), copy_ext.begin(), [](unsigned char c) { return std::toupper(c); });
+		output << "#define GEN_DEFINED_" << copy_ext << '\n';
+		output << "enum class gen_" << ext;
 		output << '\n';
 		output << "{\n";
 		for (const auto &element : files)
@@ -82,7 +88,7 @@ int main(int argc, char **argv)
 		}
 		output << "};\n\n";
 
-		output << "constexpr gen_assets_" << ext << " gen_assets_" << ext << "_all" << "[] = {\n";
+		output << "constexpr gen_" << ext << " gen_" << ext << "_all" << "[] = {\n";
 		for (const auto &element : files)
 		{
 			filesystem::path copy = element.path;
@@ -93,16 +99,14 @@ int main(int argc, char **argv)
 			std::string target = copy.string();
 
 			make_enum_pretty(target);
-			output << '\t' << "gen_assets_" << ext << "::" << target << ",\n";
+			output << '\t' << "gen_" << ext << "::" << target << ",\n";
 		}
 		output << "};\n\n";
 	}
 
-	for (auto &[extension, files] : map)
+	for (auto &[ext, files] : map)
 	{
-		std::string ext = extension.string();
-		ext = ext.erase(0, 1);
-		output << "inline const char* gen_get_path(gen_assets_" << ext;
+		output << "inline const char* gen_get_path(gen_" << ext;
 		output << " value)";
 		output << '\n';
 		output << "{\n";
@@ -121,7 +125,7 @@ int main(int argc, char **argv)
 		//}
 		output << "};\n\n";
 	}
-	output << "#endif // !GEN_ASSETS_INCLUDED";
+	output << "#endif // !GEN_INCLUDED";
 
 	return 0;
 }

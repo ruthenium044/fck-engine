@@ -75,7 +75,7 @@ struct game_debug_colour
 
 struct game_sprite
 {
-	gen_assets_png texture;
+	gen_png texture;
 	SDL_FRect src;
 };
 

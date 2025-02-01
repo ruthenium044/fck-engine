@@ -62,7 +62,7 @@ static void engine_setup(fck_ecs *ecs, fck_system_once_info *)
 	engine->renderer = SDL_CreateRenderer(engine->window, SDL_SOFTWARE_RENDERER);
 	CHECK_CRITICAL(engine->renderer, SDL_GetError());
 
-	fck_assets_load_multi(engine->renderer, gen_assets_png_all, SDL_arraysize(gen_assets_png_all));
+	fck_assets_load_multi(engine->renderer, gen_png_all, SDL_arraysize(gen_png_all));
 
 	CHECK_WARNING(SDL_SetRenderVSync(engine->renderer, true), SDL_GetError());
 

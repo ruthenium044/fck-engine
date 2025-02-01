@@ -5,9 +5,11 @@
 
 // TODO: Size of FILE_PATHS is an implementation detail - Get rid of it somehow
 static void *resources[SDL_arraysize(GEN_FILE_PATHS)];
+
+#ifdef GEN_DEFINED_PNG
 static SDL_Texture *null_texture;
 
-void fck_assets_load_single(SDL_Renderer *renderer, gen_assets_png png)
+void fck_assets_load_single(SDL_Renderer *renderer, gen_png png)
 {
 	SDL_assert(renderer != nullptr);
 
@@ -17,7 +19,7 @@ void fck_assets_load_single(SDL_Renderer *renderer, gen_assets_png png)
 	resources[(size_t)png] = texture;
 }
 
-void fck_assets_load_multi(SDL_Renderer *renderer, gen_assets_png const *png, size_t count)
+void fck_assets_load_multi(SDL_Renderer *renderer, gen_png const *png, size_t count)
 {
 	for (size_t index = 0; index < count; index++)
 	{
@@ -25,7 +27,8 @@ void fck_assets_load_multi(SDL_Renderer *renderer, gen_assets_png const *png, si
 	}
 }
 
-SDL_Texture *fck_assets_get(gen_assets_png png)
+SDL_Texture *fck_assets_get(gen_png png)
 {
 	return (SDL_Texture *)resources[(size_t)png];
 }
+#endif // GEN_DEFINED_png

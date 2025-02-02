@@ -59,6 +59,7 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
     GIT_TAG release-3.2.0
     GIT_PROGRESS TRUE
+    GIT_SHALLOW TRUE
 )
 
 # Fetch SDL3_image
@@ -67,6 +68,7 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/libsdl-org/SDL_image.git
     GIT_TAG prerelease-3.1.1
     GIT_PROGRESS TRUE
+    GIT_SHALLOW TRUE
 )
 
 # SDL TTF
@@ -75,6 +77,7 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/libsdl-org/SDL_ttf
     GIT_TAG preview-3.1.0
     GIT_PROGRESS TRUE
+    GIT_SHALLOW TRUE
 )
 
 

@@ -90,6 +90,9 @@ void fck_instance_alloc(fck_instance *instance, fck_instance_info const *info, f
 	SDL_assert(instance != nullptr);
 	SDL_assert(instance_setup != nullptr);
 
+	// Hardcoded to 128
+	fck_queue_alloc(&instance->event_queue, 128);
+
 	fck_ecs_alloc_info ecs_alloc_info = {256, 128, 64};
 	fck_ecs_alloc(&instance->ecs, &ecs_alloc_info);
 
@@ -113,6 +116,8 @@ void fck_instance_alloc(fck_instance *instance, fck_instance_info const *info, f
 void fck_instance_free(fck_instance *instance)
 {
 	SDL_assert(instance != nullptr);
+
+	fck_queue_free(&instance->event_queue);
 
 	// We ignore free-ing memory for now
 	// Since the ECS exists in this scope and we pass it along, we are pretty much

@@ -3,6 +3,8 @@
 
 #include "ecs/fck_ecs.h"
 #include <SDL3/SDL_stdinc.h>
+#include "ecs/fck_queue.h"
+#include <SDL3/SDL_events.h>
 
 typedef void (*fck_instance_setup_function)(fck_ecs *);
 
@@ -23,6 +25,8 @@ struct fck_instance
 	// I hope this shit will never move
 	// Technically it should be View<Engine>(ecs);
 	struct fck_engine *engine;
+
+	fck_queue<uint16_t, SDL_Event> event_queue;
 };
 
 void fck_instance_alloc(fck_instance *instance, fck_instance_info const *info, fck_instance_setup_function instance_setup);

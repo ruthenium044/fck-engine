@@ -69,8 +69,17 @@ FetchContent_Declare(
     GIT_PROGRESS TRUE
 )
 
+# SDL TTF
+FetchContent_Declare(
+    SDL_ttf
+    GIT_REPOSITORY https://github.com/libsdl-org/SDL_ttf
+    GIT_TAG preview-3.1.0
+    GIT_PROGRESS TRUE
+)
+
+
 # For each SDL module, we should set on a GIT_TAG so we do not have funny renames and other issues!
-FetchContent_MakeAvailable(SDL SDL_image)
+FetchContent_MakeAvailable(SDL SDL_image SDL_ttf)
 
 # Maybe disable Vulkan conditionally - is it even needed with SDL_GPU at this point?
 find_package(Vulkan REQUIRED)
@@ -142,7 +151,7 @@ add_dependencies(${PROJECT_NAME} gen_output)
 # Maybe later
 target_compile_definitions(${PROJECT_NAME} PRIVATE "FCK_RESOURCE_DIRECTORY_PATH= \"${FCK_RESOURCE_DIRECTORY_PATH}\"")
 
-list(APPEND LIBRARIES SDL3::SDL3 SDL3_image::SDL3_image)
+list(APPEND LIBRARIES SDL3::SDL3 SDL3_image::SDL3_image SDL3_ttf::SDL3_ttf)
 list(APPEND LIBRARIES Vulkan::Vulkan)
 
 add_dependencies(${PROJECT_NAME} ${LIBRARIES})

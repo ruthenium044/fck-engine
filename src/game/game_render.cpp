@@ -1,11 +1,15 @@
 #include "game/game_systems.h"
 
+#include <SDL3/SDL_render.h>
+
 #include "core/fck_engine.h"
 #include "core/fck_time.h"
 #include "ecs/fck_ecs.h"
 #include "game/game_components.h"
 
 #include "assets/fck_assets.h"
+
+#include "fck_ui.h"
 
 void game_render_process(fck_ecs *ecs, fck_system_update_info *)
 {
@@ -38,5 +42,7 @@ void game_render_process(fck_ecs *ecs, fck_system_update_info *)
 		SDL_RenderRect(engine->renderer, &dst);
 	});
 
+	fck_ui_render(ecs, true);
+	
 	SDL_RenderPresent(engine->renderer);
 }

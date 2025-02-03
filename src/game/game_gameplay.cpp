@@ -7,6 +7,8 @@
 #include "game/game_core.h"
 #include "net/cnt_core.h"
 
+#include "fck_ui.h"
+
 void game_cammy_setup(fck_ecs *ecs, fck_system_once_info *)
 {
 	fck_ecs::entity_type cammy = game_cammy_create(ecs);
@@ -56,16 +58,6 @@ void game_input_process(fck_ecs *ecs, fck_system_update_info *)
 		controller->input = (game_input_flag)input_flag;
 	});
 }
-
-#define NK_INCLUDE_FIXED_TYPES
-#define NK_INCLUDE_STANDARD_IO
-#define NK_INCLUDE_STANDARD_VARARGS
-#define NK_INCLUDE_DEFAULT_ALLOCATOR
-#define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
-#define NK_INCLUDE_FONT_BAKING
-#define NK_INCLUDE_DEFAULT_FONT
-#include "fck_ui.h"
-#include "nuklear.h"
 
 void game_gameplay_process(fck_ecs *ecs, fck_system_update_info *)
 {

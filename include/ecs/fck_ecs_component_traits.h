@@ -23,7 +23,7 @@ struct fck_ecs_free_trait : fck_false_type
 };
 
 template <typename value_type>
-struct fck_ecs_free_trait<value_type, fck_void<decltype(fck_spritesheet_free((value_type *)nullptr))>> : fck_true_type
+struct fck_ecs_free_trait<value_type, fck_void<decltype(fck_free((value_type *)nullptr))>> : fck_true_type
 {
 	template <typename target_type>
 	static constexpr fck_ecs_component_free<target_type> fetch()

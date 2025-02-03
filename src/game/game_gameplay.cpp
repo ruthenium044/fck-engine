@@ -11,7 +11,7 @@
 
 void game_cammy_setup(fck_ecs *ecs, fck_system_once_info *)
 {
-	fck_ecs::entity_type cammy = game_cammy_create(ecs);
+	fck_ecs::entity_type cammy = game_controllable_create(ecs);
 
 	// These are not getting replicated
 	game_control_layout *layout = fck_ecs_component_create<game_control_layout>(ecs, cammy);
@@ -67,18 +67,37 @@ void game_gameplay_process(fck_ecs *ecs, fck_system_update_info *)
 	// Movement
 	fck_ecs_apply(ecs, [](game_controller *controller, game_position *position) {
 		game_input_flag input_flag = controller->input;
-		if (input_flag < FCK_INPUT_FLAG_MOVEMENT_END)
+
 		{
-			float direction = 0.0f;
-			if (input_flag == FCK_INPUT_FLAG_RIGHT)
+			float direction_x = 0.0f;
+			if ((input_flag & FCK_INPUT_FLAG_RIGHT) == FCK_INPUT_FLAG_RIGHT)
 			{
-				direction = direction + fck_engine::screen_scale * 2.0f;
+				direction_x = direction_x + 1.0f;
 			}
-			if (input_flag == FCK_INPUT_FLAG_LEFT)
+			if ((input_flag & FCK_INPUT_FLAG_LEFT) == FCK_INPUT_FLAG_LEFT)
 			{
-				direction = direction - fck_engine::screen_scale * 2.0f;
+				direction_x = direction_x - 1.0f;
 			}
-			position->x = position->x + direction;
+
+			float direction_y = 0.0f;
+			if ((input_flag & FCK_INPUT_FLAG_DOWN) == FCK_INPUT_FLAG_DOWN)
+			{
+				direction_y = direction_y + 1.0f;
+			}
+			if ((input_flag & FCK_INPUT_FLAG_UP) == FCK_INPUT_FLAG_UP)
+			{
+				direction_y = direction_y - 1.0f;
+			}
+			float length = (direction_x * direction_x) + (direction_y * direction_y);
+			if(length > 0.0f) {
+				length = SDL_sqrtf(length);
+				direction_x = direction_x / length;
+				direction_y = direction_y / length;
+			}
+
+			float speed = fck_engine::screen_scale * 2.0f;
+			position->x = position->x + (direction_x * speed);
+			position->y = position->y + (direction_y * speed);
 		}
 	});
 }

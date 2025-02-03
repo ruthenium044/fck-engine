@@ -15,7 +15,7 @@ void networking_on_connect_as_host(cnt_on_connect_as_host_params const *in)
 	cnt_session *session = fck_ecs_unique_view<cnt_session>(ecs);
 
 	// TODO: Remove this! Inject this on_server
-	fck_ecs::entity_type avatar = game_cammy_create(ecs);
+	fck_ecs::entity_type avatar = game_controllable_create(ecs);
 
 	uint8_t buffer[32];
 	fck_serialiser serialiser;

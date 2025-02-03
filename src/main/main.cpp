@@ -14,7 +14,7 @@ void game_instance_setup(fck_ecs *ecs)
 	// TODO: sprite_sheet_setup is loading: Cammy. That is not so muy bien
 	fck_ecs_system_add(ecs, fck_ui_setup);
 	fck_ecs_system_add(ecs, game_networking_setup);
-	fck_ecs_system_add(ecs, game_cammy_setup);
+	fck_ecs_system_add(ecs, game_authority_controllable_create);
 
 	// Good old fasioned update systems
 	fck_ecs_system_add(ecs, game_input_process);

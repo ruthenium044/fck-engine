@@ -9,7 +9,7 @@
 
 #include "fck_ui.h"
 
-void game_cammy_setup(fck_ecs *ecs, fck_system_once_info *)
+void game_authority_controllable_create(fck_ecs *ecs, fck_system_once_info *)
 {
 	fck_ecs::entity_type cammy = game_controllable_create(ecs);
 

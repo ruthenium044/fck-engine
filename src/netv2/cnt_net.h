@@ -4,22 +4,20 @@
 #include <SDL3/SDL_assert.h>
 #include <SDL3/SDL_stdinc.h>
 
-#define CNT_NULL_CHECK(var) SDL_assert((var) && #var " is null pointer")
-
-struct cnt_client_on_host_to_dense_index
+struct cnt_client_on_host_sparse_index
 {
 	uint32_t index;
 };
 
-struct cnt_client_on_host_index
+struct cnt_client_on_host_dense_index
 {
 	uint32_t index;
 };
 
 struct cnt_client_on_host_mapping
 {
-	cnt_client_on_host_to_dense_index *sparse;
-	cnt_client_on_host_index *dense;
+	cnt_client_on_host_sparse_index *sparse;
+	cnt_client_on_host_dense_index *dense;
 
 	uint32_t control_bit_mask;
 	uint32_t free_head;
@@ -28,12 +26,30 @@ struct cnt_client_on_host_mapping
 	uint32_t count;
 };
 
+struct cnt_message_64_bytes
+{
+	cnt_ip ip;
+
+	uint8_t payload_count;
+	uint8_t payload[64];
+};
+
+// It is a queue, but fuck it, we want to send the newest messages AS FAST AS POSSIBLE
+// We might drop messages anyway
+struct cnt_message_64_bytes_queue
+{
+	cnt_message_64_bytes *messages;
+
+	uint32_t count;
+	uint32_t capacity;
+};
+
 struct cnt_sock
 {
 	uint8_t handle[8];
 };
 
-struct cnt_addr
+struct cnt_ip
 {
 	uint8_t address[32];
 };
@@ -57,9 +73,9 @@ struct cnt_compression
 	cnt_stream stream;
 };
 
-struct cnt_addr_container
+struct cnt_ip_container
 {
-	cnt_addr *addresses;
+	cnt_ip *addresses;
 
 	uint32_t capacity;
 	uint32_t count;
@@ -94,7 +110,7 @@ union cnt_protocol_client {
 	// Client explicitly states its id for the server
 	// The server reads id, compares secret, maybe compares ip
 	// They work together to make resource resolution faster
-	cnt_client_on_host_index id;
+	cnt_client_on_host_sparse_index id;
 
 	uint8_t extra_payload_count;
 	uint8_t extra_payload[16];
@@ -113,9 +129,7 @@ union cnt_protocol_host {
 struct cnt_connection
 {
 	cnt_sock src;
-	cnt_addr dst;
-
-	int error;
+	cnt_ip dst;
 };
 
 enum cnt_secret_state : uint8_t
@@ -136,19 +150,23 @@ struct cnt_secret
 struct cnt_star
 {
 	cnt_sock sock;
-	cnt_addr_container destinations;
+	cnt_ip_container destinations;
 };
 
 struct cnt_client
 {
+	// should be: cnt_client_on_host_to_dense_index
+	// since it is pointing to data
+	cnt_client_on_host_sparse_index id;
 	cnt_connection connection;
 	cnt_secret secret;
 	cnt_protocol_state_client state;
 };
 
-struct cnt_client_state_on_host
+struct cnt_client_on_host
 {
-	cnt_client_on_host_index id;
+	// should be: cnt_client_on_host_to_dense_index
+	cnt_client_on_host_sparse_index id;
 	cnt_secret secret;
 	cnt_protocol_state_host protocol;
 };
@@ -156,22 +174,26 @@ struct cnt_client_state_on_host
 struct cnt_host
 {
 	cnt_client_on_host_mapping mapping;
-
-	cnt_star star;
-
-	cnt_client_state_on_host *client_states;
+	cnt_ip *ip_lookup;
+	cnt_client_on_host *client_states;
 };
 
 // Client on host mapping - yeehaw
-void cnt_client_on_host_mapping_open(cnt_client_on_host_mapping* mapping, uint32_t capacity);
-void cnt_client_on_host_mapping_close(cnt_client_on_host_mapping* mapping);
+void cnt_client_on_host_mapping_open(cnt_client_on_host_mapping *mapping, uint32_t capacity);
+void cnt_client_on_host_mapping_close(cnt_client_on_host_mapping *mapping);
 
 // Address
-cnt_addr *cnt_addr_create(cnt_addr *address, const char *ip, uint16_t port);
+cnt_ip *cnt_ip_create(cnt_ip *address, const char *ip, uint16_t port);
 
 // Socket
 cnt_sock *cnt_sock_open(cnt_sock *sock, const char *ip, uint16_t port);
 void cnt_sock_close(cnt_sock *sock);
+
+// Messages
+cnt_message_64_bytes_queue *cnt_message_queue_64_bytes_open(cnt_message_64_bytes_queue *queue, uint32_t capacity);
+cnt_message_64_bytes *cnt_message_queue_64_bytes_push(cnt_message_64_bytes_queue *queue, cnt_message_64_bytes *message);
+void cnt_message_queue_64_bytes_clear(cnt_message_64_bytes_queue *queue);
+void cnt_message_queue_64_bytes_close(cnt_message_64_bytes_queue *queue);
 
 // Stream
 cnt_stream *cnt_stream_create(cnt_stream *stream, uint8_t *data, int count);
@@ -191,7 +213,7 @@ cnt_stream *cnt_decompress(cnt_compression *compression, cnt_stream *stream);
 void cnt_compression_close(cnt_compression *compression);
 
 // Connection
-cnt_connection *cnt_connection_open(cnt_connection *connection, cnt_sock *src, cnt_addr *dst);
+cnt_connection *cnt_connection_open(cnt_connection *connection, cnt_sock *src, cnt_ip *dst);
 cnt_connection *cnt_connection_send(cnt_connection *connection, cnt_stream *stream);
 cnt_connection *cnt_connection_recv(cnt_connection *connection, cnt_stream *stream);
 void cnt_connection_close(cnt_connection *connection);
@@ -199,20 +221,20 @@ void cnt_connection_close(cnt_connection *connection);
 // Star
 cnt_star *cnt_star_open(cnt_star *star, cnt_sock *src, uint32_t max_connections);
 cnt_star *cnt_star_send(cnt_star *star, cnt_stream *stream);
-cnt_star *cnt_star_recv(cnt_star *star, cnt_addr *address, cnt_stream *stream);
-cnt_star *cnt_star_add(cnt_star *star, cnt_addr *addr);
-cnt_addr *cnt_star_remove(cnt_star *star, cnt_addr *addr);
+cnt_ip *cnt_star_recv(cnt_star *star, cnt_ip *address, cnt_stream *stream);
+cnt_star *cnt_star_add(cnt_star *star, cnt_ip *addr);
+cnt_ip *cnt_star_remove(cnt_star *star, cnt_ip *addr);
 void cnt_star_close(cnt_star *star);
 
 // Host
 cnt_host *cnt_host_open(cnt_host *host, cnt_sock *sock, uint32_t max_connections);
 cnt_host *cnt_host_update(cnt_host *host);
-cnt_addr *cnt_host_kick(cnt_host *host, cnt_addr *addr);
+cnt_ip *cnt_host_kick(cnt_host *host, cnt_ip *addr);
 void cnt_host_close(cnt_host *host);
 
 // Client
 cnt_client *cnt_client_open(cnt_client *client, cnt_connection *connection);
-cnt_protocol_client *cnt_client_update(cnt_client *client, cnt_protocol_client *procotol);
+cnt_client *cnt_client_send(cnt_client *client, cnt_stream *stream);
 void cnt_client_close(cnt_client *client);
 
 #endif // !CNT_NET_INCLUDED

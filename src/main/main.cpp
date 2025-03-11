@@ -7,6 +7,8 @@
 
 #include "fck_ui.h"
 
+#include <SDL3/SDL_thread.h>
+#include "../netv2/cnt_net.h"
 
 void game_instance_setup(fck_ecs *ecs)
 {
@@ -25,6 +27,16 @@ void game_instance_setup(fck_ecs *ecs)
 
 int main(int argc, char **argv)
 {
+	cnt_start_up();
+	SDL_Thread* thread_server = SDL_CreateThread(example_server, "", nullptr);
+	SDL_Thread* thread_client = SDL_CreateThread(example_client, "", nullptr);
+
+	int status_server, status_client;
+	SDL_WaitThread(thread_server, &status_server);
+	SDL_WaitThread(thread_client, &status_client);
+	cnt_tead_down();
+
+	return 0;
 	fck fck;
 	fck_init(&fck, 2);
 	{

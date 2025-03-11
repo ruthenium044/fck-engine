@@ -122,6 +122,8 @@ include_directories(${PROJECT_NAME} include)
 # Idk if this is needed
 source_group("Header Files" FILES ${FOUND_CXX_HEADERS})
 
+# target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_17)
+
 # We can also use file commands for a release non-engine build 
 # TODO: Revise library mode and its implementation later!
 if(FCK_LIBRARY_MODE)

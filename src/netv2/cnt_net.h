@@ -4,44 +4,34 @@
 #include <SDL3/SDL_assert.h>
 #include <SDL3/SDL_stdinc.h>
 
-struct cnt_client_on_host_sparse_index
+// We use uint32s for count and capacity, which gives us an unrealistic upper bound
+// plus we do not need to deal with u64 vs u32 which makes the implementation easier
+// For streams we use int. I accept it for since lz4 demands it.
+
+struct cnt_sparse_index
 {
 	uint32_t index;
 };
 
-struct cnt_client_on_host_dense_index
+struct cnt_dense_index
 {
 	uint32_t index;
 };
 
-struct cnt_client_on_host_mapping
+struct cnt_sparse_list
 {
-	cnt_client_on_host_sparse_index *sparse;
-	cnt_client_on_host_dense_index *dense;
+	// This shit is still kind of confusing
+	// sparse elements POINT to a dense array element
+	// dense elements POINT to a sparse array element
+	// TODO: Introduce something like a cnt_access_index for the user since sparse index is doing two jobs now
+	cnt_sparse_index *sparse;
+	cnt_dense_index *dense;
 
 	uint32_t control_bit_mask;
 	uint32_t free_head;
 
 	uint32_t capacity;
 	uint32_t count;
-};
-
-struct cnt_message_64_bytes
-{
-	cnt_ip ip;
-
-	uint8_t payload_count;
-	uint8_t payload[64];
-};
-
-// It is a queue, but fuck it, we want to send the newest messages AS FAST AS POSSIBLE
-// We might drop messages anyway
-struct cnt_message_64_bytes_queue
-{
-	cnt_message_64_bytes *messages;
-
-	uint32_t count;
-	uint32_t capacity;
 };
 
 struct cnt_sock
@@ -52,6 +42,24 @@ struct cnt_sock
 struct cnt_ip
 {
 	uint8_t address[32];
+};
+
+struct cnt_message_64_bytes
+{
+	cnt_ip ip;
+
+	uint8_t payload_count;
+	uint8_t payload[64];
+};
+
+// It is actually a stack, but fuck it, we want to send the newest messages AS FAST AS POSSIBLE
+// We might drop messages anyway
+struct cnt_message_64_bytes_queue
+{
+	cnt_message_64_bytes *messages;
+
+	uint32_t count;
+	uint32_t capacity;
 };
 
 struct cnt_stream
@@ -83,40 +91,42 @@ struct cnt_ip_container
 
 enum cnt_protocol_state_common : uint8_t
 {
-	CNT_PROTOCOL_COMMON_STATE_NONE = 0,
-	CNT_PROTOCOL_COMMON_STATE_OK = 6,
+	// At NO time the protocol shall be 0, this flag only exists for debugging
+	CNT_PROTOCOL_STATE_COMMON_NONE = 0,
+	CNT_PROTOCOL_STATE_COMMON_OK = 4,
 };
 
 enum cnt_protocol_state_client : uint8_t
 {
-	CNT_PROTOCOL_STATE_CLIENT_NONE = CNT_PROTOCOL_COMMON_STATE_NONE,
+	CNT_PROTOCOL_STATE_CLIENT_NONE = CNT_PROTOCOL_STATE_COMMON_NONE,
 	CNT_PROTOCOL_STATE_CLIENT_REQUEST = 1,
 	CNT_PROTOCOL_STATE_CLIENT_ANSWER = 3,
-	CNT_PROTOCOL_STATE_CLIENT_OK = CNT_PROTOCOL_COMMON_STATE_OK,
+	CNT_PROTOCOL_STATE_CLIENT_OK = CNT_PROTOCOL_STATE_COMMON_OK,
 };
 
 enum cnt_protocol_state_host : uint8_t
 {
-	CNT_PROTOCOL_STATE_HOST_NONE = CNT_PROTOCOL_COMMON_STATE_NONE,
+	CNT_PROTOCOL_STATE_HOST_NONE = CNT_PROTOCOL_STATE_COMMON_NONE,
 	CNT_PROTOCOL_STATE_HOST_CHALLENGE = 2,
-	CNT_PROTOCOL_STATE_HOST_RESOLUTION_REJECT = 4, // Maybe rename to kicked
-	CNT_PROTOCOL_STATE_HOST_OK = CNT_PROTOCOL_COMMON_STATE_OK,
+	CNT_PROTOCOL_STATE_HOST_OK = CNT_PROTOCOL_STATE_COMMON_OK,
+	CNT_PROTOCOL_STATE_HOST_RESOLUTION_REJECT = 5, // Everything bigger than 4 is out of the handshake - in other words, rejected
+	CNT_PROTOCOL_STATE_HOST_KICKED = 6
 };
 
-union cnt_protocol_client {
+struct cnt_protocol_client {
 	uint32_t prefix;
 	cnt_protocol_state_client state;
 
 	// Client explicitly states its id for the server
 	// The server reads id, compares secret, maybe compares ip
 	// They work together to make resource resolution faster
-	cnt_client_on_host_sparse_index id;
+	cnt_sparse_index id;
 
 	uint8_t extra_payload_count;
 	uint8_t extra_payload[16];
 };
 
-union cnt_protocol_host {
+struct cnt_protocol_host {
 	uint32_t prefix;
 	cnt_protocol_state_host state;
 
@@ -155,32 +165,48 @@ struct cnt_star
 
 struct cnt_client
 {
-	// should be: cnt_client_on_host_to_dense_index
-	// since it is pointing to data
-	cnt_client_on_host_sparse_index id;
+	cnt_sparse_index id_on_host;
 	cnt_connection connection;
 	cnt_secret secret;
-	cnt_protocol_state_client state;
+
+	cnt_protocol_state_client protocol;
+	cnt_protocol_state_host host_protocol;
+
+	uint8_t attempts;
+	// Disconnect
+	// uint64_t timestamp;
 };
 
 struct cnt_client_on_host
 {
-	// should be: cnt_client_on_host_to_dense_index
-	cnt_client_on_host_sparse_index id;
+	cnt_sparse_index id;
 	cnt_secret secret;
+
 	cnt_protocol_state_host protocol;
+	uint8_t attempts;
+	// Disconnect
+	// uint64_t timestamp;
+};
+
+struct cnt_client_on_host_kicked
+{
+	uint64_t timestamp;
+	cnt_sparse_index id;
 };
 
 struct cnt_host
 {
-	cnt_client_on_host_mapping mapping;
+	uint64_t recv_count;
+	uint64_t send_count;
+
+	cnt_sparse_list mapping;
 	cnt_ip *ip_lookup;
 	cnt_client_on_host *client_states;
 };
 
 // Client on host mapping - yeehaw
-void cnt_client_on_host_mapping_open(cnt_client_on_host_mapping *mapping, uint32_t capacity);
-void cnt_client_on_host_mapping_close(cnt_client_on_host_mapping *mapping);
+void cnt_sparse_list_open(cnt_sparse_list *mapping, uint32_t capacity);
+void cnt_sparse_list_close(cnt_sparse_list *mapping);
 
 // Address
 cnt_ip *cnt_ip_create(cnt_ip *address, const char *ip, uint16_t port);
@@ -202,8 +228,9 @@ void cnt_stream_close(cnt_stream *stream);
 
 // Transport - Maybe call it payload?
 cnt_transport *cnt_transport_open(cnt_transport *transport, int capacity);
-cnt_transport *cnt_transport_write(cnt_transport *transport, cnt_stream *stream);
-cnt_transport *cnt_transport_read(cnt_transport *transport, cnt_stream *stream);
+// Maybe interact with the transport.stream layer directly? 
+//cnt_transport *cnt_transport_write(cnt_transport *transport, cnt_stream *stream);
+//cnt_transport *cnt_transport_read(cnt_transport *transport, cnt_stream *stream);
 void cnt_transport_close(cnt_transport *transport);
 
 // Compression
@@ -237,4 +264,11 @@ cnt_client *cnt_client_open(cnt_client *client, cnt_connection *connection);
 cnt_client *cnt_client_send(cnt_client *client, cnt_stream *stream);
 void cnt_client_close(cnt_client *client);
 
+
+int example_client(void*);
+int example_server(void*);
+
+// Fix these
+void cnt_start_up();
+void cnt_tead_down();
 #endif // !CNT_NET_INCLUDED

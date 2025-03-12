@@ -113,7 +113,8 @@ enum cnt_protocol_state_host : uint8_t
 	CNT_PROTOCOL_STATE_HOST_KICKED = 6
 };
 
-struct cnt_protocol_client {
+struct cnt_protocol_client
+{
 	uint32_t prefix;
 	cnt_protocol_state_client state;
 
@@ -126,7 +127,8 @@ struct cnt_protocol_client {
 	uint8_t extra_payload[16];
 };
 
-struct cnt_protocol_host {
+struct cnt_protocol_host
+{
 	uint32_t prefix;
 	cnt_protocol_state_host state;
 
@@ -217,7 +219,7 @@ void cnt_sock_close(cnt_sock *sock);
 
 // Messages
 cnt_message_64_bytes_queue *cnt_message_queue_64_bytes_open(cnt_message_64_bytes_queue *queue, uint32_t capacity);
-cnt_message_64_bytes *cnt_message_queue_64_bytes_push(cnt_message_64_bytes_queue *queue, cnt_message_64_bytes *message);
+cnt_message_64_bytes *cnt_message_queue_64_bytes_push(cnt_message_64_bytes_queue *queue, cnt_message_64_bytes const *message);
 void cnt_message_queue_64_bytes_clear(cnt_message_64_bytes_queue *queue);
 void cnt_message_queue_64_bytes_close(cnt_message_64_bytes_queue *queue);
 
@@ -228,9 +230,9 @@ void cnt_stream_close(cnt_stream *stream);
 
 // Transport - Maybe call it payload?
 cnt_transport *cnt_transport_open(cnt_transport *transport, int capacity);
-// Maybe interact with the transport.stream layer directly? 
-//cnt_transport *cnt_transport_write(cnt_transport *transport, cnt_stream *stream);
-//cnt_transport *cnt_transport_read(cnt_transport *transport, cnt_stream *stream);
+// Maybe interact with the transport.stream layer directly?
+// cnt_transport *cnt_transport_write(cnt_transport *transport, cnt_stream *stream);
+// cnt_transport *cnt_transport_read(cnt_transport *transport, cnt_stream *stream);
 void cnt_transport_close(cnt_transport *transport);
 
 // Compression
@@ -264,9 +266,8 @@ cnt_client *cnt_client_open(cnt_client *client, cnt_connection *connection);
 cnt_client *cnt_client_send(cnt_client *client, cnt_stream *stream);
 void cnt_client_close(cnt_client *client);
 
-
-int example_client(void*);
-int example_server(void*);
+int example_client(void *);
+int example_server(void *);
 
 // Fix these
 void cnt_start_up();

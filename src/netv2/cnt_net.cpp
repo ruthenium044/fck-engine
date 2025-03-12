@@ -1,4 +1,4 @@
-#include "cnt_net.h"
+#include "netv2/cnt_net.h"
 
 #include <SDL3/SDL_atomic.h>
 #include <SDL3/SDL_stdinc.h>
@@ -7,6 +7,57 @@
 #include <errno.h>
 #include <string.h>
 
+#include "lz4.h"
+#include "shared/fck_checks.h"
+
+// Windows
+#ifdef _WIN32
+#include <ws2tcpip.h>
+struct cnt_sock_internal
+{
+	SOCKET handle;
+};
+struct cnt_ip_internal
+{
+	union {
+		ADDRESS_FAMILY family; // Address family.
+		sockaddr addr;         // base
+		sockaddr_in in;        // ipv4
+		sockaddr_in6 in6;      // ipv6
+	};
+	uint8_t addrlen; // Fucking asshole Win32 doesn't have length
+};
+#else
+#include <arpa/inet.h>
+#include <fcntl.h>
+#include <netdb.h>
+#include <sys/socket.h>
+#include <unistd.h>
+struct cnt_sock_internal
+{
+	int handle;
+};
+struct cnt_ip_internal // Not tested on Linux, only MacOS
+{
+	union {
+		struct
+		{
+			uint8_t addrlen;    // Addrlen is part of BSD header info
+			sa_family_t family; // Address family.
+		};
+		sockaddr addr;    // base
+		sockaddr_in in;   // ipv4
+		sockaddr_in6 in6; // ipv6
+	};
+};
+#endif
+
+#if _WIN32
+#include <winsock2.h>
+static SDL_AtomicInt wsa_reference_counter = {0};
+#endif // _WIN32
+
+// TODO: Use it consistently
 #define CNT_NULL_CHECK(var) SDL_assert((var) && #var " is null pointer")
 
 #define CNT_FOR(type, var_name, count) for (type var_name = 0; (var_name) < (count); (var_name)++)
@@ -199,7 +250,7 @@ bool cnt_sparse_list_remove(cnt_sparse_list *mapping, cnt_sparse_index *index)
 	// Update free list - Add the removed index (slot) to the free list by invalidating it
 	// The index itself becomes the new head of the free list
 	{
-		cnt_sparse_index* sparse_index = &mapping->sparse[index->index];
+		cnt_sparse_index *sparse_index = &mapping->sparse[index->index];
 		cnt_sparse_list_make_invalid(mapping, index);
 		sparse_index->index = mapping->free_head;
 		mapping->free_head = index->index;
@@ -207,53 +258,7 @@ bool cnt_sparse_list_remove(cnt_sparse_list *mapping, cnt_sparse_index *index)
 	return true;
 }
 
-// Windows
-#ifdef _WIN32
-#include <ws2tcpip.h>
-struct cnt_sock_internal
-{
-	SOCKET handle;
-};
-struct cnt_ip_internal
-{
-	union {
-		ADDRESS_FAMILY family; // Address family.
-		sockaddr addr;         // base
-		sockaddr_in in;        // ipv4
-		sockaddr_in6 in6;      // ipv6
-	};
-	uint8_t addrlen; // Fucking asshole Win32 doesn't have length
-};
-#else
-#include <arpa/inet.h>
-#include <fcntl.h>
-#include <netdb.h>
-#include <sys/socket.h>
-#include <unistd.h>
-struct cnt_sock_internal
-{
-	int handle;
-};
-struct cnt_ip_internal // Not tested on Linux, only MacOS
-{
-	union {
-		struct
-		{
-			uint8_t addrlen;    // Addrlen is part of BSD header info
-			sa_family_t family; // Address family.
-		};
-		sockaddr addr;    // base
-		sockaddr_in in;   // ipv4
-		sockaddr_in6 in6; // ipv6
-	};
-};
-#endif
-
-#if _WIN32
-#include <winsock2.h>
-static SDL_AtomicInt wsa_reference_counter = {0};
-#endif // _WIN32
-
+// This is shit. Get rid of it.
 void cnt_start_up()
 {
 #if _WIN32
@@ -281,10 +286,6 @@ void cnt_tead_down()
 	}
 #endif // _WIN32
 }
-
-#include "shared/fck_checks.h"
-
-#include "lz4.h"
 
 typedef socklen_t cnt_socklen;
 typedef struct sockaddr_storage cnt_sockaddr_storage;
@@ -558,7 +559,7 @@ cnt_message_64_bytes_queue *cnt_message_queue_64_bytes_open(cnt_message_64_bytes
 	return queue;
 }
 
-cnt_message_64_bytes *cnt_message_queue_64_bytes_push(cnt_message_64_bytes_queue *queue, cnt_message_64_bytes *message)
+cnt_message_64_bytes *cnt_message_queue_64_bytes_push(cnt_message_64_bytes_queue *queue, cnt_message_64_bytes const *message)
 {
 	CNT_NULL_CHECK(queue);
 	if (queue->count >= queue->capacity)
@@ -591,7 +592,7 @@ void cnt_message_queue_64_bytes_close(cnt_message_64_bytes_queue *queue)
 
 cnt_stream *cnt_stream_create(cnt_stream *stream, uint8_t *data, int capacity)
 {
-	SDL_assert(stream && "Stream is null pointer");
+	CNT_NULL_CHECK(stream);
 
 	stream->data = data;
 	stream->capacity = capacity;
@@ -600,9 +601,9 @@ cnt_stream *cnt_stream_create(cnt_stream *stream, uint8_t *data, int capacity)
 }
 
 // Find better name - Buffer with at set to capacity
-cnt_stream* cnt_stream_create_full(cnt_stream* stream, uint8_t* data, int capacity)
+cnt_stream *cnt_stream_create_full(cnt_stream *stream, uint8_t *data, int capacity)
 {
-	SDL_assert(stream && "Stream is null pointer");
+	CNT_NULL_CHECK(stream);
 
 	stream->data = data;
 	stream->capacity = capacity;
@@ -612,7 +613,7 @@ cnt_stream* cnt_stream_create_full(cnt_stream* stream, uint8_t* data, int capaci
 
 cnt_stream *cnt_stream_open(cnt_stream *stream, int capacity)
 {
-	SDL_assert(stream && "Stream is null pointer");
+	CNT_NULL_CHECK(stream);
 
 	stream->data = (uint8_t *)SDL_malloc(capacity);
 	stream->capacity = capacity;
@@ -622,7 +623,7 @@ cnt_stream *cnt_stream_open(cnt_stream *stream, int capacity)
 
 cnt_stream *cnt_stream_clear(cnt_stream *stream)
 {
-	SDL_assert(stream && "Stream is null pointer");
+	CNT_NULL_CHECK(stream);
 
 	stream->at = 0;
 
@@ -696,13 +697,13 @@ static void cnt_stream_peek_uint64(cnt_stream *serialiser, uint64_t *value)
 	         | ((uint64_t)at[7] << 56ull); // 0x00000000000000FF
 }
 
-static void cnt_stream_read_string(cnt_stream *serialiser, uint8_t *value, uint16_t count)
+static void cnt_stream_read_string(cnt_stream *serialiser, void *value, uint16_t count)
 {
 	uint8_t *at = serialiser->data + serialiser->at;
 
 	SDL_memcpy(value, at, count);
 
-	serialiser->at = serialiser->at + (sizeof(*value) * count);
+	serialiser->at = serialiser->at + count;
 }
 static void cnt_stream_read_uint8(cnt_stream *serialiser, uint8_t *value)
 {
@@ -1207,7 +1208,11 @@ cnt_client_on_host *cnt_protocol_client_apply(cnt_protocol_client *client_protoc
 			bool is_stored_addr_mapped_correctly = cnt_ip_equals(stored_addr, client_addr);
 			if (is_stored_addr_mapped_correctly)
 			{
+				cnt_stream stream;
+				cnt_stream_create(&stream, client_protocol->extra_payload, client_protocol->extra_payload_count);
+
 				cnt_client_on_host *client_state = &host->client_states[dense_index.index];
+				cnt_protocol_secret_read(&client_state->secret, &stream);
 				bool is_secret_correct = (client_state->secret.public_value ^ client_state->secret.private_value) == SECRET_SEED;
 				if (is_secret_correct)
 				{
@@ -1217,7 +1222,7 @@ cnt_client_on_host *cnt_protocol_client_apply(cnt_protocol_client *client_protoc
 			}
 		}
 		// Client sent us bad data - we cannot change server state just because some client is a cunt
-		SDL_LogWarn(client_protocol->prefix, "Received naughty state from client on Host - Tried to circumvent handshake?");
+		SDL_Log("Received naughty state from client on Host - Tried to circumvent handshake?");
 		return nullptr;
 	}
 
@@ -1228,7 +1233,7 @@ cnt_client_on_host *cnt_protocol_client_apply(cnt_protocol_client *client_protoc
 			cnt_sparse_index id;
 			if (!cnt_sparse_list_create(&host->mapping, &id))
 			{
-				SDL_LogWarn(client_protocol->prefix, "Host is full - Cannot take in client. Bummer :(");
+				SDL_Log("Host is full - Cannot take in client. Bummer :(");
 				return nullptr;
 			}
 			bool has_id = cnt_sparse_list_try_get_dense(&host->mapping, &id, &dense_index);
@@ -1238,7 +1243,6 @@ cnt_client_on_host *cnt_protocol_client_apply(cnt_protocol_client *client_protoc
 
 			cnt_client_on_host *client_state = &host->client_states[dense_index.index];
 			SDL_zerop(client_state);
-			client_state->protocol = CNT_PROTOCOL_STATE_HOST_CHALLENGE;
 			client_state->id = id;
 		}
 		else
@@ -1267,7 +1271,7 @@ cnt_client_on_host *cnt_protocol_client_apply(cnt_protocol_client *client_protoc
 		{
 			// This can actually happen if the client (dumb) sends us 0.
 			// Maybe we should reject with a reason, telling the client that its protocol initalisation failed
-			SDL_LogWarn(client_protocol->prefix, "Received naughty state from client on Host - Client impersonates?");
+			SDL_Log("Received naughty state from client on Host - Client impersonates?");
 			return nullptr;
 		}
 	}
@@ -1277,9 +1281,11 @@ cnt_client_on_host *cnt_protocol_client_apply(cnt_protocol_client *client_protoc
 	// Whenever we receive something, we can reset the attempts!
 	client_state->attempts = 0;
 
-	cnt_stream stream;
-	cnt_stream_create(&stream, client_protocol->extra_payload, client_protocol->extra_payload_count);
-	cnt_protocol_secret_read(&client_state->secret, &stream);
+	// TODO: This breaks stuff....
+	if (client_state->protocol >= client_protocol->state)
+	{
+		return nullptr;
+	}
 
 	if (client_protocol->state == CNT_PROTOCOL_STATE_CLIENT_REQUEST)
 	{
@@ -1287,19 +1293,23 @@ cnt_client_on_host *cnt_protocol_client_apply(cnt_protocol_client *client_protoc
 		client_state->secret.public_value = SECRET_SEED ^ client_state->secret.private_value;
 		client_state->secret.state = CNT_SECRET_STATE_OUTDATED;
 		client_state->protocol = CNT_PROTOCOL_STATE_HOST_CHALLENGE;
-		SDL_LogWarn(client_protocol->prefix, "Client (%lu) requests to join\nSend Challenge to Client (%lu)", client_state->id,
-		            client_state->id);
+		SDL_Log("Client (%lu) requests to join\nSend Challenge to Client (%lu)", client_state->id.index, client_state->id.index);
+
 		return nullptr;
 	}
 
-	uint16_t client_value = SECRET_SEED ^ client_state->secret.public_value;
-	bool is_correct = client_state->secret.private_value == client_value;
 	if (client_protocol->state == CNT_PROTOCOL_STATE_CLIENT_ANSWER)
 	{
+		cnt_stream stream;
+		cnt_stream_create(&stream, client_protocol->extra_payload, client_protocol->extra_payload_count);
+		cnt_protocol_secret_read(&client_state->secret, &stream);
+		uint16_t client_value = SECRET_SEED ^ client_state->secret.public_value;
+		bool is_correct = client_state->secret.private_value == client_value;
+
 		client_state->secret.state = is_correct ? CNT_SECRET_STATE_ACCEPTED : CNT_SECRET_STATE_REJECTED;
 		client_state->protocol = is_correct ? CNT_PROTOCOL_STATE_HOST_OK : CNT_PROTOCOL_STATE_HOST_RESOLUTION_REJECT;
-		SDL_LogWarn(client_protocol->prefix, "Client (%lu) answered to challenge\nSend response to Client (%lu) - %s", client_state->id,
-		            client_state->id, is_correct ? "Accepted" : "Rejected");
+		SDL_Log("Client (%lu) answered to challenge\nSend response to Client (%lu) - %s", client_state->id.index, client_state->id.index,
+		        is_correct ? "Accepted" : "Rejected");
 
 		return nullptr;
 	}
@@ -1334,6 +1344,8 @@ cnt_client *cnt_protocol_host_apply(cnt_protocol_host *host_protocol, cnt_client
 			break;
 		}
 		client->secret.public_value = client->secret.public_value;
+
+		SDL_Log("Client (%lu) received challenge\nSend Answer to Host", client->id_on_host.index);
 
 		client->protocol = CNT_PROTOCOL_STATE_CLIENT_ANSWER;
 		return nullptr;
@@ -1637,7 +1649,7 @@ int example_client(void *)
 	// when you HAVE to bind an address anyway
 	// Startup
 	cnt_ip host_address;
-	cnt_ip_create(&host_address, "192.168.0.23", 42069);
+	cnt_ip_create(&host_address, "192.168.68.55", 42069);
 
 	cnt_sock client_socket;
 	cnt_sock_open(&client_socket, "0.0.0.0", 64209);
@@ -1650,6 +1662,7 @@ int example_client(void *)
 
 	cnt_transport transport;
 	cnt_transport_open(&transport, 1 << 16);
+
 	cnt_compression compression;
 	cnt_compression_open(&compression, 1 << 16);
 
@@ -1680,12 +1693,17 @@ int example_client(void *)
 			if (cnt_client_recv(&client, &recv_stream))
 			{
 				size_t length;
-				cnt_stream_string_length(&transport.stream, &length);
-				SDL_Log("%*s", length, transport.stream);
+				cnt_stream_string_length(&recv_stream, &length);
+
+				char phrase[128];
+				SDL_zero(phrase);
+				cnt_stream_read_string(&recv_stream, phrase, length);
+				SDL_Log("%*s", length, phrase);
 				// Process transport from server
 			}
 		}
-		SDL_Delay(10);
+
+		SDL_Delay(8);
 	}
 
 	// Cleanup
@@ -1707,7 +1725,7 @@ int example_server(void *)
 {
 	// Startup
 	cnt_sock server_socket;
-	cnt_sock_open(&server_socket, "192.168.0.23", 42069);
+	cnt_sock_open(&server_socket, "192.168.68.55", 42069);
 
 	cnt_star star;
 	cnt_star_open(&star, &server_socket, 32);
@@ -1724,12 +1742,10 @@ int example_server(void *)
 	cnt_compression compression;
 	cnt_compression_open(&compression, 1 << 16);
 
-	cnt_compression message_compression;
-	cnt_compression_open(&message_compression, 1 << 16);
-
 	// Tick
 	while (true)
 	{
+
 		cnt_stream_clear(&transport.stream);
 
 		cnt_message_queue_64_bytes_clear(&message_queue);
@@ -1754,8 +1770,8 @@ int example_server(void *)
 			cnt_stream message_stream;
 			cnt_stream_create_full(&message_stream, message->payload, message->payload_count);
 
-			cnt_compress(&message_compression, &message_stream);
-			cnt_connection_send(&message_connection, &message_compression.stream);
+			cnt_compress(&compression, &message_stream);
+			cnt_connection_send(&message_connection, &compression.stream);
 		}
 
 		cnt_stream_clear(&transport.stream);
@@ -1772,13 +1788,17 @@ int example_server(void *)
 			if (client != nullptr)
 			{
 				size_t length;
-				cnt_stream_string_length(&transport.stream, &length);
-				SDL_Log("%*s", length, transport.stream);
+				cnt_stream_string_length(&recv_stream, &length);
+
+				char phrase[128];
+				SDL_zero(phrase);
+				cnt_stream_read_string(&recv_stream, phrase, length);
+				SDL_Log("%*s", length, phrase);
 				// Process transport data for client X
 			}
 		}
 
-		SDL_Delay(10);
+		SDL_Delay(8);
 	}
 
 	// Cleanup

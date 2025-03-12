@@ -8,7 +8,7 @@
 #include "fck_ui.h"
 
 #include <SDL3/SDL_thread.h>
-#include "../netv2/cnt_net.h"
+#include "netv2/cnt_net.h"
 
 void game_instance_setup(fck_ecs *ecs)
 {

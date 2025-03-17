@@ -36,7 +36,7 @@ void game_input_process(fck_ecs *ecs, fck_system_update_info *)
 {
 	fck_keyboard_state *keyboard = fck_ecs_unique_view<fck_keyboard_state>(ecs);
 
-	fck_ecs_apply(ecs, [ecs, keyboard](cnt_authority *, game_control_layout *layout, game_controller *controller) {
+	fck_ecs_apply(ecs, [keyboard](cnt_authority *, game_control_layout *layout, game_controller *controller) {
 		int input_flag = 0;
 
 		if (fck_key_down(keyboard, layout->left))
@@ -89,7 +89,8 @@ void game_gameplay_process(fck_ecs *ecs, fck_system_update_info *)
 				direction_y = direction_y - 1.0f;
 			}
 			float length = (direction_x * direction_x) + (direction_y * direction_y);
-			if(length > 0.0f) {
+			if (length > 0.0f)
+			{
 				length = SDL_sqrtf(length);
 				direction_x = direction_x / length;
 				direction_y = direction_y / length;

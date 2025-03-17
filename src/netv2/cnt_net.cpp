@@ -1522,22 +1522,6 @@ cnt_client_on_host *cnt_host_recv(cnt_host *host, cnt_ip *client_addr, cnt_strea
 	return cnt_protocol_client_apply(&protocol, host, client_addr);
 }
 
-cnt_host *cnt_host_update(cnt_host *host)
-{
-	SDL_assert(host && "Host is null pointer");
-
-	cnt_sparse_list *mapping = &host->mapping;
-	for (uint32_t index = 0; index < mapping->count; index++)
-	{
-		cnt_dense_index dense_index = mapping->dense[index];
-	}
-	// HOW TO WRITE THIS LOGIC?! WE NEED TO GET AND SET TRAFFIC
-	// update state of pending clients
-	// broadcast stream to established clients
-
-	return nullptr;
-}
-
 cnt_ip *cnt_host_kick(cnt_host *host, cnt_ip *addr)
 {
 	SDL_assert(host && "Host is null pointer");
@@ -1641,18 +1625,129 @@ void cnt_client_close(cnt_client *client)
 	SDL_zerop(client);
 }
 
+cnt_user_client *cnt_user_client_create(cnt_user_client *user, const char *host_ip, uint16_t host_port)
+{
+	CNT_NULL_CHECK(user);
+	CNT_NULL_CHECK(host_ip);
+	SDL_assert(host_port != 0 && "Host port - impossible to connect to");
+
+	// Maybe copy IP in since this will not work with matchmakers, in other words, it will be unsafe
+	user->host_ip = host_ip;
+	user->host_port = host_port;
+
+	return user;
+}
+
+cnt_user_host *cnt_user_host_create(cnt_user_host *user, const char *host_ip, uint16_t host_port)
+{
+	CNT_NULL_CHECK(user);
+	CNT_NULL_CHECK(host_ip);
+
+	// Maybe copy IP in since this will not work with matchmakers
+	user->host_ip = host_ip;
+	user->host_port = host_port;
+
+	return user;
+}
+
+cnt_user_frame_queue *cnt_user_frame_queue_alloc(uint32_t capacity)
+{
+	const uint32_t size = offsetof(cnt_user_frame_queue, frames[capacity]);
+	cnt_user_frame_queue *queue = (cnt_user_frame_queue *)SDL_malloc(size);
+	queue->capacity = capacity;
+	queue->count = 0;
+	return queue;
+}
+
+void cnt_user_frame_queue_free(cnt_user_frame_queue *queue)
+{
+}
+
+cnt_user_frame_queue *cnt_user_frame_queue_add(cnt_user_frame_queue *queue, cnt_user_frame *frame)
+{
+	return queue;
+}
+
+bool cnt_user_frame_queue_is_empty(cnt_user_frame_queue *queue)
+{
+	return queue->count == 0;
+}
+
+bool cnt_user_frame_queue_try_get(cnt_user_frame_queue *queue, cnt_user_frame **frame)
+{
+	return false;
+}
+
+cnt_user_frame_concurrent_queue *cnt_user_frame_concurrent_queue_open(cnt_user_frame_concurrent_queue *queue, uint32_t capacity)
+{
+	return queue;
+}
+
+void cnt_user_frame_concurrent_queue_close(cnt_user_frame_concurrent_queue *queue)
+{
+}
+
+// Alloc for now.
+cnt_user_frame *cnt_user_frame_alloc(cnt_stream *stream)
+{
+	return nullptr;
+}
+
+cnt_user_frame_concurrent_queue *cnt_user_frame_concurrent_queue_add(cnt_user_frame_concurrent_queue *queue, cnt_user_frame *frame)
+{
+	CNT_NULL_CHECK(queue);
+	CNT_NULL_CHECK(frame);
+
+	cnt_user_frame_queue *current_queue = &queue->queues[queue->current_inactive];
+	cnt_user_frame_queue_add(current_queue, frame);
+
+	cnt_user_frame_queue *active = (cnt_user_frame_queue *)SDL_GetAtomicPointer((void **)&queue->active);
+	if (active == nullptr)
+	{
+		cnt_user_frame_queue *current_queue = &queue->queues[queue->current_inactive];
+		SDL_SetAtomicPointer((void **)&queue->active, current_queue);
+
+		// flip flop between the inactive queues when user does not have any
+		queue->current_inactive = queue->current_inactive % 2;
+	}
+
+	return queue;
+}
+
+bool cnt_user_frame_concurrent_queue_try_get(cnt_user_frame_concurrent_queue *queue, cnt_user_frame **frame)
+{
+	CNT_NULL_CHECK(queue);
+	CNT_NULL_CHECK(frame);
+
+	cnt_user_frame_queue *active = (cnt_user_frame_queue *)SDL_GetAtomicPointer((void **)&queue->active);
+	if (active == nullptr)
+	{
+		return false;
+	}
+
+	if (cnt_user_frame_queue_try_get(active, frame))
+	{
+		if (cnt_user_frame_queue_is_empty(active))
+		{
+			SDL_SetAtomicPointer((void **)&queue->active, nullptr);
+		}
+	}
+
+	return false;
+}
+
 // Examples:
-int example_client(void *)
+int example_client(cnt_user_client *user_client)
 {
 	// TODO: Embed address directly into socket...
 	// It does not make sense to separate these two concepts
 	// when you HAVE to bind an address anyway
 	// Startup
 	cnt_ip host_address;
-	cnt_ip_create(&host_address, "192.168.68.55", 42069);
+	cnt_ip_create(&host_address, user_client->host_ip, user_client->host_port);
 
 	cnt_sock client_socket;
-	cnt_sock_open(&client_socket, "0.0.0.0", 64209);
+	cnt_sock_open(&client_socket, CNT_ANY_IP, CNT_ANY_PORT);
 
 	cnt_connection connection;
 	cnt_connection_open(&connection, &client_socket, &host_address);
@@ -1672,16 +1767,23 @@ int example_client(void *)
 	// Tick
 	while (true)
 	{
-		cnt_stream_clear(&transport.stream);
-
-		if (cnt_client_send(&client, &transport.stream))
+		cnt_user_frame *frame;
+		while (cnt_user_frame_concurrent_queue_try_get(&user_client->send_queue, &frame))
 		{
-			const char HELLO[] = "Hello server";
-			cnt_stream_write_string(&transport.stream, HELLO, sizeof(HELLO));
-			// Send transport data to server
+			cnt_stream_clear(&transport.stream);
+
+			if (!cnt_client_send(&client, &transport.stream))
+			{
+				// Send handshake data over
+				cnt_compress(&compression, &transport.stream);
+				cnt_connection_send(&client.connection, &compression.stream);
+				break;
+			}
+
+			cnt_stream_write_string(&transport.stream, frame->data, frame->count);
+			cnt_compress(&compression, &transport.stream);
+			cnt_connection_send(&client.connection, &compression.stream);
 		}
-		cnt_compress(&compression, &transport.stream);
-		cnt_connection_send(&client.connection, &compression.stream);
 
 		while (cnt_connection_recv(&client.connection, &compression.stream))
 		{
@@ -1695,11 +1797,8 @@ int example_client(void *)
 				size_t length;
 				cnt_stream_string_length(&recv_stream, &length);
 
-				char phrase[128];
-				SDL_zero(phrase);
-				cnt_stream_read_string(&recv_stream, phrase, length);
-				SDL_Log("%*s", length, phrase);
-				// Process transport from server
+				cnt_user_frame *frame = cnt_user_frame_alloc(&recv_stream);
+				cnt_user_frame_concurrent_queue_add(&user_client->recv_queue, frame);
 			}
 		}
 
@@ -1721,11 +1820,11 @@ int example_client(void *)
 	return 0;
 }
 
-int example_server(void *)
+int example_host(cnt_user_host *user_host)
 {
 	// Startup
 	cnt_sock server_socket;
-	cnt_sock_open(&server_socket, "192.168.68.55", 42069);
+	cnt_sock_open(&server_socket, user_host->host_ip, user_host->host_port);
 
 	cnt_star star;
 	cnt_star_open(&star, &server_socket, 32);
@@ -1745,7 +1844,6 @@ int example_server(void *)
 	// Tick
 	while (true)
 	{
-
 		cnt_stream_clear(&transport.stream);
 
 		cnt_message_queue_64_bytes_clear(&message_queue);

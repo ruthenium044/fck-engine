@@ -4,10 +4,12 @@
 #include <SDL3/SDL_assert.h>
 #include <SDL3/SDL_stdinc.h>
 
+#define CNT_ANY_IP "0.0.0.0"
+#define CNT_ANY_PORT 0
+
 // We use uint32s for count and capacity, which gives us an unrealistic upper bound
 // plus we do not need to deal with u64 vs u32 which makes the implementation easier
 // For streams we use int. I accept it for since lz4 demands it.
-
 struct cnt_sparse_index
 {
 	uint32_t index;
@@ -206,6 +208,49 @@ struct cnt_host
 	cnt_client_on_host *client_states;
 };
 
+struct cnt_user_frame
+{
+	uint32_t count;
+	uint32_t reserved;
+
+	uint8_t data[1];
+};
+
+struct cnt_user_frame_queue
+{
+	// Can be nullptr, &queues[0] or &queues[1]
+	uint32_t count;
+	uint32_t capacity;
+
+	cnt_user_frame frames[1];
+};
+
+struct cnt_user_frame_concurrent_queue
+{
+	// Can be nullptr, &queues[0] or &queues[1]
+	// Shared
+	cnt_user_frame_queue* active;
+
+	// Internal
+	cnt_user_frame_queue queues[2];
+	uint8_t current_inactive;
+};
+
+struct cnt_user_client
+{
+	const char *host_ip;
+	uint16_t host_port;
+
+	cnt_user_frame_concurrent_queue send_queue;
+	cnt_user_frame_concurrent_queue recv_queue;
+};
+
+struct cnt_user_host
+{
+	const char *host_ip;
+	uint16_t host_port;
+};
+
 // Client on host mapping - yeehaw
 void cnt_sparse_list_open(cnt_sparse_list *mapping, uint32_t capacity);
 void cnt_sparse_list_close(cnt_sparse_list *mapping);
@@ -256,18 +301,23 @@ cnt_ip *cnt_star_remove(cnt_star *star, cnt_ip *addr);
 void cnt_star_close(cnt_star *star);
 
 // Host
-cnt_host *cnt_host_open(cnt_host *host, cnt_sock *sock, uint32_t max_connections);
-cnt_host *cnt_host_update(cnt_host *host);
+cnt_host *cnt_host_open(cnt_host *host, uint32_t max_connections);
 cnt_ip *cnt_host_kick(cnt_host *host, cnt_ip *addr);
+cnt_host *cnt_host_send(cnt_host *host, cnt_stream *stream, cnt_ip_container *container, cnt_message_64_bytes_queue *messages);
+cnt_client_on_host *cnt_host_recv(cnt_host *host, cnt_ip *client_addr, cnt_stream *stream);
 void cnt_host_close(cnt_host *host);
 
 // Client
 cnt_client *cnt_client_open(cnt_client *client, cnt_connection *connection);
 cnt_client *cnt_client_send(cnt_client *client, cnt_stream *stream);
+cnt_client *cnt_client_recv(cnt_client *client, cnt_stream *stream);
 void cnt_client_close(cnt_client *client);
 
-int example_client(void *);
-int example_server(void *);
+cnt_user_client *cnt_user_client_create(cnt_user_client *user, const char *ip, uint16_t port);
+cnt_user_host *cnt_user_host_create(cnt_user_host *user, const char *ip, uint16_t port);
+
+int example_client(cnt_user_client *);
+int example_host(cnt_user_host *);
 
 // Fix these
 void cnt_start_up();

@@ -7,8 +7,8 @@
 
 #include "fck_ui.h"
 
-#include <SDL3/SDL_thread.h>
 #include "netv2/cnt_net.h"
+#include <SDL3/SDL_thread.h>
 
 void game_instance_setup(fck_ecs *ecs)
 {
@@ -28,8 +28,15 @@ void game_instance_setup(fck_ecs *ecs)
 int main(int argc, char **argv)
 {
 	cnt_start_up();
-	SDL_Thread* thread_server = SDL_CreateThread(example_server, "", nullptr);
-	SDL_Thread* thread_client = SDL_CreateThread(example_client, "", nullptr);
+
+	cnt_user_host user_host;
+	cnt_user_host_create(&user_host, CNT_ANY_IP, 42069);
+
+	cnt_user_client user_client;
+	cnt_user_client_create(&user_client, "192.168.68.57", 42069);
+
+	SDL_Thread *thread_server = SDL_CreateThread((SDL_ThreadFunction)example_host, "", &user_host);
+	SDL_Thread *thread_client = SDL_CreateThread((SDL_ThreadFunction)example_client, "", &user_client);
 
 	int status_server, status_client;
 	SDL_WaitThread(thread_server, &status_server);

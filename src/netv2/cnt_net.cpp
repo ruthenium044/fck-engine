@@ -1731,6 +1731,7 @@ bool cnt_user_frame_concurrent_queue_try_get(cnt_user_frame_concurrent_queue *qu
 		{
 			SDL_SetAtomicPointer((void **)&queue->active, nullptr);
 		}
+		return true;
 	}
 
 	return false;

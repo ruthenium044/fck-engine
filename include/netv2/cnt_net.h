@@ -249,6 +249,9 @@ struct cnt_user_host
 {
 	const char *host_ip;
 	uint16_t host_port;
+
+	cnt_user_frame_concurrent_queue send_queue;
+	cnt_user_frame_concurrent_queue recv_queue;
 };
 
 // Client on host mapping - yeehaw

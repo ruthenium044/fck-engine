@@ -1777,6 +1777,10 @@ int example_client(cnt_user_client *user_client)
 				// Send handshake data over
 				cnt_compress(&compression, &transport.stream);
 				cnt_connection_send(&client.connection, &compression.stream);
+				
+				// break out of while loop since we cannot process that data...
+				// Maybe we clear the queue? Maybe we do not and we just remember it
+				// Maybe we simply call cnt_client_send once first to see if we are in the clear
 				break;
 			}
 
@@ -1844,19 +1848,24 @@ int example_host(cnt_user_host *user_host)
 	// Tick
 	while (true)
 	{
-		cnt_stream_clear(&transport.stream);
-
+		// Clear the message queue since we receive a new queue from host layer
 		cnt_message_queue_64_bytes_clear(&message_queue);
+
 		// Adds header to packet
 		cnt_host_send(&host, &transport.stream, &star.destinations, &message_queue);
 
-		const char HELLO[] = "Hello client";
-		cnt_stream_write_string(&transport.stream, HELLO, sizeof(HELLO));
-		// Add data to transport
+		cnt_user_frame *frame;
+		while (cnt_user_frame_concurrent_queue_try_get(&user_host->send_queue, &frame))
+		{
+			cnt_stream_clear(&transport.stream);
 
-		// Send out packet
-		cnt_compress(&compression, &transport.stream);
-		cnt_star_send(&star, &compression.stream);
+			// Add data to transport
+			cnt_stream_write_string(&transport.stream, frame->data, frame->count);
+
+			// Send out packet
+			cnt_compress(&compression, &transport.stream);
+			cnt_star_send(&star, &compression.stream);
+		}
 
 		cnt_connection message_connection;
 		cnt_connection_from_socket(&message_connection, &star.sock);
@@ -1888,11 +1897,11 @@ int example_host(cnt_user_host *user_host)
 				size_t length;
 				cnt_stream_string_length(&recv_stream, &length);
 
-				char phrase[128];
-				SDL_zero(phrase);
-				cnt_stream_read_string(&recv_stream, phrase, length);
-				SDL_Log("%*s", length, phrase);
-				// Process transport data for client X
+				// We probably need to differ between client frame and host frame...
+				// Client KNOWS where it receives the data from
+				// Host needs to propagate! 
+				cnt_user_frame* frame = cnt_user_frame_alloc(&recv_stream);
+				cnt_user_frame_concurrent_queue_add(&user_host->recv_queue, frame);
 			}
 		}
 

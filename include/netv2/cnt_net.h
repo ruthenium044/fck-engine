@@ -218,11 +218,11 @@ struct cnt_user_frame
 
 struct cnt_user_frame_queue
 {
-	// Can be nullptr, &queues[0] or &queues[1]
-	uint32_t count;
+	uint32_t head;
+	uint32_t tail;
 	uint32_t capacity;
 
-	cnt_user_frame frames[1];
+	cnt_user_frame *frames[1];
 };
 
 struct cnt_user_frame_concurrent_queue
@@ -232,7 +232,7 @@ struct cnt_user_frame_concurrent_queue
 	cnt_user_frame_queue* active;
 
 	// Internal
-	cnt_user_frame_queue queues[2];
+	cnt_user_frame_queue *queues[2];
 	uint8_t current_inactive;
 };
 
@@ -322,7 +322,7 @@ cnt_user_host *cnt_user_host_create(cnt_user_host *user, const char *ip, uint16_
 int example_client(cnt_user_client *);
 int example_host(cnt_user_host *);
 
-// Fix these
-void cnt_start_up();
-void cnt_tead_down();
+// Tests
+bool TEST_cnt_user_frame_queue();
+
 #endif // !CNT_NET_INCLUDED

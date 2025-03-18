@@ -1755,11 +1755,20 @@ cnt_user_frame_concurrent_queue *cnt_user_frame_concurrent_queue_add(cnt_user_fr
 	cnt_user_frame_queue *current_queue = queue->queues[queue->current_inactive];
 	cnt_user_frame_queue_add(current_queue, frame);
 
-	cnt_user_frame_queue *active = (cnt_user_frame_queue *)SDL_GetAtomicPointer((void **)&queue->active);
+	return queue;
+}
+
+// Maybe commit to keep it cool
+cnt_user_frame_concurrent_queue* cnt_user_frame_concurrent_queue_submit(cnt_user_frame_concurrent_queue* queue)
+{
+	CNT_NULL_CHECK(queue);
+
+	// While we have an active queue, it implies the user is still working on previosu data
+	cnt_user_frame_queue* active = (cnt_user_frame_queue*)SDL_GetAtomicPointer((void**)&queue->active);
 	if (active == nullptr)
 	{
-		cnt_user_frame_queue *current_queue = queue->queues[queue->current_inactive];
-		SDL_SetAtomicPointer((void **)&queue->active, current_queue);
+		cnt_user_frame_queue* current_queue = queue->queues[queue->current_inactive];
+		SDL_SetAtomicPointer((void**)&queue->active, current_queue);
 
 		// flip flop between the inactive queues when user does not have any
 		queue->current_inactive = (queue->current_inactive + 1) % 2;
@@ -1767,6 +1776,7 @@ cnt_user_frame_concurrent_queue *cnt_user_frame_concurrent_queue_add(cnt_user_fr
 
 	return queue;
 }
+
 
 bool cnt_user_frame_concurrent_queue_try_get(cnt_user_frame_concurrent_queue *queue, cnt_user_frame **frame)
 {
@@ -1987,27 +1997,24 @@ int example_host(cnt_user_host *user_host)
 
 bool TEST_cnt_user_frame_queue()
 {
-	cnt_user_frame_queue *queue = cnt_user_frame_queue_alloc(16);
+	cnt_user_frame_concurrent_queue queue;
+	cnt_user_frame_concurrent_queue_open(&queue, 16);
 
 	int count = 4;
 	for (int i = 0; i < count; i++)
 	{
-		cnt_user_frame_queue_add(queue, nullptr);
+		cnt_user_frame_concurrent_queue_add(&queue, nullptr);
 	}
 
-	uint32_t count_in_queue = cnt_user_frame_queue_count(queue);
-	if (count != count_in_queue)
-	{
-		return false;
-	}
+	cnt_user_frame_concurrent_queue_submit(&queue);
 
 	cnt_user_frame *frame;
-	while (cnt_user_frame_queue_try_get(queue, &frame))
+	while (cnt_user_frame_concurrent_queue_try_get(&queue, &frame))
 	{
 		count = count - 1;
 	}
 
-	cnt_user_frame_queue_free(queue);
+	cnt_user_frame_concurrent_queue_close(&queue);
 
 	return count == 0;
 }

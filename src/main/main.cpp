@@ -27,7 +27,7 @@ void game_instance_setup(fck_ecs *ecs)
 
 int main(int argc, char **argv)
 {
-	SDL_assert(TEST_cnt_user_frame_queue());
+	SDL_assert(TEST_cnt_user_frame_concurrent_queue());
 
 	return 0;
 

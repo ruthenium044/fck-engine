@@ -323,6 +323,6 @@ int example_client(cnt_user_client *);
 int example_host(cnt_user_host *);
 
 // Tests
-bool TEST_cnt_user_frame_queue();
+bool TEST_cnt_user_frame_concurrent_queue();
 
 #endif // !CNT_NET_INCLUDED

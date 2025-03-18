@@ -1995,7 +1995,7 @@ int example_host(cnt_user_host *user_host)
 	return 0;
 }
 
-bool TEST_cnt_user_frame_queue()
+bool TEST_cnt_user_frame_concurrent_queue()
 {
 	cnt_user_frame_concurrent_queue queue;
 	cnt_user_frame_concurrent_queue_open(&queue, 16);

@@ -27,15 +27,11 @@ void game_instance_setup(fck_ecs *ecs)
 
 int main(int argc, char **argv)
 {
-	SDL_assert(TEST_cnt_user_frame_concurrent_queue());
-
-	return 0;
-
 	cnt_user_host user_host;
 	cnt_user_host_create(&user_host, CNT_ANY_IP, 42069);
 
 	cnt_user_client user_client;
-	cnt_user_client_create(&user_client, "192.168.68.57", 42069);
+	cnt_user_client_create(&user_client, "192.168.68.55", 42069);
 
 	SDL_Thread *thread_server = SDL_CreateThread((SDL_ThreadFunction)example_host, "", &user_host);
 	SDL_Thread *thread_client = SDL_CreateThread((SDL_ThreadFunction)example_client, "", &user_client);

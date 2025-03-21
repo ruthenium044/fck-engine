@@ -1625,29 +1625,26 @@ void cnt_client_close(cnt_client *client)
 	SDL_zerop(client);
 }
 
-cnt_user_client *cnt_user_client_create(cnt_user_client *user, const char *host_ip, uint16_t host_port)
+cnt_user_frame *cnt_user_frame_alloc(cnt_stream *stream)
 {
-	CNT_NULL_CHECK(user);
-	CNT_NULL_CHECK(host_ip);
-	SDL_assert(host_port != 0 && "Host port - impossible to connect to");
+	CNT_NULL_CHECK(stream);
 
-	// Maybe copy IP in since this will not work with matchmakers, in other words, it will be unsafe
-	user->host_ip = host_ip;
-	user->host_port = host_port;
+	// Heap allocation for this one is very stupid
+	const uint32_t size = offsetof(cnt_user_frame, data[stream->at]);
+	cnt_user_frame *frame = (cnt_user_frame *)SDL_malloc(size);
+	frame->count = stream->at;
+	frame->reserved = 0;
 
-	return user;
+	cnt_stream frame_stream;
+	cnt_stream_create(&frame_stream, frame->data, frame->count);
+	cnt_stream_write_string(&frame_stream, stream->data, stream->at);
+	return frame;
 }
 
-cnt_user_host *cnt_user_host_create(cnt_user_host *user, const char *host_ip, uint16_t host_port)
+void cnt_user_frame_free(cnt_user_frame *frame)
 {
-	CNT_NULL_CHECK(user);
-	CNT_NULL_CHECK(host_ip);
-
-	// Maybe copy IP in since this will not work with matchmakers
-	user->host_ip = host_ip;
-	user->host_port = host_port;
-
-	return user;
+	CNT_NULL_CHECK(frame);
+	SDL_free(frame);
 }
 
 cnt_user_frame_queue *cnt_user_frame_queue_alloc(uint32_t capacity)
@@ -1715,6 +1712,8 @@ bool cnt_user_frame_queue_try_get(cnt_user_frame_queue *queue, cnt_user_frame **
 	}
 
 	*frame = queue->frames[queue->head];
+	// Clean it up - just in case :)
+	queue->frames[queue->head] = (cnt_user_frame *)0xBEEFBEEF;
 	queue->head = (queue->head + 1) % queue->capacity;
 
 	return true;
@@ -1742,12 +1741,6 @@ void cnt_user_frame_concurrent_queue_close(cnt_user_frame_concurrent_queue *queu
 	SDL_zerop(queue);
 }
 
-// Alloc for now. Strategy later
-cnt_user_frame *cnt_user_frame_alloc(cnt_stream *stream)
-{
-	return nullptr;
-}
-
 cnt_user_frame_concurrent_queue *cnt_user_frame_concurrent_queue_add(cnt_user_frame_concurrent_queue *queue, cnt_user_frame *frame)
 {
 	CNT_NULL_CHECK(queue);
@@ -1759,16 +1752,16 @@ cnt_user_frame_concurrent_queue *cnt_user_frame_concurrent_queue_add(cnt_user_fr
 }
 
 // Maybe commit to keep it cool
-cnt_user_frame_concurrent_queue* cnt_user_frame_concurrent_queue_submit(cnt_user_frame_concurrent_queue* queue)
+cnt_user_frame_concurrent_queue *cnt_user_frame_concurrent_queue_submit(cnt_user_frame_concurrent_queue *queue)
 {
 	CNT_NULL_CHECK(queue);
 
 	// While we have an active queue, it implies the user is still working on previosu data
-	cnt_user_frame_queue* active = (cnt_user_frame_queue*)SDL_GetAtomicPointer((void**)&queue->active);
+	cnt_user_frame_queue *active = (cnt_user_frame_queue *)SDL_GetAtomicPointer((void **)&queue->active);
 	if (active == nullptr)
 	{
-		cnt_user_frame_queue* current_queue = queue->queues[queue->current_inactive];
-		SDL_SetAtomicPointer((void**)&queue->active, current_queue);
+		cnt_user_frame_queue *current_queue = queue->queues[queue->current_inactive];
+		SDL_SetAtomicPointer((void **)&queue->active, current_queue);
 
 		// flip flop between the inactive queues when user does not have any
 		queue->current_inactive = (queue->current_inactive + 1) % 2;
@@ -1776,7 +1769,6 @@ cnt_user_frame_concurrent_queue* cnt_user_frame_concurrent_queue_submit(cnt_user
 
 	return queue;
 }
-
 
 bool cnt_user_frame_concurrent_queue_try_get(cnt_user_frame_concurrent_queue *queue, cnt_user_frame **frame)
 {
@@ -1801,14 +1793,43 @@ bool cnt_user_frame_concurrent_queue_try_get(cnt_user_frame_concurrent_queue *qu
 	return false;
 }
 
+cnt_user_client *cnt_user_client_create(cnt_user_client *user, const char *host_ip, uint16_t host_port)
+{
+	CNT_NULL_CHECK(user);
+	CNT_NULL_CHECK(host_ip);
+	SDL_assert(host_port != 0 && "Host port - impossible to connect to");
+
+	// Maybe copy IP in since this will not work with matchmakers, in other words, it will be unsafe
+	user->host_ip = host_ip;
+	user->host_port = host_port;
+
+	cnt_user_frame_concurrent_queue_open(&user->send_queue, 64);
+	cnt_user_frame_concurrent_queue_open(&user->recv_queue, 64);
+
+	return user;
+}
+
+cnt_user_host *cnt_user_host_create(cnt_user_host *user, const char *host_ip, uint16_t host_port)
+{
+	CNT_NULL_CHECK(user);
+	CNT_NULL_CHECK(host_ip);
+
+	// Maybe copy IP in since this will not work with matchmakers
+	user->host_ip = host_ip;
+	user->host_port = host_port;
+
+	cnt_user_frame_concurrent_queue_open(&user->send_queue, 64);
+	cnt_user_frame_concurrent_queue_open(&user->recv_queue, 64);
+
+	return user;
+}
+
 // Examples:
 int example_client(cnt_user_client *user_client)
 {
+	// Start up is dumb. Windows requirement
 	cnt_start_up();
-	// TODO: Embed address directly into socket...
-	// It does not make sense to separate these two concepts
-	// when you HAVE to bind an address anyway
-	// Startup
+
 	cnt_ip host_address;
 	cnt_ip_create(&host_address, user_client->host_ip, user_client->host_port);
 
@@ -1833,27 +1854,48 @@ int example_client(cnt_user_client *user_client)
 	// Tick
 	while (true)
 	{
-		cnt_user_frame *frame;
-		while (cnt_user_frame_concurrent_queue_try_get(&user_client->send_queue, &frame))
 		{
-			cnt_stream_clear(&transport.stream);
-
-			if (!cnt_client_send(&client, &transport.stream))
-			{
-				// Send handshake data over
-				cnt_compress(&compression, &transport.stream);
-				cnt_connection_send(&client.connection, &compression.stream);
-
-				// break out of while loop since we cannot process that data...
-				// Maybe we clear the queue? Maybe we do not and we just remember it
-				// Maybe we simply call cnt_client_send once first to see if we are in the clear
-				break;
-			}
-
-			cnt_stream_write_string(&transport.stream, frame->data, frame->count);
-			cnt_compress(&compression, &transport.stream);
-			cnt_connection_send(&client.connection, &compression.stream);
+			//// EXAMPLE SEND
+			// cnt_stream example_stream;
+			// uint8_t text[] = "Hello Server";
+			// cnt_stream_create_full(&example_stream, text, sizeof(text));
+			// cnt_user_frame *frame = cnt_user_frame_alloc(&example_stream);
+			// cnt_user_frame_concurrent_queue_add(&user_client->send_queue, frame);
+			// cnt_user_frame_concurrent_queue_submit(&user_client->send_queue);
 		}
+
+		if (cnt_client_send(&client, &transport.stream))
+		{
+			// cnt_user_frame *frame;
+			// while (cnt_user_frame_concurrent_queue_try_get(&user_client->send_queue, &frame))
+			//{
+			//	cnt_stream_clear(&transport.stream);
+
+			//	if (!cnt_client_send(&client, &transport.stream))
+			//	{
+			//		// Send handshake data over
+			//		cnt_compress(&compression, &transport.stream);
+			//		cnt_connection_send(&client.connection, &compression.stream);
+
+			//		// break out of while loop since we cannot process that data...
+			//		// Maybe we clear the queue? Maybe we do not and we just remember it
+			//		// Maybe we simply call cnt_client_send once first to see if we are in the clear
+			//		cnt_user_frame_free(frame);
+			//		break;
+			//	}
+
+			//	cnt_stream_write_string(&transport.stream, frame->data, frame->count);
+			//	cnt_compress(&compression, &transport.stream);
+			//	cnt_connection_send(&client.connection, &compression.stream);
+
+			//	// User should do this too... For now
+			//	cnt_user_frame_free(frame);
+			//}
+		}
+
+		// Send handshake data over
+		cnt_compress(&compression, &transport.stream);
+		cnt_connection_send(&client.connection, &compression.stream);
 
 		while (cnt_connection_recv(&client.connection, &compression.stream))
 		{
@@ -1871,7 +1913,25 @@ int example_client(cnt_user_client *user_client)
 				cnt_user_frame_concurrent_queue_add(&user_client->recv_queue, frame);
 			}
 		}
+		cnt_user_frame_concurrent_queue_submit(&user_client->recv_queue);
 
+		// EXAMPLE RECEIVE
+		{
+			cnt_user_frame *frame;
+			while (cnt_user_frame_concurrent_queue_try_get(&user_client->recv_queue, &frame))
+			{
+				cnt_stream recv_stream;
+				cnt_stream_create(&recv_stream, frame->data, frame->count);
+
+				char phrase[128];
+				SDL_zero(phrase);
+				cnt_stream_read_string(&recv_stream, phrase, frame->count);
+				SDL_Log("%*s", frame->count, phrase);
+
+				// User should do this too... For now
+				cnt_user_frame_free(frame);
+			}
+		}
 		SDL_Delay(8);
 	}
 
@@ -1924,18 +1984,31 @@ int example_host(cnt_user_host *user_host)
 		// Adds header to packet
 		cnt_host_send(&host, &transport.stream, &star.destinations, &message_queue);
 
-		cnt_user_frame *frame;
-		while (cnt_user_frame_concurrent_queue_try_get(&user_host->send_queue, &frame))
 		{
-			cnt_stream_clear(&transport.stream);
-
-			// Add data to transport
-			cnt_stream_write_string(&transport.stream, frame->data, frame->count);
-
-			// Send out packet
-			cnt_compress(&compression, &transport.stream);
-			cnt_star_send(&star, &compression.stream);
+			//// EXAMPLE SEND
+			// cnt_stream example_stream;
+			// uint8_t text[] = "Hello Client";
+			// cnt_stream_create_full(&example_stream, text, sizeof(text));
+			// cnt_user_frame *frame = cnt_user_frame_alloc(&example_stream);
+			// cnt_user_frame_concurrent_queue_add(&user_host->send_queue, frame);
+			// cnt_user_frame_concurrent_queue_submit(&user_host->send_queue);
 		}
+
+		// cnt_user_frame *frame;
+		// while (cnt_user_frame_concurrent_queue_try_get(&user_host->send_queue, &frame))
+		//{
+		//	cnt_stream_clear(&transport.stream);
+
+		//	// Add data to transport
+		//	cnt_stream_write_string(&transport.stream, frame->data, frame->count);
+
+		//	// Send out packet
+		//	cnt_compress(&compression, &transport.stream);
+		//	cnt_star_send(&star, &compression.stream);
+
+		//	// User should do this too... For now
+		//	cnt_user_frame_free(frame);
+		//}
 
 		cnt_connection message_connection;
 		cnt_connection_from_socket(&message_connection, &star.sock);
@@ -1974,7 +2047,25 @@ int example_host(cnt_user_host *user_host)
 				cnt_user_frame_concurrent_queue_add(&user_host->recv_queue, frame);
 			}
 		}
+		cnt_user_frame_concurrent_queue_submit(&user_host->recv_queue);
 
+		// EXAMPLE RECEIVE
+		{
+			cnt_user_frame* frame;
+			while (cnt_user_frame_concurrent_queue_try_get(&user_host->recv_queue, &frame))
+			{
+				cnt_stream recv_stream;
+				cnt_stream_create(&recv_stream, frame->data, frame->count);
+
+				char phrase[128];
+				SDL_zero(phrase);
+				cnt_stream_read_string(&recv_stream, phrase, frame->count);
+				SDL_Log("%*s", frame->count, phrase);
+
+				// User should do this too... For now
+				cnt_user_frame_free(frame);
+			}
+		}
 		SDL_Delay(8);
 	}
 

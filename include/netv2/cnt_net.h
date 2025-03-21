@@ -208,6 +208,36 @@ struct cnt_host
 	cnt_client_on_host *client_states;
 };
 
+//enum cnt_user_command_type : uint8_t
+//{
+//	CNT_USER_COMMAND_TYPE_SHUT_DOWN
+//};
+//
+//struct cnt_user_command
+//{
+//	cnt_user_command_type type;
+//};
+//
+//struct cnt_user_command_queue
+//{
+//	uint32_t head;
+//	uint32_t tail;
+//	uint32_t capacity;
+//
+//	cnt_user_command frames[1];
+//};
+//
+//struct cnt_user_command_concurrent_queue
+//{
+//	// Can be nullptr, &queues[0] or &queues[1]
+//	// Shared
+//	cnt_user_command_queue* active;
+//
+//	// Internal
+//	cnt_user_command_queue* queues[2];
+//	uint8_t current_inactive;
+//};
+
 struct cnt_user_frame
 {
 	uint32_t count;
@@ -215,6 +245,7 @@ struct cnt_user_frame
 
 	uint8_t data[1];
 };
+
 
 struct cnt_user_frame_queue
 {
@@ -229,7 +260,7 @@ struct cnt_user_frame_concurrent_queue
 {
 	// Can be nullptr, &queues[0] or &queues[1]
 	// Shared
-	cnt_user_frame_queue* active;
+	cnt_user_frame_queue *active;
 
 	// Internal
 	cnt_user_frame_queue *queues[2];
@@ -243,6 +274,8 @@ struct cnt_user_client
 
 	cnt_user_frame_concurrent_queue send_queue;
 	cnt_user_frame_concurrent_queue recv_queue;
+
+	//cnt_user_command_concurrent_queue command_queue;
 };
 
 struct cnt_user_host
@@ -252,6 +285,8 @@ struct cnt_user_host
 
 	cnt_user_frame_concurrent_queue send_queue;
 	cnt_user_frame_concurrent_queue recv_queue;
+
+	//cnt_user_command_concurrent_queue command_queue;
 };
 
 // Client on host mapping - yeehaw

@@ -381,7 +381,7 @@ static int make_socket_non_blocking(cnt_sock_internal *sock)
 	DWORD one = 1;
 	return ioctlsocket(sock->handle, FIONBIO, &one);
 #else
-	return fcntl(sock->handle, F_SETFL, fcntl(handle, F_GETFL, 0) | O_NONBLOCK);
+	return fcntl(sock->handle, F_SETFL, fcntl(sock->handle, F_GETFL, 0) | O_NONBLOCK);
 #endif
 }
 
@@ -513,7 +513,7 @@ cnt_sock *cnt_sock_open(cnt_sock *sock, const char *ip, uint16_t port)
 	SDL_assert(sock && "Sock is null pointer");
 
 	cnt_ip address;
-	if (cnt_ip_create(&address, ip, port) == false)
+	if (cnt_ip_create(&address, ip, port) == nullptr)
 	{
 		return nullptr;
 	}
@@ -1855,47 +1855,36 @@ int example_client(cnt_user_client *user_client)
 	while (true)
 	{
 		{
-			//// EXAMPLE SEND
-			// cnt_stream example_stream;
-			// uint8_t text[] = "Hello Server";
-			// cnt_stream_create_full(&example_stream, text, sizeof(text));
-			// cnt_user_frame *frame = cnt_user_frame_alloc(&example_stream);
-			// cnt_user_frame_concurrent_queue_add(&user_client->send_queue, frame);
-			// cnt_user_frame_concurrent_queue_submit(&user_client->send_queue);
+			// EXAMPLE SEND
+			cnt_stream example_stream;
+			uint8_t text[] = "Hello Server";
+			cnt_stream_create_full(&example_stream, text, sizeof(text));
+			cnt_user_frame *frame = cnt_user_frame_alloc(&example_stream);
+			cnt_user_frame_concurrent_queue_add(&user_client->send_queue, frame);
+			cnt_user_frame_concurrent_queue_submit(&user_client->send_queue);
 		}
 
+		cnt_stream_clear(&transport.stream);
 		if (cnt_client_send(&client, &transport.stream))
 		{
-			// cnt_user_frame *frame;
-			// while (cnt_user_frame_concurrent_queue_try_get(&user_client->send_queue, &frame))
-			//{
-			//	cnt_stream_clear(&transport.stream);
+			int transport_end = transport.stream.at;
 
-			//	if (!cnt_client_send(&client, &transport.stream))
-			//	{
-			//		// Send handshake data over
-			//		cnt_compress(&compression, &transport.stream);
-			//		cnt_connection_send(&client.connection, &compression.stream);
-
-			//		// break out of while loop since we cannot process that data...
-			//		// Maybe we clear the queue? Maybe we do not and we just remember it
-			//		// Maybe we simply call cnt_client_send once first to see if we are in the clear
-			//		cnt_user_frame_free(frame);
-			//		break;
-			//	}
-
-			//	cnt_stream_write_string(&transport.stream, frame->data, frame->count);
-			//	cnt_compress(&compression, &transport.stream);
-			//	cnt_connection_send(&client.connection, &compression.stream);
-
-			//	// User should do this too... For now
-			//	cnt_user_frame_free(frame);
-			//}
+			cnt_user_frame *frame;
+			while (cnt_user_frame_concurrent_queue_try_get(&user_client->send_queue, &frame))
+			{
+				transport.stream.at = transport_end;
+				cnt_stream_write_string(&transport.stream, frame->data, frame->count);
+				cnt_compress(&compression, &transport.stream);
+				cnt_connection_send(&client.connection, &compression.stream);
+				// User should do this too... For now
+				cnt_user_frame_free(frame);
+			}
 		}
-
-		// Send handshake data over
-		cnt_compress(&compression, &transport.stream);
-		cnt_connection_send(&client.connection, &compression.stream);
+		else
+		{
+			cnt_compress(&compression, &transport.stream);
+			cnt_connection_send(&client.connection, &compression.stream);
+		}
 
 		while (cnt_connection_recv(&client.connection, &compression.stream))
 		{
@@ -1906,14 +1895,14 @@ int example_client(cnt_user_client *user_client)
 
 			if (cnt_client_recv(&client, &recv_stream))
 			{
-				size_t length;
-				cnt_stream_string_length(&recv_stream, &length);
+				cnt_stream frame_stream;
+				cnt_stream_create_full(&frame_stream, recv_stream.data + recv_stream.at, recv_stream.capacity - recv_stream.at);
 
-				cnt_user_frame *frame = cnt_user_frame_alloc(&recv_stream);
+				cnt_user_frame *frame = cnt_user_frame_alloc(&frame_stream);
 				cnt_user_frame_concurrent_queue_add(&user_client->recv_queue, frame);
+				cnt_user_frame_concurrent_queue_submit(&user_client->recv_queue);
 			}
 		}
-		cnt_user_frame_concurrent_queue_submit(&user_client->recv_queue);
 
 		// EXAMPLE RECEIVE
 		{
@@ -1982,33 +1971,33 @@ int example_host(cnt_user_host *user_host)
 		cnt_message_queue_64_bytes_clear(&message_queue);
 
 		// Adds header to packet
+		cnt_stream_clear(&transport.stream);
 		cnt_host_send(&host, &transport.stream, &star.destinations, &message_queue);
 
 		{
-			//// EXAMPLE SEND
-			// cnt_stream example_stream;
-			// uint8_t text[] = "Hello Client";
-			// cnt_stream_create_full(&example_stream, text, sizeof(text));
-			// cnt_user_frame *frame = cnt_user_frame_alloc(&example_stream);
-			// cnt_user_frame_concurrent_queue_add(&user_host->send_queue, frame);
-			// cnt_user_frame_concurrent_queue_submit(&user_host->send_queue);
+			// EXAMPLE SEND
+			cnt_stream example_stream;
+			uint8_t text[] = "Hello Client";
+			cnt_stream_create_full(&example_stream, text, sizeof(text));
+			cnt_user_frame *frame = cnt_user_frame_alloc(&example_stream);
+			cnt_user_frame_concurrent_queue_add(&user_host->send_queue, frame);
+			cnt_user_frame_concurrent_queue_submit(&user_host->send_queue);
 		}
 
-		// cnt_user_frame *frame;
-		// while (cnt_user_frame_concurrent_queue_try_get(&user_host->send_queue, &frame))
-		//{
-		//	cnt_stream_clear(&transport.stream);
+		int transport_end = transport.stream.at;
 
-		//	// Add data to transport
-		//	cnt_stream_write_string(&transport.stream, frame->data, frame->count);
-
-		//	// Send out packet
-		//	cnt_compress(&compression, &transport.stream);
-		//	cnt_star_send(&star, &compression.stream);
-
-		//	// User should do this too... For now
-		//	cnt_user_frame_free(frame);
-		//}
+		cnt_user_frame *frame;
+		while (cnt_user_frame_concurrent_queue_try_get(&user_host->send_queue, &frame))
+		{
+			transport.stream.at = transport_end;
+			// Add data to transport
+			cnt_stream_write_string(&transport.stream, frame->data, frame->count);
+			// Send out packet
+			cnt_compress(&compression, &transport.stream);
+			cnt_star_send(&star, &compression.stream);
+			// User should do this too... For now
+			cnt_user_frame_free(frame);
+		}
 
 		cnt_connection message_connection;
 		cnt_connection_from_socket(&message_connection, &star.sock);
@@ -2037,21 +2026,20 @@ int example_host(cnt_user_host *user_host)
 			cnt_client_on_host *client = cnt_host_recv(&host, &recv_addr, &recv_stream);
 			if (client != nullptr)
 			{
-				size_t length;
-				cnt_stream_string_length(&recv_stream, &length);
-
+				cnt_stream frame_stream;
+				cnt_stream_create_full(&frame_stream, recv_stream.data + recv_stream.at, recv_stream.capacity - recv_stream.at);
 				// We probably need to differ between client frame and host frame...
 				// Client KNOWS where it receives the data from
 				// Host needs to propagate!
-				cnt_user_frame *frame = cnt_user_frame_alloc(&recv_stream);
+				cnt_user_frame *frame = cnt_user_frame_alloc(&frame_stream);
 				cnt_user_frame_concurrent_queue_add(&user_host->recv_queue, frame);
+				cnt_user_frame_concurrent_queue_submit(&user_host->recv_queue);
 			}
 		}
-		cnt_user_frame_concurrent_queue_submit(&user_host->recv_queue);
 
 		// EXAMPLE RECEIVE
 		{
-			cnt_user_frame* frame;
+			cnt_user_frame *frame;
 			while (cnt_user_frame_concurrent_queue_try_get(&user_host->recv_queue, &frame))
 			{
 				cnt_stream recv_stream;

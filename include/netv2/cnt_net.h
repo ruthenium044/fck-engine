@@ -208,26 +208,26 @@ struct cnt_host
 	cnt_client_on_host *client_states;
 };
 
-//enum cnt_user_command_type : uint8_t
+// enum cnt_user_command_type : uint8_t
 //{
 //	CNT_USER_COMMAND_TYPE_SHUT_DOWN
-//};
+// };
 //
-//struct cnt_user_command
+// struct cnt_user_command
 //{
 //	cnt_user_command_type type;
-//};
+// };
 //
-//struct cnt_user_command_queue
+// struct cnt_user_command_queue
 //{
 //	uint32_t head;
 //	uint32_t tail;
 //	uint32_t capacity;
 //
 //	cnt_user_command frames[1];
-//};
+// };
 //
-//struct cnt_user_command_concurrent_queue
+// struct cnt_user_command_concurrent_queue
 //{
 //	// Can be nullptr, &queues[0] or &queues[1]
 //	// Shared
@@ -236,16 +236,16 @@ struct cnt_host
 //	// Internal
 //	cnt_user_command_queue* queues[2];
 //	uint8_t current_inactive;
-//};
+// };
 
+// user host vs user client frame!
 struct cnt_user_frame
 {
 	uint32_t count;
-	uint32_t reserved;
+	cnt_sparse_index client_id;
 
 	uint8_t data[1];
 };
-
 
 struct cnt_user_frame_queue
 {
@@ -275,7 +275,7 @@ struct cnt_user_client
 	cnt_user_frame_concurrent_queue send_queue;
 	cnt_user_frame_concurrent_queue recv_queue;
 
-	//cnt_user_command_concurrent_queue command_queue;
+	// cnt_user_command_concurrent_queue command_queue;
 };
 
 struct cnt_user_host
@@ -286,7 +286,7 @@ struct cnt_user_host
 	cnt_user_frame_concurrent_queue send_queue;
 	cnt_user_frame_concurrent_queue recv_queue;
 
-	//cnt_user_command_concurrent_queue command_queue;
+	// cnt_user_command_concurrent_queue command_queue;
 };
 
 // Client on host mapping - yeehaw
@@ -352,7 +352,12 @@ cnt_client *cnt_client_recv(cnt_client *client, cnt_stream *stream);
 void cnt_client_close(cnt_client *client);
 
 cnt_user_client *cnt_user_client_create(cnt_user_client *user, const char *ip, uint16_t port);
+cnt_user_client *cnt_user_client_send(cnt_user_client *client, void *ptr, int byte_count);
+int cnt_user_client_recv(cnt_user_client *client, void *ptr, int byte_count);
+
 cnt_user_host *cnt_user_host_create(cnt_user_host *user, const char *ip, uint16_t port);
+cnt_user_host *cnt_user_host_send(cnt_user_host *host, void *ptr, int byte_count);
+int cnt_user_host_recv(cnt_user_host *host, cnt_sparse_index *client_id, void *ptr, int byte_count);
 
 int example_client(cnt_user_client *);
 int example_host(cnt_user_host *);

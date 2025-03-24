@@ -7,9 +7,6 @@
 #define CNT_ANY_IP "0.0.0.0"
 #define CNT_ANY_PORT 0
 
-// We use uint32s for count and capacity, which gives us an unrealistic upper bound
-// plus we do not need to deal with u64 vs u32 which makes the implementation easier
-// For streams we use int. I accept it for since lz4 demands it.
 struct cnt_sparse_index
 {
 	uint32_t index;

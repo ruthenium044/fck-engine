@@ -52,6 +52,9 @@ struct cnt_ip_internal // Not tested on Linux, only MacOS
 };
 #endif
 
+static_assert(sizeof(cnt_ip) >= sizeof(cnt_ip_internal), "User-facing IP address is not large enough to hold internal IP address");
+static_assert(sizeof(cnt_sock) >= sizeof(cnt_sock_internal), "User-facing socket is not large enough to hold internal socket");
+
 #if _WIN32
 #include <winsock2.h>
 static SDL_AtomicInt wsa_reference_counter = {0};
@@ -76,7 +79,7 @@ void cnt_sparse_list_open(cnt_sparse_list *mapping, uint32_t capacity)
 	SDL_assert(capacity <= maximum_possible_capacity && "Capacity is too large. Stay below 0x7FFFFFFF");
 
 	SDL_zerop(mapping);
-
+	
 	mapping->capacity = capacity;
 	mapping->free_head = UINT32_MAX;
 	mapping->control_bit_mask = (UINT32_MAX >> 1) + 1;
@@ -500,7 +503,7 @@ static void cnt_ip_container_clear(cnt_ip_container *container)
 	container->count = 0;
 }
 
-static cnt_ip_container *cnt_ip_container_close(cnt_ip_container *container)
+static void cnt_ip_container_close(cnt_ip_container *container)
 {
 	SDL_assert(container && "Container is null pointer");
 
@@ -1995,6 +1998,7 @@ int example_client(cnt_user_client *user_client)
 				cnt_user_frame_concurrent_queue_submit(&user_client->recv_queue);
 			}
 		}
+		// Hardcoded for now, baby
 		SDL_Delay(8);
 	}
 
@@ -2100,6 +2104,8 @@ int example_host(cnt_user_host *user_host)
 				cnt_user_frame_concurrent_queue_submit(&user_host->recv_queue);
 			}
 		}
+
+		// Hardcoded for now, baby
 		SDL_Delay(8);
 	}
 

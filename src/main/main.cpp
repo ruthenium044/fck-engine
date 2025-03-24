@@ -59,7 +59,7 @@ int main(int argc, char **argv)
 			SDL_Log("%*s", recv_count, recv_buffer);
 		}
 
-		SDL_Delay(10);
+		SDL_Delay(4);
 	}
 
 	return 0;

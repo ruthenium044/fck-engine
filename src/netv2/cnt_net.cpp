@@ -1885,9 +1885,10 @@ int cnt_user_client_recv(cnt_user_client *client, void *ptr, int byte_count)
 
 	SDL_memcpy(ptr, frame->data, frame->count);
 
+	int result = frame->count;
 	cnt_user_frame_free(frame);
 
-	return frame->count;
+	return result;
 }
 
 cnt_user_host *cnt_user_host_send(cnt_user_host *host, void *ptr, int byte_count)
@@ -1919,9 +1920,10 @@ int cnt_user_host_recv(cnt_user_host *host, cnt_sparse_index *client_id, void *p
 	SDL_memcpy(client_id, &frame->client_id, sizeof(*client_id));
 	SDL_memcpy(ptr, frame->data, frame->count);
 
+	int result = frame->count;
 	cnt_user_frame_free(frame);
 
-	return frame->count;
+	return result;
 }
 
 // Examples:
@@ -1954,16 +1956,6 @@ int example_client(cnt_user_client *user_client)
 	// Tick
 	while (true)
 	{
-		{
-			// EXAMPLE SEND - EXTERNAL
-			cnt_stream example_stream;
-			uint8_t text[] = "Hello Server";
-			cnt_stream_create_full(&example_stream, text, sizeof(text));
-			cnt_user_frame *frame = cnt_user_frame_alloc(&example_stream, {UINT32_MAX});
-			cnt_user_frame_concurrent_queue_add(&user_client->send_queue, frame);
-			cnt_user_frame_concurrent_queue_submit(&user_client->send_queue);
-		}
-
 		cnt_stream_clear(&transport.stream);
 		if (cnt_client_send(&client, &transport.stream))
 		{
@@ -2001,24 +1993,6 @@ int example_client(cnt_user_client *user_client)
 				cnt_user_frame *frame = cnt_user_frame_alloc(&frame_stream, {UINT32_MAX});
 				cnt_user_frame_concurrent_queue_add(&user_client->recv_queue, frame);
 				cnt_user_frame_concurrent_queue_submit(&user_client->recv_queue);
-			}
-		}
-
-		// EXAMPLE RECEIVE - EXTERNAL
-		{
-			cnt_user_frame *frame;
-			while (cnt_user_frame_concurrent_queue_try_get(&user_client->recv_queue, &frame))
-			{
-				cnt_stream recv_stream;
-				cnt_stream_create(&recv_stream, frame->data, frame->count);
-
-				char phrase[128];
-				SDL_zero(phrase);
-				cnt_stream_read_string(&recv_stream, phrase, frame->count);
-				SDL_Log("%*s", frame->count, phrase);
-
-				// User should do this too... For now
-				cnt_user_frame_free(frame);
 			}
 		}
 		SDL_Delay(8);
@@ -2074,16 +2048,6 @@ int example_host(cnt_user_host *user_host)
 		cnt_stream_clear(&transport.stream);
 		cnt_host_send(&host, &transport.stream, &star.destinations, &message_queue);
 
-		{
-			// EXAMPLE SEND - EXTERNAL
-			cnt_stream example_stream;
-			uint8_t text[] = "Hello Client";
-			cnt_stream_create_full(&example_stream, text, sizeof(text));
-			cnt_user_frame *frame = cnt_user_frame_alloc(&example_stream, {UINT32_MAX});
-			cnt_user_frame_concurrent_queue_add(&user_host->send_queue, frame);
-			cnt_user_frame_concurrent_queue_submit(&user_host->send_queue);
-		}
-
 		int transport_end = transport.stream.at;
 
 		cnt_user_frame *frame;
@@ -2134,24 +2098,6 @@ int example_host(cnt_user_host *user_host)
 				cnt_user_frame *frame = cnt_user_frame_alloc(&frame_stream, client->id);
 				cnt_user_frame_concurrent_queue_add(&user_host->recv_queue, frame);
 				cnt_user_frame_concurrent_queue_submit(&user_host->recv_queue);
-			}
-		}
-
-		// EXAMPLE RECEIVE - EXTERNAL
-		{
-			cnt_user_frame *frame;
-			while (cnt_user_frame_concurrent_queue_try_get(&user_host->recv_queue, &frame))
-			{
-				cnt_stream recv_stream;
-				cnt_stream_create(&recv_stream, frame->data, frame->count);
-
-				char phrase[128];
-				SDL_zero(phrase);
-				cnt_stream_read_string(&recv_stream, phrase, frame->count);
-				SDL_Log("%*s", frame->count, phrase);
-
-				// User should do this too... For now
-				cnt_user_frame_free(frame);
 			}
 		}
 		SDL_Delay(8);

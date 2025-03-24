@@ -40,8 +40,25 @@ int main(int argc, char **argv)
 	SDL_DetachThread(thread_server);
 	SDL_DetachThread(thread_client);
 
+	char user_server_hello[] = "Hello from server app";
+	char user_client_hello[] = "Hello from client app";
+
 	while (true)
 	{
+		cnt_user_client_send(&user_client, user_client_hello, sizeof(user_client_hello));
+		cnt_user_host_send(&user_host, user_server_hello, sizeof(user_server_hello));
+
+		char recv_buffer[2048];
+		while (int recv_count = cnt_user_client_recv(&user_client, recv_buffer, sizeof(recv_buffer)))
+		{
+			SDL_Log("%*s", recv_count, recv_buffer);
+		}
+		cnt_sparse_index from;
+		while (int recv_count = cnt_user_host_recv(&user_host, &from, recv_buffer, sizeof(recv_buffer)))
+		{
+			SDL_Log("%*s", recv_count, recv_buffer);
+		}
+
 		SDL_Delay(10);
 	}
 

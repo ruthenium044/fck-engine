@@ -68,9 +68,14 @@ const char *cnt_protocol_info_name[] = {"CNT_PROTOCOL_STATE_COMMON_NONE",    "CN
                                         "CNT_PROTOCOL_STATE_COMMON_OK",      "CNT_PROTOCOL_STATE_HOST_RESOLUTION_REJECT",
                                         "CNT_PROTOCOL_STATE_HOST_KICKED"};
 
+// This only works under the assumption that the user will never receive
+// a tombstone sparse index to begin with. Let's pray
+#define CNT_SPARSE_INDEX_INVALID UINT32_MAX
+static_assert(CNT_SPARSE_INDEX_INVALID == UINT32_MAX);
+
 void cnt_sparse_list_open(cnt_sparse_list *mapping, uint32_t capacity)
 {
-	const uint32_t maximum_possible_capacity = (UINT32_MAX >> 1);
+	const uint32_t maximum_possible_capacity = (CNT_SPARSE_INDEX_INVALID >> 1);
 
 	CNT_NULL_CHECK(mapping);
 	SDL_assert(capacity <= maximum_possible_capacity && "Capacity is too large. Stay below 0x7FFFFFFF");
@@ -78,14 +83,14 @@ void cnt_sparse_list_open(cnt_sparse_list *mapping, uint32_t capacity)
 	SDL_zerop(mapping);
 
 	mapping->capacity = capacity;
-	mapping->free_head = UINT32_MAX;
-	mapping->control_bit_mask = (UINT32_MAX >> 1) + 1;
+	mapping->free_head = CNT_SPARSE_INDEX_INVALID;
+	mapping->control_bit_mask = (CNT_SPARSE_INDEX_INVALID >> 1) + 1;
 
 	mapping->sparse = (cnt_sparse_index *)SDL_malloc(sizeof(*mapping->sparse) * mapping->capacity);
 	mapping->dense = (cnt_dense_index *)SDL_malloc(sizeof(*mapping->dense) * mapping->capacity);
 	CNT_FOR(uint32_t, index, mapping->capacity)
 	{
-		mapping->sparse[index].index = UINT32_MAX;
+		mapping->sparse[index].index = CNT_SPARSE_INDEX_INVALID;
 	}
 }
 
@@ -1416,6 +1421,33 @@ cnt_host *cnt_host_open(cnt_host *host, uint32_t max_connections)
 	return host;
 }
 
+bool cnt_host_is_client_connected(cnt_host *host, cnt_sparse_index client_id)
+{
+	SDL_assert(host && "Host is null pointer");
+
+	cnt_dense_index dense_index;
+	if (!cnt_sparse_list_try_get_dense(&host->mapping, &client_id, &dense_index))
+	{
+		return false;
+	}
+	cnt_client_on_host *client_on_host = &host->client_states[dense_index.index];
+	return client_on_host->protocol == CNT_PROTOCOL_STATE_HOST_OK;
+}
+
+bool cnt_host_client_ip_try_get(cnt_host *host, cnt_sparse_index client_id, cnt_ip *ip)
+{
+	SDL_assert(host && "Host is null pointer");
+	SDL_assert(ip && "IP is null pointer");
+
+	cnt_dense_index dense_index;
+	if (!cnt_sparse_list_try_get_dense(&host->mapping, &client_id, &dense_index))
+	{
+		return false;
+	}
+	SDL_memcpy(ip, &host->ip_lookup[dense_index.index], sizeof(*ip));
+	return true;
+}
+
 cnt_host *cnt_host_send(cnt_host *host, cnt_stream *stream, cnt_ip_container *container, cnt_message_64_bytes_queue *messages)
 {
 	SDL_assert(host && "Host is null pointer");
@@ -1891,12 +1923,23 @@ int cnt_user_client_recv(cnt_user_client *client, void *ptr, int byte_count)
 	return result;
 }
 
-cnt_user_host *cnt_user_host_send(cnt_user_host *host, void *ptr, int byte_count)
+cnt_user_host *cnt_user_host_broadcast(cnt_user_host *host, void *ptr, int byte_count)
 {
 	cnt_stream example_stream;
 	cnt_stream_create_full(&example_stream, (uint8_t *)ptr, byte_count);
 	// TODO: Fix frame having redundant field - make host frame and client frame separate concepts!
 	cnt_user_frame *frame = cnt_user_frame_alloc(&example_stream, {UINT32_MAX});
+	cnt_user_frame_concurrent_queue_add(&host->send_queue, frame);
+	cnt_user_frame_concurrent_queue_submit(&host->send_queue);
+	return host;
+}
+
+cnt_user_host *cnt_user_host_send(cnt_user_host *host, cnt_sparse_index client_id, void *ptr, int byte_count)
+{
+	cnt_stream example_stream;
+	cnt_stream_create_full(&example_stream, (uint8_t *)ptr, byte_count);
+	// TODO: Fix frame having redundant field - make host frame and client frame separate concepts!
+	cnt_user_frame *frame = cnt_user_frame_alloc(&example_stream, client_id);
 	cnt_user_frame_concurrent_queue_add(&host->send_queue, frame);
 	cnt_user_frame_concurrent_queue_submit(&host->send_queue);
 	return host;
@@ -2055,10 +2098,29 @@ int example_host(cnt_user_host *user_host)
 		{
 			transport.stream.at = transport_end;
 			// Add data to transport
-			cnt_stream_write_string(&transport.stream, frame->data, frame->count);
 			// Send out packet
-			cnt_compress(&compression, &transport.stream);
-			cnt_star_send(&star, &compression.stream);
+			if (frame->client_id.index != CNT_SPARSE_INDEX_INVALID)
+			{
+				if (cnt_host_is_client_connected(&host, frame->client_id))
+				{
+					cnt_stream_write_string(&transport.stream, frame->data, frame->count);
+					cnt_compress(&compression, &transport.stream);
+
+					cnt_ip ip;
+					bool has_ip = cnt_host_client_ip_try_get(&host, frame->client_id, &ip);
+					SDL_assert(has_ip && "IP does not exist, but state is valid");
+
+					cnt_connection client_connection;
+					cnt_connection_open(&client_connection, &star.sock, &ip);
+					cnt_connection_send(&client_connection, &compression.stream);
+				}
+			}
+			else
+			{
+				cnt_stream_write_string(&transport.stream, frame->data, frame->count);
+				cnt_compress(&compression, &transport.stream);
+				cnt_star_send(&star, &compression.stream);
+			}
 			// User should do this too... For now
 			cnt_user_frame_free(frame);
 		}

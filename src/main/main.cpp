@@ -46,7 +46,7 @@ int main(int argc, char **argv)
 	while (true)
 	{
 		cnt_user_client_send(&user_client, user_client_hello, sizeof(user_client_hello));
-		cnt_user_host_send(&user_host, user_server_hello, sizeof(user_server_hello));
+		cnt_user_host_broadcast(&user_host, user_server_hello, sizeof(user_server_hello));
 
 		char recv_buffer[2048];
 		while (int recv_count = cnt_user_client_recv(&user_client, recv_buffer, sizeof(recv_buffer)))

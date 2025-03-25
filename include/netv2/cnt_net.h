@@ -6,7 +6,6 @@
 
 #define CNT_ANY_IP "0.0.0.0"
 #define CNT_ANY_PORT 0
-
 // We use uint32s for count and capacity, which gives us an unrealistic upper bound
 // plus we do not need to deal with u64 vs u32 which makes the implementation easier
 // For streams we use int. I accept it for since lz4 demands it.
@@ -356,7 +355,8 @@ cnt_user_client *cnt_user_client_send(cnt_user_client *client, void *ptr, int by
 int cnt_user_client_recv(cnt_user_client *client, void *ptr, int byte_count);
 
 cnt_user_host *cnt_user_host_create(cnt_user_host *user, const char *ip, uint16_t port);
-cnt_user_host *cnt_user_host_send(cnt_user_host *host, void *ptr, int byte_count);
+cnt_user_host *cnt_user_host_broadcast(cnt_user_host *host, void *ptr, int byte_count);
+cnt_user_host *cnt_user_host_send(cnt_user_host *host, cnt_sparse_index client_id, void *ptr, int byte_count);
 int cnt_user_host_recv(cnt_user_host *host, cnt_sparse_index *client_id, void *ptr, int byte_count);
 
 int example_client(cnt_user_client *);

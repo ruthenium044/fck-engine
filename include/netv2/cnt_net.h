@@ -357,9 +357,6 @@ cnt_user_host *cnt_user_host_broadcast(cnt_user_host *host, void *ptr, int byte_
 cnt_user_host *cnt_user_host_send(cnt_user_host *host, cnt_sparse_index client_id, void *ptr, int byte_count);
 int cnt_user_host_recv(cnt_user_host *host, cnt_sparse_index *client_id, void *ptr, int byte_count);
 
-int example_client(cnt_user_client *);
-int example_host(cnt_user_host *);
-
 // Tests
 bool TEST_cnt_user_frame_concurrent_queue();
 

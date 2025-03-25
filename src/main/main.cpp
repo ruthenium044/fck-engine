@@ -34,19 +34,13 @@ int main(int argc, char **argv)
 	cnt_user_client user_client;
 	cnt_user_client_create(&user_client, "127.0.0.1", 42069);
 
-	SDL_Thread *thread_server = SDL_CreateThread((SDL_ThreadFunction)example_host, "", &user_host);
-	SDL_Thread *thread_client = SDL_CreateThread((SDL_ThreadFunction)example_client, "", &user_client);
-
-	SDL_DetachThread(thread_server);
-	SDL_DetachThread(thread_client);
-
-	char user_server_hello[] = "Hello from server app";
+	char user_host_hello[] = "Hello from host app";
 	char user_client_hello[] = "Hello from client app";
 
 	while (true)
 	{
 		cnt_user_client_send(&user_client, user_client_hello, sizeof(user_client_hello));
-		cnt_user_host_broadcast(&user_host, user_server_hello, sizeof(user_server_hello));
+		cnt_user_host_broadcast(&user_host, user_host_hello, sizeof(user_host_hello));
 
 		char recv_buffer[2048];
 		while (int recv_count = cnt_user_client_recv(&user_client, recv_buffer, sizeof(recv_buffer)))

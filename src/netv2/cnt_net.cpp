@@ -3,12 +3,17 @@
 #include <SDL3/SDL_atomic.h>
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_timer.h>
+#include <SDL3/SDL_thread.h>
 
 #include <errno.h>
 #include <string.h>
 
 #include "lz4.h"
 #include "shared/fck_checks.h"
+
+// Internal declaration for the default client/host processes
+int cnt_client_default_process(cnt_user_client*);
+int cnt_host_default_process(cnt_user_host*);
 
 // Windows
 #ifdef _WIN32
@@ -1875,6 +1880,9 @@ cnt_user_client *cnt_user_client_create(cnt_user_client *user, const char *host_
 	cnt_user_frame_concurrent_queue_open(&user->send_queue, 64);
 	cnt_user_frame_concurrent_queue_open(&user->recv_queue, 64);
 
+	SDL_Thread* thread = SDL_CreateThread((SDL_ThreadFunction)cnt_client_default_process, "", user);
+	SDL_DetachThread(thread);
+
 	return user;
 }
 
@@ -1889,6 +1897,9 @@ cnt_user_host *cnt_user_host_create(cnt_user_host *user, const char *host_ip, ui
 
 	cnt_user_frame_concurrent_queue_open(&user->send_queue, 64);
 	cnt_user_frame_concurrent_queue_open(&user->recv_queue, 64);
+
+	SDL_Thread* thread = SDL_CreateThread((SDL_ThreadFunction)cnt_host_default_process, "", user);
+	SDL_DetachThread(thread);
 
 	return user;
 }
@@ -1972,8 +1983,7 @@ int cnt_user_host_recv(cnt_user_host *host, cnt_sparse_index *client_id, void *p
 	return result;
 }
 
-// Examples:
-int example_client(cnt_user_client *user_client)
+int cnt_client_default_process(cnt_user_client *user_client)
 {
 	// Start up is dumb. Windows requirement
 	cnt_start_up();
@@ -2062,7 +2072,7 @@ int example_client(cnt_user_client *user_client)
 	return 0;
 }
 
-int example_host(cnt_user_host *user_host)
+int cnt_host_default_process(cnt_user_host *user_host)
 {
 	cnt_start_up();
 

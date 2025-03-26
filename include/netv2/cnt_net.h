@@ -205,38 +205,34 @@ struct cnt_host
 	cnt_client_on_host *client_states;
 };
 
-// enum cnt_user_command_type : uint8_t
-//{
-//	CNT_USER_COMMAND_TYPE_SHUT_DOWN
-// };
-//
-// struct cnt_user_command
-//{
-//	cnt_user_command_type type;
-// };
-//
-// struct cnt_user_command_queue
-//{
-//	uint32_t head;
-//	uint32_t tail;
-//	uint32_t capacity;
-//
-//	cnt_user_command frames[1];
-// };
-//
-// struct cnt_user_command_concurrent_queue
-//{
-//	// Can be nullptr, &queues[0] or &queues[1]
-//	// Shared
-//	cnt_user_command_queue* active;
-//
-//	// Internal
-//	cnt_user_command_queue* queues[2];
-//	uint8_t current_inactive;
-// };
+struct cnt_user_client_frame
+{
+	uint8_t command_code;
+	uint32_t count;
+	uint8_t data[1];
+};
 
-// user host vs user client frame!
-struct cnt_user_frame
+struct cnt_user_client_frame_queue
+{
+	uint32_t head;
+	uint32_t tail;
+	uint32_t capacity;
+
+	cnt_user_client_frame *frames[1];
+};
+
+struct cnt_user_client_frame_concurrent_queue
+{
+	// Can be nullptr, &queues[0] or &queues[1]
+	// Shared
+	cnt_user_client_frame_queue *active;
+
+	// Internal
+	cnt_user_client_frame_queue *queues[2];
+	uint8_t current_inactive;
+};
+
+struct cnt_user_host_frame
 {
 	uint32_t count;
 	cnt_sparse_index client_id;
@@ -244,24 +240,35 @@ struct cnt_user_frame
 	uint8_t data[1];
 };
 
-struct cnt_user_frame_queue
+struct cnt_user_host_frame_queue
 {
 	uint32_t head;
 	uint32_t tail;
 	uint32_t capacity;
 
-	cnt_user_frame *frames[1];
+	cnt_user_host_frame *frames[1];
 };
 
-struct cnt_user_frame_concurrent_queue
+struct cnt_user_host_frame_concurrent_queue
 {
 	// Can be nullptr, &queues[0] or &queues[1]
 	// Shared
-	cnt_user_frame_queue *active;
+	cnt_user_host_frame_queue *active;
 
 	// Internal
-	cnt_user_frame_queue *queues[2];
+	cnt_user_host_frame_queue *queues[2];
 	uint8_t current_inactive;
+};
+
+enum cnt_user_client_command_type
+{
+	CNT_USER_CLIENT_COMMAND_TYPE_QUIT,
+	CNT_USER_CLIENT_COMMAND_TYPE_RESTART
+};
+
+struct cnt_user_client_command
+{
+	cnt_user_client_command_type type;
 };
 
 struct cnt_user_client
@@ -269,10 +276,36 @@ struct cnt_user_client
 	const char *host_ip;
 	uint16_t host_port;
 
-	cnt_user_frame_concurrent_queue send_queue;
-	cnt_user_frame_concurrent_queue recv_queue;
+	cnt_user_client_frame_concurrent_queue send_queue;
+	cnt_user_client_frame_concurrent_queue recv_queue;
 
-	// cnt_user_command_concurrent_queue command_queue;
+	// cnt_user_client_command* command_queue or something like that
+	// Quit
+	// Restart
+};
+
+enum cnt_user_host_command_type
+{
+	CNT_USER_HOST_COMMAND_TYPE_QUIT,
+	CNT_USER_HOST_COMMAND_TYPE_RESTART,
+	CNT_USER_HOST_COMMAND_TYPE_KICK
+};
+
+struct cnt_user_host_command_common
+{
+	cnt_user_client_command_type type;
+};
+
+struct cnt_user_host_command_kick
+{
+	cnt_user_client_command_type type;
+	cnt_sparse_index client;
+};
+
+union cnt_user_host_command {
+	cnt_user_client_command_type type;
+	cnt_user_host_command_common common;
+	cnt_user_host_command_kick kick;
 };
 
 struct cnt_user_host
@@ -280,10 +313,13 @@ struct cnt_user_host
 	const char *host_ip;
 	uint16_t host_port;
 
-	cnt_user_frame_concurrent_queue send_queue;
-	cnt_user_frame_concurrent_queue recv_queue;
+	cnt_user_host_frame_concurrent_queue send_queue;
+	cnt_user_host_frame_concurrent_queue recv_queue;
 
-	// cnt_user_command_concurrent_queue command_queue;
+	// cnt_user_host_command* command_queue or something like that
+	// Kick client
+	// Quit engine
+	// Restart engine (?)
 };
 
 // Client on host mapping - yeehaw
@@ -358,6 +394,6 @@ cnt_user_host *cnt_user_host_send(cnt_user_host *host, cnt_sparse_index client_i
 int cnt_user_host_recv(cnt_user_host *host, cnt_sparse_index *client_id, void *ptr, int byte_count);
 
 // Tests
-bool TEST_cnt_user_frame_concurrent_queue();
+bool TEST_cnt_user_host_frame_concurrent_queue();
 
 #endif // !CNT_NET_INCLUDED

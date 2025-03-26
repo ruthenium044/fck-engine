@@ -2,8 +2,8 @@
 
 #include <SDL3/SDL_atomic.h>
 #include <SDL3/SDL_stdinc.h>
-#include <SDL3/SDL_timer.h>
 #include <SDL3/SDL_thread.h>
+#include <SDL3/SDL_timer.h>
 
 #include <errno.h>
 #include <string.h>
@@ -12,8 +12,8 @@
 #include "shared/fck_checks.h"
 
 // Internal declaration for the default client/host processes
-int cnt_client_default_process(cnt_user_client*);
-int cnt_host_default_process(cnt_user_host*);
+int cnt_client_default_process(cnt_user_client *);
+int cnt_host_default_process(cnt_user_host *);
 
 // Windows
 #ifdef _WIN32
@@ -89,7 +89,7 @@ void cnt_sparse_list_open(cnt_sparse_list *mapping, uint32_t capacity)
 	SDL_assert(capacity <= maximum_possible_capacity && "Capacity is too large. Stay below 0x7FFFFFFF");
 
 	SDL_zerop(mapping);
-	
+
 	mapping->capacity = capacity;
 	mapping->free_head = CNT_SPARSE_INDEX_INVALID;
 	mapping->control_bit_mask = (CNT_SPARSE_INDEX_INVALID >> 1) + 1;
@@ -1665,15 +1665,14 @@ void cnt_client_close(cnt_client *client)
 	SDL_zerop(client);
 }
 
-cnt_user_frame *cnt_user_frame_alloc(cnt_stream *stream, cnt_sparse_index client_id)
+cnt_user_client_frame *cnt_user_client_frame_alloc(cnt_stream *stream)
 {
 	CNT_NULL_CHECK(stream);
 
 	// Heap allocation for this one is very stupid
-	const uint32_t size = offsetof(cnt_user_frame, data[stream->at]);
-	cnt_user_frame *frame = (cnt_user_frame *)SDL_malloc(size);
+	const uint32_t size = offsetof(cnt_user_client_frame, data[stream->at]);
+	cnt_user_client_frame *frame = (cnt_user_client_frame *)SDL_malloc(size);
 	frame->count = stream->at;
-	frame->client_id = client_id;
 
 	cnt_stream frame_stream;
 	cnt_stream_create(&frame_stream, frame->data, frame->count);
@@ -1681,36 +1680,36 @@ cnt_user_frame *cnt_user_frame_alloc(cnt_stream *stream, cnt_sparse_index client
 	return frame;
 }
 
-void cnt_user_frame_free(cnt_user_frame *frame)
+void cnt_user_client_frame_free(cnt_user_client_frame *frame)
 {
 	CNT_NULL_CHECK(frame);
 	SDL_free(frame);
 }
 
-cnt_user_frame_queue *cnt_user_frame_queue_alloc(uint32_t capacity)
+cnt_user_client_frame_queue *cnt_user_client_frame_queue_alloc(uint32_t capacity)
 {
-	const uint32_t size = offsetof(cnt_user_frame_queue, frames[capacity]);
-	cnt_user_frame_queue *queue = (cnt_user_frame_queue *)SDL_malloc(size);
+	const uint32_t size = offsetof(cnt_user_client_frame_queue, frames[capacity]);
+	cnt_user_client_frame_queue *queue = (cnt_user_client_frame_queue *)SDL_malloc(size);
 	queue->capacity = capacity;
 	queue->head = 0;
 	queue->tail = 0;
 	return queue;
 }
 
-void cnt_user_frame_queue_free(cnt_user_frame_queue *queue)
+void cnt_user_client_frame_queue_free(cnt_user_client_frame_queue *queue)
 {
 	CNT_NULL_CHECK(queue);
 	SDL_free(queue);
 }
 
-uint32_t cnt_user_frame_queue_count(cnt_user_frame_queue *queue)
+uint32_t cnt_user_client_frame_queue_count(cnt_user_client_frame_queue *queue)
 {
 	CNT_NULL_CHECK(queue);
 
 	return (queue->tail - queue->head + queue->capacity) % queue->capacity;
 }
 
-cnt_user_frame_queue *cnt_user_frame_queue_clear(cnt_user_frame_queue *queue)
+cnt_user_client_frame_queue *cnt_user_client_frame_queue_clear(cnt_user_client_frame_queue *queue)
 {
 	CNT_NULL_CHECK(queue);
 
@@ -1720,11 +1719,11 @@ cnt_user_frame_queue *cnt_user_frame_queue_clear(cnt_user_frame_queue *queue)
 	return queue;
 }
 
-cnt_user_frame_queue *cnt_user_frame_queue_add(cnt_user_frame_queue *queue, cnt_user_frame *frame)
+cnt_user_client_frame_queue *cnt_user_client_frame_queue_add(cnt_user_client_frame_queue *queue, cnt_user_client_frame *frame)
 {
 	CNT_NULL_CHECK(queue);
 
-	uint32_t count = cnt_user_frame_queue_count(queue);
+	uint32_t count = cnt_user_client_frame_queue_count(queue);
 	SDL_assert(count < queue->capacity);
 
 	queue->frames[queue->tail] = frame;
@@ -1734,19 +1733,19 @@ cnt_user_frame_queue *cnt_user_frame_queue_add(cnt_user_frame_queue *queue, cnt_
 	return queue;
 }
 
-bool cnt_user_frame_queue_is_empty(cnt_user_frame_queue *queue)
+bool cnt_user_client_frame_queue_is_empty(cnt_user_client_frame_queue *queue)
 {
 	CNT_NULL_CHECK(queue);
 
 	return queue->head == queue->tail;
 }
 
-bool cnt_user_frame_queue_try_peek(cnt_user_frame_queue *queue, cnt_user_frame **frame)
+bool cnt_user_client_frame_queue_try_peek(cnt_user_client_frame_queue *queue, cnt_user_client_frame **frame)
 {
 	CNT_NULL_CHECK(queue);
 	CNT_NULL_CHECK(frame);
 
-	if (cnt_user_frame_queue_is_empty(queue))
+	if (cnt_user_client_frame_queue_is_empty(queue))
 	{
 		return false;
 	}
@@ -1756,66 +1755,68 @@ bool cnt_user_frame_queue_try_peek(cnt_user_frame_queue *queue, cnt_user_frame *
 	return true;
 }
 
-bool cnt_user_frame_queue_try_get(cnt_user_frame_queue *queue, cnt_user_frame **frame)
+bool cnt_user_client_frame_queue_try_get(cnt_user_client_frame_queue *queue, cnt_user_client_frame **frame)
 {
 	CNT_NULL_CHECK(queue);
 	CNT_NULL_CHECK(frame);
 
-	if (cnt_user_frame_queue_is_empty(queue))
+	if (cnt_user_client_frame_queue_is_empty(queue))
 	{
 		return false;
 	}
 
 	*frame = queue->frames[queue->head];
 	// Clean it up - just in case :)
-	queue->frames[queue->head] = (cnt_user_frame *)0xBEEFBEEF;
+	queue->frames[queue->head] = (cnt_user_client_frame *)0xBEEFBEEF;
 	queue->head = (queue->head + 1) % queue->capacity;
 
 	return true;
 }
 
-cnt_user_frame_concurrent_queue *cnt_user_frame_concurrent_queue_open(cnt_user_frame_concurrent_queue *queue, uint32_t capacity)
+cnt_user_client_frame_concurrent_queue *cnt_user_client_frame_concurrent_queue_open(cnt_user_client_frame_concurrent_queue *queue,
+                                                                                    uint32_t capacity)
 {
 	CNT_NULL_CHECK(queue);
 
 	SDL_zerop(queue);
 
-	queue->queues[0] = cnt_user_frame_queue_alloc(capacity);
-	queue->queues[1] = cnt_user_frame_queue_alloc(capacity);
+	queue->queues[0] = cnt_user_client_frame_queue_alloc(capacity);
+	queue->queues[1] = cnt_user_client_frame_queue_alloc(capacity);
 
 	return queue;
 }
 
-void cnt_user_frame_concurrent_queue_close(cnt_user_frame_concurrent_queue *queue)
+void cnt_user_client_frame_concurrent_queue_close(cnt_user_client_frame_concurrent_queue *queue)
 {
 	CNT_NULL_CHECK(queue);
 
-	cnt_user_frame_queue_free(queue->queues[0]);
-	cnt_user_frame_queue_free(queue->queues[1]);
+	cnt_user_client_frame_queue_free(queue->queues[0]);
+	cnt_user_client_frame_queue_free(queue->queues[1]);
 
 	SDL_zerop(queue);
 }
 
-cnt_user_frame_concurrent_queue *cnt_user_frame_concurrent_queue_add(cnt_user_frame_concurrent_queue *queue, cnt_user_frame *frame)
+cnt_user_client_frame_concurrent_queue *cnt_user_client_frame_concurrent_queue_add(cnt_user_client_frame_concurrent_queue *queue,
+                                                                                   cnt_user_client_frame *frame)
 {
 	CNT_NULL_CHECK(queue);
 
-	cnt_user_frame_queue *current_queue = queue->queues[queue->current_inactive];
-	cnt_user_frame_queue_add(current_queue, frame);
+	cnt_user_client_frame_queue *current_queue = queue->queues[queue->current_inactive];
+	cnt_user_client_frame_queue_add(current_queue, frame);
 
 	return queue;
 }
 
 // Maybe commit to keep it cool
-cnt_user_frame_concurrent_queue *cnt_user_frame_concurrent_queue_submit(cnt_user_frame_concurrent_queue *queue)
+cnt_user_client_frame_concurrent_queue *cnt_user_client_frame_concurrent_queue_submit(cnt_user_client_frame_concurrent_queue *queue)
 {
 	CNT_NULL_CHECK(queue);
 
 	// While we have an active queue, it implies the user is still working on previosu data
-	cnt_user_frame_queue *active = (cnt_user_frame_queue *)SDL_GetAtomicPointer((void **)&queue->active);
+	cnt_user_client_frame_queue *active = (cnt_user_client_frame_queue *)SDL_GetAtomicPointer((void **)&queue->active);
 	if (active == nullptr)
 	{
-		cnt_user_frame_queue *current_queue = queue->queues[queue->current_inactive];
+		cnt_user_client_frame_queue *current_queue = queue->queues[queue->current_inactive];
 		SDL_SetAtomicPointer((void **)&queue->active, current_queue);
 
 		// flip flop between the inactive queues when user does not have any
@@ -1825,20 +1826,20 @@ cnt_user_frame_concurrent_queue *cnt_user_frame_concurrent_queue_submit(cnt_user
 	return queue;
 }
 
-bool cnt_user_frame_concurrent_queue_try_get(cnt_user_frame_concurrent_queue *queue, cnt_user_frame **frame)
+bool cnt_user_client_frame_concurrent_queue_try_get(cnt_user_client_frame_concurrent_queue *queue, cnt_user_client_frame **frame)
 {
 	CNT_NULL_CHECK(queue);
 	CNT_NULL_CHECK(frame);
 
-	cnt_user_frame_queue *active = (cnt_user_frame_queue *)SDL_GetAtomicPointer((void **)&queue->active);
+	cnt_user_client_frame_queue *active = (cnt_user_client_frame_queue *)SDL_GetAtomicPointer((void **)&queue->active);
 	if (active == nullptr)
 	{
 		return false;
 	}
 
-	if (cnt_user_frame_queue_try_get(active, frame))
+	if (cnt_user_client_frame_queue_try_get(active, frame))
 	{
-		if (cnt_user_frame_queue_is_empty(active))
+		if (cnt_user_client_frame_queue_is_empty(active))
 		{
 			SDL_SetAtomicPointer((void **)&queue->active, nullptr);
 		}
@@ -1848,18 +1849,222 @@ bool cnt_user_frame_concurrent_queue_try_get(cnt_user_frame_concurrent_queue *qu
 	return false;
 }
 
-bool cnt_user_frame_concurrent_queue_try_peek(cnt_user_frame_concurrent_queue *queue, cnt_user_frame **frame)
+bool cnt_user_client_frame_concurrent_queue_try_peek(cnt_user_client_frame_concurrent_queue *queue, cnt_user_client_frame **frame)
 {
 	CNT_NULL_CHECK(queue);
 	CNT_NULL_CHECK(frame);
 
-	cnt_user_frame_queue *active = (cnt_user_frame_queue *)SDL_GetAtomicPointer((void **)&queue->active);
+	cnt_user_client_frame_queue *active = (cnt_user_client_frame_queue *)SDL_GetAtomicPointer((void **)&queue->active);
 	if (active == nullptr)
 	{
 		return false;
 	}
 
-	if (cnt_user_frame_queue_try_peek(active, frame))
+	if (cnt_user_client_frame_queue_try_peek(active, frame))
+	{
+		return true;
+	}
+
+	return false;
+}
+
+cnt_user_host_frame *cnt_user_host_frame_alloc(cnt_stream *stream, cnt_sparse_index client_id)
+{
+	CNT_NULL_CHECK(stream);
+
+	// Heap allocation for this one is very stupid
+	const uint32_t size = offsetof(cnt_user_host_frame, data[stream->at]);
+	cnt_user_host_frame *frame = (cnt_user_host_frame *)SDL_malloc(size);
+	frame->count = stream->at;
+	frame->client_id = client_id;
+
+	cnt_stream frame_stream;
+	cnt_stream_create(&frame_stream, frame->data, frame->count);
+	cnt_stream_write_string(&frame_stream, stream->data, stream->at);
+	return frame;
+}
+
+void cnt_user_host_frame_free(cnt_user_host_frame *frame)
+{
+	CNT_NULL_CHECK(frame);
+	SDL_free(frame);
+}
+
+cnt_user_host_frame_queue *cnt_user_host_frame_queue_alloc(uint32_t capacity)
+{
+	const uint32_t size = offsetof(cnt_user_host_frame_queue, frames[capacity]);
+	cnt_user_host_frame_queue *queue = (cnt_user_host_frame_queue *)SDL_malloc(size);
+	queue->capacity = capacity;
+	queue->head = 0;
+	queue->tail = 0;
+	return queue;
+}
+
+void cnt_user_host_frame_queue_free(cnt_user_host_frame_queue *queue)
+{
+	CNT_NULL_CHECK(queue);
+	SDL_free(queue);
+}
+
+uint32_t cnt_user_host_frame_queue_count(cnt_user_host_frame_queue *queue)
+{
+	CNT_NULL_CHECK(queue);
+
+	return (queue->tail - queue->head + queue->capacity) % queue->capacity;
+}
+
+cnt_user_host_frame_queue *cnt_user_host_frame_queue_clear(cnt_user_host_frame_queue *queue)
+{
+	CNT_NULL_CHECK(queue);
+
+	queue->head = 0;
+	queue->tail = 0;
+
+	return queue;
+}
+
+cnt_user_host_frame_queue *cnt_user_host_frame_queue_add(cnt_user_host_frame_queue *queue, cnt_user_host_frame *frame)
+{
+	CNT_NULL_CHECK(queue);
+
+	uint32_t count = cnt_user_host_frame_queue_count(queue);
+	SDL_assert(count < queue->capacity);
+
+	queue->frames[queue->tail] = frame;
+
+	queue->tail = (queue->tail + 1) % queue->capacity;
+
+	return queue;
+}
+
+bool cnt_user_host_frame_queue_is_empty(cnt_user_host_frame_queue *queue)
+{
+	CNT_NULL_CHECK(queue);
+
+	return queue->head == queue->tail;
+}
+
+bool cnt_user_host_frame_queue_try_peek(cnt_user_host_frame_queue *queue, cnt_user_host_frame **frame)
+{
+	CNT_NULL_CHECK(queue);
+	CNT_NULL_CHECK(frame);
+
+	if (cnt_user_host_frame_queue_is_empty(queue))
+	{
+		return false;
+	}
+
+	*frame = queue->frames[queue->head];
+
+	return true;
+}
+
+bool cnt_user_host_frame_queue_try_get(cnt_user_host_frame_queue *queue, cnt_user_host_frame **frame)
+{
+	CNT_NULL_CHECK(queue);
+	CNT_NULL_CHECK(frame);
+
+	if (cnt_user_host_frame_queue_is_empty(queue))
+	{
+		return false;
+	}
+
+	*frame = queue->frames[queue->head];
+	// Clean it up - just in case :)
+	queue->frames[queue->head] = (cnt_user_host_frame *)0xBEEFBEEF;
+	queue->head = (queue->head + 1) % queue->capacity;
+
+	return true;
+}
+
+cnt_user_host_frame_concurrent_queue *cnt_user_host_frame_concurrent_queue_open(cnt_user_host_frame_concurrent_queue *queue,
+                                                                                uint32_t capacity)
+{
+	CNT_NULL_CHECK(queue);
+
+	SDL_zerop(queue);
+
+	queue->queues[0] = cnt_user_host_frame_queue_alloc(capacity);
+	queue->queues[1] = cnt_user_host_frame_queue_alloc(capacity);
+
+	return queue;
+}
+
+void cnt_user_host_frame_concurrent_queue_close(cnt_user_host_frame_concurrent_queue *queue)
+{
+	CNT_NULL_CHECK(queue);
+
+	cnt_user_host_frame_queue_free(queue->queues[0]);
+	cnt_user_host_frame_queue_free(queue->queues[1]);
+
+	SDL_zerop(queue);
+}
+
+cnt_user_host_frame_concurrent_queue *cnt_user_host_frame_concurrent_queue_add(cnt_user_host_frame_concurrent_queue *queue,
+                                                                               cnt_user_host_frame *frame)
+{
+	CNT_NULL_CHECK(queue);
+
+	cnt_user_host_frame_queue *current_queue = queue->queues[queue->current_inactive];
+	cnt_user_host_frame_queue_add(current_queue, frame);
+
+	return queue;
+}
+
+// Maybe commit to keep it cool
+cnt_user_host_frame_concurrent_queue *cnt_user_host_frame_concurrent_queue_submit(cnt_user_host_frame_concurrent_queue *queue)
+{
+	CNT_NULL_CHECK(queue);
+
+	// While we have an active queue, it implies the user is still working on previosu data
+	cnt_user_host_frame_queue *active = (cnt_user_host_frame_queue *)SDL_GetAtomicPointer((void **)&queue->active);
+	if (active == nullptr)
+	{
+		cnt_user_host_frame_queue *current_queue = queue->queues[queue->current_inactive];
+		SDL_SetAtomicPointer((void **)&queue->active, current_queue);
+
+		// flip flop between the inactive queues when user does not have any
+		queue->current_inactive = (queue->current_inactive + 1) % 2;
+	}
+
+	return queue;
+}
+
+bool cnt_user_host_frame_concurrent_queue_try_get(cnt_user_host_frame_concurrent_queue *queue, cnt_user_host_frame **frame)
+{
+	CNT_NULL_CHECK(queue);
+	CNT_NULL_CHECK(frame);
+
+	cnt_user_host_frame_queue *active = (cnt_user_host_frame_queue *)SDL_GetAtomicPointer((void **)&queue->active);
+	if (active == nullptr)
+	{
+		return false;
+	}
+
+	if (cnt_user_host_frame_queue_try_get(active, frame))
+	{
+		if (cnt_user_host_frame_queue_is_empty(active))
+		{
+			SDL_SetAtomicPointer((void **)&queue->active, nullptr);
+		}
+		return true;
+	}
+
+	return false;
+}
+
+bool cnt_user_host_frame_concurrent_queue_try_peek(cnt_user_host_frame_concurrent_queue *queue, cnt_user_host_frame **frame)
+{
+	CNT_NULL_CHECK(queue);
+	CNT_NULL_CHECK(frame);
+
+	cnt_user_host_frame_queue *active = (cnt_user_host_frame_queue *)SDL_GetAtomicPointer((void **)&queue->active);
+	if (active == nullptr)
+	{
+		return false;
+	}
+
+	if (cnt_user_host_frame_queue_try_peek(active, frame))
 	{
 		return true;
 	}
@@ -1877,10 +2082,10 @@ cnt_user_client *cnt_user_client_create(cnt_user_client *user, const char *host_
 	user->host_ip = host_ip;
 	user->host_port = host_port;
 
-	cnt_user_frame_concurrent_queue_open(&user->send_queue, 64);
-	cnt_user_frame_concurrent_queue_open(&user->recv_queue, 64);
+	cnt_user_client_frame_concurrent_queue_open(&user->send_queue, 64);
+	cnt_user_client_frame_concurrent_queue_open(&user->recv_queue, 64);
 
-	SDL_Thread* thread = SDL_CreateThread((SDL_ThreadFunction)cnt_client_default_process, "", user);
+	SDL_Thread *thread = SDL_CreateThread((SDL_ThreadFunction)cnt_client_default_process, "", user);
 	SDL_DetachThread(thread);
 
 	return user;
@@ -1895,10 +2100,10 @@ cnt_user_host *cnt_user_host_create(cnt_user_host *user, const char *host_ip, ui
 	user->host_ip = host_ip;
 	user->host_port = host_port;
 
-	cnt_user_frame_concurrent_queue_open(&user->send_queue, 64);
-	cnt_user_frame_concurrent_queue_open(&user->recv_queue, 64);
+	cnt_user_host_frame_concurrent_queue_open(&user->send_queue, 64);
+	cnt_user_host_frame_concurrent_queue_open(&user->recv_queue, 64);
 
-	SDL_Thread* thread = SDL_CreateThread((SDL_ThreadFunction)cnt_host_default_process, "", user);
+	SDL_Thread *thread = SDL_CreateThread((SDL_ThreadFunction)cnt_host_default_process, "", user);
 	SDL_DetachThread(thread);
 
 	return user;
@@ -1908,16 +2113,16 @@ cnt_user_client *cnt_user_client_send(cnt_user_client *client, void *ptr, int by
 {
 	cnt_stream example_stream;
 	cnt_stream_create_full(&example_stream, (uint8_t *)ptr, byte_count);
-	cnt_user_frame *frame = cnt_user_frame_alloc(&example_stream, {UINT32_MAX});
-	cnt_user_frame_concurrent_queue_add(&client->send_queue, frame);
-	cnt_user_frame_concurrent_queue_submit(&client->send_queue);
+	cnt_user_client_frame *frame = cnt_user_client_frame_alloc(&example_stream);
+	cnt_user_client_frame_concurrent_queue_add(&client->send_queue, frame);
+	cnt_user_client_frame_concurrent_queue_submit(&client->send_queue);
 	return client;
 }
 
 int cnt_user_client_recv(cnt_user_client *client, void *ptr, int byte_count)
 {
-	cnt_user_frame *frame;
-	if (!cnt_user_frame_concurrent_queue_try_peek(&client->recv_queue, &frame))
+	cnt_user_client_frame *frame;
+	if (!cnt_user_client_frame_concurrent_queue_try_peek(&client->recv_queue, &frame))
 	{
 		return 0;
 	}
@@ -1926,13 +2131,13 @@ int cnt_user_client_recv(cnt_user_client *client, void *ptr, int byte_count)
 		// Might make sense to give an entry point to read a partial frame
 		return -1;
 	}
-	bool has_frame = cnt_user_frame_concurrent_queue_try_get(&client->recv_queue, &frame);
+	bool has_frame = cnt_user_client_frame_concurrent_queue_try_get(&client->recv_queue, &frame);
 	SDL_assert(has_frame);
 
 	SDL_memcpy(ptr, frame->data, frame->count);
 
 	int result = frame->count;
-	cnt_user_frame_free(frame);
+	cnt_user_client_frame_free(frame);
 
 	return result;
 }
@@ -1942,9 +2147,9 @@ cnt_user_host *cnt_user_host_broadcast(cnt_user_host *host, void *ptr, int byte_
 	cnt_stream example_stream;
 	cnt_stream_create_full(&example_stream, (uint8_t *)ptr, byte_count);
 	// TODO: Fix frame having redundant field - make host frame and client frame separate concepts!
-	cnt_user_frame *frame = cnt_user_frame_alloc(&example_stream, {UINT32_MAX});
-	cnt_user_frame_concurrent_queue_add(&host->send_queue, frame);
-	cnt_user_frame_concurrent_queue_submit(&host->send_queue);
+	cnt_user_host_frame *frame = cnt_user_host_frame_alloc(&example_stream, {UINT32_MAX});
+	cnt_user_host_frame_concurrent_queue_add(&host->send_queue, frame);
+	cnt_user_host_frame_concurrent_queue_submit(&host->send_queue);
 	return host;
 }
 
@@ -1953,16 +2158,16 @@ cnt_user_host *cnt_user_host_send(cnt_user_host *host, cnt_sparse_index client_i
 	cnt_stream example_stream;
 	cnt_stream_create_full(&example_stream, (uint8_t *)ptr, byte_count);
 	// TODO: Fix frame having redundant field - make host frame and client frame separate concepts!
-	cnt_user_frame *frame = cnt_user_frame_alloc(&example_stream, client_id);
-	cnt_user_frame_concurrent_queue_add(&host->send_queue, frame);
-	cnt_user_frame_concurrent_queue_submit(&host->send_queue);
+	cnt_user_host_frame *frame = cnt_user_host_frame_alloc(&example_stream, client_id);
+	cnt_user_host_frame_concurrent_queue_add(&host->send_queue, frame);
+	cnt_user_host_frame_concurrent_queue_submit(&host->send_queue);
 	return host;
 }
 
 int cnt_user_host_recv(cnt_user_host *host, cnt_sparse_index *client_id, void *ptr, int byte_count)
 {
-	cnt_user_frame *frame;
-	if (!cnt_user_frame_concurrent_queue_try_peek(&host->recv_queue, &frame))
+	cnt_user_host_frame *frame;
+	if (!cnt_user_host_frame_concurrent_queue_try_peek(&host->recv_queue, &frame))
 	{
 		return 0;
 	}
@@ -1971,14 +2176,14 @@ int cnt_user_host_recv(cnt_user_host *host, cnt_sparse_index *client_id, void *p
 		// Might make sense to give an entry point to read a partial frame
 		return -1;
 	}
-	bool has_frame = cnt_user_frame_concurrent_queue_try_get(&host->recv_queue, &frame);
+	bool has_frame = cnt_user_host_frame_concurrent_queue_try_get(&host->recv_queue, &frame);
 	SDL_assert(has_frame);
 
 	SDL_memcpy(client_id, &frame->client_id, sizeof(*client_id));
 	SDL_memcpy(ptr, frame->data, frame->count);
 
 	int result = frame->count;
-	cnt_user_frame_free(frame);
+	cnt_user_host_frame_free(frame);
 
 	return result;
 }
@@ -2017,15 +2222,15 @@ int cnt_client_default_process(cnt_user_client *user_client)
 		{
 			int transport_end = transport.stream.at;
 
-			cnt_user_frame *frame;
-			while (cnt_user_frame_concurrent_queue_try_get(&user_client->send_queue, &frame))
+			cnt_user_client_frame *frame;
+			while (cnt_user_client_frame_concurrent_queue_try_get(&user_client->send_queue, &frame))
 			{
 				transport.stream.at = transport_end;
 				cnt_stream_write_string(&transport.stream, frame->data, frame->count);
 				cnt_compress(&compression, &transport.stream);
 				cnt_connection_send(&client.connection, &compression.stream);
 				// User should do this too... For now
-				cnt_user_frame_free(frame);
+				cnt_user_client_frame_free(frame);
 			}
 		}
 		else
@@ -2046,9 +2251,9 @@ int cnt_client_default_process(cnt_user_client *user_client)
 				cnt_stream frame_stream;
 				cnt_stream_create_full(&frame_stream, recv_stream.data + recv_stream.at, recv_stream.capacity - recv_stream.at);
 
-				cnt_user_frame *frame = cnt_user_frame_alloc(&frame_stream, {UINT32_MAX});
-				cnt_user_frame_concurrent_queue_add(&user_client->recv_queue, frame);
-				cnt_user_frame_concurrent_queue_submit(&user_client->recv_queue);
+				cnt_user_client_frame *frame = cnt_user_client_frame_alloc(&frame_stream);
+				cnt_user_client_frame_concurrent_queue_add(&user_client->recv_queue, frame);
+				cnt_user_client_frame_concurrent_queue_submit(&user_client->recv_queue);
 			}
 		}
 		// Hardcoded for now, baby
@@ -2107,8 +2312,8 @@ int cnt_host_default_process(cnt_user_host *user_host)
 
 		int transport_end = transport.stream.at;
 
-		cnt_user_frame *frame;
-		while (cnt_user_frame_concurrent_queue_try_get(&user_host->send_queue, &frame))
+		cnt_user_host_frame *frame;
+		while (cnt_user_host_frame_concurrent_queue_try_get(&user_host->send_queue, &frame))
 		{
 			transport.stream.at = transport_end;
 			// Add data to transport
@@ -2136,7 +2341,7 @@ int cnt_host_default_process(cnt_user_host *user_host)
 				cnt_star_send(&star, &compression.stream);
 			}
 			// User should do this too... For now
-			cnt_user_frame_free(frame);
+			cnt_user_host_frame_free(frame);
 		}
 
 		cnt_connection message_connection;
@@ -2171,9 +2376,9 @@ int cnt_host_default_process(cnt_user_host *user_host)
 				// We probably need to differ between client frame and host frame...
 				// Client KNOWS where it receives the data from
 				// Host needs to propagate!
-				cnt_user_frame *frame = cnt_user_frame_alloc(&frame_stream, client->id);
-				cnt_user_frame_concurrent_queue_add(&user_host->recv_queue, frame);
-				cnt_user_frame_concurrent_queue_submit(&user_host->recv_queue);
+				cnt_user_host_frame *frame = cnt_user_host_frame_alloc(&frame_stream, client->id);
+				cnt_user_host_frame_concurrent_queue_add(&user_host->recv_queue, frame);
+				cnt_user_host_frame_concurrent_queue_submit(&user_host->recv_queue);
 			}
 		}
 
@@ -2198,26 +2403,26 @@ int cnt_host_default_process(cnt_user_host *user_host)
 	return 0;
 }
 
-bool TEST_cnt_user_frame_concurrent_queue()
+bool TEST_cnt_user_host_frame_concurrent_queue()
 {
-	cnt_user_frame_concurrent_queue queue;
-	cnt_user_frame_concurrent_queue_open(&queue, 16);
+	cnt_user_host_frame_concurrent_queue queue;
+	cnt_user_host_frame_concurrent_queue_open(&queue, 16);
 
 	int count = 4;
 	for (int i = 0; i < count; i++)
 	{
-		cnt_user_frame_concurrent_queue_add(&queue, nullptr);
+		cnt_user_host_frame_concurrent_queue_add(&queue, nullptr);
 	}
 
-	cnt_user_frame_concurrent_queue_submit(&queue);
+	cnt_user_host_frame_concurrent_queue_submit(&queue);
 
-	cnt_user_frame *frame;
-	while (cnt_user_frame_concurrent_queue_try_get(&queue, &frame))
+	cnt_user_host_frame *frame;
+	while (cnt_user_host_frame_concurrent_queue_try_get(&queue, &frame))
 	{
 		count = count - 1;
 	}
 
-	cnt_user_frame_concurrent_queue_close(&queue);
+	cnt_user_host_frame_concurrent_queue_close(&queue);
 
 	return count == 0;
 }

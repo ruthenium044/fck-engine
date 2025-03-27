@@ -271,6 +271,22 @@ struct cnt_user_client_command
 	cnt_user_client_command_type type;
 };
 
+struct cnt_user_client_command_queue
+{
+	uint32_t head;
+	uint32_t tail;
+	uint32_t capacity;
+
+	cnt_user_client_command frames[1];
+};
+
+struct cnt_user_client_command_concurrent_queue
+{
+	cnt_user_client_command_queue* active;
+	cnt_user_client_command_queue* queues[2];
+	uint8_t current_inactive;
+};
+
 struct cnt_user_client
 {
 	const char *host_ip;
@@ -308,6 +324,24 @@ union cnt_user_host_command {
 	cnt_user_host_command_kick kick;
 };
 
+struct cnt_user_host_command_queue
+{
+	uint32_t head;
+	uint32_t tail;
+	uint32_t capacity;
+
+	cnt_user_host_command frames[1];
+};
+
+
+struct cnt_user_host_command_concurrent_queue
+{
+	cnt_user_host_command_queue* active;
+	cnt_user_host_command_queue* queues[2];
+	uint8_t current_inactive;
+};
+
+
 struct cnt_user_host
 {
 	const char *host_ip;
@@ -316,6 +350,7 @@ struct cnt_user_host
 	cnt_user_host_frame_concurrent_queue send_queue;
 	cnt_user_host_frame_concurrent_queue recv_queue;
 
+	cnt_user_host_command_concurrent_queue command_queue;
 	// cnt_user_host_command* command_queue or something like that
 	// Kick client
 	// Quit engine

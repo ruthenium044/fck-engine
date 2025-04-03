@@ -1686,19 +1686,145 @@ void cnt_user_client_frame_free(cnt_user_client_frame *frame)
 	SDL_free(frame);
 }
 
+cnt_queue_header *cnt_queue_header_open(cnt_queue_header *header, uint32_t capacity)
+{
+	CNT_NULL_CHECK(header);
+	header->capacity = capacity;
+	header->head = 0;
+	header->tail = 0;
+	return header;
+}
+
+uint32_t cnt_queue_header_count(cnt_queue_header *header)
+{
+	CNT_NULL_CHECK(header);
+
+	return (header->tail - header->head + header->capacity) % header->capacity;
+}
+
+void cnt_queue_header_assert_is_not_full(cnt_queue_header *header)
+{
+	CNT_NULL_CHECK(header);
+
+	uint32_t count = cnt_queue_header_count(header);
+	(void)count;
+
+	SDL_assert(count < header->capacity);
+}
+
+bool cnt_queue_header_is_empty(cnt_queue_header *header)
+{
+	CNT_NULL_CHECK(header);
+
+	return header->head == header->tail;
+}
+
+uint32_t cnt_queue_header_head(cnt_queue_header *header)
+{
+	CNT_NULL_CHECK(header);
+
+	return header->head;
+}
+
+uint32_t cnt_queue_header_tail(cnt_queue_header *header)
+{
+	CNT_NULL_CHECK(header);
+
+	return header->tail;
+}
+
+uint32_t cnt_queue_header_advance_head(cnt_queue_header *header)
+{
+	CNT_NULL_CHECK(header);
+
+	uint32_t index = cnt_queue_header_head(header);
+
+	header->head = (header->head + 1) % header->capacity;
+	return index;
+}
+
+uint32_t cnt_queue_header_advance_tail(cnt_queue_header *header)
+{
+	CNT_NULL_CHECK(header);
+
+	uint32_t index = cnt_queue_header_tail(header);
+
+	header->tail = (header->tail + 1) % header->capacity;
+	return index;
+}
+
+void cnt_queue_header_clear(cnt_queue_header *header)
+{
+	CNT_NULL_CHECK(header);
+	header->head = 0;
+	header->tail = 0;
+}
+
+void cnt_queue_header_close(cnt_queue_header *header)
+{
+	CNT_NULL_CHECK(header);
+
+	SDL_zerop(header);
+}
+
+bool cnt_queue_header_try_peek(cnt_queue_header *header, void *data, size_t stride, void *element)
+{
+	CNT_NULL_CHECK(header);
+
+	if (cnt_queue_header_is_empty(header))
+	{
+		return false;
+	}
+
+	uint32_t head = cnt_queue_header_head(header);
+	SDL_memcpy(((uint8_t *)data) + head * stride, element, stride);
+
+	return true;
+}
+
+bool cnt_queue_header_try_enqueue(cnt_queue_header *header, void *data, size_t stride, void *element)
+{
+	CNT_NULL_CHECK(header);
+
+	// try_enqueue false not implemented
+
+	cnt_queue_header_assert_is_not_full(header);
+
+	uint32_t head = cnt_queue_header_advance_head(header);
+	SDL_memcpy(((uint8_t *)data) + head * stride, element, stride);
+
+	return true;
+}
+
+bool cnt_queue_header_try_dequeue(cnt_queue_header *header, void *data, size_t stride, void *element)
+{
+	CNT_NULL_CHECK(header);
+
+	if (cnt_queue_header_is_empty(header))
+	{
+		return false;
+	}
+
+	uint32_t head = cnt_queue_header_advance_head(header);
+	uint8_t *data_at = ((uint8_t *)data) + head * stride;
+	SDL_memcpy(element, data_at, stride);
+	SDL_memset(data_at, 0, stride);
+
+	return true;
+}
+
 cnt_user_client_frame_queue *cnt_user_client_frame_queue_alloc(uint32_t capacity)
 {
 	const uint32_t size = offsetof(cnt_user_client_frame_queue, frames[capacity]);
 	cnt_user_client_frame_queue *queue = (cnt_user_client_frame_queue *)SDL_malloc(size);
-	queue->capacity = capacity;
-	queue->head = 0;
-	queue->tail = 0;
+	cnt_queue_header_open(&queue->header, capacity);
 	return queue;
 }
 
 void cnt_user_client_frame_queue_free(cnt_user_client_frame_queue *queue)
 {
 	CNT_NULL_CHECK(queue);
+	cnt_queue_header_close(&queue->header);
 	SDL_free(queue);
 }
 
@@ -1706,38 +1832,28 @@ uint32_t cnt_user_client_frame_queue_count(cnt_user_client_frame_queue *queue)
 {
 	CNT_NULL_CHECK(queue);
 
-	return (queue->tail - queue->head + queue->capacity) % queue->capacity;
+	return cnt_queue_header_count(&queue->header);
 }
 
-cnt_user_client_frame_queue *cnt_user_client_frame_queue_clear(cnt_user_client_frame_queue *queue)
+void cnt_user_client_frame_queue_clear(cnt_user_client_frame_queue *queue)
 {
 	CNT_NULL_CHECK(queue);
 
-	queue->head = 0;
-	queue->tail = 0;
-
-	return queue;
+	cnt_queue_header_clear(&queue->header);
 }
 
-cnt_user_client_frame_queue *cnt_user_client_frame_queue_add(cnt_user_client_frame_queue *queue, cnt_user_client_frame *frame)
+void cnt_user_client_frame_queue_add(cnt_user_client_frame_queue *queue, cnt_user_client_frame *frame)
 {
 	CNT_NULL_CHECK(queue);
 
-	uint32_t count = cnt_user_client_frame_queue_count(queue);
-	SDL_assert(count < queue->capacity);
-
-	queue->frames[queue->tail] = frame;
-
-	queue->tail = (queue->tail + 1) % queue->capacity;
-
-	return queue;
+	cnt_queue_header_try_enqueue(&queue->header, (void *)queue->frames, sizeof(*queue->frames), (void *)&frame);
 }
 
 bool cnt_user_client_frame_queue_is_empty(cnt_user_client_frame_queue *queue)
 {
 	CNT_NULL_CHECK(queue);
 
-	return queue->head == queue->tail;
+	return cnt_queue_header_is_empty(&queue->header);
 }
 
 bool cnt_user_client_frame_queue_try_peek(cnt_user_client_frame_queue *queue, cnt_user_client_frame **frame)
@@ -1745,14 +1861,7 @@ bool cnt_user_client_frame_queue_try_peek(cnt_user_client_frame_queue *queue, cn
 	CNT_NULL_CHECK(queue);
 	CNT_NULL_CHECK(frame);
 
-	if (cnt_user_client_frame_queue_is_empty(queue))
-	{
-		return false;
-	}
-
-	*frame = queue->frames[queue->head];
-
-	return true;
+	return cnt_queue_header_try_peek(&queue->header, (void *)queue->frames, sizeof(*queue->frames), (void *)frame);
 }
 
 bool cnt_user_client_frame_queue_try_get(cnt_user_client_frame_queue *queue, cnt_user_client_frame **frame)
@@ -1760,17 +1869,7 @@ bool cnt_user_client_frame_queue_try_get(cnt_user_client_frame_queue *queue, cnt
 	CNT_NULL_CHECK(queue);
 	CNT_NULL_CHECK(frame);
 
-	if (cnt_user_client_frame_queue_is_empty(queue))
-	{
-		return false;
-	}
-
-	*frame = queue->frames[queue->head];
-	// Clean it up - just in case :)
-	queue->frames[queue->head] = (cnt_user_client_frame *)0xBEEFBEEF;
-	queue->head = (queue->head + 1) % queue->capacity;
-
-	return true;
+	return cnt_queue_header_try_dequeue(&queue->header, (void *)queue->frames, sizeof(*queue->frames), (void *)frame);
 }
 
 cnt_user_client_frame_concurrent_queue *cnt_user_client_frame_concurrent_queue_open(cnt_user_client_frame_concurrent_queue *queue,

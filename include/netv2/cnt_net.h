@@ -212,11 +212,16 @@ struct cnt_user_client_frame
 	uint8_t data[1];
 };
 
-struct cnt_user_client_frame_queue
+struct cnt_queue_header
 {
 	uint32_t head;
 	uint32_t tail;
 	uint32_t capacity;
+};
+
+struct cnt_user_client_frame_queue
+{
+	cnt_queue_header header;
 
 	cnt_user_client_frame *frames[1];
 };
@@ -282,8 +287,8 @@ struct cnt_user_client_command_queue
 
 struct cnt_user_client_command_concurrent_queue
 {
-	cnt_user_client_command_queue* active;
-	cnt_user_client_command_queue* queues[2];
+	cnt_user_client_command_queue *active;
+	cnt_user_client_command_queue *queues[2];
 	uint8_t current_inactive;
 };
 
@@ -333,14 +338,12 @@ struct cnt_user_host_command_queue
 	cnt_user_host_command frames[1];
 };
 
-
 struct cnt_user_host_command_concurrent_queue
 {
-	cnt_user_host_command_queue* active;
-	cnt_user_host_command_queue* queues[2];
+	cnt_user_host_command_queue *active;
+	cnt_user_host_command_queue *queues[2];
 	uint8_t current_inactive;
 };
-
 
 struct cnt_user_host
 {

@@ -37,6 +37,8 @@ int main(int argc, char **argv)
 	char user_host_hello[] = "Hello from host app";
 	char user_client_hello[] = "Hello from client app";
 
+	int tick_counter = 0;
+
 	while (true)
 	{
 		cnt_user_client_send(&user_client, user_client_hello, sizeof(user_client_hello));
@@ -51,9 +53,16 @@ int main(int argc, char **argv)
 		while (int recv_count = cnt_user_host_recv(&user_host, &from, recv_buffer, sizeof(recv_buffer)))
 		{
 			SDL_Log("%*s", recv_count, recv_buffer);
+
+			if (tick_counter > 1000)
+			{
+				cnt_user_host_kick(&user_host, from);
+				tick_counter = INT_MIN;
+			}
 		}
 
 		SDL_Delay(4);
+		tick_counter++;
 	}
 
 	return 0;

@@ -223,6 +223,7 @@ struct cnt_user_client_frame_queue
 {
 	cnt_queue_header header;
 
+	// Needs to be last
 	cnt_user_client_frame *frames[1];
 };
 
@@ -247,10 +248,9 @@ struct cnt_user_host_frame
 
 struct cnt_user_host_frame_queue
 {
-	uint32_t head;
-	uint32_t tail;
-	uint32_t capacity;
+	cnt_queue_header header;
 
+	// Needs to be last
 	cnt_user_host_frame *frames[1];
 };
 
@@ -278,11 +278,9 @@ struct cnt_user_client_command
 
 struct cnt_user_client_command_queue
 {
-	uint32_t head;
-	uint32_t tail;
-	uint32_t capacity;
+	cnt_queue_header header;
 
-	cnt_user_client_command frames[1];
+	cnt_user_client_command commands[1];
 };
 
 struct cnt_user_client_command_concurrent_queue
@@ -324,18 +322,16 @@ struct cnt_user_host_command_kick
 };
 
 union cnt_user_host_command {
-	cnt_user_client_command_type type;
+	cnt_user_host_command_type type;
 	cnt_user_host_command_common common;
 	cnt_user_host_command_kick kick;
 };
 
 struct cnt_user_host_command_queue
 {
-	uint32_t head;
-	uint32_t tail;
-	uint32_t capacity;
+	cnt_queue_header header;
 
-	cnt_user_host_command frames[1];
+	cnt_user_host_command commands[1];
 };
 
 struct cnt_user_host_command_concurrent_queue
@@ -411,7 +407,6 @@ void cnt_star_close(cnt_star *star);
 
 // Host
 cnt_host *cnt_host_open(cnt_host *host, uint32_t max_connections);
-cnt_ip *cnt_host_kick(cnt_host *host, cnt_ip *addr);
 cnt_host *cnt_host_send(cnt_host *host, cnt_stream *stream, cnt_ip_container *container, cnt_message_64_bytes_queue *messages);
 cnt_client_on_host *cnt_host_recv(cnt_host *host, cnt_ip *client_addr, cnt_stream *stream);
 void cnt_host_close(cnt_host *host);
@@ -429,6 +424,7 @@ int cnt_user_client_recv(cnt_user_client *client, void *ptr, int byte_count);
 cnt_user_host *cnt_user_host_create(cnt_user_host *user, const char *ip, uint16_t port);
 cnt_user_host *cnt_user_host_broadcast(cnt_user_host *host, void *ptr, int byte_count);
 cnt_user_host *cnt_user_host_send(cnt_user_host *host, cnt_sparse_index client_id, void *ptr, int byte_count);
+cnt_user_host* cnt_user_host_kick(cnt_user_host* host, cnt_sparse_index client_id);
 int cnt_user_host_recv(cnt_user_host *host, cnt_sparse_index *client_id, void *ptr, int byte_count);
 
 // Tests

@@ -1778,6 +1778,7 @@ void cnt_client_close(cnt_client *client)
 cnt_user_client_frame *cnt_user_client_frame_alloc(cnt_stream *stream)
 {
 	CNT_NULL_CHECK(stream);
+	SDL_assert(stream->at > 0);
 
 	// Heap allocation for this one is very stupid
 	const uint32_t size = offsetof(cnt_user_client_frame, data[stream->at]);
@@ -2372,6 +2373,23 @@ cnt_net_engine_state_type cnt_net_engine_state_get(cnt_net_engine_state *engine_
 	return (cnt_net_engine_state_type)SDL_GetAtomicU32(&engine_state->state);
 }
 
+const char *cnt_net_engine_state_type_to_string(cnt_net_engine_state_type state)
+{
+	switch (state)
+	{
+	case CNT_NET_ENGINE_STATE_TYPE_NONE:
+		return "NONE";
+	case CNT_NET_ENGINE_STATE_TYPE_OPENING:
+		return "OPENING";
+	case CNT_NET_ENGINE_STATE_TYPE_RUNNING:
+		return "RUNNING";
+	case CNT_NET_ENGINE_STATE_TYPE_SHUTTING_DOWN:
+		return "SHUTTING DOWN";
+	case CNT_NET_ENGINE_STATE_TYPE_CLOSED:
+		return "CLOSED";
+	}
+}
+
 bool cnt_net_engine_state_type_can_network(cnt_net_engine_state_type state)
 {
 	// We allow enqueueing state while opening, this might backlash
@@ -2420,6 +2438,18 @@ cnt_user_client *cnt_user_client_shut_down(cnt_user_client *user)
 cnt_net_engine_state_type cnt_user_client_get_state(cnt_user_client *user)
 {
 	return cnt_net_engine_state_get(&user->net_engine_state);
+}
+
+bool cnt_user_client_is_active(cnt_user_client *user)
+{
+	cnt_net_engine_state_type state = cnt_user_client_get_state(user);
+	return state != CNT_NET_ENGINE_STATE_TYPE_CLOSED && state != CNT_NET_ENGINE_STATE_TYPE_NONE;
+}
+
+const char *cnt_user_client_state_to_string(cnt_user_client *user)
+{
+	cnt_net_engine_state_type state = cnt_user_client_get_state(user);
+	return cnt_net_engine_state_type_to_string(state);
 }
 
 void cnt_user_client_close(cnt_user_client *user)
@@ -2472,7 +2502,7 @@ cnt_user_host *cnt_user_host_shut_down(cnt_user_host *user)
 {
 	CNT_NULL_CHECK(user);
 
-	SDL_Log("Shutting down Client(%s:%hu)", user->host_ip, user->host_port);
+	SDL_Log("Shutting down Host(%s:%hu)", user->host_ip, user->host_port);
 
 	cnt_user_host_command command;
 	command.type = CNT_USER_HOST_COMMAND_TYPE_QUIT;
@@ -2487,6 +2517,18 @@ cnt_net_engine_state_type cnt_user_host_get_state(cnt_user_host *user)
 	return cnt_net_engine_state_get(&user->net_engine_state);
 }
 
+bool cnt_user_host_is_active(cnt_user_host *user)
+{
+	cnt_net_engine_state_type state = cnt_user_host_get_state(user);
+	return state != CNT_NET_ENGINE_STATE_TYPE_CLOSED && state != CNT_NET_ENGINE_STATE_TYPE_NONE;
+}
+
+const char *cnt_user_host_state_to_string(cnt_user_host *user)
+{
+	cnt_net_engine_state_type state = cnt_user_host_get_state(user);
+	return cnt_net_engine_state_type_to_string(state);
+}
+
 void cnt_user_host_close(cnt_user_host *user)
 {
 	CNT_NULL_CHECK(user);
@@ -2497,13 +2539,14 @@ void cnt_user_host_close(cnt_user_host *user)
 	}
 	while (cnt_user_host_get_state(user) != CNT_NET_ENGINE_STATE_TYPE_CLOSED)
 	{
-		SDL_Log("Waiting to close down Client(%s:%hu)", user->host_ip, user->host_port);
+		SDL_Log("Waiting to close down Host(%s:%hu)", user->host_ip, user->host_port);
 	}
+	// TODO: Exhaust queue
 	cnt_user_host_frame_spsc_queue_close(&user->send_queue);
 	cnt_user_host_frame_spsc_queue_close(&user->recv_queue);
 	cnt_user_host_command_spsc_queue_close(&user->command_queue);
 
-	SDL_Log("Closed down Client(%s:%hu)", user->host_ip, user->host_port);
+	SDL_Log("Closed down Host(%s:%hu)", user->host_ip, user->host_port);
 
 	SDL_zerop(user);
 }
@@ -2733,10 +2776,12 @@ int cnt_client_default_process(cnt_user_client *user_client)
 			{
 				cnt_stream frame_stream;
 				cnt_stream_create_full(&frame_stream, recv_stream.data + recv_stream.at, recv_stream.capacity - recv_stream.at);
-
-				cnt_user_client_frame *frame = cnt_user_client_frame_alloc(&frame_stream);
-				cnt_user_client_frame_spsc_queue_enqueue(&user_client->recv_queue, frame);
-				cnt_user_client_frame_spsc_queue_submit(&user_client->recv_queue);
+				if (frame_stream.capacity > 0)
+				{
+					cnt_user_client_frame *frame = cnt_user_client_frame_alloc(&frame_stream);
+					cnt_user_client_frame_spsc_queue_enqueue(&user_client->recv_queue, frame);
+					cnt_user_client_frame_spsc_queue_submit(&user_client->recv_queue);
+				}
 			}
 		}
 
@@ -2897,9 +2942,12 @@ int cnt_host_default_process(cnt_user_host *user_host)
 				// We probably need to differ between client frame and host frame...
 				// Client KNOWS where it receives the data from
 				// Host needs to propagate!
-				cnt_user_host_frame *frame = cnt_user_host_frame_alloc(&frame_stream, client->id);
-				cnt_user_host_frame_spsc_queue_enqueue(&user_host->recv_queue, frame);
-				cnt_user_host_frame_spsc_queue_submit(&user_host->recv_queue);
+				if (frame_stream.capacity > 0)
+				{
+					cnt_user_host_frame *frame = cnt_user_host_frame_alloc(&frame_stream, client->id);
+					cnt_user_host_frame_spsc_queue_enqueue(&user_host->recv_queue, frame);
+					cnt_user_host_frame_spsc_queue_submit(&user_host->recv_queue);
+				}
 			}
 		}
 		uint64_t end = SDL_GetTicks();

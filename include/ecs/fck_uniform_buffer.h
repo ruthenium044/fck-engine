@@ -175,4 +175,5 @@ type *fck_uniform_buffer_view(fck_uniform_buffer *buffer)
 	return (type *)(buffer->data + header->offset);
 }
 
+
 #endif // FCK_UNIFORM_BUFFER_INCLUDED

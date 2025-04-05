@@ -11,10 +11,6 @@ typedef void (*fck_instance_setup_function)(fck_ecs *);
 struct fck_instance_info
 {
 	char const *title;
-
-	char const *ip;
-	uint16_t source_port;
-	uint16_t destination_port;
 };
 
 struct fck_instance

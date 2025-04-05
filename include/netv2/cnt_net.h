@@ -433,28 +433,38 @@ cnt_star *cnt_star_add(cnt_star *star, cnt_ip *addr);
 cnt_ip *cnt_star_remove(cnt_star *star, cnt_ip *addr);
 void cnt_star_close(cnt_star *star);
 
-// Host
-cnt_host *cnt_host_open(cnt_host *host, uint32_t max_connections);
-cnt_host *cnt_host_send(cnt_host *host, cnt_stream *stream, cnt_ip_container *container, cnt_message_64_bytes_queue *messages);
-cnt_client_on_host *cnt_host_recv(cnt_host *host, cnt_ip *client_addr, cnt_stream *stream);
-void cnt_host_close(cnt_host *host);
-
 // Client
 cnt_client *cnt_client_open(cnt_client *client, cnt_connection *connection);
 cnt_client *cnt_client_send(cnt_client *client, cnt_stream *stream);
 cnt_client *cnt_client_recv(cnt_client *client, cnt_stream *stream);
 void cnt_client_close(cnt_client *client);
 
+// Host
+cnt_host *cnt_host_open(cnt_host *host, uint32_t max_connections);
+cnt_host *cnt_host_send(cnt_host *host, cnt_stream *stream, cnt_ip_container *container, cnt_message_64_bytes_queue *messages);
+cnt_client_on_host *cnt_host_recv(cnt_host *host, cnt_ip *client_addr, cnt_stream *stream);
+void cnt_host_close(cnt_host *host);
+
+// User Realm
+// Utility
+const char* cnt_net_engine_state_type_to_string(cnt_net_engine_state_type state);
+
+// Client
 cnt_user_client *cnt_user_client_open(cnt_user_client *user, const char *host_ip, uint16_t port, uint32_t frequency);
 cnt_user_client* cnt_user_client_shut_down(cnt_user_client* user);
 cnt_net_engine_state_type cnt_user_client_get_state(cnt_user_client* user);
+bool cnt_user_client_is_active(cnt_user_client* user);
+const char* cnt_user_client_state_to_string(cnt_user_client* user);
 void cnt_user_client_close(cnt_user_client* user);
 cnt_user_client *cnt_user_client_send(cnt_user_client *client, void *ptr, int byte_count);
 int cnt_user_client_recv(cnt_user_client *client, void *ptr, int byte_count);
 
+// Host
 cnt_user_host *cnt_user_host_open(cnt_user_host *user, const char *host_ip, uint16_t port, uint32_t frequency);
 cnt_user_host* cnt_user_host_shut_down(cnt_user_host* user);
 cnt_net_engine_state_type cnt_user_host_get_state(cnt_user_host* user);
+bool cnt_user_host_is_active(cnt_user_host* user);
+const char* cnt_user_host_state_to_string(cnt_user_host* user);
 void cnt_user_host_close(cnt_user_host* user);
 cnt_user_host *cnt_user_host_broadcast(cnt_user_host *host, void *ptr, int byte_count);
 cnt_user_host *cnt_user_host_send(cnt_user_host *host, cnt_sparse_index client_id, void *ptr, int byte_count);

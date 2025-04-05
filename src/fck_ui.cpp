@@ -3,7 +3,7 @@
 #include "fck_ui.h"
 
 
-#include "SDL3/sdl.h"
+#include <SDL3/SDL.h>
 #include "core/fck_engine.h"
 #include "ecs/fck_ecs.h"
 

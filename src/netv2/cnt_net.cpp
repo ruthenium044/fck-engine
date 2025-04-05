@@ -11,6 +11,10 @@
 #include "lz4.h"
 #include "shared/fck_checks.h"
 
+// TODO: Make network engine restartable!!
+// TODO: Nice and dandy secret implementation
+// TODO: Better and prettier logging
+// TODO: Remove magic values, i.e. version constant - maybe just put them on top as constants
 // Internal declaration for the default client/host processes
 int cnt_client_default_process(cnt_user_client *);
 int cnt_host_default_process(cnt_user_host *);
@@ -651,6 +655,11 @@ void cnt_stream_close(cnt_stream *stream)
 	SDL_zerop(stream);
 }
 
+int cnt_stream_can_read(cnt_stream *stream, size_t size)
+{
+	return SDL_max(stream->capacity - stream->at, 0) >= size;
+}
+
 static void cnt_stream_append(cnt_stream *serialiser, uint8_t *value, uint16_t count)
 {
 	uint8_t *at = serialiser->data + serialiser->at;
@@ -664,24 +673,30 @@ static void cnt_stream_string_length(cnt_stream *serialiser, size_t *count)
 {
 	uint8_t const *at = serialiser->data + serialiser->at;
 
-	size_t max_len = serialiser->capacity - serialiser->at;
+	size_t max_len = SDL_max(serialiser->capacity - serialiser->at, 0);
 	*count = SDL_strnlen((const char *)at, max_len);
 }
 
 static void cnt_stream_peek_string(cnt_stream *serialiser, uint8_t *value, uint16_t count)
 {
+	SDL_assert(serialiser->at + count <= serialiser->capacity);
+
 	uint8_t *at = serialiser->data + serialiser->at;
 
 	SDL_memcpy(value, at, count);
 }
 static void cnt_stream_peek_uint8(cnt_stream *serialiser, uint8_t *value)
 {
+	SDL_assert(serialiser->at + sizeof(*value) <= serialiser->capacity);
+
 	uint8_t *at = serialiser->data + serialiser->at;
 
 	*value = *at;
 }
 static void cnt_stream_peek_uint16(cnt_stream *serialiser, uint16_t *value)
 {
+	SDL_assert(serialiser->at + sizeof(*value) <= serialiser->capacity);
+
 	uint8_t *at = serialiser->data + serialiser->at;
 
 	*value = ((uint16_t)at[0] << 0)    // 0xFF000000
@@ -689,6 +704,8 @@ static void cnt_stream_peek_uint16(cnt_stream *serialiser, uint16_t *value)
 }
 static void cnt_stream_peek_uint32(cnt_stream *serialiser, uint32_t *value)
 {
+	SDL_assert(serialiser->at + sizeof(*value) <= serialiser->capacity);
+
 	uint8_t *at = serialiser->data + serialiser->at;
 
 	*value = (uint32_t(at[0]) << 0)     // 0xFF000000
@@ -698,6 +715,8 @@ static void cnt_stream_peek_uint32(cnt_stream *serialiser, uint32_t *value)
 }
 static void cnt_stream_peek_uint64(cnt_stream *serialiser, uint64_t *value)
 {
+	SDL_assert(serialiser->at + sizeof(*value) <= serialiser->capacity);
+
 	uint8_t *at = serialiser->data + serialiser->at;
 
 	*value = ((uint64_t)at[0] << 0ull)     // 0xFF00000000000000
@@ -712,6 +731,8 @@ static void cnt_stream_peek_uint64(cnt_stream *serialiser, uint64_t *value)
 
 static void cnt_stream_read_string(cnt_stream *serialiser, void *value, uint16_t count)
 {
+	SDL_assert(serialiser->at + count <= serialiser->capacity);
+
 	uint8_t *at = serialiser->data + serialiser->at;
 
 	SDL_memcpy(value, at, count);
@@ -720,6 +741,7 @@ static void cnt_stream_read_string(cnt_stream *serialiser, void *value, uint16_t
 }
 static void cnt_stream_read_uint8(cnt_stream *serialiser, uint8_t *value)
 {
+	SDL_assert(serialiser->at + sizeof(*value) <= serialiser->capacity);
 
 	uint8_t *at = serialiser->data + serialiser->at;
 
@@ -728,6 +750,8 @@ static void cnt_stream_read_uint8(cnt_stream *serialiser, uint8_t *value)
 }
 static void cnt_stream_read_uint16(cnt_stream *serialiser, uint16_t *value)
 {
+	SDL_assert(serialiser->at + sizeof(*value) <= serialiser->capacity);
+
 	uint8_t *at = serialiser->data + serialiser->at;
 
 	*value = ((uint16_t)at[0] << 0)    // 0xFF000000
@@ -737,6 +761,8 @@ static void cnt_stream_read_uint16(cnt_stream *serialiser, uint16_t *value)
 }
 static void cnt_stream_read_uint32(cnt_stream *serialiser, uint32_t *value)
 {
+	SDL_assert(serialiser->at + sizeof(*value) <= serialiser->capacity);
+
 	uint8_t *at = serialiser->data + serialiser->at;
 
 	*value = (uint32_t(at[0]) << 0)     // 0xFF000000
@@ -748,6 +774,8 @@ static void cnt_stream_read_uint32(cnt_stream *serialiser, uint32_t *value)
 }
 static void cnt_stream_read_uint64(cnt_stream *serialiser, uint64_t *value)
 {
+	SDL_assert(serialiser->at + sizeof(*value) <= serialiser->capacity);
+
 	uint8_t *at = serialiser->data + serialiser->at;
 
 	*value = ((uint64_t)at[0] << 0ull)     // 0xFF00000000000000
@@ -882,14 +910,25 @@ static void cnt_protocol_client_write(cnt_protocol_client *packet, cnt_stream *s
 	cnt_stream_write_string(stream, packet->extra_payload, packet->extra_payload_count);
 }
 
-static void cnt_protocol_client_read(cnt_protocol_client *packet, cnt_stream *stream)
+static bool cnt_protocol_client_read(cnt_protocol_client *packet, cnt_stream *stream)
 {
+	if (!cnt_stream_can_read(stream, sizeof(packet->prefix)))
+	{
+		return false;
+	}
+
 	cnt_stream_read_uint32(stream, &packet->prefix);
+	if (packet->prefix != 8008)
+	{
+		// We can just stop here. The packet is illegal af
+		return false;
+	}
 	cnt_stream_read_uint8(stream, (uint8_t *)&packet->state);
 	cnt_stream_read_uint32(stream, &packet->id.index);
 
 	cnt_stream_read_uint8(stream, &packet->extra_payload_count);
 	cnt_stream_read_string(stream, packet->extra_payload, packet->extra_payload_count);
+	return true;
 }
 
 static void cnt_protocol_host_write(cnt_protocol_host *packet, cnt_stream *stream)
@@ -900,12 +939,24 @@ static void cnt_protocol_host_write(cnt_protocol_host *packet, cnt_stream *strea
 	cnt_stream_write_string(stream, packet->extra_payload, packet->extra_payload_count);
 }
 
-static void cnt_protocol_host_read(cnt_protocol_host *packet, cnt_stream *stream)
+static bool cnt_protocol_host_read(cnt_protocol_host *packet, cnt_stream *stream)
 {
+	if (!cnt_stream_can_read(stream, sizeof(packet->prefix)))
+	{
+		return false;
+	}
+
 	cnt_stream_read_uint32(stream, &packet->prefix);
+	if (packet->prefix != 8008)
+	{
+		// We can just stop here. The packet is illegal af
+		return false;
+	}
 	cnt_stream_read_uint8(stream, (uint8_t *)&packet->state);
 	cnt_stream_read_uint8(stream, &packet->extra_payload_count);
 	cnt_stream_read_string(stream, packet->extra_payload, packet->extra_payload_count);
+
+	return true;
 }
 
 static void cnt_protocol_secret_write(cnt_secret *secret, cnt_stream *stream)
@@ -1170,7 +1221,7 @@ cnt_protocol_client *cnt_protocol_client_create(cnt_protocol_client *client_prot
 {
 	SDL_assert(client && "Client is null pointer");
 	SDL_assert(client_protocol && "Protocol is null pointer");
-	SDL_assert(client->protocol != CNT_PROTOCOL_STATE_CLIENT_NONE && "Client is not allowed to be in NONE state");
+	// SDL_assert(client->protocol != CNT_PROTOCOL_STATE_CLIENT_NONE && "Client is not allowed to be in NONE state");
 
 	SDL_zerop(client_protocol);
 
@@ -1184,6 +1235,7 @@ cnt_protocol_client *cnt_protocol_client_create(cnt_protocol_client *client_prot
 	// In any case, we send our secret over
 	case CNT_PROTOCOL_STATE_CLIENT_REQUEST:
 	case CNT_PROTOCOL_STATE_CLIENT_ANSWER:
+	case CNT_PROTOCOL_STATE_CLIENT_DISCONNECT:
 	case CNT_PROTOCOL_STATE_CLIENT_OK: {
 		cnt_stream stream;
 		cnt_stream_create(&stream, client_protocol->extra_payload, sizeof(client_protocol->extra_payload));
@@ -1202,8 +1254,8 @@ cnt_client_on_host *cnt_protocol_client_apply(cnt_protocol_client *client_protoc
 {
 	SDL_assert(host && "Host is null pointer");
 	SDL_assert(client_protocol && "Protocol is null pointer");
-
-	bool should_drop = client_protocol->prefix != 8008 || client_protocol->state == CNT_PROTOCOL_STATE_CLIENT_NONE;
+	SDL_assert(client_protocol->prefix == 8008);
+	bool should_drop = client_protocol->state == CNT_PROTOCOL_STATE_HOST_NONE || client_protocol->state == CNT_PROTOCOL_STATE_CLIENT_NONE;
 	if (should_drop)
 	{
 		return nullptr;
@@ -1211,6 +1263,43 @@ cnt_client_on_host *cnt_protocol_client_apply(cnt_protocol_client *client_protoc
 
 	cnt_dense_index dense_index;
 	bool client_id_exists = cnt_sparse_list_try_get_dense(&host->mapping, &client_protocol->id, &dense_index);
+	if (client_protocol->state == CNT_PROTOCOL_STATE_CLIENT_DISCONNECT)
+	{
+		if (client_id_exists)
+		{
+			cnt_ip *stored_addr = &host->ip_lookup[dense_index.index];
+			bool is_stored_addr_mapped_correctly = cnt_ip_equals(stored_addr, client_addr);
+			if (is_stored_addr_mapped_correctly)
+			{
+				cnt_stream stream;
+				cnt_stream_create(&stream, client_protocol->extra_payload, client_protocol->extra_payload_count);
+
+				cnt_client_on_host *client_state = &host->client_states[dense_index.index];
+				if (client_state->protocol == CNT_PROTOCOL_STATE_HOST_OK)
+				{
+					// If the client disconnects while established, check the secret
+					cnt_protocol_secret_read(&client_state->secret, &stream);
+					bool is_secret_correct = (client_state->secret.public_value ^ client_state->secret.private_value) == SECRET_SEED;
+					if (is_secret_correct)
+					{
+						client_state->protocol = CNT_PROTOCOL_STATE_HOST_DISCONNECT;
+						return nullptr;
+					}
+				}
+				else
+				{
+					// If the client disconnects during the handshake, just invalidate!
+					// Packets for the handshake can still be in-flight :(
+					client_state->protocol = CNT_PROTOCOL_STATE_HOST_DISCONNECT;
+					return nullptr;
+				}
+			}
+			SDL_Log("Received naughty state from client on Host - Tried to circumvent handshake?");
+		}
+
+		return nullptr;
+	}
+
 	if (client_protocol->state == CNT_PROTOCOL_STATE_CLIENT_OK)
 	{
 		// Any kind of client can just send as an OK
@@ -1225,12 +1314,15 @@ cnt_client_on_host *cnt_protocol_client_apply(cnt_protocol_client *client_protoc
 				cnt_stream_create(&stream, client_protocol->extra_payload, client_protocol->extra_payload_count);
 
 				cnt_client_on_host *client_state = &host->client_states[dense_index.index];
-				cnt_protocol_secret_read(&client_state->secret, &stream);
-				bool is_secret_correct = (client_state->secret.public_value ^ client_state->secret.private_value) == SECRET_SEED;
-				if (is_secret_correct)
+				if (client_state->protocol == CNT_PROTOCOL_STATE_HOST_OK)
 				{
-					client_state->attempts = 0;
-					return client_state;
+					cnt_protocol_secret_read(&client_state->secret, &stream);
+					bool is_secret_correct = (client_state->secret.public_value ^ client_state->secret.private_value) == SECRET_SEED;
+					if (is_secret_correct)
+					{
+						client_state->attempts = 0;
+						return client_state;
+					}
 				}
 			}
 		}
@@ -1294,7 +1386,6 @@ cnt_client_on_host *cnt_protocol_client_apply(cnt_protocol_client *client_protoc
 	// Whenever we receive something, we can reset the attempts!
 	client_state->attempts = 0;
 
-	// TODO: This breaks stuff....
 	if (client_state->protocol >= client_protocol->state)
 	{
 		return nullptr;
@@ -1334,9 +1425,8 @@ cnt_client *cnt_protocol_host_apply(cnt_protocol_host *host_protocol, cnt_client
 {
 	SDL_assert(client && "Client is null pointer");
 	SDL_assert(host_protocol && "Protocol is null pointer");
-
-	bool should_drop = host_protocol->prefix != 8008 || host_protocol->state == CNT_PROTOCOL_STATE_HOST_NONE ||
-	                   client->protocol == CNT_PROTOCOL_STATE_CLIENT_NONE;
+	SDL_assert(host_protocol->prefix == 8008);
+	bool should_drop = host_protocol->state == CNT_PROTOCOL_STATE_HOST_NONE || client->protocol == CNT_PROTOCOL_STATE_CLIENT_NONE;
 	if (should_drop)
 	{
 		return nullptr;
@@ -1365,7 +1455,8 @@ cnt_client *cnt_protocol_host_apply(cnt_protocol_host *host_protocol, cnt_client
 	}
 	case CNT_PROTOCOL_STATE_HOST_RESOLUTION_REJECT:
 	case CNT_PROTOCOL_STATE_HOST_KICKED:
-		// Umm...
+		SDL_Log("Client (%lu) got kicked by Host", client->id_on_host.index);
+		client->protocol = CNT_PROTOCOL_STATE_CLIENT_KICKED;
 		return nullptr;
 	case CNT_PROTOCOL_STATE_HOST_OK:
 		client->protocol = CNT_PROTOCOL_STATE_CLIENT_OK;
@@ -1456,6 +1547,11 @@ bool cnt_host_client_ip_try_get(cnt_host *host, cnt_sparse_index client_id, cnt_
 	return true;
 }
 
+bool cnt_client_on_host_should_disconnect(cnt_client_on_host *client)
+{
+	return client->protocol == CNT_PROTOCOL_STATE_HOST_NONE || client->protocol == CNT_PROTOCOL_STATE_HOST_DISCONNECT;
+}
+
 cnt_host *cnt_host_send(cnt_host *host, cnt_stream *stream, cnt_ip_container *container, cnt_message_64_bytes_queue *messages)
 {
 	SDL_assert(host && "Host is null pointer");
@@ -1482,7 +1578,7 @@ cnt_host *cnt_host_send(cnt_host *host, cnt_stream *stream, cnt_ip_container *co
 
 		cnt_protocol_host protocol;
 		// NOTE: Maybe there are better conditions to check this...
-		if (client_state->protocol == CNT_PROTOCOL_STATE_HOST_NONE || client_state->attempts > MAXIMUM_HANDSHAKE_ATTEMPTS)
+		if (cnt_client_on_host_should_disconnect(client_state) || client_state->attempts > MAXIMUM_HANDSHAKE_ATTEMPTS)
 		{
 			// We get the last index BEFORE we remove.
 			// Only for consistency so last is count - 1
@@ -1557,9 +1653,11 @@ cnt_client_on_host *cnt_host_recv(cnt_host *host, cnt_ip *client_addr, cnt_strea
 	host->recv_count = host->recv_count + 1;
 
 	cnt_protocol_client protocol;
-	cnt_protocol_client_read(&protocol, stream);
-
-	return cnt_protocol_client_apply(&protocol, host, client_addr);
+	if (cnt_protocol_client_read(&protocol, stream))
+	{
+		return cnt_protocol_client_apply(&protocol, host, client_addr);
+	}
+	return nullptr;
 }
 
 bool cnt_host_kick(cnt_host *host, cnt_sparse_index client_id)
@@ -1569,6 +1667,8 @@ bool cnt_host_kick(cnt_host *host, cnt_sparse_index client_id)
 	cnt_dense_index dense_index;
 	if (cnt_sparse_list_try_get_dense(&host->mapping, &client_id, &dense_index))
 	{
+		SDL_Log("Host kicks Client(%lu)", client_id.index);
+
 		cnt_client_on_host *state = &host->client_states[dense_index.index];
 		state->protocol = CNT_PROTOCOL_STATE_HOST_KICKED;
 		return true;
@@ -1606,11 +1706,13 @@ cnt_client *cnt_client_send(cnt_client *client, cnt_stream *stream)
 {
 	CNT_NULL_CHECK(client);
 	CNT_NULL_CHECK(stream);
+	// SDL_assert(client->protocol != CNT_PROTOCOL_STATE_CLIENT_NONE);
 
 	const uint8_t MAXIMUM_HANDSHAKE_ATTEMPTS = 64;
 
-	if (client->protocol == CNT_PROTOCOL_STATE_CLIENT_NONE || client->attempts > MAXIMUM_HANDSHAKE_ATTEMPTS)
+	if (client->attempts > MAXIMUM_HANDSHAKE_ATTEMPTS)
 	{
+		client->protocol = CNT_PROTOCOL_STATE_CLIENT_NONE; // Maybe timeout instead?
 		// Timeout or invalid state - Nothing can be done
 		return nullptr;
 	}
@@ -1623,6 +1725,7 @@ cnt_client *cnt_client_send(cnt_client *client, cnt_stream *stream)
 		return nullptr;
 	}
 
+	// Checking this might be redundant...
 	if (client->host_protocol > CNT_PROTOCOL_STATE_HOST_OK)
 	{
 		// Host booted us :(
@@ -1640,14 +1743,27 @@ cnt_client *cnt_client_send(cnt_client *client, cnt_stream *stream)
 	return client;
 }
 
+void cnt_client_disconnect(cnt_client *client)
+{
+	client->protocol = CNT_PROTOCOL_STATE_CLIENT_DISCONNECT;
+}
+
+bool cnt_client_is_active(cnt_client *client)
+{
+	return client->protocol != CNT_PROTOCOL_STATE_CLIENT_NONE && client->protocol != CNT_PROTOCOL_STATE_CLIENT_KICKED;
+}
+
 cnt_client *cnt_client_recv(cnt_client *client, cnt_stream *stream)
 {
 	CNT_NULL_CHECK(client);
 	CNT_NULL_CHECK(stream);
 
 	cnt_protocol_host protocol;
-	cnt_protocol_host_read(&protocol, stream);
-	return cnt_protocol_host_apply(&protocol, client);
+	if (cnt_protocol_host_read(&protocol, stream))
+	{
+		return cnt_protocol_host_apply(&protocol, client);
+	}
+	return nullptr;
 }
 
 void cnt_client_close(cnt_client *client)
@@ -1700,13 +1816,9 @@ void cnt_queue_header_assert_is_not_full(cnt_queue_header *header)
 {
 	CNT_NULL_CHECK(header);
 
-	// TODO: This fails :D 
-	// WE just overwrite in this case!!!!!! LOL 
+	uint32_t next = (header->tail + 1) % header->capacity;
 
-	uint32_t count = cnt_queue_header_count(header);
-	(void)count;
-
-	SDL_assert(count < header->capacity);
+	SDL_assert(next != header->head);
 }
 
 bool cnt_queue_header_is_empty(cnt_queue_header *header)
@@ -1876,8 +1988,7 @@ CNT_DEFINE_QUEUE(cnt_user_client_frame_queue, cnt_user_client_frame *, frames)
 CNT_DEFINE_QUEUE(cnt_user_host_command_queue, cnt_user_host_command, commands)
 CNT_DEFINE_QUEUE(cnt_user_host_frame_queue, cnt_user_host_frame *, frames)
 
-cnt_user_client_frame_concurrent_queue *cnt_user_client_frame_concurrent_queue_open(cnt_user_client_frame_concurrent_queue *queue,
-                                                                                    uint32_t capacity)
+cnt_user_client_frame_spsc_queue *cnt_user_client_frame_spsc_queue_open(cnt_user_client_frame_spsc_queue *queue, uint32_t capacity)
 {
 	CNT_NULL_CHECK(queue);
 
@@ -1889,7 +2000,7 @@ cnt_user_client_frame_concurrent_queue *cnt_user_client_frame_concurrent_queue_o
 	return queue;
 }
 
-void cnt_user_client_frame_concurrent_queue_close(cnt_user_client_frame_concurrent_queue *queue)
+void cnt_user_client_frame_spsc_queue_close(cnt_user_client_frame_spsc_queue *queue)
 {
 	CNT_NULL_CHECK(queue);
 
@@ -1899,8 +2010,8 @@ void cnt_user_client_frame_concurrent_queue_close(cnt_user_client_frame_concurre
 	SDL_zerop(queue);
 }
 
-cnt_user_client_frame_concurrent_queue *cnt_user_client_frame_concurrent_queue_enqueue(cnt_user_client_frame_concurrent_queue *queue,
-                                                                                       cnt_user_client_frame *frame)
+cnt_user_client_frame_spsc_queue *cnt_user_client_frame_spsc_queue_enqueue(cnt_user_client_frame_spsc_queue *queue,
+                                                                           cnt_user_client_frame *frame)
 {
 	CNT_NULL_CHECK(queue);
 
@@ -1910,7 +2021,7 @@ cnt_user_client_frame_concurrent_queue *cnt_user_client_frame_concurrent_queue_e
 	return queue;
 }
 
-cnt_user_client_frame_concurrent_queue *cnt_user_client_frame_concurrent_queue_submit(cnt_user_client_frame_concurrent_queue *queue)
+cnt_user_client_frame_spsc_queue *cnt_user_client_frame_spsc_queue_submit(cnt_user_client_frame_spsc_queue *queue)
 {
 	CNT_NULL_CHECK(queue);
 
@@ -1928,7 +2039,7 @@ cnt_user_client_frame_concurrent_queue *cnt_user_client_frame_concurrent_queue_s
 	return queue;
 }
 
-bool cnt_user_client_frame_concurrent_queue_try_dequeue(cnt_user_client_frame_concurrent_queue *queue, cnt_user_client_frame **frame)
+bool cnt_user_client_frame_spsc_queue_try_dequeue(cnt_user_client_frame_spsc_queue *queue, cnt_user_client_frame **frame)
 {
 	CNT_NULL_CHECK(queue);
 	CNT_NULL_CHECK(frame);
@@ -1951,7 +2062,7 @@ bool cnt_user_client_frame_concurrent_queue_try_dequeue(cnt_user_client_frame_co
 	return false;
 }
 
-bool cnt_user_client_frame_concurrent_queue_try_peek(cnt_user_client_frame_concurrent_queue *queue, cnt_user_client_frame **frame)
+bool cnt_user_client_frame_spsc_queue_try_peek(cnt_user_client_frame_spsc_queue *queue, cnt_user_client_frame **frame)
 {
 	CNT_NULL_CHECK(queue);
 	CNT_NULL_CHECK(frame);
@@ -1973,6 +2084,7 @@ bool cnt_user_client_frame_concurrent_queue_try_peek(cnt_user_client_frame_concu
 cnt_user_host_frame *cnt_user_host_frame_alloc(cnt_stream *stream, cnt_sparse_index client_id)
 {
 	CNT_NULL_CHECK(stream);
+	SDL_assert(stream->at > 0);
 
 	// Heap allocation for this one is very stupid
 	const uint32_t size = offsetof(cnt_user_host_frame, data[stream->at]);
@@ -1992,8 +2104,7 @@ void cnt_user_host_frame_free(cnt_user_host_frame *frame)
 	SDL_free(frame);
 }
 
-cnt_user_host_frame_concurrent_queue *cnt_user_host_frame_concurrent_queue_open(cnt_user_host_frame_concurrent_queue *queue,
-                                                                                uint32_t capacity)
+cnt_user_host_frame_spsc_queue *cnt_user_host_frame_spsc_queue_open(cnt_user_host_frame_spsc_queue *queue, uint32_t capacity)
 {
 	CNT_NULL_CHECK(queue);
 
@@ -2005,7 +2116,7 @@ cnt_user_host_frame_concurrent_queue *cnt_user_host_frame_concurrent_queue_open(
 	return queue;
 }
 
-void cnt_user_host_frame_concurrent_queue_close(cnt_user_host_frame_concurrent_queue *queue)
+void cnt_user_host_frame_spsc_queue_close(cnt_user_host_frame_spsc_queue *queue)
 {
 	CNT_NULL_CHECK(queue);
 
@@ -2015,8 +2126,7 @@ void cnt_user_host_frame_concurrent_queue_close(cnt_user_host_frame_concurrent_q
 	SDL_zerop(queue);
 }
 
-cnt_user_host_frame_concurrent_queue *cnt_user_host_frame_concurrent_queue_enqueue(cnt_user_host_frame_concurrent_queue *queue,
-                                                                                   cnt_user_host_frame *frame)
+cnt_user_host_frame_spsc_queue *cnt_user_host_frame_spsc_queue_enqueue(cnt_user_host_frame_spsc_queue *queue, cnt_user_host_frame *frame)
 {
 	CNT_NULL_CHECK(queue);
 
@@ -2027,7 +2137,7 @@ cnt_user_host_frame_concurrent_queue *cnt_user_host_frame_concurrent_queue_enque
 }
 
 // Maybe commit to keep it cool
-cnt_user_host_frame_concurrent_queue *cnt_user_host_frame_concurrent_queue_submit(cnt_user_host_frame_concurrent_queue *queue)
+cnt_user_host_frame_spsc_queue *cnt_user_host_frame_spsc_queue_submit(cnt_user_host_frame_spsc_queue *queue)
 {
 	CNT_NULL_CHECK(queue);
 
@@ -2045,7 +2155,7 @@ cnt_user_host_frame_concurrent_queue *cnt_user_host_frame_concurrent_queue_submi
 	return queue;
 }
 
-bool cnt_user_host_frame_concurrent_queue_try_dequeue(cnt_user_host_frame_concurrent_queue *queue, cnt_user_host_frame **frame)
+bool cnt_user_host_frame_spsc_queue_try_dequeue(cnt_user_host_frame_spsc_queue *queue, cnt_user_host_frame **frame)
 {
 	CNT_NULL_CHECK(queue);
 	CNT_NULL_CHECK(frame);
@@ -2068,7 +2178,7 @@ bool cnt_user_host_frame_concurrent_queue_try_dequeue(cnt_user_host_frame_concur
 	return false;
 }
 
-bool cnt_user_host_frame_concurrent_queue_try_peek(cnt_user_host_frame_concurrent_queue *queue, cnt_user_host_frame **frame)
+bool cnt_user_host_frame_spsc_queue_try_peek(cnt_user_host_frame_spsc_queue *queue, cnt_user_host_frame **frame)
 {
 	CNT_NULL_CHECK(queue);
 	CNT_NULL_CHECK(frame);
@@ -2087,8 +2197,7 @@ bool cnt_user_host_frame_concurrent_queue_try_peek(cnt_user_host_frame_concurren
 	return false;
 }
 
-cnt_user_host_command_concurrent_queue *cnt_user_host_command_concurrent_queue_open(cnt_user_host_command_concurrent_queue *queue,
-                                                                                    uint32_t capacity)
+cnt_user_host_command_spsc_queue *cnt_user_host_command_spsc_queue_open(cnt_user_host_command_spsc_queue *queue, uint32_t capacity)
 {
 	CNT_NULL_CHECK(queue);
 
@@ -2100,7 +2209,7 @@ cnt_user_host_command_concurrent_queue *cnt_user_host_command_concurrent_queue_o
 	return queue;
 }
 
-void cnt_user_host_command_concurrent_queue_close(cnt_user_host_command_concurrent_queue *queue, uint32_t capacity)
+void cnt_user_host_command_spsc_queue_close(cnt_user_host_command_spsc_queue *queue)
 {
 	CNT_NULL_CHECK(queue);
 
@@ -2110,8 +2219,8 @@ void cnt_user_host_command_concurrent_queue_close(cnt_user_host_command_concurre
 	SDL_zerop(queue);
 }
 
-cnt_user_host_command_concurrent_queue *cnt_user_host_command_concurrent_queue_enqueue(cnt_user_host_command_concurrent_queue *queue,
-                                                                                       cnt_user_host_command *command)
+cnt_user_host_command_spsc_queue *cnt_user_host_command_spsc_queue_enqueue(cnt_user_host_command_spsc_queue *queue,
+                                                                           cnt_user_host_command *command)
 {
 	CNT_NULL_CHECK(queue);
 
@@ -2123,7 +2232,7 @@ cnt_user_host_command_concurrent_queue *cnt_user_host_command_concurrent_queue_e
 	return queue;
 }
 
-cnt_user_host_command_concurrent_queue *cnt_user_host_command_concurrent_queue_submit(cnt_user_host_command_concurrent_queue *queue)
+cnt_user_host_command_spsc_queue *cnt_user_host_command_spsc_queue_submit(cnt_user_host_command_spsc_queue *queue)
 {
 	CNT_NULL_CHECK(queue);
 
@@ -2141,7 +2250,7 @@ cnt_user_host_command_concurrent_queue *cnt_user_host_command_concurrent_queue_s
 	return queue;
 }
 
-bool cnt_user_host_command_concurrent_queue_try_dequeue(cnt_user_host_command_concurrent_queue *queue, cnt_user_host_command *command)
+bool cnt_user_host_command_spsc_queue_try_dequeue(cnt_user_host_command_spsc_queue *queue, cnt_user_host_command *command)
 {
 	CNT_NULL_CHECK(queue);
 	CNT_NULL_CHECK(command);
@@ -2164,18 +2273,129 @@ bool cnt_user_host_command_concurrent_queue_try_dequeue(cnt_user_host_command_co
 	return false;
 }
 
-cnt_user_client *cnt_user_client_create(cnt_user_client *user, const char *host_ip, uint16_t host_port)
+cnt_user_client_command_spsc_queue *cnt_user_client_command_spsc_queue_open(cnt_user_client_command_spsc_queue *queue, uint32_t capacity)
+{
+	CNT_NULL_CHECK(queue);
+
+	SDL_zerop(queue);
+
+	queue->queues[0] = cnt_user_client_command_queue_alloc(capacity);
+	queue->queues[1] = cnt_user_client_command_queue_alloc(capacity);
+
+	return queue;
+}
+
+void cnt_user_client_command_spsc_queue_close(cnt_user_client_command_spsc_queue *queue)
+{
+	CNT_NULL_CHECK(queue);
+
+	cnt_user_client_command_queue_free(queue->queues[0]);
+	cnt_user_client_command_queue_free(queue->queues[1]);
+
+	SDL_zerop(queue);
+}
+
+cnt_user_client_command_spsc_queue *cnt_user_client_command_spsc_queue_enqueue(cnt_user_client_command_spsc_queue *queue,
+                                                                               cnt_user_client_command *command)
+{
+	CNT_NULL_CHECK(queue);
+
+	cnt_user_client_command_queue *current_queue = queue->queues[queue->current_inactive];
+
+	// Not optimal... Maybe the generic macro for a queue was a bad idea: Change it!
+	cnt_user_client_command_queue_enqueue(current_queue, *command);
+
+	return queue;
+}
+
+cnt_user_client_command_spsc_queue *cnt_user_client_command_spsc_queue_submit(cnt_user_client_command_spsc_queue *queue)
+{
+	CNT_NULL_CHECK(queue);
+
+	// While we have an active queue, it implies the user is still working on previosu data
+	cnt_user_client_frame_queue *active = (cnt_user_client_frame_queue *)SDL_GetAtomicPointer((void **)&queue->active);
+	if (active == nullptr)
+	{
+		cnt_user_client_command_queue *current_queue = queue->queues[queue->current_inactive];
+		SDL_SetAtomicPointer((void **)&queue->active, current_queue);
+
+		// flip flop between the inactive queues when user does not have any
+		queue->current_inactive = (queue->current_inactive + 1) % 2;
+	}
+
+	return queue;
+}
+
+bool cnt_user_client_command_spsc_queue_try_dequeue(cnt_user_client_command_spsc_queue *queue, cnt_user_client_command *command)
+{
+	CNT_NULL_CHECK(queue);
+	CNT_NULL_CHECK(command);
+
+	cnt_user_client_command_queue *active = (cnt_user_client_command_queue *)SDL_GetAtomicPointer((void **)&queue->active);
+	if (active == nullptr)
+	{
+		return false;
+	}
+
+	if (cnt_user_client_command_queue_try_dequeue(active, command))
+	{
+		if (cnt_user_client_command_queue_is_empty(active))
+		{
+			SDL_SetAtomicPointer((void **)&queue->active, nullptr);
+		}
+		return true;
+	}
+
+	return false;
+}
+
+void cnt_user_frequency_set(cnt_user_frequency *freq, uint32_t hz)
+{
+	float ms_as_float = 1000.0f / hz;
+	uint32_t ms_as_u32 = (uint32_t)ms_as_float;
+	SDL_SetAtomicU32(&freq->ms, ms_as_u32);
+}
+
+uint32_t cnt_user_frequency_get(cnt_user_frequency *freq)
+{
+	return SDL_GetAtomicU32(&freq->ms);
+}
+
+void cnt_net_engine_state_set(cnt_net_engine_state *engine_state, cnt_net_engine_state_type state)
+{
+	uint32_t as_u32 = (uint32_t)state;
+	SDL_SetAtomicU32(&engine_state->state, state);
+}
+
+cnt_net_engine_state_type cnt_net_engine_state_get(cnt_net_engine_state *engine_state)
+{
+	return (cnt_net_engine_state_type)SDL_GetAtomicU32(&engine_state->state);
+}
+
+bool cnt_net_engine_state_type_can_network(cnt_net_engine_state_type state)
+{
+	// We allow enqueueing state while opening, this might backlash
+	return state == CNT_NET_ENGINE_STATE_TYPE_RUNNING || state == CNT_NET_ENGINE_STATE_TYPE_OPENING;
+}
+
+cnt_user_client *cnt_user_client_open(cnt_user_client *user, const char *host_ip, uint16_t host_port, uint32_t frequency)
 {
 	CNT_NULL_CHECK(user);
 	CNT_NULL_CHECK(host_ip);
-	SDL_assert(host_port != 0 && "Host port - impossible to connect to");
+	SDL_assert(host_port != 0 && "Host port - impossible to connect to host");
+
+	SDL_zerop(user);
 
 	// Maybe copy IP in since this will not work with matchmakers, in other words, it will be unsafe
 	user->host_ip = host_ip;
 	user->host_port = host_port;
 
-	cnt_user_client_frame_concurrent_queue_open(&user->send_queue, 64);
-	cnt_user_client_frame_concurrent_queue_open(&user->recv_queue, 64);
+	cnt_user_frequency_set(&user->frequency, frequency);
+
+	cnt_user_client_frame_spsc_queue_open(&user->send_queue, 64);
+	cnt_user_client_frame_spsc_queue_open(&user->recv_queue, 64);
+
+	cnt_user_client_command_spsc_queue_open(&user->command_queue, 64);
 
 	SDL_Thread *thread = SDL_CreateThread((SDL_ThreadFunction)cnt_client_default_process, "", user);
 	SDL_DetachThread(thread);
@@ -2183,19 +2403,64 @@ cnt_user_client *cnt_user_client_create(cnt_user_client *user, const char *host_
 	return user;
 }
 
-cnt_user_host *cnt_user_host_create(cnt_user_host *user, const char *host_ip, uint16_t host_port)
+cnt_user_client *cnt_user_client_shut_down(cnt_user_client *user)
+{
+	CNT_NULL_CHECK(user);
+
+	SDL_Log("Shutting down Client(%s:%hu)", user->host_ip, user->host_port);
+
+	cnt_user_client_command command;
+	command.type = CNT_USER_CLIENT_COMMAND_TYPE_QUIT;
+	cnt_user_client_command_spsc_queue_enqueue(&user->command_queue, &command);
+	cnt_user_client_command_spsc_queue_submit(&user->command_queue);
+
+	return user;
+}
+
+cnt_net_engine_state_type cnt_user_client_get_state(cnt_user_client *user)
+{
+	return cnt_net_engine_state_get(&user->net_engine_state);
+}
+
+void cnt_user_client_close(cnt_user_client *user)
+{
+	CNT_NULL_CHECK(user);
+
+	if (cnt_user_client_get_state(user) != CNT_NET_ENGINE_STATE_TYPE_CLOSED)
+	{
+		cnt_user_client_shut_down(user);
+	}
+	while (cnt_user_client_get_state(user) != CNT_NET_ENGINE_STATE_TYPE_CLOSED)
+	{
+		SDL_Log("Waiting to close down Client(%s:%hu)", user->host_ip, user->host_port);
+	}
+	cnt_user_client_frame_spsc_queue_close(&user->send_queue);
+	cnt_user_client_frame_spsc_queue_close(&user->recv_queue);
+	cnt_user_client_command_spsc_queue_close(&user->command_queue);
+
+	SDL_Log("Closed down Client(%s:%hu)", user->host_ip, user->host_port);
+
+	SDL_zerop(user);
+}
+
+cnt_user_host *cnt_user_host_open(cnt_user_host *user, const char *host_ip, uint16_t host_port, uint32_t frequency)
 {
 	CNT_NULL_CHECK(user);
 	CNT_NULL_CHECK(host_ip);
+	SDL_assert(host_port != 0 && "Host port - impossible to connect to host");
 
-	// Maybe copy IP in since this will not work with matchmakers
+	SDL_zerop(user);
+
+	// Maybe copy IP in since this will not work with matchmakers, in other words, it will be unsafe
 	user->host_ip = host_ip;
 	user->host_port = host_port;
 
-	cnt_user_host_frame_concurrent_queue_open(&user->send_queue, 64);
-	cnt_user_host_frame_concurrent_queue_open(&user->recv_queue, 64);
+	cnt_user_frequency_set(&user->frequency, frequency);
 
-	cnt_user_host_command_concurrent_queue_open(&user->command_queue, 64);
+	cnt_user_host_frame_spsc_queue_open(&user->send_queue, 64);
+	cnt_user_host_frame_spsc_queue_open(&user->recv_queue, 64);
+
+	cnt_user_host_command_spsc_queue_open(&user->command_queue, 64);
 
 	SDL_Thread *thread = SDL_CreateThread((SDL_ThreadFunction)cnt_host_default_process, "", user);
 	SDL_DetachThread(thread);
@@ -2203,20 +2468,74 @@ cnt_user_host *cnt_user_host_create(cnt_user_host *user, const char *host_ip, ui
 	return user;
 }
 
+cnt_user_host *cnt_user_host_shut_down(cnt_user_host *user)
+{
+	CNT_NULL_CHECK(user);
+
+	SDL_Log("Shutting down Client(%s:%hu)", user->host_ip, user->host_port);
+
+	cnt_user_host_command command;
+	command.type = CNT_USER_HOST_COMMAND_TYPE_QUIT;
+	cnt_user_host_command_spsc_queue_enqueue(&user->command_queue, &command);
+	cnt_user_host_command_spsc_queue_submit(&user->command_queue);
+
+	return user;
+}
+
+cnt_net_engine_state_type cnt_user_host_get_state(cnt_user_host *user)
+{
+	return cnt_net_engine_state_get(&user->net_engine_state);
+}
+
+void cnt_user_host_close(cnt_user_host *user)
+{
+	CNT_NULL_CHECK(user);
+
+	if (cnt_user_host_get_state(user) != CNT_NET_ENGINE_STATE_TYPE_CLOSED)
+	{
+		cnt_user_host_shut_down(user);
+	}
+	while (cnt_user_host_get_state(user) != CNT_NET_ENGINE_STATE_TYPE_CLOSED)
+	{
+		SDL_Log("Waiting to close down Client(%s:%hu)", user->host_ip, user->host_port);
+	}
+	cnt_user_host_frame_spsc_queue_close(&user->send_queue);
+	cnt_user_host_frame_spsc_queue_close(&user->recv_queue);
+	cnt_user_host_command_spsc_queue_close(&user->command_queue);
+
+	SDL_Log("Closed down Client(%s:%hu)", user->host_ip, user->host_port);
+
+	SDL_zerop(user);
+}
+
 cnt_user_client *cnt_user_client_send(cnt_user_client *client, void *ptr, int byte_count)
 {
+	cnt_net_engine_state_type state = cnt_user_client_get_state(client);
+	if (!cnt_net_engine_state_type_can_network(state))
+	{
+		return nullptr;
+	}
 	cnt_stream example_stream;
 	cnt_stream_create_full(&example_stream, (uint8_t *)ptr, byte_count);
 	cnt_user_client_frame *frame = cnt_user_client_frame_alloc(&example_stream);
-	cnt_user_client_frame_concurrent_queue_enqueue(&client->send_queue, frame);
-	cnt_user_client_frame_concurrent_queue_submit(&client->send_queue);
+	cnt_user_client_frame_spsc_queue_enqueue(&client->send_queue, frame);
+	cnt_user_client_frame_spsc_queue_submit(&client->send_queue);
 	return client;
 }
 
 int cnt_user_client_recv(cnt_user_client *client, void *ptr, int byte_count)
 {
+	CNT_NULL_CHECK(client);
+	CNT_NULL_CHECK(ptr);
+
+	cnt_net_engine_state_type state = cnt_user_client_get_state(client);
+	if (!cnt_net_engine_state_type_can_network(state))
+	{
+		return 0;
+	}
+
 	cnt_user_client_frame *frame;
-	if (!cnt_user_client_frame_concurrent_queue_try_peek(&client->recv_queue, &frame))
+	if (!cnt_user_client_frame_spsc_queue_try_peek(&client->recv_queue, &frame))
 	{
 		return 0;
 	}
@@ -2225,7 +2544,7 @@ int cnt_user_client_recv(cnt_user_client *client, void *ptr, int byte_count)
 		// Might make sense to give an entry point to read a partial frame
 		return -1;
 	}
-	bool has_frame = cnt_user_client_frame_concurrent_queue_try_dequeue(&client->recv_queue, &frame);
+	bool has_frame = cnt_user_client_frame_spsc_queue_try_dequeue(&client->recv_queue, &frame);
 	SDL_assert(has_frame);
 
 	SDL_memcpy(ptr, frame->data, frame->count);
@@ -2241,12 +2560,18 @@ cnt_user_host *cnt_user_host_broadcast(cnt_user_host *host, void *ptr, int byte_
 	CNT_NULL_CHECK(host);
 	CNT_NULL_CHECK(ptr);
 
+	cnt_net_engine_state_type state = cnt_user_host_get_state(host);
+	if (!cnt_net_engine_state_type_can_network(state))
+	{
+		return nullptr;
+	}
+
 	cnt_stream example_stream;
 	cnt_stream_create_full(&example_stream, (uint8_t *)ptr, byte_count);
 	// TODO: Fix frame having redundant field - make host frame and client frame separate concepts!
 	cnt_user_host_frame *frame = cnt_user_host_frame_alloc(&example_stream, {UINT32_MAX});
-	cnt_user_host_frame_concurrent_queue_enqueue(&host->send_queue, frame);
-	cnt_user_host_frame_concurrent_queue_submit(&host->send_queue);
+	cnt_user_host_frame_spsc_queue_enqueue(&host->send_queue, frame);
+	cnt_user_host_frame_spsc_queue_submit(&host->send_queue);
 	return host;
 }
 
@@ -2254,13 +2579,19 @@ cnt_user_host *cnt_user_host_send(cnt_user_host *host, cnt_sparse_index client_i
 {
 	CNT_NULL_CHECK(host);
 	CNT_NULL_CHECK(ptr);
-	
+
+	cnt_net_engine_state_type state = cnt_user_host_get_state(host);
+	if (!cnt_net_engine_state_type_can_network(state))
+	{
+		return nullptr;
+	}
+
 	cnt_stream example_stream;
 	cnt_stream_create_full(&example_stream, (uint8_t *)ptr, byte_count);
 	// TODO: Fix frame having redundant field - make host frame and client frame separate concepts!
 	cnt_user_host_frame *frame = cnt_user_host_frame_alloc(&example_stream, client_id);
-	cnt_user_host_frame_concurrent_queue_enqueue(&host->send_queue, frame);
-	cnt_user_host_frame_concurrent_queue_submit(&host->send_queue);
+	cnt_user_host_frame_spsc_queue_enqueue(&host->send_queue, frame);
+	cnt_user_host_frame_spsc_queue_submit(&host->send_queue);
 	return host;
 }
 
@@ -2268,18 +2599,33 @@ cnt_user_host *cnt_user_host_kick(cnt_user_host *host, cnt_sparse_index client_i
 {
 	CNT_NULL_CHECK(host);
 
+	cnt_net_engine_state_type state = cnt_user_host_get_state(host);
+	if (!cnt_net_engine_state_type_can_network(state))
+	{
+		return nullptr;
+	}
+
 	cnt_user_host_command command;
 	command.type = CNT_USER_HOST_COMMAND_TYPE_KICK;
 	command.kick.client = client_id;
-	cnt_user_host_command_concurrent_queue_enqueue(&host->command_queue, &command);
-	cnt_user_host_command_concurrent_queue_submit(&host->command_queue);
+	cnt_user_host_command_spsc_queue_enqueue(&host->command_queue, &command);
+	cnt_user_host_command_spsc_queue_submit(&host->command_queue);
 	return host;
 }
 
 int cnt_user_host_recv(cnt_user_host *host, cnt_sparse_index *client_id, void *ptr, int byte_count)
 {
+	CNT_NULL_CHECK(host);
+	CNT_NULL_CHECK(ptr);
+
+	cnt_net_engine_state_type state = cnt_user_host_get_state(host);
+	if (!cnt_net_engine_state_type_can_network(state))
+	{
+		return 0;
+	}
+
 	cnt_user_host_frame *frame;
-	if (!cnt_user_host_frame_concurrent_queue_try_peek(&host->recv_queue, &frame))
+	if (!cnt_user_host_frame_spsc_queue_try_peek(&host->recv_queue, &frame))
 	{
 		return 0;
 	}
@@ -2288,7 +2634,7 @@ int cnt_user_host_recv(cnt_user_host *host, cnt_sparse_index *client_id, void *p
 		// Might make sense to give an entry point to read a partial frame
 		return -1;
 	}
-	bool has_frame = cnt_user_host_frame_concurrent_queue_try_dequeue(&host->recv_queue, &frame);
+	bool has_frame = cnt_user_host_frame_spsc_queue_try_dequeue(&host->recv_queue, &frame);
 	SDL_assert(has_frame);
 
 	SDL_memcpy(client_id, &frame->client_id, sizeof(*client_id));
@@ -2302,6 +2648,8 @@ int cnt_user_host_recv(cnt_user_host *host, cnt_sparse_index *client_id, void *p
 
 int cnt_client_default_process(cnt_user_client *user_client)
 {
+	cnt_net_engine_state_set(&user_client->net_engine_state, CNT_NET_ENGINE_STATE_TYPE_OPENING);
+
 	// Start up is dumb. Windows requirement
 	cnt_start_up();
 
@@ -2326,16 +2674,39 @@ int cnt_client_default_process(cnt_user_client *user_client)
 	cnt_stream stream;
 	cnt_stream_open(&stream, 1024);
 
+	cnt_net_engine_state_set(&user_client->net_engine_state, CNT_NET_ENGINE_STATE_TYPE_RUNNING);
+
 	// Tick
 	while (true)
 	{
+		uint64_t start = SDL_GetTicks();
+
+		cnt_user_client_command user_command;
+		while (cnt_user_client_command_spsc_queue_try_dequeue(&user_client->command_queue, &user_command))
+		{
+			switch (user_command.type)
+			{
+			case CNT_USER_CLIENT_COMMAND_TYPE_QUIT:
+				cnt_client_disconnect(&client);
+				break;
+			case CNT_USER_CLIENT_COMMAND_TYPE_RESTART:
+				// TODO: This shit will be complex lol
+				break;
+			}
+		}
+
+		if (!cnt_client_is_active(&client))
+		{
+			goto quit;
+		}
+
 		cnt_stream_clear(&transport.stream);
 		if (cnt_client_send(&client, &transport.stream))
 		{
 			int transport_end = transport.stream.at;
-			
+
 			cnt_user_client_frame *frame;
-			while (cnt_user_client_frame_concurrent_queue_try_dequeue(&user_client->send_queue, &frame))
+			while (cnt_user_client_frame_spsc_queue_try_dequeue(&user_client->send_queue, &frame))
 			{
 				transport.stream.at = transport_end;
 				cnt_stream_write_string(&transport.stream, frame->data, frame->count);
@@ -2364,13 +2735,24 @@ int cnt_client_default_process(cnt_user_client *user_client)
 				cnt_stream_create_full(&frame_stream, recv_stream.data + recv_stream.at, recv_stream.capacity - recv_stream.at);
 
 				cnt_user_client_frame *frame = cnt_user_client_frame_alloc(&frame_stream);
-				cnt_user_client_frame_concurrent_queue_enqueue(&user_client->recv_queue, frame);
-				cnt_user_client_frame_concurrent_queue_submit(&user_client->recv_queue);
+				cnt_user_client_frame_spsc_queue_enqueue(&user_client->recv_queue, frame);
+				cnt_user_client_frame_spsc_queue_submit(&user_client->recv_queue);
 			}
 		}
-		// Hardcoded for now, baby
-		SDL_Delay(8);
+
+		// skip_networking:
+		uint64_t end = SDL_GetTicks();
+		uint64_t delta = end - start;
+
+		uint32_t freq_ms = cnt_user_frequency_get(&user_client->frequency);
+		// Feeling a bit clever, unsigned wraps around and becomes large
+		// so we just always get the smaller value of the two
+		freq_ms = SDL_min(freq_ms - delta, freq_ms);
+		SDL_Delay(freq_ms);
 	}
+
+quit:
+	cnt_net_engine_state_set(&user_client->net_engine_state, CNT_NET_ENGINE_STATE_TYPE_SHUTTING_DOWN);
 
 	// Cleanup
 	cnt_stream_close(&stream);
@@ -2386,11 +2768,16 @@ int cnt_client_default_process(cnt_user_client *user_client)
 	cnt_sock_close(&client_socket);
 
 	cnt_tead_down();
+
+	cnt_net_engine_state_set(&user_client->net_engine_state, CNT_NET_ENGINE_STATE_TYPE_CLOSED);
+
 	return 0;
 }
 
 int cnt_host_default_process(cnt_user_host *user_host)
 {
+	cnt_net_engine_state_set(&user_host->net_engine_state, CNT_NET_ENGINE_STATE_TYPE_OPENING);
+
 	cnt_start_up();
 
 	// Startup
@@ -2412,17 +2799,23 @@ int cnt_host_default_process(cnt_user_host *user_host)
 	cnt_compression compression;
 	cnt_compression_open(&compression, 1 << 16);
 
+	cnt_net_engine_state_set(&user_host->net_engine_state, CNT_NET_ENGINE_STATE_TYPE_RUNNING);
+
 	// Tick
 	while (true)
 	{
+		uint64_t start = SDL_GetTicks();
+
 		cnt_user_host_command user_command;
-		while (cnt_user_host_command_concurrent_queue_try_dequeue(&user_host->command_queue, &user_command))
+		while (cnt_user_host_command_spsc_queue_try_dequeue(&user_host->command_queue, &user_command))
 		{
 			switch (user_command.type)
 			{
 			case CNT_USER_HOST_COMMAND_TYPE_QUIT:
-				break;
+				goto quit;
 			case CNT_USER_HOST_COMMAND_TYPE_RESTART:
+				// TODO: This shit will be complex lol
+				// For now we could just turn it off and on again :D
 				break;
 			case CNT_USER_HOST_COMMAND_TYPE_KICK:
 				cnt_sparse_index client = user_command.kick.client;
@@ -2441,11 +2834,11 @@ int cnt_host_default_process(cnt_user_host *user_host)
 		int transport_end = transport.stream.at;
 
 		cnt_user_host_frame *frame;
-		while (cnt_user_host_frame_concurrent_queue_try_dequeue(&user_host->send_queue, &frame))
+		while (cnt_user_host_frame_spsc_queue_try_dequeue(&user_host->send_queue, &frame))
 		{
 			transport.stream.at = transport_end;
 			// Add data to transport
-			// Send out packet
+			// Send out packet - no target client_id implies broadcast
 			if (frame->client_id.index != CNT_SPARSE_INDEX_INVALID)
 			{
 				if (cnt_host_is_client_connected(&host, frame->client_id))
@@ -2505,14 +2898,22 @@ int cnt_host_default_process(cnt_user_host *user_host)
 				// Client KNOWS where it receives the data from
 				// Host needs to propagate!
 				cnt_user_host_frame *frame = cnt_user_host_frame_alloc(&frame_stream, client->id);
-				cnt_user_host_frame_concurrent_queue_enqueue(&user_host->recv_queue, frame);
-				cnt_user_host_frame_concurrent_queue_submit(&user_host->recv_queue);
+				cnt_user_host_frame_spsc_queue_enqueue(&user_host->recv_queue, frame);
+				cnt_user_host_frame_spsc_queue_submit(&user_host->recv_queue);
 			}
 		}
+		uint64_t end = SDL_GetTicks();
+		uint64_t delta = end - start;
 
-		// Hardcoded for now, baby
-		SDL_Delay(8);
+		uint32_t freq_ms = cnt_user_frequency_get(&user_host->frequency);
+		// Feeling a bit clever, unsigned wraps around and becomes large
+		// so we just always get the smaller value of the two
+		freq_ms = SDL_min(freq_ms - delta, freq_ms);
+		SDL_Delay(freq_ms);
 	}
+
+quit:
+	cnt_net_engine_state_set(&user_host->net_engine_state, CNT_NET_ENGINE_STATE_TYPE_SHUTTING_DOWN);
 
 	// Cleanup
 	cnt_compression_close(&compression);
@@ -2528,29 +2929,32 @@ int cnt_host_default_process(cnt_user_host *user_host)
 	cnt_sock_close(&server_socket);
 
 	cnt_tead_down();
+
+	cnt_net_engine_state_set(&user_host->net_engine_state, CNT_NET_ENGINE_STATE_TYPE_CLOSED);
+
 	return 0;
 }
 
-bool TEST_cnt_user_host_frame_concurrent_queue()
+bool TEST_cnt_user_host_frame_spsc_queue()
 {
-	cnt_user_host_frame_concurrent_queue queue;
-	cnt_user_host_frame_concurrent_queue_open(&queue, 16);
+	cnt_user_host_frame_spsc_queue queue;
+	cnt_user_host_frame_spsc_queue_open(&queue, 16);
 
 	int count = 4;
 	for (int i = 0; i < count; i++)
 	{
-		cnt_user_host_frame_concurrent_queue_enqueue(&queue, nullptr);
+		cnt_user_host_frame_spsc_queue_enqueue(&queue, nullptr);
 	}
 
-	cnt_user_host_frame_concurrent_queue_submit(&queue);
+	cnt_user_host_frame_spsc_queue_submit(&queue);
 
 	cnt_user_host_frame *frame;
-	while (cnt_user_host_frame_concurrent_queue_try_dequeue(&queue, &frame))
+	while (cnt_user_host_frame_spsc_queue_try_dequeue(&queue, &frame))
 	{
 		count = count - 1;
 	}
 
-	cnt_user_host_frame_concurrent_queue_close(&queue);
+	cnt_user_host_frame_spsc_queue_close(&queue);
 
 	return count == 0;
 }

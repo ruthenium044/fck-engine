@@ -80,7 +80,6 @@ FetchContent_Declare(
     GIT_SHALLOW TRUE
 )
 
-
 # For each SDL module, we should set on a GIT_TAG so we do not have funny renames and other issues!
 FetchContent_MakeAvailable(SDL SDL_image SDL_ttf)
 
@@ -155,6 +154,12 @@ add_dependencies(${PROJECT_NAME} gen_output)
 
 # Maybe later
 target_compile_definitions(${PROJECT_NAME} PRIVATE "FCK_RESOURCE_DIRECTORY_PATH= \"${FCK_RESOURCE_DIRECTORY_PATH}\"")
+
+# Warning levels
+#target_compile_options(${PROJECT_NAME} PRIVATE
+#  $<$<CXX_COMPILER_ID:MSVC>:/W4 /WX>
+#  $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic -Werror>
+#)
 
 list(APPEND LIBRARIES SDL3::SDL3 SDL3_image::SDL3_image SDL3_ttf::SDL3_ttf)
 list(APPEND LIBRARIES Vulkan::Vulkan)

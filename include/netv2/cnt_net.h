@@ -2,6 +2,7 @@
 #define CNT_NET_INCLUDED
 
 #include <SDL3/SDL_assert.h>
+#include <SDL3/SDL_atomic.h>
 #include <SDL3/SDL_stdinc.h>
 
 #define CNT_ANY_IP "0.0.0.0"
@@ -93,6 +94,8 @@ enum cnt_protocol_state_common : uint8_t
 	// At NO time the protocol shall be 0, this flag only exists for debugging
 	CNT_PROTOCOL_STATE_COMMON_NONE = 0,
 	CNT_PROTOCOL_STATE_COMMON_OK = 4,
+	CNT_PROTOCOL_STATE_COMMON_DISCONNECT = 6,
+	CNT_PROTOCOL_STATE_COMMON_KICKED = 7,
 };
 
 enum cnt_protocol_state_client : uint8_t
@@ -101,6 +104,9 @@ enum cnt_protocol_state_client : uint8_t
 	CNT_PROTOCOL_STATE_CLIENT_REQUEST = 1,
 	CNT_PROTOCOL_STATE_CLIENT_ANSWER = 3,
 	CNT_PROTOCOL_STATE_CLIENT_OK = CNT_PROTOCOL_STATE_COMMON_OK,
+	CNT_PROTOCOL_STATE_CLIENT_DISCONNECT = CNT_PROTOCOL_STATE_COMMON_DISCONNECT,
+	CNT_PROTOCOL_STATE_CLIENT_KICKED = CNT_PROTOCOL_STATE_COMMON_KICKED,
+
 };
 
 enum cnt_protocol_state_host : uint8_t
@@ -109,7 +115,8 @@ enum cnt_protocol_state_host : uint8_t
 	CNT_PROTOCOL_STATE_HOST_CHALLENGE = 2,
 	CNT_PROTOCOL_STATE_HOST_OK = CNT_PROTOCOL_STATE_COMMON_OK,
 	CNT_PROTOCOL_STATE_HOST_RESOLUTION_REJECT = 5, // Everything bigger than 4 is out of the handshake - in other words, rejected
-	CNT_PROTOCOL_STATE_HOST_KICKED = 6
+	CNT_PROTOCOL_STATE_HOST_DISCONNECT = CNT_PROTOCOL_STATE_COMMON_DISCONNECT,
+	CNT_PROTOCOL_STATE_HOST_KICKED = CNT_PROTOCOL_STATE_COMMON_KICKED,
 };
 
 struct cnt_protocol_client
@@ -227,7 +234,7 @@ struct cnt_user_client_frame_queue
 	cnt_user_client_frame *frames[1];
 };
 
-struct cnt_user_client_frame_concurrent_queue
+struct cnt_user_client_frame_spsc_queue
 {
 	// Can be nullptr, &queues[0] or &queues[1]
 	// Shared
@@ -254,7 +261,7 @@ struct cnt_user_host_frame_queue
 	cnt_user_host_frame *frames[1];
 };
 
-struct cnt_user_host_frame_concurrent_queue
+struct cnt_user_host_frame_spsc_queue
 {
 	// Can be nullptr, &queues[0] or &queues[1]
 	// Shared
@@ -283,24 +290,11 @@ struct cnt_user_client_command_queue
 	cnt_user_client_command commands[1];
 };
 
-struct cnt_user_client_command_concurrent_queue
+struct cnt_user_client_command_spsc_queue
 {
 	cnt_user_client_command_queue *active;
 	cnt_user_client_command_queue *queues[2];
 	uint8_t current_inactive;
-};
-
-struct cnt_user_client
-{
-	const char *host_ip;
-	uint16_t host_port;
-
-	cnt_user_client_frame_concurrent_queue send_queue;
-	cnt_user_client_frame_concurrent_queue recv_queue;
-
-	// cnt_user_client_command* command_queue or something like that
-	// Quit
-	// Restart
 };
 
 enum cnt_user_host_command_type
@@ -334,26 +328,60 @@ struct cnt_user_host_command_queue
 	cnt_user_host_command commands[1];
 };
 
-struct cnt_user_host_command_concurrent_queue
+struct cnt_user_host_command_spsc_queue
 {
 	cnt_user_host_command_queue *active;
 	cnt_user_host_command_queue *queues[2];
 	uint8_t current_inactive;
 };
 
-struct cnt_user_host
+struct cnt_user_frequency
 {
+	SDL_AtomicU32 ms;
+};
+
+struct cnt_net_engine_state
+{
+	SDL_AtomicU32 state;
+};
+
+enum cnt_net_engine_state_type
+{
+	CNT_NET_ENGINE_STATE_TYPE_NONE = 0, // IDK what to do in this case, tbh. I also do not really care
+	CNT_NET_ENGINE_STATE_TYPE_OPENING = 1,
+	CNT_NET_ENGINE_STATE_TYPE_RUNNING = 2,
+	CNT_NET_ENGINE_STATE_TYPE_SHUTTING_DOWN = 3,
+	CNT_NET_ENGINE_STATE_TYPE_CLOSED = 4
+};
+
+struct cnt_user_client
+{
+	cnt_user_client_frame_spsc_queue send_queue;
+	cnt_user_client_frame_spsc_queue recv_queue;
+
+	cnt_user_client_command_spsc_queue command_queue;
+
+	cnt_user_frequency frequency;
+
+	cnt_net_engine_state net_engine_state;
+
 	const char *host_ip;
 	uint16_t host_port;
+};
 
-	cnt_user_host_frame_concurrent_queue send_queue;
-	cnt_user_host_frame_concurrent_queue recv_queue;
+struct cnt_user_host
+{
+	cnt_user_host_frame_spsc_queue send_queue;
+	cnt_user_host_frame_spsc_queue recv_queue;
 
-	cnt_user_host_command_concurrent_queue command_queue;
-	// cnt_user_host_command* command_queue or something like that
-	// Kick client
-	// Quit engine
-	// Restart engine (?)
+	cnt_user_host_command_spsc_queue command_queue;
+
+	cnt_user_frequency frequency;
+
+	cnt_net_engine_state net_engine_state;
+
+	const char *host_ip;
+	uint16_t host_port;
 };
 
 // Client on host mapping - yeehaw
@@ -417,17 +445,23 @@ cnt_client *cnt_client_send(cnt_client *client, cnt_stream *stream);
 cnt_client *cnt_client_recv(cnt_client *client, cnt_stream *stream);
 void cnt_client_close(cnt_client *client);
 
-cnt_user_client *cnt_user_client_create(cnt_user_client *user, const char *ip, uint16_t port);
+cnt_user_client *cnt_user_client_open(cnt_user_client *user, const char *host_ip, uint16_t port, uint32_t frequency);
+cnt_user_client* cnt_user_client_shut_down(cnt_user_client* user);
+cnt_net_engine_state_type cnt_user_client_get_state(cnt_user_client* user);
+void cnt_user_client_close(cnt_user_client* user);
 cnt_user_client *cnt_user_client_send(cnt_user_client *client, void *ptr, int byte_count);
 int cnt_user_client_recv(cnt_user_client *client, void *ptr, int byte_count);
 
-cnt_user_host *cnt_user_host_create(cnt_user_host *user, const char *ip, uint16_t port);
+cnt_user_host *cnt_user_host_open(cnt_user_host *user, const char *host_ip, uint16_t port, uint32_t frequency);
+cnt_user_host* cnt_user_host_shut_down(cnt_user_host* user);
+cnt_net_engine_state_type cnt_user_host_get_state(cnt_user_host* user);
+void cnt_user_host_close(cnt_user_host* user);
 cnt_user_host *cnt_user_host_broadcast(cnt_user_host *host, void *ptr, int byte_count);
 cnt_user_host *cnt_user_host_send(cnt_user_host *host, cnt_sparse_index client_id, void *ptr, int byte_count);
-cnt_user_host* cnt_user_host_kick(cnt_user_host* host, cnt_sparse_index client_id);
+cnt_user_host *cnt_user_host_kick(cnt_user_host *host, cnt_sparse_index client_id);
 int cnt_user_host_recv(cnt_user_host *host, cnt_sparse_index *client_id, void *ptr, int byte_count);
 
 // Tests
-bool TEST_cnt_user_host_frame_concurrent_queue();
+bool TEST_cnt_user_host_frame_spsc_queue();
 
 #endif // !CNT_NET_INCLUDED

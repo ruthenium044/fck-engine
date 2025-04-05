@@ -1,7 +1,7 @@
 ﻿{
   "configurations": [
     {
-      "name": "x64-msvc-debug",
+      "name": "x64-msvc-debug-asan",
       "generator": "Ninja",
       "configurationType": "Debug",
       "inheritEnvironments": [ "msvc_x64_x64" ],
@@ -11,7 +11,8 @@
       "buildCommandArgs": "",
       "ctestCommandArgs": "",
       "enableClangTidyCodeAnalysis": true,
-      "enableMicrosoftCodeAnalysis": false
+      "enableMicrosoftCodeAnalysis": false,
+      "addressSanitizerEnabled": true
     },
     {
       "name": "x64-clang-debug",
@@ -36,6 +37,8 @@
       "buildCommandArgs": "",
       "ctestCommandArgs": "",
       "inheritEnvironments": [ "clang_cl_x64_x64" ],
+      "enableClangTidyCodeAnalysis": true,
+      "enableMicrosoftCodeAnalysis": false,
       "variables": []
     }
   ]

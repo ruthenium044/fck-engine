@@ -2532,7 +2532,6 @@ const char* cnt_user_client_host_protocol_to_string(cnt_user_client* user)
 	return cnt_protocol_state_host_to_string(state);
 }
 
-
 cnt_user_client *cnt_user_client_shut_down(cnt_user_client *user)
 {
 	CNT_NULL_CHECK(user);
@@ -2578,7 +2577,7 @@ void cnt_user_client_close(cnt_user_client *user)
 	SDL_zerop(user);
 }
 
-cnt_user_host *cnt_user_host_open(cnt_user_host *user, const char *host_ip, uint16_t host_port, uint32_t frequency)
+cnt_user_host *cnt_user_host_open(cnt_user_host *user, const char *host_ip, uint16_t host_port, uint32_t max_clients, uint32_t frequency)
 {
 	CNT_NULL_CHECK(user);
 	CNT_NULL_CHECK(host_ip);
@@ -2589,7 +2588,7 @@ cnt_user_host *cnt_user_host_open(cnt_user_host *user, const char *host_ip, uint
 	// Maybe copy IP in since this will not work with matchmakers, in other words, it will be unsafe
 	user->host_ip = host_ip;
 	user->host_port = host_port;
-
+	user->max_clients = max_clients;
 	cnt_user_frequency_set(&user->frequency, frequency);
 
 	cnt_user_host_frame_spsc_queue_open(&user->send_queue, 1024);
@@ -2687,6 +2686,16 @@ cnt_user_client *cnt_user_client_send(cnt_user_client *client, void *ptr, int by
 	return client;
 }
 
+cnt_user_client* cnt_user_client_keep_alive(cnt_user_client* client)
+{
+	CNT_NULL_CHECK(client);
+
+	cnt_user_client_send(client, nullptr, 0);
+
+	return client;
+}
+
+
 int cnt_user_client_recv(cnt_user_client *client, void *ptr, int byte_count)
 {
 	CNT_NULL_CHECK(client);
@@ -2737,6 +2746,15 @@ cnt_user_host *cnt_user_host_broadcast(cnt_user_host *host, void *ptr, int byte_
 	cnt_user_host_frame *frame = cnt_user_host_frame_alloc(&example_stream, {UINT32_MAX});
 	cnt_user_host_frame_spsc_queue_enqueue(&host->send_queue, frame);
 	cnt_user_host_frame_spsc_queue_submit(&host->send_queue);
+	return host;
+}
+
+cnt_user_host* cnt_user_host_keep_alive(cnt_user_host* host)
+{
+	CNT_NULL_CHECK(host);
+
+	cnt_user_host_broadcast(host, nullptr, 0);
+
 	return host;
 }
 
@@ -2955,10 +2973,10 @@ int cnt_host_default_process(cnt_user_host *user_host)
 	cnt_sock_open(&server_socket, user_host->host_ip, user_host->host_port);
 
 	cnt_star star;
-	cnt_star_open(&star, &server_socket, 32);
+	cnt_star_open(&star, &server_socket, user_host->max_clients);
 
 	cnt_host host;
-	cnt_host_open(&host, 32);
+	cnt_host_open(&host, user_host->max_clients);
 
 	cnt_message_64_bytes_queue message_queue;
 	cnt_message_queue_64_bytes_open(&message_queue, 128);

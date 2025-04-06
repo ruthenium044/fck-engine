@@ -8,11 +8,13 @@
 #define CNT_ANY_IP "0.0.0.0"
 #define CNT_ANY_PORT 0
 
+// Just exists for type-safety, do not extend
 struct cnt_sparse_index
 {
 	uint32_t index;
 };
 
+// Just exists for type-safety, do not extend
 struct cnt_dense_index
 {
 	uint32_t index;
@@ -395,6 +397,8 @@ struct cnt_user_host
 
 	const char *host_ip;
 	uint16_t host_port;
+
+	uint32_t max_clients;
 };
 
 // Client on host mapping - yeehaw
@@ -479,9 +483,10 @@ const char *cnt_user_client_host_protocol_to_string(cnt_user_client *user);
 
 cnt_user_client *cnt_user_client_send(cnt_user_client *client, void *ptr, int byte_count);
 int cnt_user_client_recv(cnt_user_client *client, void *ptr, int byte_count);
+cnt_user_client* cnt_user_client_keep_alive(cnt_user_client* client);
 
 // Host
-cnt_user_host *cnt_user_host_open(cnt_user_host *user, const char *host_ip, uint16_t port, uint32_t frequency);
+cnt_user_host *cnt_user_host_open(cnt_user_host *user, const char *host_ip, uint16_t port, uint32_t max_clients, uint32_t frequency);
 cnt_user_host *cnt_user_host_shut_down(cnt_user_host *user);
 void cnt_user_host_close(cnt_user_host *user);
 
@@ -492,6 +497,7 @@ const char *cnt_user_host_state_to_string(cnt_user_host *user);
 cnt_user_host *cnt_user_host_broadcast(cnt_user_host *host, void *ptr, int byte_count);
 cnt_user_host *cnt_user_host_send(cnt_user_host *host, cnt_sparse_index client_id, void *ptr, int byte_count);
 int cnt_user_host_recv(cnt_user_host *host, cnt_sparse_index *client_id, void *ptr, int byte_count);
+cnt_user_host* cnt_user_host_keep_alive(cnt_user_host* host);
 cnt_user_host *cnt_user_host_kick(cnt_user_host *host, cnt_sparse_index client_id);
 
 // Tests

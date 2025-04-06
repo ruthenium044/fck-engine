@@ -61,12 +61,12 @@ void game_network_ui_process(struct fck_ecs *ecs, struct fck_system_update_info 
 		bool is_host_active = cnt_user_host_is_active(host);
 		if (is_host_active)
 		{
-			cnt_user_host_broadcast(host, nullptr, 0);
+			cnt_user_host_keep_alive(host);
 		}
 		bool is_client_active = cnt_user_client_is_active(client);
 		if (is_client_active)
 		{
-			cnt_user_client_send(client, nullptr, 0);
+			cnt_user_client_keep_alive(client);
 		}
 	}
 
@@ -88,7 +88,7 @@ void game_network_ui_process(struct fck_ecs *ecs, struct fck_system_update_info 
 			}
 			else
 			{
-				cnt_user_host_open(host, CNT_ANY_IP, 42069, 60);
+				cnt_user_host_open(host, CNT_ANY_IP, 42069, 32, 60);
 			}
 		}
 
@@ -132,6 +132,21 @@ void game_network_ui_process(struct fck_ecs *ecs, struct fck_system_update_info 
 		// No host state print yet
 		nk_label(ctx, "Host Protocol:", NK_TEXT_LEFT);
 		nk_label(ctx, cnt_user_client_host_protocol_to_string(client), NK_TEXT_LEFT);
+
+		nk_layout_row_dynamic(ctx, 28, 1);
+		nk_label(ctx, "Client List:", NK_TEXT_LEFT);
+
+		nk_layout_row_dynamic(ctx, 12, 1);
+		for (int i = 0; i < host->max_clients; i++)
+		{
+			nk_layout_row_dynamic(ctx, 12, 2);
+			char i_as_text[sizeof(int) * 8 + 1];
+			nk_label(ctx, SDL_itoa(i, i_as_text, 10), NK_TEXT_LEFT);
+			if (nk_button_label(ctx, "kick"))
+			{
+				cnt_user_host_kick(host, {(uint32_t)i});
+			}
+		}
 
 		nk_layout_row_dynamic(ctx, 30, 2);
 		if (nk_option_label(ctx, "easy", op == EASY))

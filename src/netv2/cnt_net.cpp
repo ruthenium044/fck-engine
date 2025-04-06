@@ -254,9 +254,9 @@ bool cnt_sparse_list_remove(cnt_sparse_list *mapping, cnt_sparse_index *index)
 		cnt_dense_index *current_dense = &mapping->dense[current_sparse->index];
 		SDL_assert(index->index == current_dense->index && "Mix-up happened with the mapping?!");
 
-		uint32_t last_dense = mapping->count - 1; 
-		cnt_dense_index *last_dense_index = &mapping->dense[last_dense]; 
-		cnt_sparse_index *last_sparse_index = &mapping->sparse[last_dense_index->index]; 
+		uint32_t last_dense = mapping->count - 1;
+		cnt_dense_index *last_dense_index = &mapping->dense[last_dense];
+		cnt_sparse_index *last_sparse_index = &mapping->sparse[last_dense_index->index];
 		SDL_assert(last_dense == last_sparse_index->index && "Mix-up happened with the mapping?!");
 
 		current_dense->index = last_dense_index->index;
@@ -1575,7 +1575,7 @@ cnt_host *cnt_host_send(cnt_host *host, cnt_stream *stream, cnt_ip_container *co
 	cnt_sparse_list *mapping = &host->mapping;
 	for (uint32_t index = 0; index < mapping->count; index++)
 	{
-		cnt_dense_index dense_index { index };
+		cnt_dense_index dense_index{index};
 		cnt_sparse_index sparse_index;
 		bool has_sparse = cnt_sparse_list_try_get_sparse(mapping, &dense_index, &sparse_index);
 		SDL_assert(has_sparse && "Sparse index does not exist for dense index");
@@ -1613,7 +1613,7 @@ cnt_host *cnt_host_send(cnt_host *host, cnt_stream *stream, cnt_ip_container *co
 
 	for (uint32_t index = 0; index < mapping->count; index++)
 	{
-		cnt_dense_index dense_index = { index };
+		cnt_dense_index dense_index = {index};
 		cnt_client_on_host *client_state = &host->client_states[dense_index.index];
 
 		cnt_ip *ip = &host->ip_lookup[dense_index.index];
@@ -2485,15 +2485,62 @@ cnt_user_client *cnt_user_client_open(cnt_user_client *user, const char *host_ip
 
 	cnt_user_client_command_spsc_queue_open(&user->command_queue, 64);
 
+	cnt_net_engine_state_set(&user->net_engine_state, CNT_NET_ENGINE_STATE_TYPE_USER_INITALISED);
+
 	SDL_Thread *thread = SDL_CreateThread((SDL_ThreadFunction)cnt_client_default_process, "", user);
 	SDL_DetachThread(thread);
 
 	return user;
 }
 
+
+cnt_net_engine_state_type cnt_user_client_get_state(cnt_user_client* user)
+{
+	return cnt_net_engine_state_get(&user->net_engine_state);
+}
+
+cnt_protocol_state_client cnt_user_client_get_client_protocol_state(cnt_user_client* user)
+{
+	return cnt_client_state_get(&user->protocol_state);
+}
+
+cnt_protocol_state_host cnt_user_client_get_host_protocol_state(cnt_user_client* user)
+{
+	return cnt_host_state_get(&user->state_on_host);
+}
+
+bool cnt_user_client_is_active(cnt_user_client* user)
+{
+	cnt_net_engine_state_type state = cnt_user_client_get_state(user);
+	return state != CNT_NET_ENGINE_STATE_TYPE_CLOSED && state != CNT_NET_ENGINE_STATE_TYPE_NONE;
+}
+
+const char* cnt_user_client_state_to_string(cnt_user_client* user)
+{
+	cnt_net_engine_state_type state = cnt_user_client_get_state(user);
+	return cnt_net_engine_state_type_to_string(state);
+}
+
+const char* cnt_user_client_client_protocol_to_string(cnt_user_client* user)
+{
+	cnt_protocol_state_client state = cnt_user_client_get_client_protocol_state(user);
+	return cnt_protocol_state_client_to_string(state);
+}
+const char* cnt_user_client_host_protocol_to_string(cnt_user_client* user)
+{
+	cnt_protocol_state_host state = cnt_user_client_get_host_protocol_state(user);
+	return cnt_protocol_state_host_to_string(state);
+}
+
+
 cnt_user_client *cnt_user_client_shut_down(cnt_user_client *user)
 {
 	CNT_NULL_CHECK(user);
+
+	if (cnt_user_client_get_state(user) == CNT_NET_ENGINE_STATE_TYPE_NONE)
+	{
+		return user;
+	}
 
 	SDL_Log("Shutting down Client(%s:%hu)", user->host_ip, user->host_port);
 
@@ -2505,47 +2552,14 @@ cnt_user_client *cnt_user_client_shut_down(cnt_user_client *user)
 	return user;
 }
 
-cnt_net_engine_state_type cnt_user_client_get_state(cnt_user_client *user)
-{
-	return cnt_net_engine_state_get(&user->net_engine_state);
-}
-
-cnt_protocol_state_client cnt_user_client_get_client_protocol_state(cnt_user_client *user)
-{
-	return cnt_client_state_get(&user->protocol_state);
-}
-
-cnt_protocol_state_host cnt_user_client_get_host_protocol_state(cnt_user_client *user)
-{
-	return cnt_host_state_get(&user->state_on_host);
-}
-
-bool cnt_user_client_is_active(cnt_user_client *user)
-{
-	cnt_net_engine_state_type state = cnt_user_client_get_state(user);
-	return state != CNT_NET_ENGINE_STATE_TYPE_CLOSED && state != CNT_NET_ENGINE_STATE_TYPE_NONE;
-}
-
-const char *cnt_user_client_state_to_string(cnt_user_client *user)
-{
-	cnt_net_engine_state_type state = cnt_user_client_get_state(user);
-	return cnt_net_engine_state_type_to_string(state);
-}
-
-const char *cnt_user_client_client_protocol_to_string(cnt_user_client *user)
-{
-	cnt_protocol_state_client state = cnt_user_client_get_client_protocol_state(user);
-	return cnt_protocol_state_client_to_string(state);
-}
-const char *cnt_user_client_host_protocol_to_string(cnt_user_client *user)
-{
-	cnt_protocol_state_host state = cnt_user_client_get_host_protocol_state(user);
-	return cnt_protocol_state_host_to_string(state);
-}
-
 void cnt_user_client_close(cnt_user_client *user)
 {
 	CNT_NULL_CHECK(user);
+
+	if (cnt_user_client_get_state(user) == CNT_NET_ENGINE_STATE_TYPE_NONE)
+	{
+		return;
+	}
 
 	if (cnt_user_client_get_state(user) != CNT_NET_ENGINE_STATE_TYPE_CLOSED)
 	{
@@ -2583,6 +2597,8 @@ cnt_user_host *cnt_user_host_open(cnt_user_host *user, const char *host_ip, uint
 
 	cnt_user_host_command_spsc_queue_open(&user->command_queue, 64);
 
+	cnt_net_engine_state_set(&user->net_engine_state, CNT_NET_ENGINE_STATE_TYPE_USER_INITALISED);
+
 	SDL_Thread *thread = SDL_CreateThread((SDL_ThreadFunction)cnt_host_default_process, "", user);
 	SDL_DetachThread(thread);
 
@@ -2592,6 +2608,11 @@ cnt_user_host *cnt_user_host_open(cnt_user_host *user, const char *host_ip, uint
 cnt_user_host *cnt_user_host_shut_down(cnt_user_host *user)
 {
 	CNT_NULL_CHECK(user);
+
+	if (cnt_user_host_get_state(user) == CNT_NET_ENGINE_STATE_TYPE_NONE)
+	{
+		return user;
+	}
 
 	SDL_Log("Shutting down Host(%s:%hu)", user->host_ip, user->host_port);
 
@@ -2623,6 +2644,11 @@ const char *cnt_user_host_state_to_string(cnt_user_host *user)
 void cnt_user_host_close(cnt_user_host *user)
 {
 	CNT_NULL_CHECK(user);
+
+	if (cnt_user_host_get_state(user) == CNT_NET_ENGINE_STATE_TYPE_NONE)
+	{
+		return;
+	}
 
 	if (cnt_user_host_get_state(user) != CNT_NET_ENGINE_STATE_TYPE_CLOSED)
 	{

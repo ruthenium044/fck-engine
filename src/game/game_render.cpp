@@ -19,6 +19,7 @@ void game_render_process(fck_ecs *ecs, fck_system_update_info *)
 	SDL_SetRenderDrawColor(engine->renderer, 0, 0, 0, 255);
 	SDL_RenderClear(engine->renderer);
 
+#ifdef GEN_DEFINED_PNG
 	fck_ecs_apply(ecs, [engine](game_position *position, game_size *size, game_sprite *sprite) {
 		float target_x = position->x;
 		float target_y = position->y;
@@ -29,6 +30,7 @@ void game_render_process(fck_ecs *ecs, fck_system_update_info *)
 		SDL_Texture *texture = fck_assets_get(sprite->texture);
 		SDL_RenderTexture(engine->renderer, texture, &sprite->src, &dst);
 	});
+#endif
 
 	fck_ecs_apply(ecs, [engine](game_position *position, game_size *size, game_debug_colour *colour) {
 		float target_x = position->x;

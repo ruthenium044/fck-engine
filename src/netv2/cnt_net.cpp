@@ -249,17 +249,18 @@ bool cnt_sparse_list_remove(cnt_sparse_list *mapping, cnt_sparse_index *index)
 
 	// Update mapping
 	{
-		uint32_t last_dense = mapping->count - 1;
-		cnt_dense_index *last_dense_index = &mapping->dense[last_dense];
 
-		// Last sparse is now pointing to the removed index
-		cnt_sparse_index *last_sparse_index = &mapping->sparse[last_dense_index->index];
-		last_sparse_index->index = index->index;
+		cnt_sparse_index *current_sparse = &mapping->sparse[index->index];
+		cnt_dense_index *current_dense = &mapping->dense[current_sparse->index];
+		SDL_assert(index->index == current_dense->index && "Mix-up happened with the mapping?!");
 
-		// Last dense index is getting copied over to dense data of the removed index
-		cnt_dense_index *dense_index = &mapping->dense[last_sparse_index->index];
-		dense_index->index = last_dense_index->index;
+		uint32_t last_dense = mapping->count - 1; 
+		cnt_dense_index *last_dense_index = &mapping->dense[last_dense]; 
+		cnt_sparse_index *last_sparse_index = &mapping->sparse[last_dense_index->index]; 
+		SDL_assert(last_dense == last_sparse_index->index && "Mix-up happened with the mapping?!");
 
+		current_dense->index = last_dense_index->index;
+		last_sparse_index->index = current_sparse->index;
 		// Pop last element - We did a remove swap while maintaining the sparse-dense mapping
 		mapping->count = last_dense;
 	}
@@ -925,7 +926,6 @@ static bool cnt_protocol_client_read(cnt_protocol_client *packet, cnt_stream *st
 	}
 	cnt_stream_read_uint8(stream, (uint8_t *)&packet->state);
 	cnt_stream_read_uint32(stream, &packet->id.index);
-
 	cnt_stream_read_uint8(stream, &packet->extra_payload_count);
 	cnt_stream_read_string(stream, packet->extra_payload, packet->extra_payload_count);
 	return true;
@@ -1124,7 +1124,6 @@ cnt_star *cnt_star_send(cnt_star *star, cnt_stream *stream)
 	CNT_FOR(uint32_t, index, star->destinations.count)
 	{
 		cnt_ip *destination = star->destinations.addresses + index;
-
 		cnt_connection connection;
 		if (cnt_connection_open(&connection, &star->sock, destination))
 		{
@@ -1227,6 +1226,7 @@ cnt_protocol_client *cnt_protocol_client_create(cnt_protocol_client *client_prot
 
 	client_protocol->prefix = 8008;
 	client_protocol->state = client->protocol;
+	client_protocol->id = client->id_on_host;
 
 	client->attempts = client->attempts + 1;
 
@@ -1294,7 +1294,7 @@ cnt_client_on_host *cnt_protocol_client_apply(cnt_protocol_client *client_protoc
 					return nullptr;
 				}
 			}
-			SDL_Log("Received naughty state from client on Host - Tried to circumvent handshake?");
+			SDL_Log("Received naughty state from client on Host - Tried to disconnect another client?");
 		}
 
 		return nullptr;
@@ -1304,72 +1304,76 @@ cnt_client_on_host *cnt_protocol_client_apply(cnt_protocol_client *client_protoc
 	{
 		// Any kind of client can just send as an OK
 		// When a client sends an OK, we just verify a few data entries
-		if (client_id_exists)
+		if (!client_id_exists)
 		{
-			cnt_ip *stored_addr = &host->ip_lookup[dense_index.index];
-			bool is_stored_addr_mapped_correctly = cnt_ip_equals(stored_addr, client_addr);
-			if (is_stored_addr_mapped_correctly)
-			{
-				cnt_stream stream;
-				cnt_stream_create(&stream, client_protocol->extra_payload, client_protocol->extra_payload_count);
+			return nullptr;
+		}
 
-				cnt_client_on_host *client_state = &host->client_states[dense_index.index];
-				if (client_state->protocol == CNT_PROTOCOL_STATE_HOST_OK)
-				{
-					cnt_protocol_secret_read(&client_state->secret, &stream);
-					bool is_secret_correct = (client_state->secret.public_value ^ client_state->secret.private_value) == SECRET_SEED;
-					if (is_secret_correct)
-					{
-						client_state->attempts = 0;
-						return client_state;
-					}
-				}
+		cnt_ip *stored_addr = &host->ip_lookup[dense_index.index];
+		bool is_stored_addr_mapped_correctly = cnt_ip_equals(stored_addr, client_addr);
+		if (!is_stored_addr_mapped_correctly)
+		{
+			return nullptr;
+		}
+
+		cnt_stream stream;
+		cnt_stream_create(&stream, client_protocol->extra_payload, client_protocol->extra_payload_count);
+
+		cnt_client_on_host *client_state = &host->client_states[dense_index.index];
+		if (client_state->protocol == CNT_PROTOCOL_STATE_HOST_OK)
+		{
+			cnt_protocol_secret_read(&client_state->secret, &stream);
+			bool is_secret_correct = (client_state->secret.public_value ^ client_state->secret.private_value) == SECRET_SEED;
+			if (is_secret_correct)
+			{
+				client_state->attempts = 0;
+				return client_state;
 			}
 		}
-		// Client sent us bad data - we cannot change server state just because some client is a cunt
-		SDL_Log("Received naughty state from client on Host - Tried to circumvent handshake?");
+
+		if (cnt_host_ip_try_find(host, client_addr, &dense_index.index))
+		{
+			// Client sent us bad data - we cannot change server state just because some client is a cunt
+			SDL_Log("Received naughty state from client on Host - Tried to circumvent handshake?");
+		}
 		return nullptr;
 	}
 
-	if (!client_id_exists)
+	// if (!client_id_exists || client_protocol->state == CNT_PROTOCOL_STATE_CLIENT_REQUEST)
+	//{
+	if (!cnt_host_ip_try_find(host, client_addr, &dense_index.index))
 	{
-		if (!cnt_host_ip_try_find(host, client_addr, &dense_index.index))
+		cnt_sparse_index id;
+		if (!cnt_sparse_list_create(&host->mapping, &id))
 		{
-			cnt_sparse_index id;
-			if (!cnt_sparse_list_create(&host->mapping, &id))
-			{
-				SDL_Log("Host is full - Cannot take in client. Bummer :(");
-				return nullptr;
-			}
-			bool has_id = cnt_sparse_list_try_get_dense(&host->mapping, &id, &dense_index);
-			SDL_assert(has_id);
-
-			SDL_memcpy(host->ip_lookup + dense_index.index, client_addr, sizeof(*host->ip_lookup));
-
-			cnt_client_on_host *client_state = &host->client_states[dense_index.index];
-			SDL_zerop(client_state);
-			client_state->id = id;
+			SDL_Log("Host is full - Cannot take in client. Bummer :(");
+			return nullptr;
 		}
-		else
-		{
-			// Internal fuck ups
-			cnt_sparse_index id;
-			bool has_sparse_index = cnt_sparse_list_try_get_sparse(&host->mapping, &dense_index, &id);
-			SDL_assert(has_sparse_index && "Address exists in lookup, but did not get shoved into lookup");
+		bool has_id = cnt_sparse_list_try_get_dense(&host->mapping, &id, &dense_index);
+		SDL_assert(has_id);
 
-			cnt_client_on_host *client_state = &host->client_states[dense_index.index];
-			bool is_stored_id_correct = client_state->id.index == id.index;
-			SDL_assert(is_stored_id_correct && "Client-Address mapping is completely fucked up");
-		}
+		SDL_memcpy(host->ip_lookup + dense_index.index, client_addr, sizeof(*host->ip_lookup));
+
+		cnt_client_on_host *client_state = &host->client_states[dense_index.index];
+		SDL_zerop(client_state);
+		client_state->id = id;
 	}
+	else
+	{
+		// Internal fuck ups
+		cnt_sparse_index id;
+		bool has_sparse_index = cnt_sparse_list_try_get_sparse(&host->mapping, &dense_index, &id);
+		SDL_assert(has_sparse_index && "Address exists in lookup, but did not get shoved into lookup");
+
+		cnt_client_on_host *client_state = &host->client_states[dense_index.index];
+		bool is_stored_id_correct = client_state->id.index == id.index;
+		SDL_assert(is_stored_id_correct && "Client-Address mapping is completely fucked up");
+	}
+	//}
 
 	cnt_ip *stored_addr = &host->ip_lookup[dense_index.index];
 	bool is_stored_addr_empty = cnt_ip_is_empty(stored_addr);
-	if (is_stored_addr_empty)
-	{
-		SDL_memcpy(stored_addr, client_addr, sizeof(*stored_addr));
-	}
-	else
+	if (!is_stored_addr_empty)
 	{
 		bool is_stored_addr_mapped_correctly = cnt_ip_equals(stored_addr, client_addr);
 		if (!is_stored_addr_mapped_correctly)
@@ -1382,11 +1386,9 @@ cnt_client_on_host *cnt_protocol_client_apply(cnt_protocol_client *client_protoc
 	}
 
 	cnt_client_on_host *client_state = &host->client_states[dense_index.index];
-
-	// Whenever we receive something, we can reset the attempts!
 	client_state->attempts = 0;
 
-	if (client_state->protocol >= client_protocol->state)
+	if (client_state->protocol > client_protocol->state)
 	{
 		return nullptr;
 	}
@@ -1573,8 +1575,13 @@ cnt_host *cnt_host_send(cnt_host *host, cnt_stream *stream, cnt_ip_container *co
 	cnt_sparse_list *mapping = &host->mapping;
 	for (uint32_t index = 0; index < mapping->count; index++)
 	{
-		cnt_dense_index dense_index = mapping->dense[index];
+		cnt_dense_index dense_index { index };
+		cnt_sparse_index sparse_index;
+		bool has_sparse = cnt_sparse_list_try_get_sparse(mapping, &dense_index, &sparse_index);
+		SDL_assert(has_sparse && "Sparse index does not exist for dense index");
+
 		cnt_client_on_host *client_state = &host->client_states[dense_index.index];
+		SDL_assert(client_state->id.index == sparse_index.index && "Sparse Index does not align");
 
 		cnt_protocol_host protocol;
 		// NOTE: Maybe there are better conditions to check this...
@@ -1606,7 +1613,7 @@ cnt_host *cnt_host_send(cnt_host *host, cnt_stream *stream, cnt_ip_container *co
 
 	for (uint32_t index = 0; index < mapping->count; index++)
 	{
-		cnt_dense_index dense_index = mapping->dense[index];
+		cnt_dense_index dense_index = { index };
 		cnt_client_on_host *client_state = &host->client_states[dense_index.index];
 
 		cnt_ip *ip = &host->ip_lookup[dense_index.index];
@@ -1778,7 +1785,7 @@ void cnt_client_close(cnt_client *client)
 cnt_user_client_frame *cnt_user_client_frame_alloc(cnt_stream *stream)
 {
 	CNT_NULL_CHECK(stream);
-	SDL_assert(stream->at > 0);
+	SDL_assert(stream->at >= 0);
 
 	// Heap allocation for this one is very stupid
 	const uint32_t size = offsetof(cnt_user_client_frame, data[stream->at]);
@@ -2085,7 +2092,7 @@ bool cnt_user_client_frame_spsc_queue_try_peek(cnt_user_client_frame_spsc_queue 
 cnt_user_host_frame *cnt_user_host_frame_alloc(cnt_stream *stream, cnt_sparse_index client_id)
 {
 	CNT_NULL_CHECK(stream);
-	SDL_assert(stream->at > 0);
+	SDL_assert(stream->at >= 0);
 
 	// Heap allocation for this one is very stupid
 	const uint32_t size = offsetof(cnt_user_host_frame, data[stream->at]);
@@ -2388,6 +2395,69 @@ const char *cnt_net_engine_state_type_to_string(cnt_net_engine_state_type state)
 	case CNT_NET_ENGINE_STATE_TYPE_CLOSED:
 		return "CLOSED";
 	}
+	return "UNKNOWN";
+}
+
+void cnt_client_state_set(cnt_client_state *client_state, cnt_protocol_state_client state)
+{
+	uint32_t as_u32 = (uint32_t)state;
+	SDL_SetAtomicU32(&client_state->state, state);
+}
+
+cnt_protocol_state_client cnt_client_state_get(cnt_client_state *client_state)
+{
+	return (cnt_protocol_state_client)SDL_GetAtomicU32(&client_state->state);
+}
+
+const char *cnt_protocol_state_client_to_string(cnt_protocol_state_client state)
+{
+	switch (state)
+	{
+	case CNT_PROTOCOL_STATE_CLIENT_NONE:
+		return "NONE";
+	case CNT_PROTOCOL_STATE_CLIENT_REQUEST:
+		return "REQUEST";
+	case CNT_PROTOCOL_STATE_CLIENT_ANSWER:
+		return "ANSWER";
+	case CNT_PROTOCOL_STATE_CLIENT_OK:
+		return "OK";
+	case CNT_PROTOCOL_STATE_CLIENT_DISCONNECT:
+		return "DISCONNECT";
+	case CNT_PROTOCOL_STATE_CLIENT_KICKED:
+		return "KICKED";
+	}
+	return "UNKNOWN";
+}
+
+void cnt_host_state_set(cnt_host_state *host_state, cnt_protocol_state_host state)
+{
+	uint32_t as_u32 = (uint32_t)state;
+	SDL_SetAtomicU32(&host_state->state, state);
+}
+
+cnt_protocol_state_host cnt_host_state_get(cnt_host_state *host_state)
+{
+	return (cnt_protocol_state_host)SDL_GetAtomicU32(&host_state->state);
+}
+
+const char *cnt_protocol_state_host_to_string(cnt_protocol_state_host state)
+{
+	switch (state)
+	{
+	case CNT_PROTOCOL_STATE_HOST_NONE:
+		return "NONE";
+	case CNT_PROTOCOL_STATE_HOST_CHALLENGE:
+		return "CHALLENGE";
+	case CNT_PROTOCOL_STATE_HOST_OK:
+		return "OK";
+	case CNT_PROTOCOL_STATE_HOST_RESOLUTION_REJECT:
+		return "REJECT";
+	case CNT_PROTOCOL_STATE_HOST_DISCONNECT:
+		return "DISCONNECTED";
+	case CNT_PROTOCOL_STATE_HOST_KICKED:
+		return "KICKED";
+	}
+	return "UNKNOWN";
 }
 
 bool cnt_net_engine_state_type_can_network(cnt_net_engine_state_type state)
@@ -2410,8 +2480,8 @@ cnt_user_client *cnt_user_client_open(cnt_user_client *user, const char *host_ip
 
 	cnt_user_frequency_set(&user->frequency, frequency);
 
-	cnt_user_client_frame_spsc_queue_open(&user->send_queue, 64);
-	cnt_user_client_frame_spsc_queue_open(&user->recv_queue, 64);
+	cnt_user_client_frame_spsc_queue_open(&user->send_queue, 1024);
+	cnt_user_client_frame_spsc_queue_open(&user->recv_queue, 1024);
 
 	cnt_user_client_command_spsc_queue_open(&user->command_queue, 64);
 
@@ -2440,6 +2510,16 @@ cnt_net_engine_state_type cnt_user_client_get_state(cnt_user_client *user)
 	return cnt_net_engine_state_get(&user->net_engine_state);
 }
 
+cnt_protocol_state_client cnt_user_client_get_client_protocol_state(cnt_user_client *user)
+{
+	return cnt_client_state_get(&user->protocol_state);
+}
+
+cnt_protocol_state_host cnt_user_client_get_host_protocol_state(cnt_user_client *user)
+{
+	return cnt_host_state_get(&user->state_on_host);
+}
+
 bool cnt_user_client_is_active(cnt_user_client *user)
 {
 	cnt_net_engine_state_type state = cnt_user_client_get_state(user);
@@ -2450,6 +2530,17 @@ const char *cnt_user_client_state_to_string(cnt_user_client *user)
 {
 	cnt_net_engine_state_type state = cnt_user_client_get_state(user);
 	return cnt_net_engine_state_type_to_string(state);
+}
+
+const char *cnt_user_client_client_protocol_to_string(cnt_user_client *user)
+{
+	cnt_protocol_state_client state = cnt_user_client_get_client_protocol_state(user);
+	return cnt_protocol_state_client_to_string(state);
+}
+const char *cnt_user_client_host_protocol_to_string(cnt_user_client *user)
+{
+	cnt_protocol_state_host state = cnt_user_client_get_host_protocol_state(user);
+	return cnt_protocol_state_host_to_string(state);
 }
 
 void cnt_user_client_close(cnt_user_client *user)
@@ -2487,8 +2578,8 @@ cnt_user_host *cnt_user_host_open(cnt_user_host *user, const char *host_ip, uint
 
 	cnt_user_frequency_set(&user->frequency, frequency);
 
-	cnt_user_host_frame_spsc_queue_open(&user->send_queue, 64);
-	cnt_user_host_frame_spsc_queue_open(&user->recv_queue, 64);
+	cnt_user_host_frame_spsc_queue_open(&user->send_queue, 1024);
+	cnt_user_host_frame_spsc_queue_open(&user->recv_queue, 1024);
 
 	cnt_user_host_command_spsc_queue_open(&user->command_queue, 64);
 
@@ -2553,6 +2644,10 @@ void cnt_user_host_close(cnt_user_host *user)
 
 cnt_user_client *cnt_user_client_send(cnt_user_client *client, void *ptr, int byte_count)
 {
+	CNT_NULL_CHECK(client);
+
+	SDL_assert(ptr != nullptr || ptr == nullptr && byte_count == 0);
+
 	cnt_net_engine_state_type state = cnt_user_client_get_state(client);
 	if (!cnt_net_engine_state_type_can_network(state))
 	{
@@ -2601,7 +2696,8 @@ int cnt_user_client_recv(cnt_user_client *client, void *ptr, int byte_count)
 cnt_user_host *cnt_user_host_broadcast(cnt_user_host *host, void *ptr, int byte_count)
 {
 	CNT_NULL_CHECK(host);
-	CNT_NULL_CHECK(ptr);
+
+	SDL_assert(ptr != nullptr || ptr == nullptr && byte_count == 0);
 
 	cnt_net_engine_state_type state = cnt_user_host_get_state(host);
 	if (!cnt_net_engine_state_type_can_network(state))
@@ -2723,6 +2819,9 @@ int cnt_client_default_process(cnt_user_client *user_client)
 	while (true)
 	{
 		uint64_t start = SDL_GetTicks();
+
+		cnt_client_state_set(&user_client->protocol_state, client.protocol);
+		cnt_host_state_set(&user_client->state_on_host, client.host_protocol);
 
 		cnt_user_client_command user_command;
 		while (cnt_user_client_command_spsc_queue_try_dequeue(&user_client->command_queue, &user_command))

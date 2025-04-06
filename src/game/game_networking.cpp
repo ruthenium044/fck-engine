@@ -15,25 +15,8 @@ void game_networking_setup(fck_ecs *ecs, fck_system_once_info *)
 	fck_instance_info *info = fck_ecs_unique_view<fck_instance_info>(ecs);
 }
 
-void game_cnt_user_host_close(cnt_user_host *user)
-{
-	if (user != nullptr)
-	{
-		cnt_user_host_close(user);
-	}
-}
-
-void game_cnt_user_client_close(cnt_user_client *user)
-{
-	if (user != nullptr)
-	{
-		cnt_user_client_close(user);
-	} 
-}
-
 struct game_network_debug
 {
-
 };
 
 void game_network_ui_process(struct fck_ecs *ecs, struct fck_system_update_info *)
@@ -48,16 +31,16 @@ void game_network_ui_process(struct fck_ecs *ecs, struct fck_system_update_info 
 	cnt_user_client *client = fck_ecs_unique_view<cnt_user_client>(ecs);
 	if (client == nullptr)
 	{
-		client = fck_ecs_unique_create<cnt_user_client>(ecs, game_cnt_user_client_close);
+		client = fck_ecs_unique_create<cnt_user_client>(ecs, cnt_user_client_close);
 	}
 
 	cnt_user_host *host = fck_ecs_unique_view<cnt_user_host>(ecs);
 	if (host == nullptr)
 	{
-		host = fck_ecs_unique_create<cnt_user_host>(ecs, game_cnt_user_host_close);
+		host = fck_ecs_unique_create<cnt_user_host>(ecs, cnt_user_host_close);
 	}
 
-	game_network_debug* network_debug = fck_ecs_unique_view<game_network_debug>(ecs);
+	game_network_debug *network_debug = fck_ecs_unique_view<game_network_debug>(ecs);
 	if (network_debug == nullptr)
 	{
 		network_debug = fck_ecs_unique_create<game_network_debug>(ecs);
@@ -73,6 +56,19 @@ void game_network_ui_process(struct fck_ecs *ecs, struct fck_system_update_info 
 		EASY,
 		HARD
 	};
+
+	{
+		bool is_host_active = cnt_user_host_is_active(host);
+		if (is_host_active)
+		{
+			cnt_user_host_broadcast(host, nullptr, 0);
+		}
+		bool is_client_active = cnt_user_client_is_active(client);
+		if (is_client_active)
+		{
+			cnt_user_client_send(client, nullptr, 0);
+		}
+	}
 
 	/* GUI */
 	if (nk_begin(ctx, "Network", nk_rect(50, 50, 230, 250),
@@ -110,14 +106,32 @@ void game_network_ui_process(struct fck_ecs *ecs, struct fck_system_update_info 
 			}
 		}
 
-		nk_layout_row_dynamic(ctx, 30, 2);
+		nk_layout_row_dynamic(ctx, 24, 2);
 		nk_label(ctx, cnt_user_host_state_to_string(host), NK_TEXT_LEFT);
 		nk_label(ctx, cnt_user_client_state_to_string(client), NK_TEXT_LEFT);
 
-		nk_layout_row_dynamic(ctx, 30, 2);
-		nk_label(ctx, host->host_ip ? host->host_ip : "None", NK_TEXT_LEFT);
-		nk_label(ctx, client->host_ip ? client->host_ip : "None", NK_TEXT_LEFT);
+		nk_layout_row_dynamic(ctx, 12, 2);
+		nk_label(ctx, "Hosting on:", NK_TEXT_LEFT);
+		nk_label(ctx, "Connected to:", NK_TEXT_LEFT);
 
+		char port_as_text[sizeof(int) * 8 + 1];
+		nk_layout_row_dynamic(ctx, 12, 4);
+		nk_label(ctx, host->host_ip ? host->host_ip : "None", NK_TEXT_LEFT);
+		nk_label(ctx, SDL_itoa((int)host->host_port, port_as_text, 10), NK_TEXT_LEFT);
+		nk_label(ctx, client->host_ip ? client->host_ip : "None", NK_TEXT_LEFT);
+		nk_label(ctx, SDL_itoa((int)client->host_port, port_as_text, 10), NK_TEXT_LEFT);
+
+		nk_layout_row_dynamic(ctx, 30, 1);
+		nk_label(ctx, "Client State", NK_TEXT_LEFT);
+		nk_layout_row_dynamic(ctx, 12, 2);
+		// No host state print yet
+		nk_label(ctx, "Client Protocol:", NK_TEXT_LEFT);
+		nk_label(ctx, cnt_user_client_client_protocol_to_string(client), NK_TEXT_LEFT);
+
+		nk_layout_row_dynamic(ctx, 12, 2);
+		// No host state print yet
+		nk_label(ctx, "Host Protocol:", NK_TEXT_LEFT);
+		nk_label(ctx, cnt_user_client_host_protocol_to_string(client), NK_TEXT_LEFT);
 
 		nk_layout_row_dynamic(ctx, 30, 2);
 		if (nk_option_label(ctx, "easy", op == EASY))

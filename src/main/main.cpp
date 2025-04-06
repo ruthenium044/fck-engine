@@ -1,6 +1,6 @@
-#include <SDL3/SDL_timer.h>
 #include "game/game_systems.h"
 #include "shared/fck_checks.h"
+#include <SDL3/SDL_timer.h>
 
 #include "fck.h"
 
@@ -15,7 +15,7 @@ void game_instance_setup(fck_ecs *ecs)
 	// Good old fashioned init systems
 	// TODO: sprite_sheet_setup is loading: Cammy. That is not so muy bien
 	fck_ecs_system_add(ecs, fck_ui_setup);
-	//fck_ecs_system_add(ecs, game_networking_setup);
+	// fck_ecs_system_add(ecs, game_networking_setup);
 	fck_ecs_system_add(ecs, game_authority_controllable_create);
 
 	// Good old fasioned update systems
@@ -29,17 +29,17 @@ void game_instance_setup(fck_ecs *ecs)
 
 int main(int argc, char **argv)
 {
-	//cnt_user_host user_host;
-	//cnt_user_host_open(&user_host, CNT_ANY_IP, 42069, 60);
+	// cnt_user_host user_host;
+	// cnt_user_host_open(&user_host, CNT_ANY_IP, 42069, 60);
 
-	//cnt_user_client user_client;
-	//cnt_user_client_open(&user_client, "127.0.0.1", 42069, 60);
+	// cnt_user_client user_client;
+	// cnt_user_client_open(&user_client, "127.0.0.1", 42069, 60);
 
-	//char user_host_hello[] = "Hello from host app";
-	//char user_client_hello[] = "Hello from client app";
+	// char user_host_hello[] = "Hello from host app";
+	// char user_client_hello[] = "Hello from client app";
 
-	//bool finish_up_client = false;
-	//while (true)
+	// bool finish_up_client = false;
+	// while (true)
 	//{
 	//	char recv_buffer[2048];
 
@@ -64,20 +64,17 @@ int main(int argc, char **argv)
 	//		//cnt_user_host_kick(&user_host, from);
 	//	}
 
-
 	//	SDL_Delay(30);
 	//}
 
-	//return 0;
-
-
+	// return 0;
 
 	fck fck;
-	fck_init(&fck, 2);
+	fck_init(&fck, 3);
 	{
-		fck_instance_info client_info;
-		client_info.title = "fck engine - client";
-		fck_prepare(&fck, &client_info, game_instance_setup);
+		fck_instance_info client_info0;
+		client_info0.title = "fck engine - client 0";
+		fck_prepare(&fck, &client_info0, game_instance_setup);
 
 		fck_instance_info host_info;
 		host_info.title = "fck engine - host";

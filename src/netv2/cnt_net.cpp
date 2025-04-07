@@ -1804,6 +1804,164 @@ void cnt_user_client_frame_free(cnt_user_client_frame *frame)
 	SDL_free(frame);
 }
 
+cnt_list_header *cnt_list_header_open(cnt_list_header *header, uint32_t capacity)
+{
+	CNT_NULL_CHECK(header);
+	header->capacity = capacity;
+	header->count = 0;
+	return header;
+}
+
+void cnt_list_header_close(cnt_list_header *header)
+{
+	CNT_NULL_CHECK(header);
+
+	SDL_zerop(header);
+}
+
+void cnt_list_header_clear(cnt_list_header *header)
+{
+	CNT_NULL_CHECK(header);
+	header->count = 0;
+}
+
+void cnt_list_header_assert_will_not_overflow(cnt_list_header *header, uint32_t count)
+{
+	CNT_NULL_CHECK(header);
+
+	SDL_assert(header->count + count <= header->capacity);
+}
+
+bool cnt_list_header_add(cnt_list_header *header, void *data, size_t stride, void *element, uint32_t count)
+{
+	CNT_NULL_CHECK(header);
+
+	cnt_list_header_assert_will_not_overflow(header, count);
+
+	uint32_t at = header->count;
+	SDL_memcpy(((uint8_t *)data) + at * stride * count, element, stride * count);
+
+	header->count = header->count + count;
+
+	return true;
+}
+
+cnt_user_host_client_list *cnt_user_host_client_list_alloc(uint32_t capacity)
+{
+	const uint32_t size = offsetof(cnt_user_host_client_list, clients[capacity]);
+	cnt_user_host_client_list *list = (cnt_user_host_client_list *)SDL_malloc(size);
+	cnt_list_header_open(&list->header, capacity);
+	return list;
+}
+
+void cnt_user_host_client_list_free(cnt_user_host_client_list *list)
+{
+	CNT_NULL_CHECK(list);
+	cnt_list_header_close(&list->header);
+	SDL_free(list);
+}
+
+void cnt_user_host_client_list_clear(cnt_user_host_client_list *list)
+{
+	CNT_NULL_CHECK(list);
+	cnt_list_header_clear(&list->header);
+}
+
+void cnt_user_host_client_list_add(cnt_user_host_client_list *list, cnt_client_on_host *clients, uint32_t count)
+{
+	CNT_NULL_CHECK(list);
+	if (count == 0)
+	{
+		return;
+	}
+	cnt_list_header_add(&list->header, list->clients, sizeof(*clients), clients, count);
+}
+
+cnt_user_host_client_spsc_list *cnt_user_host_client_spsc_list_open(cnt_user_host_client_spsc_list *list, uint32_t capacity)
+{
+	CNT_NULL_CHECK(list);
+
+	SDL_zerop(list);
+
+	list->capacity = capacity;
+
+	list->lists[0] = cnt_user_host_client_list_alloc(capacity);
+	list->lists[1] = cnt_user_host_client_list_alloc(capacity);
+	return list;
+}
+
+void cnt_user_host_client_spsc_list_close(cnt_user_host_client_spsc_list *list)
+{
+	CNT_NULL_CHECK(list);
+
+	cnt_user_host_client_list_free(list->lists[0]);
+	cnt_user_host_client_list_free(list->lists[1]);
+
+	SDL_zerop(list);
+}
+
+void cnt_user_host_client_spsc_list_clear(cnt_user_host_client_spsc_list *list)
+{
+	CNT_NULL_CHECK(list);
+	cnt_user_host_client_list *current_list = list->lists[list->current_inactive];
+	cnt_user_host_client_list_clear(current_list);
+}
+
+void cnt_user_host_client_spsc_list_add(cnt_user_host_client_spsc_list *list, cnt_client_on_host *clients, uint32_t count)
+{
+	CNT_NULL_CHECK(list);
+
+	cnt_user_host_client_list *current_list = list->lists[list->current_inactive];
+	cnt_user_host_client_list_add(current_list, clients, count);
+}
+
+void cnt_user_host_client_spsc_list_lock(cnt_user_host_client_spsc_list *list)
+{
+	CNT_NULL_CHECK(list);
+	while (SDL_CompareAndSwapAtomicU32(&list->lock, 0, 1))
+	{
+	}
+}
+
+void cnt_user_host_client_spsc_list_unlock(cnt_user_host_client_spsc_list *list)
+{
+	CNT_NULL_CHECK(list);
+
+	SDL_SetAtomicU32(&list->lock, 0);
+}
+
+cnt_client_on_host *cnt_user_host_client_spsc_list_get(cnt_user_host_client_spsc_list *list, uint32_t *count)
+{
+	CNT_NULL_CHECK(list);
+
+	cnt_user_host_client_list *current_list = (cnt_user_host_client_list *)SDL_GetAtomicPointer((void **)&list->active);
+	if (current_list == nullptr)
+	{
+		*count = 0;
+		return nullptr;
+	}
+	*count = current_list->header.count;
+	return current_list->clients;
+}
+
+bool cnt_user_host_client_spsc_list_submit(cnt_user_host_client_spsc_list *list)
+{
+	CNT_NULL_CHECK(list);
+
+	if (SDL_CompareAndSwapAtomicU32(&list->lock, 0, 1))
+	{
+		cnt_user_host_client_list *current_list = list->lists[list->current_inactive];
+		SDL_SetAtomicPointer((void **)&list->active, current_list);
+
+		// flip flop between the inactive queues when user does not have any
+		list->current_inactive = (list->current_inactive + 1) % 2;
+
+		SDL_SetAtomicU32(&list->lock, 0);
+		return true;
+	}
+	return false;
+}
+
 cnt_queue_header *cnt_queue_header_open(cnt_queue_header *header, uint32_t capacity)
 {
 	CNT_NULL_CHECK(header);
@@ -1820,6 +1978,8 @@ uint32_t cnt_queue_header_count(cnt_queue_header *header)
 	return (header->tail - header->head + header->capacity) % header->capacity;
 }
 
+// TODO: Make this return false/true instead of asserting
+// Server will be exploitable otherwise by bombarding it!
 void cnt_queue_header_assert_is_not_full(cnt_queue_header *header)
 {
 	CNT_NULL_CHECK(header);
@@ -2380,6 +2540,17 @@ cnt_net_engine_state_type cnt_net_engine_state_get(cnt_net_engine_state *engine_
 	return (cnt_net_engine_state_type)SDL_GetAtomicU32(&engine_state->state);
 }
 
+void cnt_client_id_on_host_set(cnt_client_id_on_host* client_id_on_host, cnt_sparse_index index)
+{
+	uint32_t as_u32 = (uint32_t)index.index;
+	SDL_SetAtomicU32(&client_id_on_host->id, as_u32);
+}
+
+cnt_sparse_index cnt_client_id_on_host_get(cnt_client_id_on_host* client_id_on_host)
+{
+	return (cnt_sparse_index){SDL_GetAtomicU32(&client_id_on_host->id)};
+}
+
 const char *cnt_net_engine_state_type_to_string(cnt_net_engine_state_type state)
 {
 	switch (state)
@@ -2493,40 +2664,44 @@ cnt_user_client *cnt_user_client_open(cnt_user_client *user, const char *host_ip
 	return user;
 }
 
-
-cnt_net_engine_state_type cnt_user_client_get_state(cnt_user_client* user)
+cnt_net_engine_state_type cnt_user_client_get_state(cnt_user_client *user)
 {
 	return cnt_net_engine_state_get(&user->net_engine_state);
 }
 
-cnt_protocol_state_client cnt_user_client_get_client_protocol_state(cnt_user_client* user)
+cnt_protocol_state_client cnt_user_client_get_client_protocol_state(cnt_user_client *user)
 {
 	return cnt_client_state_get(&user->protocol_state);
 }
 
-cnt_protocol_state_host cnt_user_client_get_host_protocol_state(cnt_user_client* user)
+cnt_protocol_state_host cnt_user_client_get_host_protocol_state(cnt_user_client *user)
 {
 	return cnt_host_state_get(&user->state_on_host);
 }
 
-bool cnt_user_client_is_active(cnt_user_client* user)
+cnt_sparse_index cnt_user_client_get_client_id_on_host(cnt_user_client* user)
+{
+	return cnt_client_id_on_host_get(&user->client_id_on_host);
+}
+
+bool cnt_user_client_is_active(cnt_user_client *user)
 {
 	cnt_net_engine_state_type state = cnt_user_client_get_state(user);
 	return state != CNT_NET_ENGINE_STATE_TYPE_CLOSED && state != CNT_NET_ENGINE_STATE_TYPE_NONE;
 }
 
-const char* cnt_user_client_state_to_string(cnt_user_client* user)
+const char *cnt_user_client_state_to_string(cnt_user_client *user)
 {
 	cnt_net_engine_state_type state = cnt_user_client_get_state(user);
 	return cnt_net_engine_state_type_to_string(state);
 }
 
-const char* cnt_user_client_client_protocol_to_string(cnt_user_client* user)
+const char *cnt_user_client_client_protocol_to_string(cnt_user_client *user)
 {
 	cnt_protocol_state_client state = cnt_user_client_get_client_protocol_state(user);
 	return cnt_protocol_state_client_to_string(state);
 }
-const char* cnt_user_client_host_protocol_to_string(cnt_user_client* user)
+const char *cnt_user_client_host_protocol_to_string(cnt_user_client *user)
 {
 	cnt_protocol_state_host state = cnt_user_client_get_host_protocol_state(user);
 	return cnt_protocol_state_host_to_string(state);
@@ -2594,7 +2769,10 @@ cnt_user_host *cnt_user_host_open(cnt_user_host *user, const char *host_ip, uint
 	cnt_user_host_frame_spsc_queue_open(&user->send_queue, 1024);
 	cnt_user_host_frame_spsc_queue_open(&user->recv_queue, 1024);
 
-	cnt_user_host_command_spsc_queue_open(&user->command_queue, 64);
+	cnt_user_host_client_spsc_list_open(&user->client_list, max_clients);
+
+	const uint32_t messages_per_client = 2;
+	cnt_user_host_command_spsc_queue_open(&user->command_queue, max_clients * messages_per_client);
 
 	cnt_net_engine_state_set(&user->net_engine_state, CNT_NET_ENGINE_STATE_TYPE_USER_INITALISED);
 
@@ -2661,6 +2839,7 @@ void cnt_user_host_close(cnt_user_host *user)
 	cnt_user_host_frame_spsc_queue_close(&user->send_queue);
 	cnt_user_host_frame_spsc_queue_close(&user->recv_queue);
 	cnt_user_host_command_spsc_queue_close(&user->command_queue);
+	cnt_user_host_client_spsc_list_close(&user->client_list);
 
 	SDL_Log("Closed down Host(%s:%hu)", user->host_ip, user->host_port);
 
@@ -2686,7 +2865,7 @@ cnt_user_client *cnt_user_client_send(cnt_user_client *client, void *ptr, int by
 	return client;
 }
 
-cnt_user_client* cnt_user_client_keep_alive(cnt_user_client* client)
+cnt_user_client *cnt_user_client_keep_alive(cnt_user_client *client)
 {
 	CNT_NULL_CHECK(client);
 
@@ -2694,7 +2873,6 @@ cnt_user_client* cnt_user_client_keep_alive(cnt_user_client* client)
 
 	return client;
 }
-
 
 int cnt_user_client_recv(cnt_user_client *client, void *ptr, int byte_count)
 {
@@ -2749,7 +2927,7 @@ cnt_user_host *cnt_user_host_broadcast(cnt_user_host *host, void *ptr, int byte_
 	return host;
 }
 
-cnt_user_host* cnt_user_host_keep_alive(cnt_user_host* host)
+cnt_user_host *cnt_user_host_keep_alive(cnt_user_host *host)
 {
 	CNT_NULL_CHECK(host);
 
@@ -2827,6 +3005,27 @@ int cnt_user_host_recv(cnt_user_host *host, cnt_sparse_index *client_id, void *p
 	cnt_user_host_frame_free(frame);
 
 	return result;
+}
+
+void cnt_user_host_client_list_lock(cnt_user_host *host)
+{
+	CNT_NULL_CHECK(host);
+
+	cnt_user_host_client_spsc_list_lock(&host->client_list);
+}
+
+void cnt_user_host_client_list_unlock(cnt_user_host *host)
+{
+	CNT_NULL_CHECK(host);
+
+	cnt_user_host_client_spsc_list_unlock(&host->client_list);
+}
+
+cnt_client_on_host *cnt_user_host_client_list_get(cnt_user_host *host, uint32_t *count)
+{
+	CNT_NULL_CHECK(host);
+
+	return cnt_user_host_client_spsc_list_get(&host->client_list, count);
 }
 
 int cnt_client_default_process(cnt_user_client *user_client)
@@ -2928,11 +3127,14 @@ int cnt_client_default_process(cnt_user_client *user_client)
 			}
 		}
 
+		cnt_client_id_on_host_set(&user_client->client_id_on_host, client.id_on_host);
+
 		// skip_networking:
 		uint64_t end = SDL_GetTicks();
 		uint64_t delta = end - start;
 
 		uint32_t freq_ms = cnt_user_frequency_get(&user_client->frequency);
+
 		// Feeling a bit clever, unsigned wraps around and becomes large
 		// so we just always get the smaller value of the two
 		freq_ms = SDL_min(freq_ms - delta, freq_ms);
@@ -3095,6 +3297,10 @@ int cnt_host_default_process(cnt_user_host *user_host)
 		}
 		uint64_t end = SDL_GetTicks();
 		uint64_t delta = end - start;
+
+		cnt_user_host_client_spsc_list_clear(&user_host->client_list);
+		cnt_user_host_client_spsc_list_add(&user_host->client_list, host.client_states, host.mapping.count);
+		cnt_user_host_client_spsc_list_submit(&user_host->client_list);
 
 		uint32_t freq_ms = cnt_user_frequency_get(&user_host->frequency);
 		// Feeling a bit clever, unsigned wraps around and becomes large

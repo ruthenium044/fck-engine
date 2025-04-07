@@ -227,6 +227,12 @@ struct cnt_queue_header
 	uint32_t capacity;
 };
 
+struct cnt_list_header
+{
+	uint32_t count;
+	uint32_t capacity;
+};
+
 struct cnt_user_client_frame_queue
 {
 	cnt_queue_header header;
@@ -325,7 +331,6 @@ union cnt_user_host_command {
 struct cnt_user_host_command_queue
 {
 	cnt_queue_header header;
-
 	cnt_user_host_command commands[1];
 };
 
@@ -356,6 +361,11 @@ struct cnt_host_state
 	SDL_AtomicU32 state;
 };
 
+struct cnt_client_id_on_host
+{
+	SDL_AtomicU32 id;
+};
+
 enum cnt_net_engine_state_type
 {
 	CNT_NET_ENGINE_STATE_TYPE_NONE = 0, // IDK what to do in this case, tbh. I also do not really care
@@ -379,9 +389,32 @@ struct cnt_user_client
 
 	cnt_host_state state_on_host;
 	cnt_client_state protocol_state;
+	cnt_client_id_on_host client_id_on_host;
 
 	const char *host_ip;
 	uint16_t host_port;
+};
+
+struct cnt_user_host_client_list
+{
+	cnt_list_header header;
+
+	cnt_client_on_host clients[1];
+};
+
+struct cnt_user_host_client_spsc_list
+{
+	cnt_user_host_client_list *active;
+
+	cnt_user_host_client_list *lists[2];
+
+	SDL_AtomicU32 lock;
+
+	// Read only
+	uint32_t capacity;
+
+	// Internal
+	uint8_t current_inactive;
 };
 
 struct cnt_user_host
@@ -391,13 +424,14 @@ struct cnt_user_host
 
 	cnt_user_host_command_spsc_queue command_queue;
 
+	cnt_user_host_client_spsc_list client_list;
+
 	cnt_user_frequency frequency;
 
 	cnt_net_engine_state net_engine_state;
 
 	const char *host_ip;
 	uint16_t host_port;
-
 	uint32_t max_clients;
 };
 
@@ -477,13 +511,14 @@ bool cnt_user_client_is_active(cnt_user_client *user);
 cnt_net_engine_state_type cnt_user_client_get_state(cnt_user_client *user);
 cnt_protocol_state_client cnt_user_client_get_client_protocol_state(cnt_user_client *user);
 cnt_protocol_state_host cnt_user_client_get_host_protocol_state(cnt_user_client *user);
+cnt_sparse_index cnt_user_client_get_client_id_on_host(cnt_user_client* user);
 const char *cnt_user_client_state_to_string(cnt_user_client *user);
 const char *cnt_user_client_client_protocol_to_string(cnt_user_client *user);
 const char *cnt_user_client_host_protocol_to_string(cnt_user_client *user);
 
 cnt_user_client *cnt_user_client_send(cnt_user_client *client, void *ptr, int byte_count);
 int cnt_user_client_recv(cnt_user_client *client, void *ptr, int byte_count);
-cnt_user_client* cnt_user_client_keep_alive(cnt_user_client* client);
+cnt_user_client *cnt_user_client_keep_alive(cnt_user_client *client);
 
 // Host
 cnt_user_host *cnt_user_host_open(cnt_user_host *user, const char *host_ip, uint16_t port, uint32_t max_clients, uint32_t frequency);
@@ -493,11 +528,14 @@ void cnt_user_host_close(cnt_user_host *user);
 bool cnt_user_host_is_active(cnt_user_host *user);
 cnt_net_engine_state_type cnt_user_host_get_state(cnt_user_host *user);
 const char *cnt_user_host_state_to_string(cnt_user_host *user);
+void cnt_user_host_client_list_lock(cnt_user_host *host);
+cnt_client_on_host *cnt_user_host_client_list_get(cnt_user_host *host, uint32_t *count);
+void cnt_user_host_client_list_unlock(cnt_user_host *host);
 
 cnt_user_host *cnt_user_host_broadcast(cnt_user_host *host, void *ptr, int byte_count);
 cnt_user_host *cnt_user_host_send(cnt_user_host *host, cnt_sparse_index client_id, void *ptr, int byte_count);
 int cnt_user_host_recv(cnt_user_host *host, cnt_sparse_index *client_id, void *ptr, int byte_count);
-cnt_user_host* cnt_user_host_keep_alive(cnt_user_host* host);
+cnt_user_host *cnt_user_host_keep_alive(cnt_user_host *host);
 cnt_user_host *cnt_user_host_kick(cnt_user_host *host, cnt_sparse_index client_id);
 
 // Tests

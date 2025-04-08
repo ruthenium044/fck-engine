@@ -1339,7 +1339,7 @@ cnt_client_on_host *cnt_protocol_client_apply(cnt_protocol_client *client_protoc
 		return nullptr;
 	}
 
-	// if (!client_id_exists || client_protocol->state == CNT_PROTOCOL_STATE_CLIENT_REQUEST)
+	//if (!client_id_exists)
 	//{
 	if (!cnt_host_ip_try_find(host, client_addr, &dense_index.index))
 	{
@@ -2548,7 +2548,7 @@ void cnt_client_id_on_host_set(cnt_client_id_on_host* client_id_on_host, cnt_spa
 
 cnt_sparse_index cnt_client_id_on_host_get(cnt_client_id_on_host* client_id_on_host)
 {
-	return (cnt_sparse_index){SDL_GetAtomicU32(&client_id_on_host->id)};
+	return {SDL_GetAtomicU32(&client_id_on_host->id)};
 }
 
 const char *cnt_net_engine_state_type_to_string(cnt_net_engine_state_type state)
@@ -2658,7 +2658,7 @@ cnt_user_client *cnt_user_client_open(cnt_user_client *user, const char *host_ip
 
 	cnt_net_engine_state_set(&user->net_engine_state, CNT_NET_ENGINE_STATE_TYPE_USER_INITALISED);
 
-	SDL_Thread *thread = SDL_CreateThread((SDL_ThreadFunction)cnt_client_default_process, "", user);
+	SDL_Thread *thread = SDL_CreateThread((SDL_ThreadFunction)cnt_client_default_process, "Network Client Thread", user);
 	SDL_DetachThread(thread);
 
 	return user;
@@ -2776,7 +2776,7 @@ cnt_user_host *cnt_user_host_open(cnt_user_host *user, const char *host_ip, uint
 
 	cnt_net_engine_state_set(&user->net_engine_state, CNT_NET_ENGINE_STATE_TYPE_USER_INITALISED);
 
-	SDL_Thread *thread = SDL_CreateThread((SDL_ThreadFunction)cnt_host_default_process, "", user);
+	SDL_Thread *thread = SDL_CreateThread((SDL_ThreadFunction)cnt_host_default_process, "Network Host Thread", user);
 	SDL_DetachThread(thread);
 
 	return user;

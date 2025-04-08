@@ -435,66 +435,6 @@ struct cnt_user_host
 	uint32_t max_clients;
 };
 
-// Client on host mapping - yeehaw
-void cnt_sparse_list_open(cnt_sparse_list *mapping, uint32_t capacity);
-void cnt_sparse_list_close(cnt_sparse_list *mapping);
-
-// Address
-cnt_ip *cnt_ip_create(cnt_ip *address, const char *ip, uint16_t port);
-
-// Socket
-cnt_sock *cnt_sock_open(cnt_sock *sock, const char *ip, uint16_t port);
-void cnt_sock_close(cnt_sock *sock);
-
-// Messages
-cnt_message_64_bytes_queue *cnt_message_queue_64_bytes_open(cnt_message_64_bytes_queue *queue, uint32_t capacity);
-cnt_message_64_bytes *cnt_message_queue_64_bytes_push(cnt_message_64_bytes_queue *queue, cnt_message_64_bytes const *message);
-void cnt_message_queue_64_bytes_clear(cnt_message_64_bytes_queue *queue);
-void cnt_message_queue_64_bytes_close(cnt_message_64_bytes_queue *queue);
-
-// Stream
-cnt_stream *cnt_stream_create(cnt_stream *stream, uint8_t *data, int count);
-cnt_stream *cnt_stream_open(cnt_stream *stream, int capacity);
-void cnt_stream_close(cnt_stream *stream);
-
-// Transport - Maybe call it payload?
-cnt_transport *cnt_transport_open(cnt_transport *transport, int capacity);
-// Maybe interact with the transport.stream layer directly?
-// cnt_transport *cnt_transport_write(cnt_transport *transport, cnt_stream *stream);
-// cnt_transport *cnt_transport_read(cnt_transport *transport, cnt_stream *stream);
-void cnt_transport_close(cnt_transport *transport);
-
-// Compression
-cnt_compression *cnt_compression_open(cnt_compression *compression, uint32_t capacity);
-cnt_compression *cnt_compress(cnt_compression *compression, cnt_stream *stream);
-cnt_stream *cnt_decompress(cnt_compression *compression, cnt_stream *stream);
-void cnt_compression_close(cnt_compression *compression);
-
-// Connection
-cnt_connection *cnt_connection_open(cnt_connection *connection, cnt_sock *src, cnt_ip *dst);
-cnt_connection *cnt_connection_send(cnt_connection *connection, cnt_stream *stream);
-cnt_connection *cnt_connection_recv(cnt_connection *connection, cnt_stream *stream);
-void cnt_connection_close(cnt_connection *connection);
-
-// Star
-cnt_star *cnt_star_open(cnt_star *star, cnt_sock *src, uint32_t max_connections);
-cnt_star *cnt_star_send(cnt_star *star, cnt_stream *stream);
-cnt_ip *cnt_star_recv(cnt_star *star, cnt_ip *address, cnt_stream *stream);
-cnt_star *cnt_star_add(cnt_star *star, cnt_ip *addr);
-cnt_ip *cnt_star_remove(cnt_star *star, cnt_ip *addr);
-void cnt_star_close(cnt_star *star);
-
-// Client
-cnt_client *cnt_client_open(cnt_client *client, cnt_connection *connection);
-cnt_client *cnt_client_send(cnt_client *client, cnt_stream *stream);
-cnt_client *cnt_client_recv(cnt_client *client, cnt_stream *stream);
-void cnt_client_close(cnt_client *client);
-
-// Host
-cnt_host *cnt_host_open(cnt_host *host, uint32_t max_connections);
-cnt_host *cnt_host_send(cnt_host *host, cnt_stream *stream, cnt_ip_container *container, cnt_message_64_bytes_queue *messages);
-cnt_client_on_host *cnt_host_recv(cnt_host *host, cnt_ip *client_addr, cnt_stream *stream);
-void cnt_host_close(cnt_host *host);
 
 // User Realm
 // Utility
@@ -507,6 +447,10 @@ cnt_user_client *cnt_user_client_open(cnt_user_client *user, const char *host_ip
 cnt_user_client *cnt_user_client_shut_down(cnt_user_client *user);
 void cnt_user_client_close(cnt_user_client *user);
 
+cnt_user_client *cnt_user_client_send(cnt_user_client *client, void *ptr, int byte_count);
+int cnt_user_client_recv(cnt_user_client *client, void *ptr, int byte_count);
+cnt_user_client *cnt_user_client_keep_alive(cnt_user_client *client);
+
 bool cnt_user_client_is_active(cnt_user_client *user);
 cnt_net_engine_state_type cnt_user_client_get_state(cnt_user_client *user);
 cnt_protocol_state_client cnt_user_client_get_client_protocol_state(cnt_user_client *user);
@@ -516,14 +460,17 @@ const char *cnt_user_client_state_to_string(cnt_user_client *user);
 const char *cnt_user_client_client_protocol_to_string(cnt_user_client *user);
 const char *cnt_user_client_host_protocol_to_string(cnt_user_client *user);
 
-cnt_user_client *cnt_user_client_send(cnt_user_client *client, void *ptr, int byte_count);
-int cnt_user_client_recv(cnt_user_client *client, void *ptr, int byte_count);
-cnt_user_client *cnt_user_client_keep_alive(cnt_user_client *client);
 
 // Host
 cnt_user_host *cnt_user_host_open(cnt_user_host *user, const char *host_ip, uint16_t port, uint32_t max_clients, uint32_t frequency);
 cnt_user_host *cnt_user_host_shut_down(cnt_user_host *user);
 void cnt_user_host_close(cnt_user_host *user);
+
+cnt_user_host *cnt_user_host_broadcast(cnt_user_host *host, void *ptr, int byte_count);
+cnt_user_host *cnt_user_host_send(cnt_user_host *host, cnt_sparse_index client_id, void *ptr, int byte_count);
+int cnt_user_host_recv(cnt_user_host *host, cnt_sparse_index *client_id, void *ptr, int byte_count);
+cnt_user_host *cnt_user_host_keep_alive(cnt_user_host *host);
+cnt_user_host *cnt_user_host_kick(cnt_user_host *host, cnt_sparse_index client_id);
 
 bool cnt_user_host_is_active(cnt_user_host *user);
 cnt_net_engine_state_type cnt_user_host_get_state(cnt_user_host *user);
@@ -532,11 +479,6 @@ void cnt_user_host_client_list_lock(cnt_user_host *host);
 cnt_client_on_host *cnt_user_host_client_list_get(cnt_user_host *host, uint32_t *count);
 void cnt_user_host_client_list_unlock(cnt_user_host *host);
 
-cnt_user_host *cnt_user_host_broadcast(cnt_user_host *host, void *ptr, int byte_count);
-cnt_user_host *cnt_user_host_send(cnt_user_host *host, cnt_sparse_index client_id, void *ptr, int byte_count);
-int cnt_user_host_recv(cnt_user_host *host, cnt_sparse_index *client_id, void *ptr, int byte_count);
-cnt_user_host *cnt_user_host_keep_alive(cnt_user_host *host);
-cnt_user_host *cnt_user_host_kick(cnt_user_host *host, cnt_sparse_index client_id);
 
 // Tests
 bool TEST_cnt_user_host_frame_spsc_queue();

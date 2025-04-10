@@ -1339,7 +1339,7 @@ cnt_client_on_host *cnt_protocol_client_apply(cnt_protocol_client *client_protoc
 		return nullptr;
 	}
 
-	//if (!client_id_exists)
+	// if (!client_id_exists)
 	//{
 	if (!cnt_host_ip_try_find(host, client_addr, &dense_index.index))
 	{
@@ -2540,13 +2540,13 @@ cnt_net_engine_state_type cnt_net_engine_state_get(cnt_net_engine_state *engine_
 	return (cnt_net_engine_state_type)SDL_GetAtomicU32(&engine_state->state);
 }
 
-void cnt_client_id_on_host_set(cnt_client_id_on_host* client_id_on_host, cnt_sparse_index index)
+void cnt_client_id_on_host_set(cnt_client_id_on_host *client_id_on_host, cnt_sparse_index index)
 {
 	uint32_t as_u32 = (uint32_t)index.index;
 	SDL_SetAtomicU32(&client_id_on_host->id, as_u32);
 }
 
-cnt_sparse_index cnt_client_id_on_host_get(cnt_client_id_on_host* client_id_on_host)
+cnt_sparse_index cnt_client_id_on_host_get(cnt_client_id_on_host *client_id_on_host)
 {
 	return {SDL_GetAtomicU32(&client_id_on_host->id)};
 }
@@ -2679,7 +2679,7 @@ cnt_protocol_state_host cnt_user_client_get_host_protocol_state(cnt_user_client 
 	return cnt_host_state_get(&user->state_on_host);
 }
 
-cnt_sparse_index cnt_user_client_get_client_id_on_host(cnt_user_client* user)
+cnt_sparse_index cnt_user_client_get_client_id_on_host(cnt_user_client *user)
 {
 	return cnt_client_id_on_host_get(&user->client_id_on_host);
 }
@@ -3058,6 +3058,8 @@ int cnt_client_default_process(cnt_user_client *user_client)
 
 	cnt_net_engine_state_set(&user_client->net_engine_state, CNT_NET_ENGINE_STATE_TYPE_RUNNING);
 
+	uint32_t accumulator = 0;
+
 	// Tick
 	while (true)
 	{
@@ -3085,28 +3087,33 @@ int cnt_client_default_process(cnt_user_client *user_client)
 			goto quit;
 		}
 
-		cnt_stream_clear(&transport.stream);
-		if (cnt_client_send(&client, &transport.stream))
+		uint32_t freq_ms = cnt_user_frequency_get(&user_client->frequency);
+		while (accumulator >= freq_ms)
 		{
-			int transport_end = transport.stream.at;
+			accumulator = accumulator - freq_ms;
 
-			cnt_user_client_frame *frame;
-			while (cnt_user_client_frame_spsc_queue_try_dequeue(&user_client->send_queue, &frame))
+			cnt_stream_clear(&transport.stream);
+			if (cnt_client_send(&client, &transport.stream))
 			{
-				transport.stream.at = transport_end;
-				cnt_stream_write_string(&transport.stream, frame->data, frame->count);
+				int transport_end = transport.stream.at;
+
+				cnt_user_client_frame *frame;
+				while (cnt_user_client_frame_spsc_queue_try_dequeue(&user_client->send_queue, &frame))
+				{
+					transport.stream.at = transport_end;
+					cnt_stream_write_string(&transport.stream, frame->data, frame->count);
+					cnt_compress(&compression, &transport.stream);
+					cnt_connection_send(&client.connection, &compression.stream);
+					// User should do this too... For now
+					cnt_user_client_frame_free(frame);
+				}
+			}
+			else
+			{
 				cnt_compress(&compression, &transport.stream);
 				cnt_connection_send(&client.connection, &compression.stream);
-				// User should do this too... For now
-				cnt_user_client_frame_free(frame);
 			}
 		}
-		else
-		{
-			cnt_compress(&compression, &transport.stream);
-			cnt_connection_send(&client.connection, &compression.stream);
-		}
-
 		while (cnt_connection_recv(&client.connection, &compression.stream))
 		{
 			cnt_decompress(&compression, &transport.stream);
@@ -3133,12 +3140,12 @@ int cnt_client_default_process(cnt_user_client *user_client)
 		uint64_t end = SDL_GetTicks();
 		uint64_t delta = end - start;
 
-		uint32_t freq_ms = cnt_user_frequency_get(&user_client->frequency);
+		accumulator = accumulator + delta;
 
 		// Feeling a bit clever, unsigned wraps around and becomes large
 		// so we just always get the smaller value of the two
-		freq_ms = SDL_min(freq_ms - delta, freq_ms);
-		SDL_Delay(freq_ms);
+		// freq_ms = SDL_min(freq_ms - delta, freq_ms);
+		// SDL_Delay(freq_ms);
 	}
 
 quit:
@@ -3191,6 +3198,7 @@ int cnt_host_default_process(cnt_user_host *user_host)
 
 	cnt_net_engine_state_set(&user_host->net_engine_state, CNT_NET_ENGINE_STATE_TYPE_RUNNING);
 
+	uint32_t accumulator = 0;
 	// Tick
 	while (true)
 	{
@@ -3214,62 +3222,65 @@ int cnt_host_default_process(cnt_user_host *user_host)
 			}
 		}
 
-		// Clear the message queue since we receive a new queue from host layer
-		cnt_message_queue_64_bytes_clear(&message_queue);
-
-		// Adds header to packet
-		cnt_stream_clear(&transport.stream);
-		cnt_host_send(&host, &transport.stream, &star.destinations, &message_queue);
-
-		int transport_end = transport.stream.at;
-
-		cnt_user_host_frame *frame;
-		while (cnt_user_host_frame_spsc_queue_try_dequeue(&user_host->send_queue, &frame))
+		uint32_t freq_ms = cnt_user_frequency_get(&user_host->frequency);
+		while (accumulator >= freq_ms)
 		{
-			transport.stream.at = transport_end;
-			// Add data to transport
-			// Send out packet - no target client_id implies broadcast
-			if (frame->client_id.index != CNT_SPARSE_INDEX_INVALID)
+			accumulator = accumulator - freq_ms;
+			// Clear the message queue since we receive a new queue from host layer
+			cnt_message_queue_64_bytes_clear(&message_queue);
+
+			// Adds header to packet
+			cnt_stream_clear(&transport.stream);
+			cnt_host_send(&host, &transport.stream, &star.destinations, &message_queue);
+
+			int transport_end = transport.stream.at;
+
+			cnt_user_host_frame *frame;
+			while (cnt_user_host_frame_spsc_queue_try_dequeue(&user_host->send_queue, &frame))
 			{
-				if (cnt_host_is_client_connected(&host, frame->client_id))
+				transport.stream.at = transport_end;
+				// Add data to transport
+				// Send out packet - no target client_id implies broadcast
+				if (frame->client_id.index != CNT_SPARSE_INDEX_INVALID)
+				{
+					if (cnt_host_is_client_connected(&host, frame->client_id))
+					{
+						cnt_stream_write_string(&transport.stream, frame->data, frame->count);
+						cnt_compress(&compression, &transport.stream);
+
+						cnt_ip ip;
+						bool has_ip = cnt_host_client_ip_try_get(&host, frame->client_id, &ip);
+						SDL_assert(has_ip && "IP does not exist, but state is valid");
+
+						cnt_connection client_connection;
+						cnt_connection_open(&client_connection, &star.sock, &ip);
+						cnt_connection_send(&client_connection, &compression.stream);
+					}
+				}
+				else
 				{
 					cnt_stream_write_string(&transport.stream, frame->data, frame->count);
 					cnt_compress(&compression, &transport.stream);
-
-					cnt_ip ip;
-					bool has_ip = cnt_host_client_ip_try_get(&host, frame->client_id, &ip);
-					SDL_assert(has_ip && "IP does not exist, but state is valid");
-
-					cnt_connection client_connection;
-					cnt_connection_open(&client_connection, &star.sock, &ip);
-					cnt_connection_send(&client_connection, &compression.stream);
+					cnt_star_send(&star, &compression.stream);
 				}
+				// User should do this too... For now
+				cnt_user_host_frame_free(frame);
 			}
-			else
+
+			cnt_connection message_connection;
+			cnt_connection_from_socket(&message_connection, &star.sock);
+			for (uint32_t index = 0; index < message_queue.count; index++)
 			{
-				cnt_stream_write_string(&transport.stream, frame->data, frame->count);
-				cnt_compress(&compression, &transport.stream);
-				cnt_star_send(&star, &compression.stream);
+				cnt_message_64_bytes *message = &message_queue.messages[index];
+				cnt_connection_set_destination(&message_connection, &message->ip);
+
+				cnt_stream message_stream;
+				cnt_stream_create_full(&message_stream, message->payload, message->payload_count);
+
+				cnt_compress(&compression, &message_stream);
+				cnt_connection_send(&message_connection, &compression.stream);
 			}
-			// User should do this too... For now
-			cnt_user_host_frame_free(frame);
 		}
-
-		cnt_connection message_connection;
-		cnt_connection_from_socket(&message_connection, &star.sock);
-		for (uint32_t index = 0; index < message_queue.count; index++)
-		{
-			cnt_message_64_bytes *message = &message_queue.messages[index];
-			cnt_connection_set_destination(&message_connection, &message->ip);
-
-			cnt_stream message_stream;
-			cnt_stream_create_full(&message_stream, message->payload, message->payload_count);
-
-			cnt_compress(&compression, &message_stream);
-			cnt_connection_send(&message_connection, &compression.stream);
-		}
-
-		cnt_stream_clear(&transport.stream);
 
 		cnt_ip recv_addr;
 		while (cnt_star_recv(&star, &recv_addr, &compression.stream))
@@ -3295,18 +3306,19 @@ int cnt_host_default_process(cnt_user_host *user_host)
 				}
 			}
 		}
-		uint64_t end = SDL_GetTicks();
-		uint64_t delta = end - start;
 
 		cnt_user_host_client_spsc_list_clear(&user_host->client_list);
 		cnt_user_host_client_spsc_list_add(&user_host->client_list, host.client_states, host.mapping.count);
 		cnt_user_host_client_spsc_list_submit(&user_host->client_list);
 
-		uint32_t freq_ms = cnt_user_frequency_get(&user_host->frequency);
+		uint64_t end = SDL_GetTicks();
+		uint64_t delta = end - start;
+
+		accumulator = accumulator + delta;
 		// Feeling a bit clever, unsigned wraps around and becomes large
 		// so we just always get the smaller value of the two
-		freq_ms = SDL_min(freq_ms - delta, freq_ms);
-		SDL_Delay(freq_ms);
+		// freq_ms = SDL_min(freq_ms - delta, freq_ms);
+		// SDL_Delay(freq_ms);
 	}
 
 quit:

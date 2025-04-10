@@ -394,23 +394,23 @@ void fck_ecs_snapshot_apply_delta(fck_ecs_snapshot const *baseline, fck_ecs_delt
 
 	// Get rid of SDL_malloc, maybe? We can also just reserve, but fuck it for now
 	// Should be fck_serialiser_reserve
-	int8_t *buffer = (int8_t *)result->serialiser.data;
+	uint8_t *buffer = result->serialiser.data;
 
 	size_t lower_count = SDL_min(baseline->serialiser.at, delta->serialiser.at);
 	for (size_t index = 0; index < lower_count; index++)
 	{
-		buffer[index] = int8_t(baseline->serialiser.data[index]) + int8_t(delta->serialiser.data[index]);
+		buffer[index] = baseline->serialiser.data[index] ^ delta->serialiser.data[index];
 	}
 
 	int64_t delta_snapshot_slack_count = int64_t(delta->serialiser.at) - int64_t(baseline->serialiser.at);
 	for (int64_t index = 0; index < delta_snapshot_slack_count; index++)
 	{
 		size_t at = lower_count + index;
-		buffer[at] = int8_t(delta->serialiser.data[at]);
+		buffer[at] = delta->serialiser.data[at];
 	}
 
 	result->serialiser.at = buffer_count;
-	result->serialiser.data = (uint8_t *)buffer;
+	result->serialiser.data = buffer;
 }
 
 void fck_ecs_snapshot_capture_delta(fck_ecs_snapshot const *baseline, fck_ecs_snapshot const *current, fck_ecs_delta *delta)
@@ -423,25 +423,25 @@ void fck_ecs_snapshot_capture_delta(fck_ecs_snapshot const *baseline, fck_ecs_sn
 
 	fck_serialiser_maybe_resize(&delta->serialiser, buffer_count);
 
-	int8_t *buffer = (int8_t *)delta->serialiser.data;
+	uint8_t *buffer = delta->serialiser.data;
 
 	// Current snapshot == latest snapshot
 	// TODO: SPEED IT UP!!!!!
 	size_t lower_count = SDL_min(baseline->serialiser.at, current->serialiser.at);
 	for (size_t index = 0; index < lower_count; index++)
 	{
-		buffer[index] = int8_t(current->serialiser.data[index]) - int8_t(baseline->serialiser.data[index]);
+		buffer[index] = current->serialiser.data[index] ^ baseline->serialiser.data[index];
 	}
 
 	int64_t current_snapshot_slack_count = int64_t(current->serialiser.at) - int64_t(baseline->serialiser.at);
 	for (int64_t index = 0; index < current_snapshot_slack_count; index++)
 	{
 		size_t at = lower_count + index;
-		buffer[at] = int8_t(current->serialiser.data[at]);
+		buffer[at] = current->serialiser.data[at];
 	}
 
 	delta->serialiser.at = buffer_count;
-	delta->serialiser.data = (uint8_t *)buffer;
+	delta->serialiser.data = buffer;
 }
 
 void fck_ecs_timeline_alloc(fck_ecs_timeline *timeline, size_t snapshot_capacity, size_t delta_capacity)
@@ -593,7 +593,7 @@ void fck_ecs_timeline_delta_capture(fck_ecs_timeline *timeline, fck_ecs *ecs, fc
 	char buffer[4096];
 	size_t compressed =
 		LZ4_compress_default((char *)candidate_delta->serialiser.data, buffer, candidate_delta->serialiser.at, sizeof(buffer));
-	SDL_Log("[Send]: Snapshot %d to %d", baseline->seq, current->seq);
+	SDL_Log("[Send]: Snapshot %d to %d (size: %lu)", baseline->seq, current->seq, compressed);
 }
 
 void fck_ecs_timeline_delta_apply(fck_ecs_timeline *timeline, fck_ecs *ecs, fck_serialiser *external_serialiser)

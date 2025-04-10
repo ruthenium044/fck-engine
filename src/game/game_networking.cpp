@@ -1,7 +1,9 @@
+#include "SDL3/SDL_timer.h"
 #include "game/game_systems.h"
 
 #include "core/fck_instance.h"
 #include "ecs/fck_ecs.h"
+#include "ecs/snapshot/fck_ecs_timeline.h"
 
 #include "game/game_components.h"
 #include "game/game_core.h"
@@ -10,14 +12,103 @@
 
 #include "fck_ui.h"
 
-void game_networking_setup(fck_ecs *ecs, fck_system_once_info *)
+void game_network_host_send_process(struct fck_ecs *ecs, struct fck_system_update_info *)
 {
-	fck_instance_info *info = fck_ecs_unique_view<fck_instance_info>(ecs);
+	cnt_user_host *host = fck_ecs_unique_view<cnt_user_host>(ecs);
+	if (!cnt_user_host_is_active(host))
+	{
+		return;
+	}
+
+	fck_ecs_timeline *timeline = fck_ecs_unique_view<fck_ecs_timeline>(ecs);
+
+	fck_serialiser serialiser;
+	fck_serialiser_alloc(&serialiser);
+	fck_serialiser_byte_writer(&serialiser.self);
+
+	fck_ecs_timeline_delta_capture(timeline, ecs, &serialiser);
+
+	cnt_user_host_broadcast(host, serialiser.data, serialiser.at);
+
+	fck_serialiser_free(&serialiser);
 }
 
-struct game_network_debug
+void game_network_host_recv_process(struct fck_ecs *ecs, struct fck_system_update_info *)
 {
-};
+	cnt_user_host *host = fck_ecs_unique_view<cnt_user_host>(ecs);
+	if (!cnt_user_host_is_active(host))
+	{
+		return;
+	}
+
+	fck_ecs_timeline *timeline = fck_ecs_unique_view<fck_ecs_timeline>(ecs);
+
+	uint8_t data[1024];
+	cnt_sparse_index client;
+	while (int recv_count = cnt_user_host_recv(host, &client, data, sizeof(data)))
+	{
+		fck_serialiser serialiser;
+		fck_serialiser_create(&serialiser, data, recv_count);
+		fck_serialiser_byte_reader(&serialiser.self);
+
+		fck_serialise(&serialiser, &timeline->baseline_seq_ackd);
+	}
+}
+
+void game_network_client_send_process(struct fck_ecs *ecs, struct fck_system_update_info *)
+{
+	cnt_user_client *client = fck_ecs_unique_view<cnt_user_client>(ecs);
+	if (!cnt_user_client_is_active(client))
+	{
+		return;
+	}
+
+	fck_ecs_timeline *timeline = fck_ecs_unique_view<fck_ecs_timeline>(ecs);
+
+	fck_serialiser serialiser;
+	fck_serialiser_alloc(&serialiser);
+	fck_serialiser_byte_writer(&serialiser.self);
+
+	uint32_t ack = timeline->baseline_seq_recv;
+	fck_serialise(&serialiser, &ack);
+
+	cnt_user_client_send(client, serialiser.data, serialiser.at);
+
+	fck_serialiser_free(&serialiser);
+}
+
+void game_network_client_recv_process(struct fck_ecs *ecs, struct fck_system_update_info *)
+{
+	cnt_user_client *client = fck_ecs_unique_view<cnt_user_client>(ecs);
+	if (!cnt_user_client_is_active(client))
+	{
+		return;
+	}
+
+	fck_ecs_timeline *timeline = fck_ecs_unique_view<fck_ecs_timeline>(ecs);
+
+	uint8_t data[1024];
+	while (int recv_count = cnt_user_client_recv(client, data, sizeof(data)))
+	{
+		fck_serialiser serialiser;
+		fck_serialiser_create(&serialiser, data, recv_count);
+		fck_serialiser_byte_reader(&serialiser.self);
+
+		fck_ecs_timeline_delta_apply(timeline, ecs, &serialiser);
+	}
+}
+
+void game_networking_setup(fck_ecs *ecs, fck_system_once_info *)
+{
+	fck_ecs_unique_create<cnt_user_host>(ecs, cnt_user_host_close);
+	fck_ecs_unique_create<cnt_user_client>(ecs, cnt_user_client_close);
+
+	fck_ecs_system_add(ecs, game_network_host_send_process);
+	fck_ecs_system_add(ecs, game_network_client_send_process);
+
+	fck_ecs_system_add(ecs, game_network_host_recv_process);
+	fck_ecs_system_add(ecs, game_network_client_recv_process);
+}
 
 void game_network_ui_process(struct fck_ecs *ecs, struct fck_system_update_info *)
 {
@@ -40,12 +131,6 @@ void game_network_ui_process(struct fck_ecs *ecs, struct fck_system_update_info 
 		host = fck_ecs_unique_create<cnt_user_host>(ecs, cnt_user_host_close);
 	}
 
-	game_network_debug *network_debug = fck_ecs_unique_view<game_network_debug>(ecs);
-	if (network_debug == nullptr)
-	{
-		network_debug = fck_ecs_unique_create<game_network_debug>(ecs);
-	}
-
 	nk_context *ctx = ui->ctx;
 
 	nk_colorf bg;
@@ -61,12 +146,12 @@ void game_network_ui_process(struct fck_ecs *ecs, struct fck_system_update_info 
 		bool is_host_active = cnt_user_host_is_active(host);
 		if (is_host_active)
 		{
-			cnt_user_host_keep_alive(host);
+			// cnt_user_host_keep_alive(host);
 		}
 		bool is_client_active = cnt_user_client_is_active(client);
 		if (is_client_active)
 		{
-			cnt_user_client_keep_alive(client);
+			// cnt_user_client_keep_alive(client);
 		}
 	}
 
@@ -78,7 +163,7 @@ void game_network_ui_process(struct fck_ecs *ecs, struct fck_system_update_info 
 		static int property = 20;
 
 		char port_as_text[sizeof(int) * 8 + 1];
-		
+
 		// HOST
 		nk_layout_row_dynamic(ctx, 24, 1);
 		bool is_host_active = cnt_user_host_is_active(host);
@@ -91,7 +176,7 @@ void game_network_ui_process(struct fck_ecs *ecs, struct fck_system_update_info 
 			}
 			else
 			{
-				cnt_user_host_open(host, CNT_ANY_IP, 42069, 32, 15);
+				cnt_user_host_open(host, CNT_ANY_IP, 42069, 32, 60);
 			}
 		}
 		nk_label(ctx, cnt_user_host_state_to_string(host), NK_TEXT_LEFT);
@@ -111,11 +196,11 @@ void game_network_ui_process(struct fck_ecs *ecs, struct fck_system_update_info 
 			cnt_user_host_client_list_lock(host);
 
 			uint32_t count;
-			cnt_client_on_host* clients = cnt_user_host_client_list_get(host, &count);
+			cnt_client_on_host *clients = cnt_user_host_client_list_get(host, &count);
 
 			for (int i = 0; i < count; i++)
 			{
-				cnt_client_on_host* c = clients + i;
+				cnt_client_on_host *c = clients + i;
 
 				nk_layout_row_dynamic(ctx, 12, 6);
 				char i_as_text[sizeof(int) * 8 + 1];
@@ -141,7 +226,7 @@ void game_network_ui_process(struct fck_ecs *ecs, struct fck_system_update_info 
 
 		nk_layout_row_dynamic(ctx, 24, 1);
 		bool is_client_active = cnt_user_client_is_active(client);
-		const char* client_label_text = is_client_active ? "Close Client" : "Open Client";
+		const char *client_label_text = is_client_active ? "Close Client" : "Open Client";
 		if (nk_button_label(ctx, client_label_text))
 		{
 			if (is_client_active)
@@ -170,16 +255,14 @@ void game_network_ui_process(struct fck_ecs *ecs, struct fck_system_update_info 
 		nk_label(ctx, "Host Protocol:", NK_TEXT_LEFT);
 		nk_label(ctx, cnt_user_client_host_protocol_to_string(client), NK_TEXT_LEFT);
 
-
-
 		/*nk_layout_row_dynamic(ctx, 30, 2);
 		if (nk_option_label(ctx, "easy", op == EASY))
 		{
-			op = EASY;
+		    op = EASY;
 		}
 		if (nk_option_label(ctx, "hard", op == HARD))
 		{
-			op = HARD;
+		    op = HARD;
 		}
 		nk_layout_row_dynamic(ctx, 25, 1);
 		nk_property_int(ctx, "Compression:", 0, &property, 100, 10, 1);
@@ -189,14 +272,14 @@ void game_network_ui_process(struct fck_ecs *ecs, struct fck_system_update_info 
 		nk_layout_row_dynamic(ctx, 25, 1);
 		if (nk_combo_begin_color(ctx, nk_rgb_cf(bg), nk_vec2(nk_widget_width(ctx), 400)))
 		{
-			nk_layout_row_dynamic(ctx, 120, 1);
-			bg = nk_color_picker(ctx, bg, NK_RGBA);
-			nk_layout_row_dynamic(ctx, 25, 1);
-			bg.r = nk_propertyf(ctx, "#R:", 0, bg.r, 1.0f, 0.01f, 0.005f);
-			bg.g = nk_propertyf(ctx, "#G:", 0, bg.g, 1.0f, 0.01f, 0.005f);
-			bg.b = nk_propertyf(ctx, "#B:", 0, bg.b, 1.0f, 0.01f, 0.005f);
-			bg.a = nk_propertyf(ctx, "#A:", 0, bg.a, 1.0f, 0.01f, 0.005f);
-			nk_combo_end(ctx);
+		    nk_layout_row_dynamic(ctx, 120, 1);
+		    bg = nk_color_picker(ctx, bg, NK_RGBA);
+		    nk_layout_row_dynamic(ctx, 25, 1);
+		    bg.r = nk_propertyf(ctx, "#R:", 0, bg.r, 1.0f, 0.01f, 0.005f);
+		    bg.g = nk_propertyf(ctx, "#G:", 0, bg.g, 1.0f, 0.01f, 0.005f);
+		    bg.b = nk_propertyf(ctx, "#B:", 0, bg.b, 1.0f, 0.01f, 0.005f);
+		    bg.a = nk_propertyf(ctx, "#A:", 0, bg.a, 1.0f, 0.01f, 0.005f);
+		    nk_combo_end(ctx);
 		}*/
 	}
 	nk_end(ctx);

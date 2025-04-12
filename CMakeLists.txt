@@ -21,7 +21,7 @@ set(CMAKE_CXX_STANDARD 17)
 # We fix this up later to be optimised for release and non-optimised for debug
 if(MSVC)
     set(CMAKE_CXX_FLAGS "-Od")
-    add_compile_options(/wd4003)  # Disable specific warning code 4003
+    add_compile_options(/wd4003 /arch:AVX2)  # Disable specific warning code 4003
 endif()
 
 # SDL settings

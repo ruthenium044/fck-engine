@@ -4,6 +4,211 @@
 #include "ecs/snapshot/fck_ecs_timeline.h"
 #include "lz4.h"
 
+
+#if defined(__SSE__) || defined(__AVX2__)
+#include <immintrin.h>
+#endif
+
+#if defined(__ARM_NEON__)
+#include <arm_neon.h>
+#endif
+
+void fck_ecs_snapshot_diff(uint8_t const *baseline, uint8_t const *current, uint8_t *delta, size_t count);
+
+void fck_ecs_snapshot_diff8(uint8_t const *baseline, uint8_t const *current, uint8_t *delta, size_t count)
+{
+	for (size_t index = 0; index < count; index++)
+	{
+		delta[index] = current[index] ^ baseline[index];
+	}
+}
+void fck_ecs_snapshot_diff16(uint8_t const *baseline, uint8_t const *current, uint8_t *delta, size_t byte_count)
+{
+	const size_t word_size = 2;
+	const size_t word_count = byte_count / word_size;
+	const size_t slack_count = byte_count % word_size;
+
+	uint16_t const *baseline_as_16 = (uint16_t const *)baseline;
+	uint16_t const *current_as_16 = (uint16_t const *)current;
+	uint16_t *delta_as_16 = (uint16_t *)delta;
+
+	for (size_t index = 0; index < word_count; index++)
+	{
+		delta_as_16[index] = current_as_16[index] ^ baseline_as_16[index];
+	}
+
+	size_t offset = word_count * word_size;
+	uint8_t const *baseline_next = baseline + offset;
+	uint8_t const *current_next = current + offset;
+	uint8_t *delta_next = delta + offset;
+	fck_ecs_snapshot_diff(baseline_next, current_next, delta_next, slack_count);
+}
+void fck_ecs_snapshot_diff32(uint8_t const *baseline, uint8_t const *current, uint8_t *delta, size_t byte_count)
+{
+	const size_t word_size = 4;
+	const size_t word_count = byte_count / word_size;
+	const size_t slack_count = byte_count % word_size;
+
+	uint32_t const *baseline_as_32 = (uint32_t const *)baseline;
+	uint32_t const *current_as_32 = (uint32_t const *)current;
+	uint32_t *delta_as_32 = (uint32_t *)delta;
+
+	for (size_t index = 0; index < word_count; index++)
+	{
+		delta_as_32[index] = current_as_32[index] ^ baseline_as_32[index];
+	}
+
+	size_t offset = word_count * word_size;
+	uint8_t const *baseline_next = baseline + offset;
+	uint8_t const *current_next = current + offset;
+	uint8_t *delta_next = delta + offset;
+	fck_ecs_snapshot_diff(baseline_next, current_next, delta_next, slack_count);
+}
+void fck_ecs_snapshot_diff64(uint8_t const *baseline, uint8_t const *current, uint8_t *delta, size_t byte_count)
+{
+	const size_t word_size = 8;
+	const size_t word_count = byte_count / word_size;
+	const size_t slack_count = byte_count % word_size;
+
+	uint64_t const *baseline_as_64 = (uint64_t const *)baseline;
+	uint64_t const *current_as_64 = (uint64_t const *)current;
+	uint64_t *delta_as_64 = (uint64_t *)delta;
+
+	for (size_t index = 0; index < word_count; index++)
+	{
+		delta_as_64[index] = current_as_64[index] ^ baseline_as_64[index];
+	}
+
+	size_t offset = word_count * word_size;
+	uint8_t const *baseline_next = baseline + offset;
+	uint8_t const *current_next = current + offset;
+	uint8_t *delta_next = delta + offset;
+	fck_ecs_snapshot_diff(baseline_next, current_next, delta_next, slack_count);
+}
+
+#if defined(__SSE__)
+#define FCK_SNAPSHOT_HAS_128
+void fck_ecs_snapshot_diff128(uint8_t const *baseline, uint8_t const *current, uint8_t *delta, size_t byte_count)
+{
+	const size_t word_size = 16;
+	const size_t word_count = byte_count / word_size;
+	const size_t slack_count = byte_count % word_size;
+	for (size_t index = 0; index < word_count; index++)
+	{
+		size_t at = word_size * index;
+		__m128i base = _mm_loadu_si128((__m128i *)(baseline + at));
+		__m128i curr = _mm_loadu_si128((__m128i *)(current + at));
+		__m128i target = _mm_xor_si128(curr, base);
+		_mm_storeu_si128((__m128i *)(delta + at), target);
+	}
+	size_t offset = word_count * word_size;
+	uint8_t const *baseline_next = baseline + offset;
+	uint8_t const *current_next = current + offset;
+	uint8_t *delta_next = delta + offset;
+
+	fck_ecs_snapshot_diff(baseline_next, current_next, delta_next, slack_count);
+}
+#endif // __SSE__
+
+#if defined(__AVX2__)
+#define FCK_SNAPSHOT_HAS_256
+void fck_ecs_snapshot_diff256(uint8_t const *baseline, uint8_t const *current, uint8_t *delta, size_t byte_count)
+{
+	const size_t word_size = 32;
+	const size_t word_count = byte_count / word_size;
+	const size_t slack_count = byte_count % word_size;
+	for (size_t index = 0; index < word_count; index++)
+	{
+		size_t at = word_size * index;
+		__m256i base = _mm256_loadu_si256((__m256i *)(baseline + at));
+		__m256i curr = _mm256_loadu_si256((__m256i *)(current + at));
+		__m256i target = _mm256_xor_si256(curr, base);
+		_mm256_storeu_si256((__m256i *)(delta + at), target);
+	}
+	size_t offset = word_count * word_size;
+	uint8_t const *baseline_next = baseline + offset;
+	uint8_t const *current_next = current + offset;
+	uint8_t *delta_next = delta + offset;
+
+	fck_ecs_snapshot_diff(baseline_next, current_next, delta_next, slack_count);
+}
+#endif // __AVX2__
+
+#if defined(__ARM_NEON__)
+#define FCK_SNAPSHOT_HAS_128
+void fck_ecs_snapshot_diff128(uint8_t const* baseline, uint8_t const* current, uint8_t* delta, size_t byte_count)
+{
+	const size_t word_size = 16;
+	const size_t word_count = byte_count / word_size;
+	const size_t slack_count = byte_count % word_size;
+	for (size_t index = 0; index < word_count; index++)
+	{
+		size_t at = word_size * index;
+		uint8x16_t  base = vld1q_u8((baseline + at);
+		uint8x16_t  curr = vld1q_u8((current + at);
+		uint8x16_t  target = veorq_u8(curr, base);
+		vst1q_u8(delta + at, target);
+	}
+	size_t offset = word_count * word_size;
+	uint8_t const* baseline_next = baseline + offset;
+	uint8_t const* current_next = current + offset;
+	uint8_t* delta_next = delta + offset;
+
+	fck_ecs_snapshot_diff(baseline_next, current_next, delta_next, slack_count);
+}
+#endif // !__ARM_NEON__
+
+
+#if defined(FCK_SNAPSHOT_HAS_128) || defined(FCK_SNAPSHOT_HAS_256)
+#define FCK_SNAPSHOT_HAS_128_OR_256
+#endif // FCK_SNAPSHOT_HAS_128 || FCK_SNAPSHOT_HAS_256
+
+void fck_ecs_snapshot_diff(uint8_t const *baseline, uint8_t const *current, uint8_t *delta, size_t byte_count)
+{
+	if (byte_count == 0)
+	{
+		return;
+	}
+	if (byte_count < 2)
+	{
+		fck_ecs_snapshot_diff8(baseline, current, delta, byte_count);
+		return;
+	}
+	if (byte_count < 4)
+	{
+		fck_ecs_snapshot_diff16(baseline, current, delta, byte_count);
+		return;
+	}
+	if (byte_count < 8)
+	{
+		fck_ecs_snapshot_diff32(baseline, current, delta, byte_count);
+		return;
+	}
+	if (byte_count < 16)
+	{
+		fck_ecs_snapshot_diff64(baseline, current, delta, byte_count);
+		return;
+	}
+
+#if defined(FCK_SNAPSHOT_HAS_128_OR_256)
+#if defined(FCK_SNAPSHOT_HAS_128)
+	if (byte_count < 32)
+	{
+		fck_ecs_snapshot_diff128(baseline, current, delta, byte_count);
+	}
+#endif
+
+#if defined(FCK_SNAPSHOT_HAS_256)
+	if (byte_count < 64)
+	{
+		fck_ecs_snapshot_diff256(baseline, current, delta, byte_count);
+	}
+#endif
+#else
+	fck_ecs_snapshot_diff64(baseline, current, delta, byte_count);
+#endif
+}
+
 static void fck_serialiser_assert_allocated(fck_serialiser const *serialiser)
 {
 	SDL_assert(serialiser != nullptr);
@@ -382,6 +587,29 @@ void fck_ecs_delta_free(fck_ecs_delta *delta)
 	fck_serialiser_free(&delta->serialiser);
 }
 
+void fck_ecs_snapshot_capture_delta(fck_ecs_snapshot const *baseline, fck_ecs_snapshot const *current, fck_ecs_delta *delta)
+{
+	fck_serialiser_assert_allocated(&baseline->serialiser);
+	fck_serialiser_assert_allocated(&current->serialiser);
+	fck_serialiser_assert_allocated(&delta->serialiser);
+
+	size_t buffer_count = current->serialiser.at;
+
+	fck_serialiser_maybe_resize(&delta->serialiser, buffer_count);
+
+	uint8_t *buffer = delta->serialiser.data;
+
+	// Current snapshot == latest snapshot
+	size_t lower_count = SDL_min(baseline->serialiser.at, current->serialiser.at);
+	fck_ecs_snapshot_diff(baseline->serialiser.data, current->serialiser.data, buffer, lower_count);
+
+	int64_t current_snapshot_slack_count = int64_t(current->serialiser.at) - int64_t(baseline->serialiser.at);
+	SDL_memcpy(buffer + lower_count, current->serialiser.data + lower_count, current_snapshot_slack_count);
+
+	delta->serialiser.at = buffer_count;
+	delta->serialiser.data = buffer;
+}
+
 void fck_ecs_snapshot_apply_delta(fck_ecs_snapshot const *baseline, fck_ecs_delta const *delta, fck_ecs_snapshot *result)
 {
 	fck_serialiser_assert_allocated(&baseline->serialiser);
@@ -397,51 +625,13 @@ void fck_ecs_snapshot_apply_delta(fck_ecs_snapshot const *baseline, fck_ecs_delt
 	uint8_t *buffer = result->serialiser.data;
 
 	size_t lower_count = SDL_min(baseline->serialiser.at, delta->serialiser.at);
-	for (size_t index = 0; index < lower_count; index++)
-	{
-		buffer[index] = baseline->serialiser.data[index] ^ delta->serialiser.data[index];
-	}
+	fck_ecs_snapshot_diff(baseline->serialiser.data, delta->serialiser.data, buffer, lower_count);
 
 	int64_t delta_snapshot_slack_count = int64_t(delta->serialiser.at) - int64_t(baseline->serialiser.at);
-	for (int64_t index = 0; index < delta_snapshot_slack_count; index++)
-	{
-		size_t at = lower_count + index;
-		buffer[at] = delta->serialiser.data[at];
-	}
+	SDL_memcpy(buffer + lower_count, delta->serialiser.data + lower_count, delta_snapshot_slack_count);
 
 	result->serialiser.at = buffer_count;
 	result->serialiser.data = buffer;
-}
-
-void fck_ecs_snapshot_capture_delta(fck_ecs_snapshot const *baseline, fck_ecs_snapshot const *current, fck_ecs_delta *delta)
-{
-	fck_serialiser_assert_allocated(&baseline->serialiser);
-	fck_serialiser_assert_allocated(&current->serialiser);
-	fck_serialiser_assert_allocated(&delta->serialiser);
-
-	size_t buffer_count = current->serialiser.at;
-
-	fck_serialiser_maybe_resize(&delta->serialiser, buffer_count);
-
-	uint8_t *buffer = delta->serialiser.data;
-
-	// Current snapshot == latest snapshot
-	// TODO: SPEED IT UP!!!!!
-	size_t lower_count = SDL_min(baseline->serialiser.at, current->serialiser.at);
-	for (size_t index = 0; index < lower_count; index++)
-	{
-		buffer[index] = current->serialiser.data[index] ^ baseline->serialiser.data[index];
-	}
-
-	int64_t current_snapshot_slack_count = int64_t(current->serialiser.at) - int64_t(baseline->serialiser.at);
-	for (int64_t index = 0; index < current_snapshot_slack_count; index++)
-	{
-		size_t at = lower_count + index;
-		buffer[at] = current->serialiser.data[at];
-	}
-
-	delta->serialiser.at = buffer_count;
-	delta->serialiser.data = buffer;
 }
 
 void fck_ecs_timeline_alloc(fck_ecs_timeline *timeline, size_t snapshot_capacity, size_t delta_capacity)

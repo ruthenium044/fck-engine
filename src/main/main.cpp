@@ -34,9 +34,9 @@ int main(int argc, char **argv)
 		client_info0.title = "fck engine - client 0";
 		fck_prepare(&fck, &client_info0, game_instance_setup);
 
-		fck_instance_info client_info1;
-		client_info0.title = "fck engine - client 1";
-		fck_prepare(&fck, &client_info0, game_instance_setup);
+		//fck_instance_info client_info1;
+		//client_info0.title = "fck engine - client 1";
+		//fck_prepare(&fck, &client_info0, game_instance_setup);
 
 		fck_instance_info host_info;
 		host_info.title = "fck engine - host";

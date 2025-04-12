@@ -4,7 +4,6 @@
 #include "ecs/snapshot/fck_ecs_timeline.h"
 #include "lz4.h"
 
-
 #if defined(__SSE__) || defined(__AVX2__)
 #include <immintrin.h>
 #endif
@@ -136,7 +135,7 @@ void fck_ecs_snapshot_diff256(uint8_t const *baseline, uint8_t const *current, u
 
 #if defined(__ARM_NEON__)
 #define FCK_SNAPSHOT_HAS_128
-void fck_ecs_snapshot_diff128(uint8_t const* baseline, uint8_t const* current, uint8_t* delta, size_t byte_count)
+void fck_ecs_snapshot_diff128(uint8_t const *baseline, uint8_t const *current, uint8_t *delta, size_t byte_count)
 {
 	const size_t word_size = 16;
 	const size_t word_count = byte_count / word_size;
@@ -144,20 +143,19 @@ void fck_ecs_snapshot_diff128(uint8_t const* baseline, uint8_t const* current, u
 	for (size_t index = 0; index < word_count; index++)
 	{
 		size_t at = word_size * index;
-		uint8x16_t  base = vld1q_u8((baseline + at);
-		uint8x16_t  curr = vld1q_u8((current + at);
-		uint8x16_t  target = veorq_u8(curr, base);
+		uint8x16_t base = vld1q_u8(baseline + at);
+		uint8x16_t curr = vld1q_u8(current + at);
+		uint8x16_t target = veorq_u8(curr, base);
 		vst1q_u8(delta + at, target);
 	}
 	size_t offset = word_count * word_size;
-	uint8_t const* baseline_next = baseline + offset;
-	uint8_t const* current_next = current + offset;
-	uint8_t* delta_next = delta + offset;
+	uint8_t const *baseline_next = baseline + offset;
+	uint8_t const *current_next = current + offset;
+	uint8_t *delta_next = delta + offset;
 
 	fck_ecs_snapshot_diff(baseline_next, current_next, delta_next, slack_count);
 }
 #endif // !__ARM_NEON__
-
 
 #if defined(FCK_SNAPSHOT_HAS_128) || defined(FCK_SNAPSHOT_HAS_256)
 #define FCK_SNAPSHOT_HAS_128_OR_256
@@ -179,34 +177,23 @@ void fck_ecs_snapshot_diff(uint8_t const *baseline, uint8_t const *current, uint
 		fck_ecs_snapshot_diff16(baseline, current, delta, byte_count);
 		return;
 	}
-	if (byte_count < 8)
-	{
-		fck_ecs_snapshot_diff32(baseline, current, delta, byte_count);
-		return;
-	}
-	if (byte_count < 16)
-	{
-		fck_ecs_snapshot_diff64(baseline, current, delta, byte_count);
-		return;
-	}
-
-#if defined(FCK_SNAPSHOT_HAS_128_OR_256)
-#if defined(FCK_SNAPSHOT_HAS_128)
-	if (byte_count < 32)
-	{
-		fck_ecs_snapshot_diff128(baseline, current, delta, byte_count);
-	}
-#endif
 
 #if defined(FCK_SNAPSHOT_HAS_256)
-	if (byte_count < 64)
+	if (byte_count >= 64)
 	{
 		fck_ecs_snapshot_diff256(baseline, current, delta, byte_count);
+		return;
 	}
 #endif
-#else
-	fck_ecs_snapshot_diff64(baseline, current, delta, byte_count);
+#if defined(FCK_SNAPSHOT_HAS_128)
+	if (byte_count >= 32)
+	{
+		fck_ecs_snapshot_diff128(baseline, current, delta, byte_count);
+		return;
+	}
 #endif
+
+	fck_ecs_snapshot_diff64(baseline, current, delta, byte_count);
 }
 
 static void fck_serialiser_assert_allocated(fck_serialiser const *serialiser)

@@ -177,6 +177,11 @@ void fck_ecs_snapshot_diff(uint8_t const *baseline, uint8_t const *current, uint
 		fck_ecs_snapshot_diff16(baseline, current, delta, byte_count);
 		return;
 	}
+	if (byte_count < 8)
+	{
+		fck_ecs_snapshot_diff32(baseline, current, delta, byte_count);
+		return;
+	}
 
 #if defined(FCK_SNAPSHOT_HAS_256)
 	if (byte_count >= 64)

@@ -1638,16 +1638,18 @@ cnt_host *cnt_host_send(cnt_host *host, cnt_stream *stream, cnt_ip_container *co
 				cnt_message_queue_64_bytes_push(messages, &message);
 			}
 		}
-
-		// Whenever we send something to a client, we increment the attempts by 1
-		// Whenever we recv something, we set the client's attempt counter to 0
-		// We do this cause we want to be indipendent from a frequency.
-		// We want to make sure that we stay within a margin of error.
-		// If we allow 100 attempts, and we consistently reach a attempt count of
-		// 75, we can confidently 75% of the packets are getting lost.
-		// We can further more optimise this approach by calculating a frequency requirement
-		// on top of the attempts counter, so attempts 0 to 10 map to 10ms and 90 to 100 map to 250ms
-		client_state->attempts = client_state->attempts + 1;
+		else
+		{
+			// Whenever we send something to a client, we increment the attempts by 1
+			// Whenever we recv something, we set the client's attempt counter to 0
+			// We do this cause we want to be indipendent from a frequency.
+			// We want to make sure that we stay within a margin of error.
+			// If we allow 100 attempts, and we consistently reach a attempt count of
+			// 75, we can confidently 75% of the packets are getting lost.
+			// We can further more optimise this approach by calculating a frequency requirement
+			// on top of the attempts counter, so attempts 0 to 10 map to 10ms and 90 to 100 map to 250ms
+			client_state->attempts = client_state->attempts + 1;
+		}
 	}
 
 	return host;
@@ -2519,7 +2521,7 @@ bool cnt_user_client_command_spsc_queue_try_dequeue(cnt_user_client_command_spsc
 
 void cnt_user_frequency_set(cnt_user_frequency *freq, uint32_t hz)
 {
-	float ms_as_float = 1000.0f / hz;
+	float ms_as_float = 1000.0f / SDL_min(1000, hz);
 	uint32_t ms_as_u32 = (uint32_t)ms_as_float;
 	SDL_SetAtomicU32(&freq->ms, ms_as_u32);
 }

@@ -14,7 +14,7 @@
 #include <emscripten.h>
 #endif
 
-void fck_quit(fck* core);
+void fck_quit(fck *core);
 
 void fck_init(fck *core, uint8_t instance_capacity)
 {
@@ -51,8 +51,7 @@ static void fck_tick(fck *core)
 		fck_time *time = fck_ecs_unique_view<fck_time>(&instance->ecs);
 		fck_milliseconds tp = time->current;
 		fck_milliseconds delta_time = now - tp;
-
-		time->current = tp;
+		time->current = now;
 		time->delta = delta_time;
 	}
 

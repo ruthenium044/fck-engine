@@ -759,8 +759,6 @@ void fck_ecs_timeline_delta_capture(fck_ecs_timeline *timeline, fck_ecs *ecs, fc
 	fck_serialiser_reset(serialiser);
 	fck_serialiser_byte_writer(&serialiser->self);
 
-	fck_ecs_serialise(ecs, serialiser);
-
 	fck_ecs_snapshot_capture_delta(baseline, current, candidate_delta);
 
 	timeline->delta_head = (timeline->delta_head + 1) % timeline->delta_capacity;

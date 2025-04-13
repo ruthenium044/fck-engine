@@ -1,4 +1,5 @@
 #include "SDL3/SDL_timer.h"
+#include "core/fck_time.h"
 #include "game/game_systems.h"
 
 #include "core/fck_instance.h"
@@ -12,6 +13,20 @@
 
 #include "fck_ui.h"
 
+struct game_network_frequency
+{
+	uint32_t accumulator;
+	uint32_t ms;
+};
+
+void game_network_frequency_set(game_network_frequency *freq, uint32_t hz)
+{
+	float ms_as_float = 1000.0f / SDL_min(1000, hz);
+	uint32_t ms_as_u32 = (uint32_t)ms_as_float;
+	freq->ms = ms_as_u32;
+	freq->accumulator = 0;
+}
+
 void game_network_host_send_process(struct fck_ecs *ecs, struct fck_system_update_info *)
 {
 	cnt_user_host *host = fck_ecs_unique_view<cnt_user_host>(ecs);
@@ -19,6 +34,15 @@ void game_network_host_send_process(struct fck_ecs *ecs, struct fck_system_updat
 	{
 		return;
 	}
+
+	fck_time *time = fck_ecs_unique_view<fck_time>(ecs);
+	game_network_frequency *freq = fck_ecs_unique_view<game_network_frequency>(ecs);
+	freq->accumulator = freq->accumulator + time->delta;
+	if (freq->accumulator < freq->ms)
+	{
+		return;
+	}
+	freq->accumulator = 0;
 
 	fck_ecs_timeline *timeline = fck_ecs_unique_view<fck_ecs_timeline>(ecs);
 
@@ -63,6 +87,15 @@ void game_network_client_send_process(struct fck_ecs *ecs, struct fck_system_upd
 		return;
 	}
 
+	fck_time *time = fck_ecs_unique_view<fck_time>(ecs);
+	game_network_frequency *freq = fck_ecs_unique_view<game_network_frequency>(ecs);
+	freq->accumulator = freq->accumulator + time->delta;
+	if (freq->accumulator < freq->ms)
+	{
+		return;
+	}
+	freq->accumulator = 0;
+
 	fck_ecs_timeline *timeline = fck_ecs_unique_view<fck_ecs_timeline>(ecs);
 
 	fck_serialiser serialiser;
@@ -102,6 +135,7 @@ void game_networking_setup(fck_ecs *ecs, fck_system_once_info *)
 {
 	fck_ecs_unique_create<cnt_user_host>(ecs, cnt_user_host_close);
 	fck_ecs_unique_create<cnt_user_client>(ecs, cnt_user_client_close);
+	game_network_frequency_set(fck_ecs_unique_create<game_network_frequency>(ecs), 1);
 
 	fck_ecs_system_add(ecs, game_network_host_send_process);
 	fck_ecs_system_add(ecs, game_network_client_send_process);

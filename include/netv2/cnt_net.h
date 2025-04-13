@@ -472,12 +472,13 @@ int cnt_user_host_recv(cnt_user_host *host, cnt_sparse_index *client_id, void *p
 cnt_user_host *cnt_user_host_keep_alive(cnt_user_host *host);
 cnt_user_host *cnt_user_host_kick(cnt_user_host *host, cnt_sparse_index client_id);
 
-bool cnt_user_host_is_active(cnt_user_host *user);
-cnt_net_engine_state_type cnt_user_host_get_state(cnt_user_host *user);
-const char *cnt_user_host_state_to_string(cnt_user_host *user);
 void cnt_user_host_client_list_lock(cnt_user_host *host);
 cnt_client_on_host *cnt_user_host_client_list_get(cnt_user_host *host, uint32_t *count);
 void cnt_user_host_client_list_unlock(cnt_user_host *host);
+
+bool cnt_user_host_is_active(cnt_user_host *user);
+cnt_net_engine_state_type cnt_user_host_get_state(cnt_user_host *user);
+const char *cnt_user_host_state_to_string(cnt_user_host *user);
 
 
 // Tests

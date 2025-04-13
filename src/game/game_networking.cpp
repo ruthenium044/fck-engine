@@ -60,9 +60,23 @@ void game_network_host_send_process(struct fck_ecs *ecs, struct fck_system_updat
 	fck_serialiser_alloc(&serialiser);
 	fck_serialiser_byte_writer(&serialiser.self);
 
-	fck_ecs_timeline_delta_capture(timeline, ecs, &serialiser);
+	cnt_user_host_client_list_lock(host);
 
-	cnt_user_host_broadcast(host, serialiser.data, serialiser.at);
+	uint32_t count;
+	// TODO: Clean this up to:
+	// uint32_t count = cnt_user_host_client_list_get(&host, &clients);
+	cnt_client_on_host* clients = cnt_user_host_client_list_get(host, &count);
+
+	for (int index = 0; index < count; index++)
+	{
+		cnt_client_on_host* client = clients + index;
+
+		fck_serialiser_reset(&serialiser);
+		fck_ecs_timeline_delta_capture(timeline, ecs, &serialiser);
+		cnt_user_host_send(host, client->id, serialiser.data, serialiser.at);
+	}
+
+	cnt_user_host_client_list_unlock(host);
 
 	fck_serialiser_free(&serialiser);
 }
@@ -85,7 +99,9 @@ void game_network_host_recv_process(struct fck_ecs *ecs, struct fck_system_updat
 		fck_serialiser_create(&serialiser, data, recv_count);
 		fck_serialiser_byte_reader(&serialiser.self);
 
-		fck_serialise(&serialiser, &timeline->baseline_seq_ackd);
+		uint32_t ack;
+		fck_serialise(&serialiser, &ack);
+		fck_ecs_timeline_delta_ack(timeline, ack);
 	}
 }
 
@@ -112,8 +128,8 @@ void game_network_client_send_process(struct fck_ecs *ecs, struct fck_system_upd
 	fck_serialiser_alloc(&serialiser);
 	fck_serialiser_byte_writer(&serialiser.self);
 
-	uint32_t ack = timeline->baseline_seq_recv;
-	fck_serialise(&serialiser, &ack);
+	// Last received
+	fck_serialise(&serialiser, &timeline->protocol.ackd);
 
 	cnt_user_client_send(client, serialiser.data, serialiser.at);
 
@@ -164,50 +180,17 @@ void game_network_ui_process(struct fck_ecs *ecs, struct fck_system_update_info 
 		return;
 	}
 
-	// TODO: Make that better. I think...
 	cnt_user_client *client = fck_ecs_unique_view<cnt_user_client>(ecs);
-	if (client == nullptr)
-	{
-		client = fck_ecs_unique_create<cnt_user_client>(ecs, cnt_user_client_close);
-	}
-
 	cnt_user_host *host = fck_ecs_unique_view<cnt_user_host>(ecs);
-	if (host == nullptr)
-	{
-		host = fck_ecs_unique_create<cnt_user_host>(ecs, cnt_user_host_close);
-	}
-
 	nk_context *ctx = ui->ctx;
 
 	nk_colorf bg;
 	bg.r = 0.10f, bg.g = 0.18f, bg.b = 0.24f, bg.a = 1.0f;
 
-	enum
-	{
-		EASY,
-		HARD
-	};
-
-	{
-		bool is_host_active = cnt_user_host_is_active(host);
-		if (is_host_active)
-		{
-			// cnt_user_host_keep_alive(host);
-		}
-		bool is_client_active = cnt_user_client_is_active(client);
-		if (is_client_active)
-		{
-			// cnt_user_client_keep_alive(client);
-		}
-	}
-
 	/* GUI */
 	if (nk_begin(ctx, "Network", nk_rect(50, 50, 400, 400),
 	             NK_WINDOW_BORDER | NK_WINDOW_MOVABLE | NK_WINDOW_SCALABLE | NK_WINDOW_MINIMIZABLE | NK_WINDOW_TITLE))
 	{
-		static int op = EASY;
-		static int property = 20;
-
 		char port_as_text[sizeof(int) * 8 + 1];
 
 		// HOST

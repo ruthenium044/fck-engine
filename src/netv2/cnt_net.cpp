@@ -3320,7 +3320,6 @@ int cnt_host_default_process(cnt_user_host *user_host)
 		// Feeling a bit clever, unsigned wraps around and becomes large
 		// so we just always get the smaller value of the two
 		// freq_ms = SDL_min(freq_ms - delta, freq_ms);
-		// SDL_Delay(freq_ms);
 	}
 
 quit:

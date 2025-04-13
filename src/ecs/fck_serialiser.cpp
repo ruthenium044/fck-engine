@@ -27,6 +27,17 @@ void fck_serialiser_create(fck_serialiser *serialiser, uint8_t *data, size_t cou
 	serialiser->at = 0;
 }
 
+void fck_serialiser_create_full(fck_serialiser* serialiser, uint8_t* data, size_t count)
+{
+	SDL_assert(serialiser != nullptr);
+
+	SDL_zerop(serialiser);
+
+	serialiser->data = data;
+	serialiser->capacity = count;
+	serialiser->at = count;
+}
+
 void fck_serialiser_reset(fck_serialiser *serialiser)
 {
 	SDL_assert(serialiser != nullptr);

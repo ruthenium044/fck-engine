@@ -5,6 +5,8 @@
 
 struct fck_ecs_delta
 {
+	uint32_t baseline;
+	uint32_t current;
 	fck_serialiser serialiser;
 };
 void fck_ecs_delta_alloc(fck_ecs_delta *delta);

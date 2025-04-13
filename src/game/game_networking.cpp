@@ -19,6 +19,16 @@ struct game_network_frequency
 	uint32_t ms;
 };
 
+struct game_host_frequency
+{
+	game_network_frequency freq;
+};
+
+struct game_client_frequency
+{
+	game_network_frequency freq;
+};
+
 void game_network_frequency_set(game_network_frequency *freq, uint32_t hz)
 {
 	float ms_as_float = 1000.0f / SDL_min(1000, hz);
@@ -35,14 +45,14 @@ void game_network_host_send_process(struct fck_ecs *ecs, struct fck_system_updat
 		return;
 	}
 
-	fck_time *time = fck_ecs_unique_view<fck_time>(ecs);
-	game_network_frequency *freq = fck_ecs_unique_view<game_network_frequency>(ecs);
-	freq->accumulator = freq->accumulator + time->delta;
-	if (freq->accumulator < freq->ms)
+	fck_time* time = fck_ecs_unique_view<fck_time>(ecs);
+	game_host_frequency* freq = fck_ecs_unique_view<game_host_frequency>(ecs);
+	freq->freq.accumulator = freq->freq.accumulator + time->delta;
+	if (freq->freq.accumulator < freq->freq.ms)
 	{
 		return;
 	}
-	freq->accumulator = 0;
+	freq->freq.accumulator = 0;
 
 	fck_ecs_timeline *timeline = fck_ecs_unique_view<fck_ecs_timeline>(ecs);
 
@@ -88,13 +98,13 @@ void game_network_client_send_process(struct fck_ecs *ecs, struct fck_system_upd
 	}
 
 	fck_time *time = fck_ecs_unique_view<fck_time>(ecs);
-	game_network_frequency *freq = fck_ecs_unique_view<game_network_frequency>(ecs);
-	freq->accumulator = freq->accumulator + time->delta;
-	if (freq->accumulator < freq->ms)
+	game_client_frequency* freq = fck_ecs_unique_view<game_client_frequency>(ecs);
+	freq->freq.accumulator = freq->freq.accumulator + time->delta;
+	if (freq->freq.accumulator < freq->freq.ms)
 	{
 		return;
 	}
-	freq->accumulator = 0;
+	freq->freq.accumulator = 0;
 
 	fck_ecs_timeline *timeline = fck_ecs_unique_view<fck_ecs_timeline>(ecs);
 
@@ -135,7 +145,9 @@ void game_networking_setup(fck_ecs *ecs, fck_system_once_info *)
 {
 	fck_ecs_unique_create<cnt_user_host>(ecs, cnt_user_host_close);
 	fck_ecs_unique_create<cnt_user_client>(ecs, cnt_user_client_close);
-	game_network_frequency_set(fck_ecs_unique_create<game_network_frequency>(ecs), 1);
+
+	game_network_frequency_set(&fck_ecs_unique_create<game_host_frequency>(ecs)->freq, 30);
+	game_network_frequency_set(&fck_ecs_unique_create<game_client_frequency>(ecs)->freq, 30);
 
 	fck_ecs_system_add(ecs, game_network_host_send_process);
 	fck_ecs_system_add(ecs, game_network_client_send_process);

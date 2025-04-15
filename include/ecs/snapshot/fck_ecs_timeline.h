@@ -28,6 +28,21 @@ struct fck_ecs_timeline
 	fck_ecs_tl_protocol protocol;
 };
 
+struct fck_ecs_timeline_single
+{
+	fck_ecs_timeline timeline;
+	fck_ecs_tl_protocol protocol;
+};
+
+struct fck_ecs_timeline_multi
+{
+	fck_ecs_timeline timeline;
+	fck_ecs_tl_protocol* protocol;
+	uint32_t count;
+	uint32_t capacity;
+};
+
+
 void fck_ecs_timeline_alloc(fck_ecs_timeline *timeline, size_t capacity, size_t delta_capacity);
 void fck_ecs_timeline_free(fck_ecs_timeline *timeline);
 

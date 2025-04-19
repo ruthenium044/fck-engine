@@ -1,13 +1,8 @@
-#include "SDL3/SDL_timer.h"
 #include "core/fck_time.h"
 #include "game/game_systems.h"
 
-#include "core/fck_instance.h"
 #include "ecs/fck_ecs.h"
 #include "ecs/snapshot/fck_ecs_timeline.h"
-
-#include "game/game_components.h"
-#include "game/game_core.h"
 
 #include "netv2/cnt_net.h"
 

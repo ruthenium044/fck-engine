@@ -45,8 +45,8 @@ void game_network_host_send_process(struct fck_ecs *ecs, struct fck_system_updat
 		return;
 	}
 
-	fck_time* time = fck_ecs_unique_view<fck_time>(ecs);
-	game_host_frequency* freq = fck_ecs_unique_view<game_host_frequency>(ecs);
+	fck_time *time = fck_ecs_unique_view<fck_time>(ecs);
+	game_host_frequency *freq = fck_ecs_unique_view<game_host_frequency>(ecs);
 	freq->freq.accumulator = freq->freq.accumulator + time->delta;
 	if (freq->freq.accumulator < freq->freq.ms)
 	{
@@ -54,7 +54,7 @@ void game_network_host_send_process(struct fck_ecs *ecs, struct fck_system_updat
 	}
 	freq->freq.accumulator = 0;
 
-	fck_ecs_timeline *timeline = fck_ecs_unique_view<fck_ecs_timeline>(ecs);
+	fck_ecs_mc_timeline *timeline = fck_ecs_unique_view<fck_ecs_mc_timeline>(ecs);
 
 	fck_serialiser serialiser;
 	fck_serialiser_alloc(&serialiser);
@@ -65,14 +65,14 @@ void game_network_host_send_process(struct fck_ecs *ecs, struct fck_system_updat
 	uint32_t count;
 	// TODO: Clean this up to:
 	// uint32_t count = cnt_user_host_client_list_get(&host, &clients);
-	cnt_client_on_host* clients = cnt_user_host_client_list_get(host, &count);
+	cnt_client_on_host *clients = cnt_user_host_client_list_get(host, &count);
 
 	for (int index = 0; index < count; index++)
 	{
-		cnt_client_on_host* client = clients + index;
+		cnt_client_on_host *client = clients + index;
 
 		fck_serialiser_reset(&serialiser);
-		fck_ecs_timeline_delta_capture(timeline, ecs, &serialiser);
+		fck_ecs_mc_timeline_delta_capture(timeline, client->id.index, ecs, &serialiser);
 		cnt_user_host_send(host, client->id, serialiser.data, serialiser.at);
 	}
 
@@ -89,7 +89,7 @@ void game_network_host_recv_process(struct fck_ecs *ecs, struct fck_system_updat
 		return;
 	}
 
-	fck_ecs_timeline *timeline = fck_ecs_unique_view<fck_ecs_timeline>(ecs);
+	fck_ecs_mc_timeline *timeline = fck_ecs_unique_view<fck_ecs_mc_timeline>(ecs);
 
 	uint8_t data[1024];
 	cnt_sparse_index client;
@@ -101,7 +101,7 @@ void game_network_host_recv_process(struct fck_ecs *ecs, struct fck_system_updat
 
 		uint32_t ack;
 		fck_serialise(&serialiser, &ack);
-		fck_ecs_timeline_delta_ack(timeline, ack);
+		fck_ecs_mc_timeline_delta_ack(timeline, client.index, ack);
 	}
 }
 
@@ -114,7 +114,7 @@ void game_network_client_send_process(struct fck_ecs *ecs, struct fck_system_upd
 	}
 
 	fck_time *time = fck_ecs_unique_view<fck_time>(ecs);
-	game_client_frequency* freq = fck_ecs_unique_view<game_client_frequency>(ecs);
+	game_client_frequency *freq = fck_ecs_unique_view<game_client_frequency>(ecs);
 	freq->freq.accumulator = freq->freq.accumulator + time->delta;
 	if (freq->freq.accumulator < freq->freq.ms)
 	{
@@ -122,7 +122,7 @@ void game_network_client_send_process(struct fck_ecs *ecs, struct fck_system_upd
 	}
 	freq->freq.accumulator = 0;
 
-	fck_ecs_timeline *timeline = fck_ecs_unique_view<fck_ecs_timeline>(ecs);
+	fck_ecs_sc_timeline *timeline = fck_ecs_unique_view<fck_ecs_sc_timeline>(ecs);
 
 	fck_serialiser serialiser;
 	fck_serialiser_alloc(&serialiser);
@@ -144,7 +144,7 @@ void game_network_client_recv_process(struct fck_ecs *ecs, struct fck_system_upd
 		return;
 	}
 
-	fck_ecs_timeline *timeline = fck_ecs_unique_view<fck_ecs_timeline>(ecs);
+	fck_ecs_sc_timeline *timeline = fck_ecs_unique_view<fck_ecs_sc_timeline>(ecs);
 
 	uint8_t data[1024];
 	while (int recv_count = cnt_user_client_recv(client, data, sizeof(data)))
@@ -153,7 +153,7 @@ void game_network_client_recv_process(struct fck_ecs *ecs, struct fck_system_upd
 		fck_serialiser_create(&serialiser, data, recv_count);
 		fck_serialiser_byte_reader(&serialiser.self);
 
-		fck_ecs_timeline_delta_apply(timeline, ecs, &serialiser);
+		fck_ecs_sc_timeline_delta_apply(timeline, ecs, &serialiser);
 	}
 }
 
@@ -161,6 +161,12 @@ void game_networking_setup(fck_ecs *ecs, fck_system_once_info *)
 {
 	fck_ecs_unique_create<cnt_user_host>(ecs, cnt_user_host_close);
 	fck_ecs_unique_create<cnt_user_client>(ecs, cnt_user_client_close);
+
+	fck_ecs_sc_timeline *client_timeline = fck_ecs_unique_create<fck_ecs_sc_timeline>(ecs, fck_ecs_sc_timeline_free);
+	fck_ecs_sc_timeline_alloc(client_timeline, 128, 16);
+
+	fck_ecs_mc_timeline *host_timeline = fck_ecs_unique_create<fck_ecs_mc_timeline>(ecs, fck_ecs_mc_timeline_free);
+	fck_ecs_mc_timeline_alloc(host_timeline, 128, 16, 32);
 
 	game_network_frequency_set(&fck_ecs_unique_create<game_host_frequency>(ecs)->freq, 30);
 	game_network_frequency_set(&fck_ecs_unique_create<game_client_frequency>(ecs)->freq, 30);

@@ -69,10 +69,6 @@ static void engine_setup(fck_ecs *ecs, fck_system_once_info *)
 	fck_keyboard_state *keyboard = fck_ecs_unique_create<fck_keyboard_state>(ecs);
 	fck_mouse_state *mouse = fck_ecs_unique_create<fck_mouse_state>(ecs);
 
-	fck_ecs_timeline *snapshot_timeline = fck_ecs_unique_create<fck_ecs_timeline>(ecs, fck_ecs_timeline_free);
-	// TODO: Maybe fix default capacities
-	fck_ecs_timeline_alloc(snapshot_timeline, 128, 16);
-
 	fck_time *time = fck_ecs_unique_create<fck_time>(ecs);
 
 	// Junk below here should probably get moved away!

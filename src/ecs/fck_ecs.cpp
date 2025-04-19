@@ -638,8 +638,6 @@ void fck_ecs_timeline_alloc(fck_ecs_timeline *timeline, size_t snapshot_capacity
 	timeline->delta_head = 0;
 	timeline->delta_capacity = delta_capacity;
 
-	SDL_zero(timeline->protocol);
-
 	for (size_t index = 0; index < timeline->snapshot_capacity; index++)
 	{
 		fck_ecs_snapshot *snapshot = timeline->snapshots + index;
@@ -724,36 +722,35 @@ fck_ecs_snapshot *fck_ecs_timeline_snapshot_view(fck_ecs_timeline *timeline, siz
 	return snapshot;
 }
 
-void fck_ecs_tl_protocol_send(fck_ecs_tl_protocol* protocol, uint32_t send)
+void fck_ecs_timeline_protocol_send(fck_ecs_timeline_protocol *protocol, uint32_t send)
 {
 	protocol->send = send;
 }
 
-void fck_ecs_tl_protocol_ack(fck_ecs_tl_protocol* protocol, uint32_t ackd)
+void fck_ecs_timeline_protocol_ack(fck_ecs_timeline_protocol *protocol, uint32_t ackd)
 {
 	protocol->ackd = ackd;
 }
 
-fck_ecs_delta* fck_ecs_tl_protocol_capture(fck_ecs_tl_protocol* protocol, fck_ecs_timeline* timeline, fck_ecs* ecs)
+fck_ecs_delta *fck_ecs_timeline_protocol_capture(fck_ecs_timeline_protocol *protocol, fck_ecs_timeline *timeline, fck_ecs *ecs)
 {
 	SDL_assert(protocol != nullptr);
 	SDL_assert(timeline != nullptr);
 	SDL_assert(timeline->snapshots != nullptr);
 	SDL_assert(ecs != nullptr);
 
-	fck_ecs_snapshot* current = fck_ecs_timeline_capture(timeline, ecs);
-	fck_ecs_tl_protocol_send(protocol, current->seq);
+	fck_ecs_snapshot *current = fck_ecs_timeline_capture(timeline, ecs);
+	fck_ecs_timeline_protocol_send(protocol, current->seq);
 
-	fck_ecs_snapshot* baseline = fck_ecs_timeline_snapshot_view(timeline, protocol->ackd);
+	fck_ecs_snapshot *baseline = fck_ecs_timeline_snapshot_view(timeline, protocol->ackd);
 
-	fck_ecs_delta* candidate_delta = timeline->deltas + timeline->delta_head;
+	fck_ecs_delta *candidate_delta = timeline->deltas + timeline->delta_head;
 	timeline->delta_head = (timeline->delta_head + 1) % timeline->delta_capacity;
 
 	candidate_delta->baseline = baseline->seq;
 	candidate_delta->current = current->seq;
 
-
-	fck_serialiser* serialiser = &candidate_delta->serialiser;
+	fck_serialiser *serialiser = &candidate_delta->serialiser;
 	fck_serialiser_reset(serialiser);
 	fck_serialiser_byte_writer(&serialiser->self);
 	fck_ecs_snapshot_capture_delta(baseline, current, candidate_delta);
@@ -761,7 +758,8 @@ fck_ecs_delta* fck_ecs_tl_protocol_capture(fck_ecs_tl_protocol* protocol, fck_ec
 	return candidate_delta;
 }
 
-void fck_ecs_tl_protocol_apply(fck_ecs_tl_protocol* protocol, fck_ecs_timeline* timeline, fck_ecs* ecs, fck_ecs_delta const* delta)
+void fck_ecs_timeline_protocol_apply(fck_ecs_timeline_protocol *protocol, fck_ecs_timeline *timeline, fck_ecs *ecs,
+                                     fck_ecs_delta const *delta)
 {
 	SDL_assert(protocol != nullptr);
 	SDL_assert(timeline != nullptr);
@@ -769,21 +767,21 @@ void fck_ecs_tl_protocol_apply(fck_ecs_tl_protocol* protocol, fck_ecs_timeline* 
 	SDL_assert(ecs != nullptr);
 	SDL_assert(delta != nullptr);
 
-	fck_ecs_snapshot* current = fck_ecs_timeline_reserve_empty(timeline, delta->current);
-	fck_ecs_tl_protocol_ack(protocol, delta->current);
+	fck_ecs_snapshot *current = fck_ecs_timeline_reserve_empty(timeline, delta->current);
+	fck_ecs_timeline_protocol_ack(protocol, delta->current);
 
-	fck_ecs_snapshot* baseline = fck_ecs_timeline_snapshot_view(timeline, delta->baseline);
+	fck_ecs_snapshot *baseline = fck_ecs_timeline_snapshot_view(timeline, delta->baseline);
 
 	fck_ecs_snapshot_apply_delta(baseline, delta, current);
 
-	fck_serialiser* serialiser = &current->serialiser;
+	fck_serialiser *serialiser = &current->serialiser;
 	fck_serialiser_reset(serialiser);
 	fck_serialiser_byte_reader(&serialiser->self);
 	fck_ecs_deserialise(ecs, serialiser);
 }
 
-
-void fck_ecs_timeline_delta_capture(fck_ecs_timeline *timeline, fck_ecs *ecs, fck_serialiser * serialiser)
+void fck_ecs_timeline_delta_capture(fck_ecs_timeline *timeline, fck_ecs_timeline_protocol *protocol, fck_ecs *ecs,
+                                    fck_serialiser *serialiser)
 {
 	SDL_assert(serialiser != nullptr);
 	SDL_assert(fck_serialiser_is_byte_writer(serialiser));
@@ -791,14 +789,16 @@ void fck_ecs_timeline_delta_capture(fck_ecs_timeline *timeline, fck_ecs *ecs, fc
 	SDL_assert(timeline->snapshots != nullptr);
 	SDL_assert(ecs != nullptr);
 
-	fck_ecs_delta* delta = fck_ecs_tl_protocol_capture(&timeline->protocol, timeline, ecs);
+	fck_ecs_delta *delta = fck_ecs_timeline_protocol_capture(protocol, timeline, ecs);
 	fck_serialise(serialiser, &delta->current);
 	fck_serialise(serialiser, &delta->baseline);
-	fck_serialise(serialiser, &delta->serialiser.at);
+
+	uint64_t byte_count = delta->serialiser.at;
+	fck_serialise(serialiser, &byte_count);
 	fck_serialise(serialiser, &delta->serialiser);
 }
 
-void fck_ecs_timeline_delta_apply(fck_ecs_timeline *timeline, fck_ecs *ecs, fck_serialiser * serialiser)
+void fck_ecs_timeline_delta_apply(fck_ecs_timeline *timeline, fck_ecs_timeline_protocol *protocol, fck_ecs *ecs, fck_serialiser *serialiser)
 {
 	SDL_assert(serialiser != nullptr);
 	SDL_assert(fck_serialiser_is_byte_reader(serialiser));
@@ -809,15 +809,88 @@ void fck_ecs_timeline_delta_apply(fck_ecs_timeline *timeline, fck_ecs *ecs, fck_
 	fck_ecs_delta delta;
 	fck_serialise(serialiser, &delta.current);
 	fck_serialise(serialiser, &delta.baseline);
-	fck_serialise(serialiser, &delta.serialiser.at);
-	fck_serialiser_create_full(&delta.serialiser, serialiser->data + serialiser->at, delta.serialiser.at);
 
-	fck_ecs_tl_protocol_apply(&timeline->protocol, timeline, ecs, &delta);
+	uint64_t byte_count = 0;
+	fck_serialise(serialiser, &byte_count);
+	fck_serialiser_create_full(&delta.serialiser, serialiser->data + serialiser->at, byte_count);
+
+	fck_ecs_timeline_protocol_apply(protocol, timeline, ecs, &delta);
 }
 
-void fck_ecs_timeline_delta_ack(fck_ecs_timeline *timeline, uint32_t snapshot_index)
+void fck_ecs_timeline_delta_ack(fck_ecs_timeline *timeline, fck_ecs_timeline_protocol *protocol, uint32_t snapshot_index)
 {
-	timeline->protocol.ackd = snapshot_index;
+	protocol->ackd = snapshot_index;
+}
+
+// Single Producer - Single Consumer
+
+void fck_ecs_sc_timeline_alloc(fck_ecs_sc_timeline *single, size_t capacity, size_t delta_capacity)
+{
+	SDL_assert(single != nullptr);
+	SDL_zerop(single);
+
+	fck_ecs_timeline_alloc(&single->timeline, capacity, delta_capacity);
+}
+void fck_ecs_sc_timeline_free(fck_ecs_sc_timeline *single)
+{
+	SDL_assert(single != nullptr);
+	fck_ecs_timeline_free(&single->timeline);
+	SDL_zerop(single);
+}
+void fck_ecs_sc_timeline_delta_capture(fck_ecs_sc_timeline *single, struct fck_ecs *ecs, struct fck_serialiser *serialiser)
+{
+	SDL_assert(single != nullptr);
+	fck_ecs_timeline_delta_capture(&single->timeline, &single->protocol, ecs, serialiser);
+}
+void fck_ecs_sc_timeline_delta_apply(fck_ecs_sc_timeline *single, struct fck_ecs *ecs, struct fck_serialiser *serialiser)
+{
+	SDL_assert(single != nullptr);
+	fck_ecs_timeline_delta_apply(&single->timeline, &single->protocol, ecs, serialiser);
+}
+void fck_ecs_sc_timeline_delta_ack(fck_ecs_sc_timeline *single, uint32_t snapshot_seq)
+{
+	SDL_assert(single != nullptr);
+	fck_ecs_timeline_delta_ack(&single->timeline, &single->protocol, snapshot_seq);
+}
+
+// Single Producer - Multiple Consumer
+
+void fck_ecs_mc_timeline_alloc(fck_ecs_mc_timeline *multi, size_t capacity, size_t delta_capacity, size_t protocol_capacity)
+{
+	SDL_assert(multi != nullptr);
+	SDL_zerop(multi);
+
+	fck_ecs_timeline_alloc(&multi->timeline, capacity, delta_capacity);
+	multi->protocols = (fck_ecs_timeline_protocol *)SDL_malloc(capacity * sizeof(*multi->protocols));
+	multi->capacity = protocol_capacity;
+}
+void fck_ecs_mc_timeline_free(fck_ecs_mc_timeline *multi)
+{
+	SDL_assert(multi != nullptr);
+	fck_ecs_timeline_free(&multi->timeline);
+	SDL_free(multi->protocols);
+	SDL_zerop(multi);
+}
+void fck_ecs_mc_timeline_delta_capture(fck_ecs_mc_timeline *multi, uint32_t index, struct fck_ecs *ecs, struct fck_serialiser *serialiser)
+{
+	SDL_assert(multi != nullptr);
+	SDL_assert(index < multi->capacity);
+
+	fck_ecs_timeline_delta_capture(&multi->timeline, &multi->protocols[index], ecs, serialiser);
+}
+void fck_ecs_mc_timeline_delta_apply(fck_ecs_mc_timeline *multi, uint32_t index, struct fck_ecs *ecs, struct fck_serialiser *serialiser)
+{
+	SDL_assert(multi != nullptr);
+	SDL_assert(index < multi->capacity);
+
+	fck_ecs_timeline_delta_apply(&multi->timeline, &multi->protocols[index], ecs, serialiser);
+}
+void fck_ecs_mc_timeline_delta_ack(fck_ecs_mc_timeline *multi, uint32_t index, uint32_t snapshot_seq)
+{
+	SDL_assert(multi != nullptr);
+	SDL_assert(index < multi->capacity);
+
+	fck_ecs_timeline_delta_ack(&multi->timeline, &multi->protocols[index], snapshot_seq);
 }
 
 void fck_ecs_delta_example()

@@ -4,7 +4,7 @@
 #include "ecs/fck_dense_list.h"
 
 // timeline
-struct fck_ecs_tl_protocol
+struct fck_ecs_timeline_protocol
 {
 	// Out: (ackd, send)
 	uint32_t ackd;
@@ -24,33 +24,38 @@ struct fck_ecs_timeline
 
 	size_t delta_capacity;
 	size_t delta_head;
-
-	fck_ecs_tl_protocol protocol;
 };
 
-struct fck_ecs_timeline_single
+struct fck_ecs_sc_timeline
 {
 	fck_ecs_timeline timeline;
-	fck_ecs_tl_protocol protocol;
+	fck_ecs_timeline_protocol protocol;
 };
 
-struct fck_ecs_timeline_multi
+struct fck_ecs_mc_timeline
 {
 	fck_ecs_timeline timeline;
-	fck_ecs_tl_protocol* protocol;
-	uint32_t count;
+	fck_ecs_timeline_protocol *protocols;
 	uint32_t capacity;
 };
 
+// TODO: Make size_t -> uint32_t
+// Could become private interface ...
+//
+// Single Producer - Single Consumer
 
-void fck_ecs_timeline_alloc(fck_ecs_timeline *timeline, size_t capacity, size_t delta_capacity);
-void fck_ecs_timeline_free(fck_ecs_timeline *timeline);
+void fck_ecs_sc_timeline_alloc(fck_ecs_sc_timeline *single, size_t capacity, size_t delta_capacity);
+void fck_ecs_sc_timeline_free(fck_ecs_sc_timeline *single);
+void fck_ecs_sc_timeline_delta_capture(fck_ecs_sc_timeline *single, struct fck_ecs *ecs, struct fck_serialiser *serialiser);
+void fck_ecs_sc_timeline_delta_apply(fck_ecs_sc_timeline *single, struct fck_ecs *ecs, struct fck_serialiser *serialiser);
+void fck_ecs_sc_timeline_delta_ack(fck_ecs_sc_timeline *single, uint32_t snapshot_seq);
 
-// struct fck_ecs_snapshot *fck_ecs_timeline_capture(fck_ecs_timeline *timeline, struct fck_ecs *ecs);
-// struct fck_ecs_snapshot *fck_ecs_timeline_get(fck_ecs_timeline *timeline, size_t index_from_last_back_in_time);
+// Single Producer - Multiple Consumer
 
-void fck_ecs_timeline_delta_capture(fck_ecs_timeline *timeline, struct fck_ecs *ecs, struct fck_serialiser *external_serialiser);
-void fck_ecs_timeline_delta_apply(fck_ecs_timeline *timeline, struct fck_ecs *ecs, struct fck_serialiser *external_serialiser);
-void fck_ecs_timeline_delta_ack(fck_ecs_timeline *timeline, uint32_t snapshot_index);
+void fck_ecs_mc_timeline_alloc(fck_ecs_mc_timeline *multi, size_t capacity, size_t delta_capacity, size_t protocol_capacity);
+void fck_ecs_mc_timeline_free(fck_ecs_mc_timeline *multi);
+void fck_ecs_mc_timeline_delta_capture(fck_ecs_mc_timeline *multi, uint32_t index, struct fck_ecs *ecs, struct fck_serialiser *serialiser);
+void fck_ecs_mc_timeline_delta_apply(fck_ecs_mc_timeline *multi, uint32_t index, struct fck_ecs *ecs, struct fck_serialiser *serialiser);
+void fck_ecs_mc_timeline_delta_ack(fck_ecs_mc_timeline *multi, uint32_t index, uint32_t snapshot_seq);
 
 #endif // !FCK_ECS_TIMELINE_INCLUDED

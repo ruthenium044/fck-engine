@@ -16,10 +16,8 @@ fck_ecs::entity_type game_controllable_create(fck_ecs *ecs)
 	game_position *position = fck_ecs_component_create<game_position>(ecs, entity);
 
 	game_controller *controller = fck_ecs_component_create<game_controller>(ecs, entity);
-	game_size* size = fck_ecs_component_create<game_size>(ecs, entity);
-	game_debug_colour* color = fck_ecs_component_create<game_debug_colour>(ecs, entity);
-
-	fck_ecs_component_create<game_just_created>(ecs, entity);
+	game_size *size = fck_ecs_component_create<game_size>(ecs, entity);
+	game_debug_colour *color = fck_ecs_component_create<game_debug_colour>(ecs, entity);
 
 	// We just offset the y position based on the entity ID. Good enough
 	position->x = 0.0f;

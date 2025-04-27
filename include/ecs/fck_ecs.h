@@ -335,7 +335,7 @@ fck_ecs::sparse_array<type> *fck_ecs_component_register(fck_ecs *ecs)
 		SDL_zero(interface);
 		interface.free = fck_ecs_free_trait<type>::template fetch<type>();
 		interface.serialise = fck_ecs_serialise_trait<type>::template fetch<type>();
-		interface.is_serialise_on = !fck_ecs_serialise_is_on<type>::value;
+		interface.is_serialise_on = !fck_ecs_serialise_is_off<type>::value;
 		// TODO: More traits!!
 
 		fck_ecs_component_interface_override(ecs, &interface);

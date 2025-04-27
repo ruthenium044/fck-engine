@@ -1,7 +1,7 @@
 #ifndef FCK_ECS_TIMELINE_INCLUDED
 #define FCK_ECS_TIMELINE_INCLUDED
 
-#include "ecs/fck_dense_list.h"
+#include <SDL3/SDL_stdinc.h>
 
 // timeline
 struct fck_ecs_timeline_protocol

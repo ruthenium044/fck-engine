@@ -1,10 +1,7 @@
 #include "game/game_systems.h"
-#include "shared/fck_checks.h"
 #include <SDL3/SDL_timer.h>
 
 #include "fck.h"
-
-#include "assets/fck_assets.h"
 
 #include "fck_ui.h"
 

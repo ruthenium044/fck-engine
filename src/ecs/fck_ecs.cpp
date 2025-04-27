@@ -596,7 +596,10 @@ void fck_ecs_snapshot_capture_delta(fck_ecs_snapshot const *baseline, fck_ecs_sn
 	fck_ecs_snapshot_diff(baseline->serialiser.data, current->serialiser.data, buffer, lower_count);
 
 	int64_t current_snapshot_slack_count = int64_t(current->serialiser.at) - int64_t(baseline->serialiser.at);
-	SDL_memcpy(buffer + lower_count, current->serialiser.data + lower_count, current_snapshot_slack_count);
+	if (current_snapshot_slack_count > 0)
+	{
+		SDL_memcpy(buffer + lower_count, current->serialiser.data + lower_count, current_snapshot_slack_count);
+	}
 
 	delta->serialiser.at = buffer_count;
 	delta->serialiser.data = buffer;
@@ -620,7 +623,10 @@ void fck_ecs_snapshot_apply_delta(fck_ecs_snapshot const *baseline, fck_ecs_delt
 	fck_ecs_snapshot_diff(baseline->serialiser.data, delta->serialiser.data, buffer, lower_count);
 
 	int64_t delta_snapshot_slack_count = int64_t(delta->serialiser.at) - int64_t(baseline->serialiser.at);
-	SDL_memcpy(buffer + lower_count, delta->serialiser.data + lower_count, delta_snapshot_slack_count);
+	if (delta_snapshot_slack_count > 0)
+	{
+		SDL_memcpy(buffer + lower_count, delta->serialiser.data + lower_count, delta_snapshot_slack_count);
+	}
 
 	result->serialiser.at = buffer_count;
 	result->serialiser.data = buffer;

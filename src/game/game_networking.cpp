@@ -141,7 +141,7 @@ void game_network_client_recv_process(struct fck_ecs *ecs, struct fck_system_upd
 
 	fck_ecs_sc_timeline *timeline = fck_ecs_unique_view<fck_ecs_sc_timeline>(ecs);
 
-	uint8_t data[1024];
+	uint8_t data[1 << 16];
 	while (int recv_count = cnt_user_client_recv(client, data, sizeof(data)))
 	{
 		fck_serialiser serialiser;

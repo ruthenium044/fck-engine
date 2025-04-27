@@ -66,13 +66,14 @@ struct fck_ecs_serialise_trait<value_type,
 // !Serialise Trait
 
 template <typename value_type, typename = void>
-struct fck_ecs_serialise_is_on : fck_false_type
+struct fck_ecs_serialise_is_off : fck_false_type
 {
 	constexpr static bool value = false;
 };
 
 template <typename value_type>
-struct fck_ecs_serialise_is_on<value_type, fck_void<decltype(fck_serialise((value_type *)nullptr, (fck_off_tag *)nullptr))>> : fck_true_type
+struct fck_ecs_serialise_is_off<value_type, fck_void<decltype(fck_serialise((value_type *)nullptr, (fck_off_tag *)nullptr))>>
+	: fck_true_type
 {
 	constexpr static bool value = true;
 };

@@ -132,7 +132,10 @@ void fck_instances_process_events(fck_instances *instances)
 			case SDL_EVENT_TEXT_INPUT:
 			case SDL_EVENT_MOUSE_WHEEL: {
 				fck_instance *instance = fck_instances_view(instances, &ev.drop.windowID);
-				fck_queue_push(&instance->event_queue, &ev);
+				if (instance != nullptr)
+				{
+					fck_queue_push(&instance->event_queue, &ev);
+				}
 			}
 			break;
 			default:
@@ -194,7 +197,7 @@ void fck_instances_process_events(fck_instances *instances)
 		{
 			nk_input_end(ui->ctx);
 		}
-		
+
 		if ((window_flags & SDL_WINDOW_INPUT_FOCUS) == SDL_WINDOW_INPUT_FOCUS)
 		{
 			fck_keyboard_state_update(keyboard);

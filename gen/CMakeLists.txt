@@ -11,6 +11,10 @@ if(NOT DEFINED GEN_OUTPUT_DIRECTORY_PATH)
 	message(FATAL_ERROR "GEN_OUTPUT_DIRECTORY_PATH is not defined. Needs to define a path for output. (For example: set(GEN_RESOURCE_DIRECTORY_PATH [path]))")
 endif()
 
+if(NOT DEFINED GEN_SOURCE_DIRECTORY_PATH) 
+	message(FATAL_ERROR "GEN_SOURCE_DIRECTORY_PATH is not defined. Needs to define a path for output. (For example: set(GEN_RESOURCE_DIRECTORY_PATH [path]))")
+endif()
+
 # LOCAL PROJECT
 file(GLOB_RECURSE FOUND_CXX_GEN_HEADERS "${CMAKE_CURRENT_LIST_DIR}/**.h")
 
@@ -24,6 +28,7 @@ add_executable(${PROJECT_NAME} ${FOUND_CXX_GEN_SOURCES} ${FOUND_CXX_GEN_HEADERS}
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE "GEN_INPUT_DIRECTORY_PATH= \"${GEN_INPUT_DIRECTORY_PATH}\"")
 target_compile_definitions(${PROJECT_NAME} PRIVATE "GEN_OUTPUT_DIRECTORY_PATH= \"${GEN_OUTPUT_DIRECTORY_PATH}\"")
+target_compile_definitions(${PROJECT_NAME} PRIVATE "GEN_SOURCE_DIRECTORY_PATH= \"${GEN_SOURCE_DIRECTORY_PATH}\"")
 
 # Reference for libary. In higher cmake just add_subdirectory("gen")
 #set(target_name ${PROJECT_NAME})

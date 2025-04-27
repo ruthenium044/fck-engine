@@ -14,6 +14,7 @@ enum game_input_type
 	FCK_INPUT_TYPE_RIGHT,
 	FCK_INPUT_TYPE_UP,
 	FCK_INPUT_TYPE_DOWN,
+	FCK_INPUT_TYPE_SHOOT,
 };
 
 enum game_input_flag
@@ -23,6 +24,8 @@ enum game_input_flag
 	FCK_INPUT_FLAG_RIGHT = 1 << FCK_INPUT_TYPE_RIGHT,
 	FCK_INPUT_FLAG_UP = 1 << FCK_INPUT_TYPE_UP,
 	FCK_INPUT_FLAG_DOWN = 1 << FCK_INPUT_TYPE_DOWN,
+
+	FCK_INPUT_FLAG_SHOOT = 1 << FCK_INPUT_TYPE_SHOOT,
 };
 
 FCK_SERIALISE_OFF(game_control_layout)
@@ -33,10 +36,7 @@ struct game_control_layout
 	SDL_Scancode up;
 	SDL_Scancode down;
 
-	SDL_Scancode light_punch;
-	SDL_Scancode hard_punch;
-	SDL_Scancode light_kick;
-	SDL_Scancode hard_kick;
+	int shoot_mouse;
 };
 
 struct game_controller
@@ -50,14 +50,16 @@ struct game_position
 	float y;
 };
 
+FCK_SERIALISE_OFF(game_cursor)
+struct game_cursor
+{
+};
+
 struct game_size
 {
 	float w;
 	float h;
 };
-
-struct game_just_created
-{ };
 
 struct game_debug_colour
 {
@@ -77,6 +79,7 @@ inline void fck_serialise(fck_serialiser *serialiser, game_position *positions, 
 	const size_t total_floats = count * 2;
 	fck_serialise(serialiser, (float *)positions, total_floats);
 }
+
 // !FCK_SERIALISE_TRAIT SECTION
 
 #endif // !GAME_COMPONENTS_INCLUDED

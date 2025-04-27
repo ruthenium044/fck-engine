@@ -131,7 +131,7 @@ inline void fck_serialise(fck_serialiser *serialisers, float *value, size_t coun
 inline void fck_serialise(fck_serialiser *serialisers, fck_serialiser *other)
 {
 	SDL_assert(serialisers != nullptr);
-	SDL_assert(serialisers->self.f32 != nullptr);
+	SDL_assert(serialisers->self.u8 != nullptr);
 
 	serialisers->self.u8(serialisers, other->data, other->at);
 }

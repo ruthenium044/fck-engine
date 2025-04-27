@@ -23,8 +23,8 @@ void game_render_process(fck_ecs *ecs, fck_system_update_info *)
 	fck_ecs_apply(ecs, [engine](game_position *position, game_size *size, game_sprite *sprite) {
 		float target_x = position->x;
 		float target_y = position->y;
-		float target_width = size->w * fck_engine::screen_scale;
-		float target_height = size->h * fck_engine::screen_scale;
+		float target_width = size->w;
+		float target_height = size->h;
 		SDL_FRect dst = {target_x, target_y, target_width, target_height};
 
 		SDL_Texture *texture = fck_assets_get(sprite->texture);
@@ -35,8 +35,8 @@ void game_render_process(fck_ecs *ecs, fck_system_update_info *)
 	fck_ecs_apply(ecs, [engine](game_position *position, game_size *size, game_debug_colour *colour) {
 		float target_x = position->x;
 		float target_y = position->y;
-		float target_width = size->w * fck_engine::screen_scale;
-		float target_height = size->h * fck_engine::screen_scale;
+		float target_width = size->w;
+		float target_height = size->h;
 		SDL_FRect dst = {target_x, target_y, target_width, target_height};
 
 		SDL_SetRenderDrawColor(engine->renderer, colour->r, colour->g, colour->b, colour->a);
@@ -45,6 +45,6 @@ void game_render_process(fck_ecs *ecs, fck_system_update_info *)
 	});
 
 	fck_ui_render(ecs, true);
-	
+
 	SDL_RenderPresent(engine->renderer);
 }

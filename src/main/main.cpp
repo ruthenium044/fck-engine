@@ -25,6 +25,7 @@ void game_instance_setup(fck_ecs *ecs)
 int main(int argc, char **argv)
 {
 	fck fck;
+
 	fck_init(&fck, 3);
 	{
 		fck_instance_info client_info0;

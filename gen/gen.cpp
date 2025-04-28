@@ -293,12 +293,13 @@ bool mappie_store(mappie *hm, uint64_t hash, uint64_t *out_slot)
 			const uint64_t offset = at % 8;
 			const size_t local_at = trailing_count / 8;
 			const size_t slot_at = at - offset + local_at;
+
 			mappie_keys *key = hm->keys + slot_at;
 			// This... should actually never happen
 			// If the signal bit is 0, it implies that the stored hash is also 0...
 			// If it is 1 (set), it implies the opposite
-			if (key->hash == 0)
-			{
+			//if (key->hash == 0)
+			//{
 				const uint64_t right_shift = (local_at * 8);
 				const uint8_t hash_part = uint8_t((hash >> right_shift) & 0xFF);
 
@@ -306,7 +307,7 @@ bool mappie_store(mappie *hm, uint64_t hash, uint64_t *out_slot)
 				mappie_control_mask_set(hm, slot_at, hash_part);
 				*out_slot = slot_at;
 				return true;
-			}
+			//}
 		}
 
 		// Elegantly moves to the next qword, lol
@@ -320,8 +321,6 @@ struct mappie_load_iterator
 	// idk if all of them are useful...
 	size_t index;
 	size_t slot;
-	size_t at;
-	uint64_t offset;
 	uint64_t hash;
 };
 
@@ -332,30 +331,23 @@ mappie_load_iterator mappie_iterator_create()
 
 mappie_load_iterator mappie_iterator_create(mappie *hm, uint64_t hash)
 {
-	const size_t at = hash % hm->capacity;
-	const uint64_t offset = at % 8;
-
-	return {0, ~0ull, at, offset, hash};
+	return {0, ~0ull, hash};
 }
 
-void mappie_iterator_update(mappie *hm, mappie_load_iterator *iterator)
-{
-	iterator->at = (iterator->hash + iterator->index) % hm->capacity;
-	iterator->offset = iterator->at % 8;
-}
-
-bool mappie_try_load(mappie *hm, mappie_load_iterator *iterator)
+bool mappie_try_load(mappie const *hm, mappie_load_iterator *iterator)
 {
 	const uint64_t discovery_mask = 0x8080808080808080;
 
+	assert(hm);
 	assert(iterator);
 
 	// We continue at the slot we found before(?)
 	while (iterator->index < hm->capacity)
 	{
-		mappie_iterator_update(hm, iterator);
+		size_t at = (iterator->hash + iterator->index) % hm->capacity;
+		size_t offset = at % 8;
 
-		const uint64_t full_control = mappie_control_mask(hm, iterator->at);
+		const uint64_t full_control = mappie_control_mask(hm, at);
 
 		// 01010011 11001100 00111000 -> 11010011 11001100 10111000
 		const uint64_t discovery_hash = iterator->hash | discovery_mask;
@@ -364,9 +356,9 @@ bool mappie_try_load(mappie *hm, mappie_load_iterator *iterator)
 		// 11010011 11001100 00111000 -> 11111111 11111111 01111111
 		const uint64_t occupied_mask = full_control | ~discovery_mask;
 
-		const uint64_t offset_bits = iterator->offset * 8;
-		// const uint64_t searchable_mask = mask_invalidate_lower(~occupied_mask, iterator->at);
-		// int trailing_count = count_trailing_zeros64(searchable_mask);
+		const uint64_t offset_bits = offset * 8;
+		//const uint64_t searchable_mask = mask_invalidate_lower(~occupied_mask, iterator->at);
+		//int trailing_count = count_trailing_zeros64(searchable_mask);
 		int trailing_count = count_trailing_zeros64(~(occupied_mask >> offset_bits)) + offset_bits;
 		for (int bit_index = offset_bits; bit_index < trailing_count; bit_index = bit_index + 8)
 		{
@@ -376,7 +368,7 @@ bool mappie_try_load(mappie *hm, mappie_load_iterator *iterator)
 
 			if (part_hash == part_discovery) // TOTAL MATCH!! OMG!!!!!!
 			{
-				const size_t slot_at = iterator->at - iterator->offset + (bit_index / 8);
+				const size_t slot_at = at - offset + (bit_index / 8);
 				mappie_keys *key = hm->keys + slot_at;
 				if (key->hash == iterator->hash)
 				{
@@ -398,6 +390,21 @@ bool mappie_try_load(mappie *hm, mappie_load_iterator *iterator)
 	return false;
 }
 
+
+bool mappie_remove(mappie* hm, mappie_load_iterator* iterator)
+{
+	assert(hm);
+	assert(iterator);
+
+	// TODO: Implement
+	// Invalidate control block and update it
+	// Occupy a second bit? 
+	// Hash... idk, remove it or so
+
+	return false;
+}
+
+
 struct char_ptr_size_t_pair
 {
 	char const *s;
@@ -413,8 +420,10 @@ struct mappie_string_symbol_type
 
 mappie_string_symbol_type *mappie_string_symbol_type_alloc(size_t capacity)
 {
+	capacity = (size_t)round_pow2(capacity);
 	size_t total = offsetof(mappie_string_symbol_type, keys[capacity]);
 	mappie_string_symbol_type *hm = (mappie_string_symbol_type *)malloc(total);
+	memset(hm, 0, total);
 
 	hm->base = mappie_alloc(capacity);
 	hm->values = (source_symbol_type *)malloc(capacity * sizeof(*hm->values));
@@ -558,7 +567,7 @@ source_files *source_files_alloc_and_collect(source_files *files)
 	{
 		if (entry.is_regular_file())
 		{
-			filesystem::path target = entry.path();
+			path target = entry.path();
 			path ext = target.extension();
 			if (ext == ".h" || ext == ".hpp" || ext == ".hxx")
 			{
@@ -578,7 +587,7 @@ source_files *source_files_alloc_and_collect(source_files *files)
 
 				source_file file;
 				file.span = {0, 0};
-				file.name_length = strnlen(target.c_str(), upper_bound);
+				file.name_length = strnlen(target.string().c_str(), upper_bound);
 				file.name = (char *)malloc(file.name_length + 1);
 				memcpy(file.name, target.c_str(), file.name_length + 1);
 
@@ -823,7 +832,7 @@ void make_enum_pretty(std::string &pretty, size_t offset = 0)
 
 void test()
 {
-	mappie_string_symbol_type *hm = mappie_string_symbol_type_alloc(32);
+	mappie_string_symbol_type *hm = mappie_string_symbol_type_alloc(37);
 
 	const size_t size = 512;
 
@@ -835,11 +844,11 @@ void test()
 	}
 	{
 		source_symbol_type value;
-		bool result = mappie_string_symbol_type_try_load(hm, "Hello", 5, &value);
+		bool result = mappie_string_symbol_type_try_load(hm, "HelloThere", 10, &value);
 		printf("DO NOT HAVE OVER\n");
 		assert(!result);
 	}
-	for (uint8_t i = 0; i < 32; i++)
+	for (uint8_t i = 0; i < 31; i++)
 	{
 		char *c = &cs[static_cast<ptrdiff_t>(i * 4)];
 		mappie_string_symbol_type_store(hm, c, 1, (source_symbol_type)i);
@@ -849,7 +858,7 @@ void test()
 		assert(value == (source_symbol_type)i);
 	}
 
-	for (uint8_t i = 0; i < 32; i++)
+	for (uint8_t i = 0; i < 31; i++)
 	{
 		char *c = &cs[static_cast<ptrdiff_t>(i * 4)];
 		source_symbol_type value;
@@ -860,7 +869,7 @@ void test()
 
 	{
 		source_symbol_type value;
-		bool result = mappie_string_symbol_type_try_load(hm, "Hello", 5, &value);
+		bool result = mappie_string_symbol_type_try_load(hm, "HelloThere", 10, &value);
 		assert(!result);
 	}
 

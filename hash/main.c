@@ -1,15 +1,149 @@
 
 #include <Windows.h>
+#include <stdio.h>
 #include <string.h>
 
-#define STATIC_HASH_0(str) 0
-#define STATIC_HASH_1(str, hash) hash
+#define STATIC_HASH_NO_HASH_EXISTS(str) 0
+#define STATIC_HASH_HASH_EXISTS(str, hash) hash
 #define STATIC_HASH_CHOOSE(X, SELECT, ...) SELECT
 
-#define STATIC_HASH(...) STATIC_HASH_CHOOSE(__VA_ARGS__, STATIC_HASH_0(__VA_ARGS__), STATIC_HASH_1(__VA_ARGS__))
+#define STATIC_HASH(...) STATIC_HASH_CHOOSE(__VA_ARGS__, STATIC_HASH_NO_HASH_EXISTS(__VA_ARGS__), STATIC_HASH_HASH_EXISTS(__VA_ARGS__))
+
+unsigned long long hash(char *str, char *end)
+{
+	unsigned long long hash = 5381;
+	int c;
+
+	while (str < end && *str)
+	{
+		char c = *str++;
+		hash = ((hash << 5) + hash) + (unsigned char)c;
+	}
+
+	return hash;
+}
+
+typedef struct simple_writer
+{
+	char *buffer;
+	size_t position;
+	size_t capacity;
+} simple_writer;
+
+typedef struct simple_reader
+{
+	char *buffer;
+	size_t size;
+	size_t capacity;
+} simple_reader;
+
+simple_writer simple_writer_create()
+{
+	return (simple_writer){NULL, 0, 0};
+}
+
+void simple_writer_reset(simple_writer *writer)
+{
+	writer->position = 0;
+}
+
+void simple_writer_free(simple_writer *writer)
+{
+	if (writer->buffer != NULL)
+	{
+		free(writer->buffer);
+	}
+	writer->buffer = NULL;
+	writer->position = 0;
+	writer->capacity = 0;
+}
+
+size_t next_power_of_two(size_t n)
+{
+	if (n == 0)
+		return 1;
+	n--;
+	n |= n >> 1;
+	n |= n >> 2;
+	n |= n >> 4;
+	n |= n >> 8;
+	n |= n >> 16;
+	if ((size_t)(~0LLU) > 0xFFFFFFFF)
+	{
+		n |= n >> 32; // needed for 64-bit size_t
+	}
+	return n + 1;
+}
+
+void simple_writer_append(simple_writer *writer, const char *append_begin, const char *append_end)
+{
+	if (append_begin == NULL || append_end == NULL)
+	{
+		return;
+	}
+
+	size_t append_size = (size_t)(append_end - append_begin);
+
+	size_t write_end = writer->position + append_size;
+	if (write_end >= writer->capacity)
+	{
+		size_t new_capacity = next_power_of_two(write_end);
+		char *new_buffer = (char *)malloc(new_capacity);
+		if (writer->buffer != NULL)
+		{
+			memcpy(new_buffer, writer->buffer, writer->position);
+			free(writer->buffer);
+		}
+
+		writer->buffer = new_buffer;
+		writer->capacity = new_capacity;
+	}
+
+	memcpy(writer->buffer + writer->position, append_begin, append_size);
+	writer->position = write_end;
+}
+
+simple_reader simple_reader_create()
+{
+	return (simple_reader){NULL, 0, 0};
+}
+
+void simple_reader_free(simple_reader *reader)
+{
+	if (reader->buffer != NULL)
+	{
+		free(reader->buffer);
+	}
+	reader->buffer = NULL;
+	reader->size = 0;
+	reader->capacity = 0;
+}
+
+char *prev_char_ignore_whitespace(char *begin, char *str)
+{
+	if (str < begin)
+	{
+		return begin;
+	}
+	str = str - 1;
+	while (str >= begin)
+	{
+		if (isspace(*str))
+		{
+			str = str - 1;
+			continue;
+		}
+		return str;
+	}
+	return begin;
+}
 
 char *next_char_ignore_whitespace(char *str)
 {
+	if (*str == '\0')
+	{
+		return str;
+	}
 	str = str + 1;
 	while (*str != '\0')
 	{
@@ -23,11 +157,109 @@ char *next_char_ignore_whitespace(char *str)
 	return str;
 }
 
-int main(int arg, char **argv)
+char *next_char_until_non_alph_numeric(char *str)
 {
-	const unsigned long long hash = STATIC_HASH("Type");
+	if (*str == '\0')
+	{
+		return str;
+	}
+	str = str + 1;
+	while (*str != '\0')
+	{
+		if (isalnum(*str))
+		{
+			str = str + 1;
+			continue;
+		}
+		return str;
+	}
+	return str;
+}
 
-	HANDLE file = CreateFile("C:\\Users\\jukai\\Documents\\Engine\\hash\\main.c",
+char *find_not_escaped_char_ignore_whitespace(char *str, char c)
+{
+	while (1)
+	{
+		char *start = str;
+		str = next_char_ignore_whitespace(start);
+		if (*str == '\0')
+		{
+			return str;
+		}
+		char *prev = prev_char_ignore_whitespace(start, str);
+		if (*str == c && *prev != '\\')
+		{
+			return str;
+		}
+	}
+}
+
+void process_text(simple_writer *writer, simple_reader *reader)
+{
+	const char static_hash_token[] = "STATIC_HASH";
+
+	char *current = reader->buffer;
+	while (1)
+	{
+		char *begin = current;
+		char *static_hash_token_begin = current = strstr(current, static_hash_token);
+		if (static_hash_token_begin == NULL)
+		{
+			current = begin;
+			break;
+		}
+		char *static_hash_token_end = current = static_hash_token_begin + sizeof(static_hash_token) - 1;
+		char *parenthesis_open = current = next_char_ignore_whitespace(current - 1);
+		char *quotation_mark_open = current = next_char_ignore_whitespace(current);
+		if (*parenthesis_open == '(' && *quotation_mark_open == '"')
+		{
+			// Idk about multiline tbh, we can do that later...
+			char *quotation_mark_close = current = find_not_escaped_char_ignore_whitespace(current, '"');
+			char *parenthesis_close_or_comma = current = next_char_ignore_whitespace(current);
+			if (*quotation_mark_close == '"')
+			{
+				char *emplace_position = NULL;
+				if (*parenthesis_close_or_comma == ',')
+				{
+					emplace_position = current = next_char_ignore_whitespace(current);
+				}
+				else if (*parenthesis_close_or_comma == ')')
+				{
+					emplace_position = parenthesis_close_or_comma;
+				}
+				if (emplace_position != NULL)
+				{
+					simple_writer_append(writer, begin, emplace_position);
+					char hash_buffer[64]; // 16 hexadecimals and a bit of decoration
+					unsigned long long h = hash(quotation_mark_open + 1, quotation_mark_close);
+					int offset = 0;
+					if (*parenthesis_close_or_comma != ',')
+					{
+						offset += sprintf_s(hash_buffer, sizeof(hash_buffer), ", 0x%016llX", h);
+
+						simple_writer_append(writer, hash_buffer, hash_buffer + offset);
+					}
+					else
+					{
+						offset += sprintf_s(hash_buffer, sizeof(hash_buffer), "0x%016llX", h);
+
+						simple_writer_append(writer, hash_buffer, hash_buffer + offset);
+
+						current = next_char_until_non_alph_numeric(current);
+					}
+					begin = current;
+				}
+			}
+		}
+		current = current + 1;
+		simple_writer_append(writer, begin, current);
+	}
+	simple_writer_append(writer, current, reader->buffer + reader->size);
+}
+
+void process_file(simple_writer *writer, simple_reader *reader, const char *file_path)
+{
+	HANDLE file = CreateFile(file_path,
 	                         GENERIC_READ | GENERIC_WRITE, //
 	                         0,                            //
 	                         NULL,                         //
@@ -35,80 +267,46 @@ int main(int arg, char **argv)
 	                         FILE_ATTRIBUTE_NORMAL,        //
 	                         NULL);                        //
 
-	size_t size = GetFileSize(file, NULL);
-	LPVOID buffer = VirtualAlloc(NULL, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-
-
-	char static_hash_substr[] = "STATIC_HASH";
-	int result = ReadFile(file, buffer, size, NULL, NULL);
-
-	DWORD offset = 0;
-	char *current = buffer;
-	for (size_t index = 0; index < sizeof(buffer); index++)
+	size_t new_size = GetFileSize(file, NULL) + 1;
+	reader->size = new_size;
+	if (new_size > reader->capacity)
 	{
-		SetFilePointer(file, offset, NULL, FILE_BEGIN);
-
-		char *static_hash_begin = strstr(current, static_hash_substr);
-		char *begin_arguments = static_hash_begin + sizeof(static_hash_substr) - 1;
-		if (begin_arguments[0] != '(' || begin_arguments[1] != '"')
+		char *new_buffer = (char *)malloc(new_size);
+		if (reader->buffer != NULL)
 		{
-			current = begin_arguments;
-			continue;
+			// No need to copy over
+			free(reader->buffer);
 		}
-
-		char *end_of_line = strchr(begin_arguments, '\n');
-		// let's already prepare the next iteration so we do not have to think about it anymore...
-		current = end_of_line;
-
-		char *end_of_str_argument = NULL;
-
-		char *end_arguments = begin_arguments + 2;
-		while (1)
-		{
-			end_arguments = strchr(end_arguments, '"');
-			if (end_arguments > end_of_line)
-			{
-				// Something here is broken...
-				break;
-			}
-			char *next_char_no_whitespace = next_char_ignore_whitespace(end_arguments);
-			if (end_arguments[0] == '"' && *next_char_no_whitespace == ',')
-			{
-				if (end_of_str_argument != NULL)
-				{
-					break;
-				}
-				end_of_str_argument = next_char_no_whitespace;
-			}
-			if (end_arguments[0] == '"' && end_arguments[1] == ')' && end_arguments[2] == ';' &&
-			    (end_arguments[3] == '\n' || (end_arguments[3] == '\r' && end_arguments[4] == '\n')))
-			{
-				break;
-			}
-			end_arguments = end_arguments + 1;
-		}
-
-		char* str_begin = begin_arguments + 2;
-		size_t argument_size = (size_t)(end_arguments - str_begin);
-		if (end_of_str_argument != NULL)
-		{
-		}
-		else if ((size_t)(end_arguments - begin_arguments) > 4)
-		{
-			char* str_begin = begin_arguments + 2;
-			size_t argument_offset = (size_t)((str_begin) - buffer);
-			SetFilePointer(file, offset + argument_offset, NULL, FILE_BEGIN);
-			char write_buffer[4096];
-			strncpy_s(write_buffer, sizeof(write_buffer), str_begin, argument_size);
-			
-			char hash[] = "\", \"0xDEADBEEF";
-			strncpy_s(write_buffer + argument_size, sizeof(write_buffer), hash, sizeof(hash));
-
-			DWORD bytes_written;
-			WriteFile(file, write_buffer, strlen(write_buffer), &bytes_written, NULL);
-			CloseHandle(file);
-			return 1;
-		}
-		return 0;
+		reader->capacity = new_size;
+		reader->buffer = new_buffer;
+		reader->buffer[new_size - 1] = '\0';
 	}
+
+	int result = ReadFile(file, reader->buffer, reader->size, NULL, NULL);
+
+	if (result)
+	{
+		simple_writer_reset(writer);
+		process_text(writer, reader);
+	}
+	SetFilePointer(file, 0, NULL, FILE_BEGIN);
+
+	// -1, added a null terminator just in case
+	result = WriteFile(file, writer->buffer, writer->position - 1, NULL, NULL);
+
+	CloseHandle(file);
+}
+
+int main(int arg, char **argv)
+{
+	simple_writer writer = simple_writer_create();
+	simple_reader reader = simple_reader_create();
+	const unsigned long long hash = STATIC_HASH("Test", 0x000000017C8CDC45);
+
+	process_file(&writer, &reader, "C:\\Users\\jukai\\Documents\\Engine\\hash\\main.c");
+
+	simple_writer_free(&writer);
+	simple_reader_free(&reader);
+
+	return 0;
 }

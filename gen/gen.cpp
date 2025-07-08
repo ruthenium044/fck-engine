@@ -298,15 +298,15 @@ bool mappie_store(mappie *hm, uint64_t hash, uint64_t *out_slot)
 			// This... should actually never happen
 			// If the signal bit is 0, it implies that the stored hash is also 0...
 			// If it is 1 (set), it implies the opposite
-			//if (key->hash == 0)
+			// if (key->hash == 0)
 			//{
-				const uint64_t right_shift = (local_at * 8);
-				const uint8_t hash_part = uint8_t((hash >> right_shift) & 0xFF);
+			const uint64_t right_shift = (local_at * 8);
+			const uint8_t hash_part = uint8_t((hash >> right_shift) & 0xFF);
 
-				key->hash = hash;
-				mappie_control_mask_set(hm, slot_at, hash_part);
-				*out_slot = slot_at;
-				return true;
+			key->hash = hash;
+			mappie_control_mask_set(hm, slot_at, hash_part);
+			*out_slot = slot_at;
+			return true;
 			//}
 		}
 
@@ -357,8 +357,8 @@ bool mappie_try_load(mappie const *hm, mappie_load_iterator *iterator)
 		const uint64_t occupied_mask = full_control | ~discovery_mask;
 
 		const uint64_t offset_bits = offset * 8;
-		//const uint64_t searchable_mask = mask_invalidate_lower(~occupied_mask, iterator->at);
-		//int trailing_count = count_trailing_zeros64(searchable_mask);
+		// const uint64_t searchable_mask = mask_invalidate_lower(~occupied_mask, iterator->at);
+		// int trailing_count = count_trailing_zeros64(searchable_mask);
 		int trailing_count = count_trailing_zeros64(~(occupied_mask >> offset_bits)) + offset_bits;
 		for (int bit_index = offset_bits; bit_index < trailing_count; bit_index = bit_index + 8)
 		{
@@ -390,20 +390,20 @@ bool mappie_try_load(mappie const *hm, mappie_load_iterator *iterator)
 	return false;
 }
 
-
-bool mappie_remove(mappie* hm, mappie_load_iterator* iterator)
+bool mappie_remove(mappie *hm, mappie_load_iterator *iterator)
 {
 	assert(hm);
 	assert(iterator);
 
 	// TODO: Implement
 	// Invalidate control block and update it
-	// Occupy a second bit? 
+	// Occupy a second bit?
 	// Hash... idk, remove it or so
 
 	return false;
 }
 
+// TODO: Make smort c-style template!
 
 struct char_ptr_size_t_pair
 {
@@ -417,6 +417,16 @@ struct mappie_string_symbol_type
 	source_symbol_type *values;
 	char_ptr_size_t_pair keys[1];
 };
+
+bool mappie_equals(char_ptr_size_t_pair *lhs, char_ptr_size_t_pair *rhs)
+{
+	return lhs->n == rhs->n && streq(lhs->s, rhs->s, lhs->n);
+}
+
+uint64_t mappie_hash(char_ptr_size_t_pair *lhs)
+{
+	return strhash(lhs->s, lhs->n);
+}
 
 mappie_string_symbol_type *mappie_string_symbol_type_alloc(size_t capacity)
 {
@@ -468,6 +478,73 @@ bool mappie_string_symbol_type_try_load(mappie_string_symbol_type *hm, char cons
 	{
 		char_ptr_size_t_pair key = hm->keys[it.slot];
 		if (key.n == n && streq(key.s, s, n))
+		{
+			memcpy(value, hm->values + it.slot, sizeof(*hm->values));
+			printf("Found in: %lu\n", it.index);
+			return true;
+		}
+	}
+	printf("Not found in: %lu\n", it.index);
+	return false;
+}
+
+template <typename K, typename V>
+struct mappie_template
+{
+	mappie *base;
+	V *values;
+	K keys[1];
+};
+
+template <typename K, typename V>
+mappie_template<K, V>* mappie_alloc(size_t capacity)
+{
+	capacity = (size_t)round_pow2(capacity);
+	using mappie_impl = mappie_template<K, V>;
+	size_t total = offsetof(mappie_impl, keys[capacity]);
+	mappie_template<K, V>* hm = (mappie_template<K, V>*)malloc(total);
+	memset(hm, 0, total);
+
+	hm->base = mappie_alloc(capacity);
+	hm->values = (V *)malloc(capacity * sizeof(*hm->values));
+	return hm;
+}
+
+template <typename K, typename V>
+void mappie_free(mappie_template<K, V> *hm)
+{
+	assert(hm);
+	assert(hm->values);
+
+	free(hm->values);
+	mappie_free(hm->base);
+	free(hm);
+}
+
+template <typename K, typename V>
+bool mappie_store(mappie_template<K, V> *hm, K *key, V *value)
+{
+	uint64_t hash = mappie_hash(key);
+	uint64_t slot;
+	if (mappie_store(hm->base, hash, &slot))
+	{
+		memcpy(hm->keys + slot, key, sizeof(*hm->keys));
+		memcpy(hm->values + slot, value, sizeof(*hm->values));
+		return true;
+	}
+	return false;
+}
+
+template <typename K, typename V>
+bool mappie_try_load(mappie_template<K, V> *hm, K *key, V **value)
+{
+	uint64_t hash = mappie_hash(key);
+
+	mappie_load_iterator it = mappie_iterator_create(hm->base, hash);
+	while (mappie_try_load(hm->base, &it))
+	{
+		K *k = hm->keys + it.slot;
+		if (mappie_key_equals(key, k))
 		{
 			memcpy(value, hm->values + it.slot, sizeof(*hm->values));
 			printf("Found in: %lu\n", it.index);
@@ -832,6 +909,9 @@ void make_enum_pretty(std::string &pretty, size_t offset = 0)
 
 void test()
 {
+	//mappie_handle thm = mappie_string_symbol_type_alloc(32);
+
+	
 	mappie_string_symbol_type *hm = mappie_string_symbol_type_alloc(37);
 
 	const size_t size = 512;

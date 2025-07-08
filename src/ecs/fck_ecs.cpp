@@ -56,7 +56,7 @@ void fck_ecs_snapshot_diff32(uint8_t const *baseline, uint8_t const *current, ui
 	{
 		delta_as_32[index] = current_as_32[index] ^ baseline_as_32[index];
 	}
-
+	
 	size_t offset = word_count * word_size;
 	uint8_t const *baseline_next = baseline + offset;
 	uint8_t const *current_next = current + offset;

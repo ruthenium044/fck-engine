@@ -1,0 +1,13 @@
+cmake_minimum_required(VERSION 3.20)
+# Super Async Development
+project(sad)
+
+file(GLOB_RECURSE FOUND_CXX_SAD_HEADERS "${CMAKE_CURRENT_LIST_DIR}/**.h")
+
+file(GLOB_RECURSE FOUND_CXX_SAD_SOURCES "${CMAKE_CURRENT_LIST_DIR}/**.cpp")
+
+file(GLOB_RECURSE FOUND_C_SAD_SOURCES "${CMAKE_CURRENT_LIST_DIR}/**.c")
+
+source_group("Header Files" FILES ${FOUND_CXX_SAD_HEADERS})
+
+add_executable(${PROJECT_NAME} ${FOUND_CXX_SAD_SOURCES} ${FOUND_CXX_SAD_HEADERS} ${FOUND_C_SAD_SOURCES})

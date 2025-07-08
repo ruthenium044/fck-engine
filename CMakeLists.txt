@@ -84,7 +84,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(SDL SDL_image SDL_ttf)
 
 # Maybe disable Vulkan conditionally - is it even needed with SDL_GPU at this point?
-find_package(Vulkan REQUIRED)
+find_package(Vulkan REQUIRED COMPONENTS shaderc_combined)
 
 if(DEFINED FCK_LIBRARY_MODE AND NOT DEFINED FCK_RESOURCE_DIRECTORY_PATH) 
 	message(FATAL_ERROR "GEN_INPUT_DIRECTORY_PATH is not defined. Needs to define a path for output. (For example: set(FCK_RESOURCE_DIRECTORY_PATH [path]))")
@@ -111,6 +111,7 @@ set(GEN_SOURCE_DIRECTORY_PATH "${CMAKE_CURRENT_SOURCE_DIR}/include")
 # Generator
 
 add_subdirectory(gen)
+add_subdirectory(sad)
 
 add_custom_target(gen_output
      COMMAND ${CMAKE_CURRENT_BINARY_DIR}/gen/gen
@@ -162,11 +163,15 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE "FCK_RESOURCE_DIRECTORY_PATH=
 #)
 
 list(APPEND LIBRARIES SDL3::SDL3 SDL3_image::SDL3_image SDL3_ttf::SDL3_ttf)
-list(APPEND LIBRARIES Vulkan::Vulkan)
+list(APPEND LIBRARIES Vulkan::Vulkan Vulkan::shaderc_combined)
 
 add_dependencies(${PROJECT_NAME} ${LIBRARIES})
 
 if(WIN32)
     list(APPEND LIBRARIES iphlpapi ws2_32)
 endif()
+
+message("CHJECK FOUND")
+message(${Vulkan_shaderc_combined_FOUND})
+
 target_link_libraries(${PROJECT_NAME} ${LIBRARIES})

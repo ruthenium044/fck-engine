@@ -75,7 +75,7 @@ size_t next_power_of_two(size_t n)
 	return n + 1;
 }
 
-void simple_writer_append(simple_writer *writer, const char *append_begin, const char *append_end)
+void simple_writer_append_string(simple_writer *writer, const char *append_begin, const char *append_end)
 {
 	if (append_begin == NULL || append_end == NULL)
 	{
@@ -101,6 +101,12 @@ void simple_writer_append(simple_writer *writer, const char *append_begin, const
 
 	memcpy(writer->buffer + writer->position, append_begin, append_size);
 	writer->position = write_end;
+}
+
+void simple_writer_append_char(simple_writer *writer, char c)
+{
+	const char lc[] = {c, '\0'};
+	simple_writer_append_string(writer, lc, lc + 1);
 }
 
 simple_reader simple_reader_create()
@@ -140,7 +146,7 @@ char *prev_char_ignore_whitespace(char *begin, char *str)
 
 char *next_char_ignore_whitespace(char *str)
 {
-	if (*str == '\0')
+	if (str  == NULL || *str == '\0')
 	{
 		return str;
 	}
@@ -194,7 +200,7 @@ char *find_not_escaped_char_ignore_whitespace(char *str, char c)
 	}
 }
 
-void process_text(simple_writer *writer, simple_reader *reader)
+void process_text(simple_writer *writer, simple_reader *reader, simple_writer *entries)
 {
 	const char static_hash_token[] = "STATIC_HASH";
 
@@ -208,6 +214,7 @@ void process_text(simple_writer *writer, simple_reader *reader)
 			current = begin;
 			break;
 		}
+
 		char *static_hash_token_end = current = static_hash_token_begin + sizeof(static_hash_token) - 1;
 		char *parenthesis_open = current = next_char_ignore_whitespace(current - 1);
 		char *quotation_mark_open = current = next_char_ignore_whitespace(current);
@@ -229,7 +236,7 @@ void process_text(simple_writer *writer, simple_reader *reader)
 				}
 				if (emplace_position != NULL)
 				{
-					simple_writer_append(writer, begin, emplace_position);
+					simple_writer_append_string(writer, begin, emplace_position);
 					char hash_buffer[64]; // 16 hexadecimals and a bit of decoration
 					unsigned long long h = hash(quotation_mark_open + 1, quotation_mark_close);
 					int offset = 0;
@@ -237,27 +244,37 @@ void process_text(simple_writer *writer, simple_reader *reader)
 					{
 						offset += sprintf_s(hash_buffer, sizeof(hash_buffer), ", 0x%016llX", h);
 
-						simple_writer_append(writer, hash_buffer, hash_buffer + offset);
+						simple_writer_append_string(writer, hash_buffer, hash_buffer + offset);
 					}
 					else
 					{
 						offset += sprintf_s(hash_buffer, sizeof(hash_buffer), "0x%016llX", h);
 
-						simple_writer_append(writer, hash_buffer, hash_buffer + offset);
+						simple_writer_append_string(writer, hash_buffer, hash_buffer + offset);
 
 						current = next_char_until_non_alph_numeric(current);
 					}
+
+					const char *str_begin = quotation_mark_open + 1;
+					const char *str_end = quotation_mark_close;
+					int size = str_end - str_begin;
+					offset = sprintf_s(hash_buffer, sizeof(hash_buffer), "0x%016llX", h);
+					simple_writer_append_string(entries, str_begin, str_end);
+					simple_writer_append_char(entries, ':');
+					simple_writer_append_string(entries, hash_buffer, hash_buffer + offset);
+					simple_writer_append_char(entries, '\n');
+
 					begin = current;
 				}
 			}
 		}
 		current = current + 1;
-		simple_writer_append(writer, begin, current);
+		simple_writer_append_string(writer, begin, current);
 	}
-	simple_writer_append(writer, current, reader->buffer + reader->size);
+	simple_writer_append_string(writer, current, reader->buffer + reader->size);
 }
 
-void process_file(simple_writer *writer, simple_reader *reader, const char *file_path)
+void process_file(simple_writer *writer, simple_reader *reader, const char *file_path, simple_writer *entries)
 {
 	HANDLE file = CreateFile(file_path,
 	                         GENERIC_READ | GENERIC_WRITE, //
@@ -279,15 +296,15 @@ void process_file(simple_writer *writer, simple_reader *reader, const char *file
 		}
 		reader->capacity = new_size;
 		reader->buffer = new_buffer;
-		reader->buffer[new_size - 1] = '\0';
 	}
 
 	int result = ReadFile(file, reader->buffer, reader->size, NULL, NULL);
+	reader->buffer[new_size - 1] = '\0';
 
 	if (result)
 	{
 		simple_writer_reset(writer);
-		process_text(writer, reader);
+		process_text(writer, reader, entries);
 	}
 	SetFilePointer(file, 0, NULL, FILE_BEGIN);
 
@@ -296,17 +313,136 @@ void process_file(simple_writer *writer, simple_reader *reader, const char *file
 
 	CloseHandle(file);
 }
-
-int main(int arg, char **argv)
+typedef struct for_each_file_context
 {
-	simple_writer writer = simple_writer_create();
-	simple_reader reader = simple_reader_create();
-	const unsigned long long hash = STATIC_HASH("Test", 0x000000017C8CDC45);
+	simple_writer writer;
+	simple_reader reader;
 
-	process_file(&writer, &reader, "C:\\Users\\jukai\\Documents\\Engine\\hash\\main.c");
+	simple_writer full;
+	simple_writer entries;
+} for_each_file_context;
 
-	simple_writer_free(&writer);
-	simple_reader_free(&reader);
+void for_each_entry(for_each_file_context *context, const char *entry_directory, FILE_ID_EXTD_DIR_INFO *fileInfo);
 
+void for_each_entry_in_directory(for_each_file_context *context, const char *entry_directory)
+{
+	// We need to first get a handle to the directory we want to list files in.
+	HANDLE dirHandle = CreateFile(entry_directory, FILE_LIST_DIRECTORY, FILE_SHARE_READ | FILE_SHARE_DELETE, NULL, OPEN_EXISTING,
+	                              FILE_FLAG_BACKUP_SEMANTICS, 0);
+	if (dirHandle == INVALID_HANDLE_VALUE)
+	{
+		return;
+	}
+
+	unsigned char buffer[1024];
+	ZeroMemory(&buffer, sizeof(buffer));
+
+	if (!GetFileInformationByHandleEx(dirHandle, FileIdExtdDirectoryRestartInfo, buffer, sizeof(buffer)))
+	{
+		return;
+	};
+
+	FILE_ID_EXTD_DIR_INFO *fileInfo = (FILE_ID_EXTD_DIR_INFO *)buffer;
+	while (1)
+	{
+		for_each_entry(context, entry_directory, fileInfo);
+
+		if (fileInfo->NextEntryOffset != 0)
+		{
+			fileInfo = (FILE_ID_EXTD_DIR_INFO *)((char *)fileInfo + fileInfo->NextEntryOffset);
+		}
+		else
+		{
+			// Check whether there are more files to fetch.
+			if (!GetFileInformationByHandleEx(dirHandle, FileIdExtdDirectoryInfo, buffer, sizeof(buffer)))
+			{
+				const DWORD error = GetLastError();
+				if (error == ERROR_NO_MORE_FILES)
+				{
+					break;
+				}
+			}
+			fileInfo = (FILE_ID_EXTD_DIR_INFO *)buffer;
+		}
+	}
+	CloseHandle(dirHandle);
+}
+
+void for_each_file(for_each_file_context *context, const char *file_path, int file_path_size);
+
+void for_each_entry(for_each_file_context *context, const char *entry_directory, FILE_ID_EXTD_DIR_INFO *fileInfo)
+{
+	if (wcscmp(fileInfo->FileName, L".") != 0 && wcscmp(fileInfo->FileName, L"..") != 0 && fileInfo->FileName[0] != L'.')
+	{
+		if (wcscmp(fileInfo->FileName, L"build") != 0)
+		{
+			if (fileInfo->FileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+			{
+				char new_path_buffer[MAX_PATH];
+				sprintf(new_path_buffer, "%s%.*S\\", entry_directory, (int)fileInfo->FileNameLength / 2, fileInfo->FileName);
+				for_each_entry_in_directory(context, new_path_buffer);
+			}
+			else
+			{
+				char new_path_buffer[MAX_PATH];
+				int offset = sprintf(new_path_buffer, "%s%.*S", entry_directory, (int)fileInfo->FileNameLength / 2, fileInfo->FileName);
+				for_each_file(context, new_path_buffer, offset);
+			}
+		}
+	}
+}
+
+void for_each_file(for_each_file_context *context, const char *file_path, int file_path_size)
+{
+	if (file_path_size < 4)
+	{
+		return;
+	}
+	const char *suffix = file_path + (file_path_size - 4);
+	if (strstr(suffix, ".c") == NULL && strstr(suffix, ".h") == NULL)
+	{
+		return;
+	}
+
+	process_file(&context->writer, &context->reader, file_path, &context->entries);
+	simple_writer_append_string(&context->full, file_path, file_path + file_path_size);
+	simple_writer_append_char(&context->full, '\n');
+}
+
+char *path_from_args(int argc, char **argv)
+{
+	for (int i = 0; i < argc; i++)
+	{
+		char *path_token = strstr(argv[i], "path");
+		char *equals_sign = next_char_ignore_whitespace(path_token);
+		if (path_token != NULL && *equals_sign == '=')
+		{
+			return next_char_ignore_whitespace(equals_sign);
+		}
+	}
+	return NULL;
+}
+
+int main(int argc, char **argv)
+{
+	char *path = path_from_args(argc, argv);
+	if (path == NULL)
+	{
+		path = "C:\\Users\\jukai\\Documents\\Engine\\"; //".";
+	}
+
+	for_each_file_context context;
+	context.writer = simple_writer_create();
+	context.reader = simple_reader_create();
+	context.full = simple_writer_create();
+	context.entries = simple_writer_create();
+
+	for_each_entry_in_directory(&context, path);
+
+	// Optional, the OS will take care of it
+	simple_writer_free(&context.entries);
+	simple_writer_free(&context.full);
+	simple_reader_free(&context.reader);
+	simple_writer_free(&context.writer);
 	return 0;
 }

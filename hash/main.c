@@ -1,53 +1,45 @@
 
 #include <Windows.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
-#define STATIC_HASH_NO_HASH_EXISTS(str) 0
-#define STATIC_HASH_HASH_EXISTS(str, hash) hash
-#define STATIC_HASH_CHOOSE(X, SELECT, ...) SELECT
+#include "fck_hash.h"
 
-#define STATIC_HASH(...) STATIC_HASH_CHOOSE(__VA_ARGS__, STATIC_HASH_NO_HASH_EXISTS(__VA_ARGS__), STATIC_HASH_HASH_EXISTS(__VA_ARGS__))
-
-unsigned long long hash(char *str, char *end)
-{
-	unsigned long long hash = 5381;
-	int c;
-
-	while (str < end && *str)
-	{
-		char c = *str++;
-		hash = ((hash << 5) + hash) + (unsigned char)c;
-	}
-
-	return hash;
-}
-
-typedef struct simple_writer
+typedef struct fck_hash_simple_writer
 {
 	char *buffer;
 	size_t position;
 	size_t capacity;
-} simple_writer;
+} fck_hash_simple_writer;
 
-typedef struct simple_reader
+typedef struct fck_hash_simple_reader
 {
 	char *buffer;
 	size_t size;
 	size_t capacity;
-} simple_reader;
+} fck_hash_simple_reader;
 
-simple_writer simple_writer_create()
+typedef struct fck_hash_for_each_file_context
 {
-	return (simple_writer){NULL, 0, 0};
+	fck_hash_simple_writer writer;
+	fck_hash_simple_reader reader;
+
+	fck_hash_simple_writer full;
+	fck_hash_simple_writer entries;
+} fck_hash_for_each_file_context;
+
+static fck_hash_simple_writer simple_writer_create()
+{
+	return (fck_hash_simple_writer){NULL, 0, 0};
 }
 
-void simple_writer_reset(simple_writer *writer)
+static void simple_writer_reset(fck_hash_simple_writer *writer)
 {
 	writer->position = 0;
 }
 
-void simple_writer_free(simple_writer *writer)
+static void simple_writer_free(fck_hash_simple_writer *writer)
 {
 	if (writer->buffer != NULL)
 	{
@@ -58,7 +50,7 @@ void simple_writer_free(simple_writer *writer)
 	writer->capacity = 0;
 }
 
-size_t next_power_of_two(size_t n)
+static size_t next_power_of_two(size_t n)
 {
 	if (n == 0)
 		return 1;
@@ -75,9 +67,13 @@ size_t next_power_of_two(size_t n)
 	return n + 1;
 }
 
-void simple_writer_append_string(simple_writer *writer, const char *append_begin, const char *append_end)
+static void simple_writer_append_string(fck_hash_simple_writer *writer, const char *append_begin, const char *append_end)
 {
 	if (append_begin == NULL || append_end == NULL)
+	{
+		return;
+	}
+	if (append_begin >= append_end)
 	{
 		return;
 	}
@@ -103,18 +99,18 @@ void simple_writer_append_string(simple_writer *writer, const char *append_begin
 	writer->position = write_end;
 }
 
-void simple_writer_append_char(simple_writer *writer, char c)
+static void simple_writer_append_char(fck_hash_simple_writer *writer, char c)
 {
 	const char lc[] = {c, '\0'};
 	simple_writer_append_string(writer, lc, lc + 1);
 }
 
-simple_reader simple_reader_create()
+static fck_hash_simple_reader simple_reader_create()
 {
-	return (simple_reader){NULL, 0, 0};
+	return (fck_hash_simple_reader){NULL, 0, 0};
 }
 
-void simple_reader_free(simple_reader *reader)
+static void simple_reader_free(fck_hash_simple_reader *reader)
 {
 	if (reader->buffer != NULL)
 	{
@@ -125,7 +121,7 @@ void simple_reader_free(simple_reader *reader)
 	reader->capacity = 0;
 }
 
-char *prev_char_ignore_whitespace(char *begin, char *str)
+static char *prev_char_ignore_whitespace(char *begin, char *str)
 {
 	if (str < begin)
 	{
@@ -144,9 +140,9 @@ char *prev_char_ignore_whitespace(char *begin, char *str)
 	return begin;
 }
 
-char *next_char_ignore_whitespace(char *str)
+static char *next_char_ignore_whitespace(char *str)
 {
-	if (str  == NULL || *str == '\0')
+	if (str == NULL || *str == '\0')
 	{
 		return str;
 	}
@@ -163,7 +159,7 @@ char *next_char_ignore_whitespace(char *str)
 	return str;
 }
 
-char *next_char_until_non_alph_numeric(char *str)
+static char *next_char_until_non_alph_numeric(char *str)
 {
 	if (*str == '\0')
 	{
@@ -182,7 +178,7 @@ char *next_char_until_non_alph_numeric(char *str)
 	return str;
 }
 
-char *find_not_escaped_char_ignore_whitespace(char *str, char c)
+static char *find_not_escaped_char_ignore_whitespace(char *str, char c)
 {
 	while (1)
 	{
@@ -200,9 +196,9 @@ char *find_not_escaped_char_ignore_whitespace(char *str, char c)
 	}
 }
 
-void process_text(simple_writer *writer, simple_reader *reader, simple_writer *entries)
+static void process_text(fck_hash_simple_writer *writer, fck_hash_simple_reader *reader, fck_hash_simple_writer *entries)
 {
-	const char static_hash_token[] = "STATIC_HASH";
+	const char static_hash_token[] = "FCK_STATIC_HASH";
 
 	char *current = reader->buffer;
 	while (1)
@@ -238,7 +234,7 @@ void process_text(simple_writer *writer, simple_reader *reader, simple_writer *e
 				{
 					simple_writer_append_string(writer, begin, emplace_position);
 					char hash_buffer[64]; // 16 hexadecimals and a bit of decoration
-					unsigned long long h = hash(quotation_mark_open + 1, quotation_mark_close);
+					unsigned long long h = fck_hash(quotation_mark_open + 1, quotation_mark_close);
 					int offset = 0;
 					if (*parenthesis_close_or_comma != ',')
 					{
@@ -274,7 +270,8 @@ void process_text(simple_writer *writer, simple_reader *reader, simple_writer *e
 	simple_writer_append_string(writer, current, reader->buffer + reader->size);
 }
 
-void process_file(simple_writer *writer, simple_reader *reader, const char *file_path, simple_writer *entries)
+static void process_file(fck_hash_simple_writer *writer, fck_hash_simple_reader *reader, const char *file_path,
+                         fck_hash_simple_writer *entries)
 {
 	HANDLE file = CreateFile(file_path,
 	                         GENERIC_READ | GENERIC_WRITE, //
@@ -284,11 +281,11 @@ void process_file(simple_writer *writer, simple_reader *reader, const char *file
 	                         FILE_ATTRIBUTE_NORMAL,        //
 	                         NULL);                        //
 
-	size_t new_size = GetFileSize(file, NULL) + 1;
+	size_t new_size = GetFileSize(file, NULL);
 	reader->size = new_size;
 	if (new_size > reader->capacity)
 	{
-		char *new_buffer = (char *)malloc(new_size);
+		char *new_buffer = (char *)malloc(new_size + 1);
 		if (reader->buffer != NULL)
 		{
 			// No need to copy over
@@ -298,8 +295,13 @@ void process_file(simple_writer *writer, simple_reader *reader, const char *file
 		reader->buffer = new_buffer;
 	}
 
+	if (reader->buffer == NULL)
+	{
+		return;
+	}
+
 	int result = ReadFile(file, reader->buffer, reader->size, NULL, NULL);
-	reader->buffer[new_size - 1] = '\0';
+	reader->buffer[reader->size] = '\0';
 
 	if (result)
 	{
@@ -313,22 +315,18 @@ void process_file(simple_writer *writer, simple_reader *reader, const char *file
 
 	CloseHandle(file);
 }
-typedef struct for_each_file_context
+
+static void for_each_entry(fck_hash_for_each_file_context *context, const char *entry_directory, FILE_ID_EXTD_DIR_INFO *fileInfo);
+
+static void for_each_entry_in_directory(fck_hash_for_each_file_context *context, const char *entry_directory)
 {
-	simple_writer writer;
-	simple_reader reader;
-
-	simple_writer full;
-	simple_writer entries;
-} for_each_file_context;
-
-void for_each_entry(for_each_file_context *context, const char *entry_directory, FILE_ID_EXTD_DIR_INFO *fileInfo);
-
-void for_each_entry_in_directory(for_each_file_context *context, const char *entry_directory)
-{
+	if (entry_directory == NULL)
+	{
+		return;
+	}
 	// We need to first get a handle to the directory we want to list files in.
-	HANDLE dirHandle = CreateFile(entry_directory, FILE_LIST_DIRECTORY, FILE_SHARE_READ | FILE_SHARE_DELETE, NULL, OPEN_EXISTING,
-	                              FILE_FLAG_BACKUP_SEMANTICS, 0);
+	HANDLE dirHandle = CreateFileA(entry_directory, FILE_LIST_DIRECTORY, FILE_SHARE_READ | FILE_SHARE_DELETE, NULL, OPEN_EXISTING,
+	                               FILE_FLAG_BACKUP_SEMANTICS, 0);
 	if (dirHandle == INVALID_HANDLE_VALUE)
 	{
 		return;
@@ -368,31 +366,41 @@ void for_each_entry_in_directory(for_each_file_context *context, const char *ent
 	CloseHandle(dirHandle);
 }
 
-void for_each_file(for_each_file_context *context, const char *file_path, int file_path_size);
+static void for_each_file(fck_hash_for_each_file_context *context, const char *file_path, int file_path_size);
 
-void for_each_entry(for_each_file_context *context, const char *entry_directory, FILE_ID_EXTD_DIR_INFO *fileInfo)
+static void for_each_entry(fck_hash_for_each_file_context *context, const char *entry_directory, FILE_ID_EXTD_DIR_INFO *fileInfo)
 {
 	if (wcscmp(fileInfo->FileName, L".") != 0 && wcscmp(fileInfo->FileName, L"..") != 0 && fileInfo->FileName[0] != L'.')
 	{
 		if (wcscmp(fileInfo->FileName, L"build") != 0)
 		{
-			if (fileInfo->FileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+			char new_path_buffer[MAX_PATH];
+			int offset = sprintf(new_path_buffer, "%s", entry_directory);
+
+			size_t wchar_count = fileInfo->FileNameLength / 2; // We accept and assume all file names are ascii
+			size_t converted_chars = 0;
+			int result = wcstombs_s(&converted_chars, new_path_buffer + offset, MAX_PATH - offset, fileInfo->FileName, wchar_count);
+			if (result == 0)
 			{
-				char new_path_buffer[MAX_PATH];
-				sprintf(new_path_buffer, "%s%.*S\\", entry_directory, (int)fileInfo->FileNameLength / 2, fileInfo->FileName);
-				for_each_entry_in_directory(context, new_path_buffer);
-			}
-			else
-			{
-				char new_path_buffer[MAX_PATH];
-				int offset = sprintf(new_path_buffer, "%s%.*S", entry_directory, (int)fileInfo->FileNameLength / 2, fileInfo->FileName);
-				for_each_file(context, new_path_buffer, offset);
+				offset = offset + converted_chars - 1; // \0 is part of converted chars count...
+				if (fileInfo->FileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+				{
+					offset = sprintf(new_path_buffer + offset, "\\");
+					if (offset >= 1)
+					{
+						for_each_entry_in_directory(context, new_path_buffer);
+					}
+				}
+				else
+				{
+					for_each_file(context, new_path_buffer, offset);
+				}
 			}
 		}
 	}
 }
 
-void for_each_file(for_each_file_context *context, const char *file_path, int file_path_size)
+static void for_each_file(fck_hash_for_each_file_context *context, const char *file_path, int file_path_size)
 {
 	if (file_path_size < 4)
 	{
@@ -409,12 +417,16 @@ void for_each_file(for_each_file_context *context, const char *file_path, int fi
 	simple_writer_append_char(&context->full, '\n');
 }
 
-char *path_from_args(int argc, char **argv)
+static char *path_from_args(int argc, char **argv)
 {
 	for (int i = 0; i < argc; i++)
 	{
 		char *path_token = strstr(argv[i], "path");
-		char *equals_sign = next_char_ignore_whitespace(path_token);
+		if (path_token == NULL)
+		{
+			continue;
+		}
+		char *equals_sign = next_char_ignore_whitespace(path_token + 3);
 		if (path_token != NULL && *equals_sign == '=')
 		{
 			return next_char_ignore_whitespace(equals_sign);
@@ -423,15 +435,22 @@ char *path_from_args(int argc, char **argv)
 	return NULL;
 }
 
+#include <time.h>
+
 int main(int argc, char **argv)
 {
+
 	char *path = path_from_args(argc, argv);
 	if (path == NULL)
 	{
-		path = "C:\\Users\\jukai\\Documents\\Engine\\"; //".";
+		path = "C:\\Users\\jukai\\Documents\\Engine\\";
 	}
 
-	for_each_file_context context;
+	printf("%s%s\n", "Running static hash pre build step in directory: ", path);
+
+	clock_t start = clock();
+
+	fck_hash_for_each_file_context context;
 	context.writer = simple_writer_create();
 	context.reader = simple_reader_create();
 	context.full = simple_writer_create();
@@ -439,10 +458,20 @@ int main(int argc, char **argv)
 
 	for_each_entry_in_directory(&context, path);
 
+	const clock_t end = clock();
+	const clock_t delta = end - start;
+
+	const double elapsed = (double)delta / CLOCKS_PER_SEC;
+	printf("%s [%fs]\n", "Finishing static hash pre build step", elapsed);
+
+	simple_writer_append_char(&context.full, '\0');
+	//printf("%s", context.full.buffer);
+
 	// Optional, the OS will take care of it
 	simple_writer_free(&context.entries);
 	simple_writer_free(&context.full);
 	simple_reader_free(&context.reader);
 	simple_writer_free(&context.writer);
+
 	return 0;
 }

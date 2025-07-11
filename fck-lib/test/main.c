@@ -4,8 +4,10 @@
 #include <sad_atomic.h>
 #include <sad_pointer_queue.h>
 #include <sad_thread.h>
+#include <fck_hash.h>
 
 #include <stdio.h>
+
 
 void *sad_allocator_implementation(void *context, void *ptr, size_t size)
 {

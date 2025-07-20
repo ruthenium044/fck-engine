@@ -1,29 +1,27 @@
-# Super Async Development
+# fck-cnt
 cmake_minimum_required(VERSION 3.20)
 
-project(fck-sad)
+project(fck-cnt)
 
 include_guard(GLOBAL)
-
-# TODO: Make /permissive- it use Za, maybe
-# add_compile_options(/Za)
-#list(APPEND CMAKE_PREFIX_PATH "${CMAKE_CURRENT_SOURCE_DIR}/..")
 
 file(GLOB_RECURSE FOUND_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/include/**.h")
 list(APPEND HEADERS ${FOUND_HEADERS})
 
-file(GLOB_RECURSE FOUND_INL_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/src/**.inl")
-list(APPEND HEADERS ${FOUND_HEADERS})
-
 file(GLOB_RECURSE FOUND_C_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/**.c")
 
+file(GLOB_RECURSE FOUND_SOURCE_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/src/**.h")
+list(APPEND HEADERS ${FOUND_HEADERS})
+
+list(APPEND SOURCES ${FOUND_C_SOURCES})
+list(REMOVE_ITEM SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/main.c")
+
 add_library(${PROJECT_NAME} ${SOURCES})
-add_library(fck::sad ALIAS ${PROJECT_NAME})
+add_library(fck::cnt ALIAS ${PROJECT_NAME})
 
 target_sources(${PROJECT_NAME}
     PRIVATE ${FOUND_C_SOURCES}
-    PRIVATE ${FOUND_INL_HEADERS}
-    PRIVATE ${FOUND_HEADERS} 
+    PRIVATE ${FOUND_HEADERS} ${FOUND_SOURCE_HEADERS}
 )
 
 target_include_directories(${PROJECT_NAME}

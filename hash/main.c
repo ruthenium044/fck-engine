@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "fck_hash.h"
 
@@ -24,7 +25,7 @@ typedef struct fck_hash_for_each_file_context
 {
 	fck_hash_simple_writer writer;
 	fck_hash_simple_reader reader;
-
+	
 	fck_hash_simple_writer full;
 	fck_hash_simple_writer entries;
 } fck_hash_for_each_file_context;
@@ -234,7 +235,8 @@ static void process_text(fck_hash_simple_writer *writer, fck_hash_simple_reader 
 				{
 					simple_writer_append_string(writer, begin, emplace_position);
 					char hash_buffer[64]; // 16 hexadecimals and a bit of decoration
-					unsigned long long h = fck_hash(quotation_mark_open + 1, quotation_mark_close);
+					int length = (int)(quotation_mark_close - (quotation_mark_open + 1));
+					unsigned long long h = fck_hash(quotation_mark_open + 1, length);
 					int offset = 0;
 					if (*parenthesis_close_or_comma != ',')
 					{
@@ -417,16 +419,17 @@ static void for_each_file(fck_hash_for_each_file_context *context, const char *f
 	simple_writer_append_char(&context->full, '\n');
 }
 
-static char *path_from_args(int argc, char **argv)
+static char *from_args(const char* token, int argc, char **argv)
 {
+	int offset = strlen(token) - 1;
 	for (int i = 0; i < argc; i++)
 	{
-		char *path_token = strstr(argv[i], "path");
+		char *path_token = strstr(argv[i], token);
 		if (path_token == NULL)
 		{
 			continue;
 		}
-		char *equals_sign = next_char_ignore_whitespace(path_token + 3);
+		char *equals_sign = next_char_ignore_whitespace(path_token + offset);
 		if (path_token != NULL && *equals_sign == '=')
 		{
 			return next_char_ignore_whitespace(equals_sign);
@@ -435,12 +438,9 @@ static char *path_from_args(int argc, char **argv)
 	return NULL;
 }
 
-#include <time.h>
-
 int main(int argc, char **argv)
 {
-
-	char *path = path_from_args(argc, argv);
+	char *path = from_args("path", argc, argv);
 	if (path == NULL)
 	{
 		path = "C:\\Users\\jukai\\Documents\\Engine\\";
@@ -466,6 +466,21 @@ int main(int argc, char **argv)
 
 	simple_writer_append_char(&context.full, '\0');
 	//printf("%s", context.full.buffer);
+
+	char* output = from_args("output", argc, argv);
+	if(output != NULL) 
+	{
+		printf("%s%s\n", "Writing entries to file: ", output);
+
+		HANDLE file = CreateFile(output,
+			GENERIC_WRITE, //
+			0,                            //
+			NULL,                         //
+			CREATE_ALWAYS,                //
+			FILE_ATTRIBUTE_NORMAL,        //
+			NULL);
+		BOOL result = WriteFile(file, context.entries.buffer, context.entries.position - 1, NULL, NULL);
+	}
 
 	// Optional, the OS will take care of it
 	simple_writer_free(&context.entries);

@@ -32,7 +32,7 @@ kll_pointer_lookup *kll_pointer_lookup_alloc(kll_allocator *allocator, size_t ca
 	
 	lookup = (kll_pointer_lookup *)kll_malloc(allocator, sizeof(*lookup) + hint_capacity + elements_capacity);
 	
-
+	return NULL;
 }
 
 typedef struct kll_temp_context

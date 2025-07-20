@@ -20,3 +20,5 @@ target_include_directories(${PROJECT_NAME} INTERFACE
     "$<INSTALL_INTERFACE:include>"
 )
 
+set_target_properties(${PROJECT_NAME}-headers PROPERTIES FOLDER "fck-lib")
+

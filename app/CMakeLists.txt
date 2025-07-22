@@ -41,7 +41,7 @@ target_sources(${PROJECT_NAME}
 )
 
 find_package(fckc CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-target_link_libraries(${PROJECT_NAME} PUBLIC fck::fckc fck::kll PRIVATE SDL3::SDL3)
+target_link_libraries(${PROJECT_NAME} PUBLIC fck::fckc fck::kll fck::hash PRIVATE SDL3::SDL3)
 
 set_target_properties(SDL3-static PROPERTIES FOLDER "SDL3")
 set_target_properties(SDL_uclibc PROPERTIES FOLDER "SDL3")

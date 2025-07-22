@@ -2,7 +2,12 @@
 #define NK_IMPLEMENTATION
 #include "fck_ui.h"
 
-#include <SDL3/SDL.h>
+#include <SDL3/SDL_assert.h>
+#include <SDL3/SDL_clipboard.h>
+#include <SDL3/SDL_events.h>
+#include <SDL3/SDL_log.h>
+#include <SDL3/SDL_render.h>
+#include <SDL3/SDL_timer.h>
 
 /*
  * ==============================================================
@@ -13,6 +18,21 @@
  */
 #include <stdlib.h>
 #include <string.h>
+
+typedef union nk_sdl_input_event {
+	SDL_EventType type;
+	SDL_KeyboardEvent key;
+	SDL_MouseButtonEvent button;
+	SDL_MouseMotionEvent motion;
+	SDL_MouseWheelEvent wheel;
+	SDL_TextInputEvent text;
+} nk_sdl_input_event;
+
+typedef struct nk_sdl_input_event_queue
+{
+	size_t count;
+	nk_sdl_input_event events[64];
+} nk_sdl_input_event_queue;
 
 typedef struct nk_sdl_device
 {
@@ -34,11 +54,50 @@ typedef struct nk_sdl
 	struct nk_font_atlas atlas;
 	struct nk_context ctx;
 	Uint64 time_of_last_frame;
+
+	nk_sdl_input_event_queue input_queue;
 } nk_sdl;
+
+typedef struct fck_ui
+{
+	nk_sdl sdl;
+} fck_ui;
+
+static int nk_sdl_input_event_is_valid(SDL_Event const *event)
+{
+	switch (event->type)
+	{
+	case SDL_EVENT_KEY_UP:
+	case SDL_EVENT_KEY_DOWN:
+	case SDL_EVENT_MOUSE_BUTTON_UP:
+	case SDL_EVENT_MOUSE_BUTTON_DOWN:
+	case SDL_EVENT_MOUSE_MOTION:
+	case SDL_EVENT_MOUSE_WHEEL:
+	case SDL_EVENT_TEXT_INPUT:
+		return 1;
+	default:
+		return 0;
+	}
+}
+
+static void nk_sdl_input_event_queue_reset(nk_sdl_input_event_queue *queue)
+{
+	queue->count = 0;
+}
+
+static void nk_sdl_input_event_queue_convert_and_maybe_push(nk_sdl_input_event_queue *queue, SDL_Event const *event)
+{
+	if (nk_sdl_input_event_is_valid(event))
+	{
+		SDL_assert(queue->count < 64);
+		SDL_memcpy(queue->events + queue->count, event, sizeof(*queue->events));
+		queue->count = queue->count + 1;
+	}
+}
 
 static void nk_sdl_device_upload_atlas(struct fck_ui *ui, struct SDL_Renderer *renderer, const void *image, int width, int height)
 {
-	struct nk_sdl_device *dev = &ui->sdl->ogl;
+	struct nk_sdl_device *dev = &ui->sdl.ogl;
 
 	SDL_Texture *g_SDLFontTexture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STATIC, width, height);
 	if (g_SDLFontTexture == NULL)
@@ -53,10 +112,13 @@ static void nk_sdl_device_upload_atlas(struct fck_ui *ui, struct SDL_Renderer *r
 
 static void nk_sdl_clipboard_paste(nk_handle usr, struct nk_text_edit *edit)
 {
+	(void)usr;
+
 	const char *text = SDL_GetClipboardText();
 	if (text)
+	{
 		nk_textedit_paste(edit, text, nk_strlen(text));
-	(void)usr;
+	}
 }
 
 static void nk_sdl_clipboard_copy(nk_handle usr, const char *text, int len)
@@ -64,10 +126,14 @@ static void nk_sdl_clipboard_copy(nk_handle usr, const char *text, int len)
 	char *str = 0;
 	(void)usr;
 	if (!len)
+	{
 		return;
+	}
 	str = (char *)malloc((size_t)len + 1);
 	if (!str)
+	{
 		return;
+	}
 	memcpy(str, text, (size_t)len);
 	str[len] = '\0';
 	SDL_SetClipboardText(str);
@@ -76,70 +142,72 @@ static void nk_sdl_clipboard_copy(nk_handle usr, const char *text, int len)
 
 static void nk_sdl_font_stash_begin(struct fck_ui *ui, struct nk_font_atlas **atlas)
 {
-	nk_font_atlas_init_default(&ui->sdl->atlas);
-	nk_font_atlas_begin(&ui->sdl->atlas);
-	*atlas = &ui->sdl->atlas;
+	nk_font_atlas_init_default(&ui->sdl.atlas);
+	nk_font_atlas_begin(&ui->sdl.atlas);
+	*atlas = &ui->sdl.atlas;
 }
 
 static void nk_sdl_font_stash_end(struct fck_ui *ui, struct SDL_Renderer *renderer)
 {
 	const void *image;
 	int w, h;
-	image = nk_font_atlas_bake(&ui->sdl->atlas, &w, &h, NK_FONT_ATLAS_RGBA32);
+	image = nk_font_atlas_bake(&ui->sdl.atlas, &w, &h, NK_FONT_ATLAS_RGBA32);
 	nk_sdl_device_upload_atlas(ui, renderer, image, w, h);
-	nk_font_atlas_end(&ui->sdl->atlas, nk_handle_ptr(ui->sdl->ogl.font_tex), &ui->sdl->ogl.tex_null);
-	if (ui->sdl->atlas.default_font)
-		nk_style_set_font(&ui->sdl->ctx, &ui->sdl->atlas.default_font->handle);
+	nk_font_atlas_end(&ui->sdl.atlas, nk_handle_ptr(ui->sdl.ogl.font_tex), &ui->sdl.ogl.tex_null);
+	if (ui->sdl.atlas.default_font)
+		nk_style_set_font(&ui->sdl.ctx, &ui->sdl.atlas.default_font->handle);
 }
 
-struct nk_context *fck_ui_init_internal(fck_ui *ui)
+struct fck_ui *fck_ui_init_internal()
 {
-	ui->sdl = (nk_sdl *)SDL_malloc(sizeof(*ui->sdl));
-	ui->sdl->time_of_last_frame = SDL_GetTicks();
-	nk_init_default(&ui->sdl->ctx, 0);
-	ui->sdl->ctx.clip.copy = nk_sdl_clipboard_copy;
-	ui->sdl->ctx.clip.paste = nk_sdl_clipboard_paste;
-	ui->sdl->ctx.clip.userdata = nk_handle_ptr(0);
-	nk_buffer_init_default(&ui->sdl->ogl.cmds);
-	return &ui->sdl->ctx;
+	fck_ui *ui = (fck_ui *)SDL_malloc(sizeof(*ui));
+	SDL_zerop(ui);
+
+	ui->sdl.time_of_last_frame = SDL_GetTicks();
+	nk_init_default(&ui->sdl.ctx, 0);
+	ui->sdl.ctx.clip.copy = nk_sdl_clipboard_copy;
+	ui->sdl.ctx.clip.paste = nk_sdl_clipboard_paste;
+	ui->sdl.ctx.clip.userdata = nk_handle_ptr(0);
+	nk_buffer_init_default(&ui->sdl.ogl.cmds);
+	return ui;
 }
 
 void fck_ui_free(fck_ui *ui)
 {
-	struct nk_sdl_device *dev = &ui->sdl->ogl;
-	nk_font_atlas_clear(&ui->sdl->atlas);
-	nk_free(&ui->sdl->ctx);
+	struct nk_sdl_device *dev = &ui->sdl.ogl;
+	nk_font_atlas_clear(&ui->sdl.atlas);
+	nk_free(&ui->sdl.ctx);
 	SDL_DestroyTexture(dev->font_tex);
 	/* glDeleteTextures(1, &dev->font_tex); */
 	nk_buffer_free(&dev->cmds);
-	memset(&ui->sdl, 0, sizeof(ui->sdl));
+	memset(ui, 0, sizeof(*ui));
 
-	SDL_free(ui->sdl);
+	SDL_free(ui);
 }
 
-void fck_ui_handle_grab(struct fck_ui *ui, struct SDL_Window *window)
+static void fck_ui_handle_grab(struct fck_ui *ui, struct SDL_Window *window)
 {
-	struct nk_context *ctx = &ui->sdl->ctx;
-	if (ctx->input.mouse.grab)
-	{
-		SDL_SetWindowRelativeMouseMode(window, true);
-	}
-	else if (ctx->input.mouse.ungrab)
-	{
-		/* better support for older SDL by setting mode first; causes an extra mouse motion event */
-		SDL_SetWindowRelativeMouseMode(window, false);
-		SDL_WarpMouseInWindow(window, (int)ctx->input.mouse.prev.x, (int)ctx->input.mouse.prev.y);
-	}
-	else if (ctx->input.mouse.grabbed)
-	{
-		ctx->input.mouse.pos.x = ctx->input.mouse.prev.x;
-		ctx->input.mouse.pos.y = ctx->input.mouse.prev.y;
-	}
+	// struct nk_context *ctx = &ui->sdl.ctx;
+	// if (ctx->input.mouse.grab)
+	//{
+	//	SDL_SetWindowRelativeMouseMode(window, true);
+	// }
+	// else if (ctx->input.mouse.ungrab)
+	//{
+	//	/* better support for older SDL by setting mode first; causes an extra mouse motion event */
+	//	SDL_SetWindowRelativeMouseMode(window, false);
+	//	SDL_WarpMouseInWindow(window, (int)ctx->input.mouse.prev.x, (int)ctx->input.mouse.prev.y);
+	// }
+	// else if (ctx->input.mouse.grabbed)
+	//{
+	//	ctx->input.mouse.pos.x = ctx->input.mouse.prev.x;
+	//	ctx->input.mouse.pos.y = ctx->input.mouse.prev.y;
+	// }
 }
 
-int fck_ui_handle_event(struct fck_ui *ui, SDL_Event *evt)
+static int fck_ui_handle_event(struct fck_ui *ui, nk_sdl_input_event const *evt)
 {
-	struct nk_context *ctx = &ui->sdl->ctx;
+	struct nk_context *ctx = &ui->sdl.ctx;
 
 	switch (evt->type)
 	{
@@ -250,7 +318,9 @@ int fck_ui_handle_event(struct fck_ui *ui, SDL_Event *evt)
 			nk_input_motion(ctx, x + evt->motion.xrel, y + evt->motion.yrel);
 		}
 		else
+		{
 			nk_input_motion(ctx, evt->motion.x, evt->motion.y);
+		}
 		return 1;
 
 	case SDL_EVENT_TEXT_INPUT: {
@@ -263,15 +333,17 @@ int fck_ui_handle_event(struct fck_ui *ui, SDL_Event *evt)
 	case SDL_EVENT_MOUSE_WHEEL:
 		nk_input_scroll(ctx, nk_vec2((float)evt->wheel.x, (float)evt->wheel.y));
 		return 1;
+
+	default:
+		return 0;
 	}
-	return 0;
 }
 
-void fck_ui_setup(struct fck_ui *ui, struct SDL_Renderer* renderer)
+struct fck_ui *fck_ui_alloc(struct SDL_Renderer *renderer)
 {
 	float font_scale = 1;
 
-	ui->ctx = fck_ui_init_internal(ui);
+	fck_ui *ui = fck_ui_init_internal();
 
 	{
 		struct nk_font_atlas *atlas;
@@ -294,15 +366,38 @@ void fck_ui_setup(struct fck_ui *ui, struct SDL_Renderer* renderer)
 		 * size and is only necessary when font_scale > 1 */
 		font->handle.height /= font_scale;
 		/*nk_style_load_all_cursors(ctx, atlas->cursors);*/
-		nk_style_set_font(&ui->sdl->ctx, &font->handle);
+		nk_style_set_font(&ui->sdl.ctx, &font->handle);
 	}
+
+	nk_sdl_input_event_queue_reset(&ui->sdl.input_queue);
+	return ui;
 }
 
-void fck_ui_render(struct fck_ui *ui, struct SDL_Renderer* renderer)
+void fck_ui_enqueue_event(struct fck_ui *ui, SDL_Event const *event)
 {
-	/* setup global state */
-	struct nk_sdl_device *dev = &ui->sdl->ogl;
+	nk_sdl_input_event_queue_convert_and_maybe_push(&ui->sdl.input_queue, event);
+}
 
+struct nk_context *fck_ui_context(struct fck_ui *ui)
+{
+	return &ui->sdl.ctx;
+}
+
+void fck_ui_render(struct fck_ui *ui, struct SDL_Renderer *renderer)
+{
+	// Apply enqueued events
+	{
+		struct nk_context *context = &ui->sdl.ctx;
+		nk_input_begin(context);
+		for (int index = 0; index < ui->sdl.input_queue.count; index++)
+		{
+			fck_ui_handle_event(ui, &ui->sdl.input_queue.events[index]);
+		}
+		nk_input_end(context);
+		nk_sdl_input_event_queue_reset(&ui->sdl.input_queue);
+	}
+
+	struct nk_sdl_device *dev = &ui->sdl.ogl;
 	{
 		SDL_Rect saved_clip;
 #ifdef NK_SDL_CLAMP_CLIP_RECT
@@ -328,8 +423,8 @@ void fck_ui_render(struct fck_ui *ui, struct SDL_Renderer* renderer)
 			{NK_VERTEX_LAYOUT_END}};
 
 		Uint64 now = SDL_GetTicks();
-		ui->sdl->ctx.delta_time_seconds = (float)(now - ui->sdl->time_of_last_frame) / 1000;
-		ui->sdl->time_of_last_frame = now;
+		ui->sdl.ctx.delta_time_seconds = (float)(now - ui->sdl.time_of_last_frame) / 1000;
+		ui->sdl.time_of_last_frame = now;
 
 		NK_MEMSET(&config, 0, sizeof(config));
 		config.vertex_layout = vertex_layout;
@@ -346,7 +441,7 @@ void fck_ui_render(struct fck_ui *ui, struct SDL_Renderer* renderer)
 		/* convert shapes into vertexes */
 		nk_buffer_init_default(&vbuf);
 		nk_buffer_init_default(&ebuf);
-		nk_convert(&ui->sdl->ctx, &dev->cmds, &vbuf, &ebuf, &config);
+		nk_convert(&ui->sdl.ctx, &dev->cmds, &vbuf, &ebuf, &config);
 
 		/* iterate over and execute each draw command */
 		offset = (const nk_draw_index *)nk_buffer_memory_const(&ebuf);
@@ -354,10 +449,10 @@ void fck_ui_render(struct fck_ui *ui, struct SDL_Renderer* renderer)
 		clipping_enabled = SDL_RenderClipEnabled(renderer);
 		SDL_GetRenderClipRect(renderer, &saved_clip);
 #ifdef NK_SDL_CLAMP_CLIP_RECT
-		SDL_RenderGetViewport(sdl->renderer, &viewport);
+		SDL_GetRenderViewport(renderer, &viewport);
 #endif
 
-		nk_draw_foreach(cmd, &ui->sdl->ctx, &dev->cmds)
+		nk_draw_foreach(cmd, &ui->sdl.ctx, &dev->cmds)
 		{
 			if (!cmd->elem_count)
 				continue;
@@ -394,8 +489,8 @@ void fck_ui_render(struct fck_ui *ui, struct SDL_Renderer* renderer)
 			{
 				const void *vertices = nk_buffer_memory_const(&vbuf);
 
-				SDL_RenderGeometryRaw(renderer, (SDL_Texture *)cmd->texture.ptr, (const float *)((const nk_byte *)vertices + vp),
-				                      vs, (const SDL_FColor *)((const nk_byte *)vertices + vc), vs,
+				SDL_RenderGeometryRaw(renderer, (SDL_Texture *)cmd->texture.ptr, (const float *)((const nk_byte *)vertices + vp), vs,
+				                      (const SDL_FColor *)((const nk_byte *)vertices + vc), vs,
 				                      (const float *)((const nk_byte *)vertices + vt), vs, (vbuf.needed / vs), (void *)offset,
 				                      cmd->elem_count, 2);
 
@@ -409,7 +504,7 @@ void fck_ui_render(struct fck_ui *ui, struct SDL_Renderer* renderer)
 			SDL_SetRenderClipRect(renderer, NULL);
 		}
 
-		nk_clear(&ui->sdl->ctx);
+		nk_clear(&ui->sdl.ctx);
 		nk_buffer_clear(&dev->cmds);
 		nk_buffer_free(&vbuf);
 		nk_buffer_free(&ebuf);

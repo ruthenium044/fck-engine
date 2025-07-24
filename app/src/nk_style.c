@@ -1310,11 +1310,7 @@ static int overview(struct nk_context *ctx)
 
 	/* window flags */
 	ctx->style.window.header.align = header_align;
-
-	actual_window_flags = window_flags;
-	if (!(actual_window_flags & NK_WINDOW_TITLE))
-		actual_window_flags &= ~(NK_WINDOW_MINIMIZABLE | NK_WINDOW_CLOSABLE);
-	if (nk_begin(ctx, "Overview", nk_rect(10, 10, 400, 600), actual_window_flags))
+	// if (nk_begin(ctx, "Overview", nk_rect(10, 10, 400, 600), actual_window_flags))
 	{
 		if (show_menu)
 		{
@@ -2763,6 +2759,6 @@ static int overview(struct nk_context *ctx)
 		if (disable_widgets)
 			nk_widget_disable_end(ctx);
 	}
-	nk_end(ctx);
+	// nk_end(ctx);
 	return !nk_window_is_closed(ctx, "Overview");
 }

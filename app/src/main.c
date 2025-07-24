@@ -1,5 +1,5 @@
 
-#define SDL_MAIN_USE_CALLBACKS
+//#define SDL_MAIN_USE_CALLBACKS
 #include <SDL3/SDL_assert.h>
 #include <SDL3/SDL_log.h>
 #include <SDL3/SDL_main.h>
@@ -49,7 +49,7 @@ SDLMAIN_DECLSPEC SDL_AppResult SDLCALL SDL_AppEvent(void *appstate, SDL_Event *e
 	{
 		return SDL_APP_SUCCESS;
 	}
-
+	
 	fck_instance_result result = fck_instance_event((fck_instance *)appstate, event);
 
 	return fck_instance_result_to_sdl_app_result(result);

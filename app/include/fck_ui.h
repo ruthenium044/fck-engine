@@ -7,6 +7,20 @@ struct SDL_Window;
 struct SDL_Renderer;
 union SDL_Event;
 
+enum theme
+{
+	THEME_BLACK,
+	THEME_WHITE,
+	THEME_RED,
+	THEME_BLUE,
+	THEME_DARK,
+	THEME_DRACULA,
+	THEME_CATPPUCCIN_LATTE,
+	THEME_CATPPUCCIN_FRAPPE,
+	THEME_CATPPUCCIN_MACCHIATO,
+	THEME_CATPPUCCIN_MOCHA
+};
+
 // Consistency!
 typedef struct nk_context fck_ui_ctx;
 
@@ -20,8 +34,12 @@ void fck_ui_enqueue_event(fck_ui* ui, union SDL_Event const* event);
 
 fck_ui_ctx * fck_ui_context(fck_ui* ui);
 
+struct nk_color* fck_ui_set_style(struct nk_context* ctx, enum theme theme);
+
 // Odd declaration, but the source file requires it to be like this!
 // This way the user only needs to #include<fck_ui.h>
+// This convenience include is justified since fck_ui is HEAVILY tied to nuklear
+// TODO: nuklear.h -> nuklear.inl?
 #define NK_INCLUDE_FIXED_TYPES
 #define NK_INCLUDE_STANDARD_IO
 #define NK_INCLUDE_STANDARD_VARARGS

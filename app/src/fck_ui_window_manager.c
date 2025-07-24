@@ -22,16 +22,6 @@ typedef struct fck_ui_window_manager
 	fck_ui_window user_windows[1];
 } fck_ui_window_manager;
 
-const char *fck_ui_window_title(fck_ui_window *window)
-{
-	return window->title;
-}
-
-nk_flags *fck_ui_window_flags(fck_ui_window *window)
-{
-	return &window->flags;
-}
-
 fck_ui_window_manager *fck_ui_window_manager_alloc(fckc_size_t capacity)
 {
 	fck_ui_window_manager *manager;
@@ -140,7 +130,7 @@ fck_ui_window_manager_text_input_signal_type fck_ui_window_manager_query_text_in
 	return signal;
 }
 
-void fck_overlay_header(fck_ui* ui, fck_ui_window_manager* manager, struct nk_rect* canvas_rect)
+void fck_ui_window_manager_header(fck_ui* ui, fck_ui_window_manager* manager, struct nk_rect* canvas_rect)
 {
 	// BIG TODO:
 	fck_ui_ctx* ctx = fck_ui_context(ui);
@@ -186,7 +176,7 @@ void fck_overlay_header(fck_ui* ui, fck_ui_window_manager* manager, struct nk_re
 	nk_end(ctx);
 }
 
-void fck_overlay_footer(fck_ui* ui, fck_ui_window_manager* manager, struct nk_rect* canvas_rect)
+void fck_ui_window_manager_footer(fck_ui* ui, fck_ui_window_manager* manager, struct nk_rect* canvas_rect)
 {
 	fck_ui_window_manager* window_manager = manager;
 	fckc_size_t window_count = fck_ui_window_manager_count(window_manager);
@@ -241,8 +231,8 @@ void fck_ui_window_manager_tick(fck_ui* ui, fck_ui_window_manager* manager, int 
 
 	struct nk_rect canvas_rect = nk_rect(x, y, w, h);
 
-	fck_overlay_header(ui, manager, &canvas_rect);
-	fck_overlay_footer(ui, manager, &canvas_rect);
+	fck_ui_window_manager_header(ui, manager, &canvas_rect);
+	fck_ui_window_manager_footer(ui, manager, &canvas_rect);
 
 	for (fckc_size_t index = 0; index < manager->count; index++)
 	{
@@ -268,6 +258,7 @@ void fck_ui_window_manager_tick(fck_ui* ui, fck_ui_window_manager* manager, int 
 			}
 			if (!window->on_content(ui, window, window->userdata))
 			{
+				// TODO?
 			}
 		}
 		else

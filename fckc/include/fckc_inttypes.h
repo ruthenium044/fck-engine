@@ -19,5 +19,6 @@ typedef int64_t fckc_i64;
 typedef uint64_t fckc_u64;
 
 typedef size_t fckc_size_t;
+typedef uintptr_t fckc_uptr;
 
 #endif // !FCKC_INTTYPES_H_INCLUDED

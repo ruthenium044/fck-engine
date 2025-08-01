@@ -2,24 +2,42 @@
 #ifndef FCK_HASH_H_INCLUDED
 #define FCK_HASH_H_INCLUDED
 
-
 // TODO: The first case should trigger a compile time error
 #define FCK_STATIC_HASH_NO_HASH_EXISTS(str) sizeof("" str "") / 0
 #define FCK_STATIC_HASH_HASH_EXISTS(str, h) (sizeof("" str "") ? (h) : (h))
 #define FCK_STATIC_HASH_CHOOSE(X, SELECT, ...) SELECT
 
-#define FCK_STATIC_HASH(...) FCK_STATIC_HASH_CHOOSE(__VA_ARGS__, FCK_STATIC_HASH_NO_HASH_EXISTS(__VA_ARGS__), FCK_STATIC_HASH_HASH_EXISTS(__VA_ARGS__))
+// TODO: Fix this - it expands wrong cause I am dumb :-(
+#define FCK_STATIC_HASH(...)                                                                                                               \
+	FCK_STATIC_HASH_CHOOSE(__VA_ARGS__, FCK_STATIC_HASH_NO_HASH_EXISTS(__VA_ARGS__), FCK_STATIC_HASH_HASH_EXISTS(__VA_ARGS__))
 
 typedef unsigned long long fck_hash_int;
 
-static fck_hash_int fck_hash(char *str, int length)
+static fck_hash_int fck_hash_unsafe(const char *str)
 {
 	unsigned long long hash = 5381;
 
-	for(int index = 0; index < length; index++) 
+	for (int index = 0; ; index++)
 	{
 		char c = str[index];
-		if(c == 0){
+		if (c == 0)
+		{
+			break;
+		}
+		hash = ((hash << 5) + hash) + (unsigned char)c;
+	}
+	return hash;
+}
+
+static fck_hash_int fck_hash(const char *str, int length)
+{
+	unsigned long long hash = 5381;
+
+	for (int index = 0; index < length; index++)
+	{
+		char c = str[index];
+		if (c == 0)
+		{
 			break;
 		}
 		hash = ((hash << 5) + hash) + (unsigned char)c;
@@ -28,5 +46,5 @@ static fck_hash_int fck_hash(char *str, int length)
 }
 
 #endif // !FCK_HASH_H_INCLUDED
-// example:
-// unsigned long long id = STATIC_HASH("Teeest", 0x00000652D32D23AF)
+	   // example:
+       // unsigned long long id = STATIC_HASH("Teeest", 0x00000652D32D23AF)

@@ -253,7 +253,7 @@ void fck_ui_window_manager_tick(fck_ui* ui, fck_ui_window_manager* manager, int 
 			{
 				if (nk_input_is_mouse_hovering_rect(&ctx->input, title_bounds))
 				{
-					nk_window_set_bounds(ctx, window->title, rect);
+					nk_window_set_bounds(ctx, window->title, canvas_rect);
 				}
 			}
 			if (!window->on_content(ui, window, window->userdata))

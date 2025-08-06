@@ -3,8 +3,8 @@
 #ifndef FCKC_INTTYPES_H_INCLUDED
 #define FCKC_INTTYPES_H_INCLUDED
 
-#include <stddef.h>
 #include <inttypes.h>
+#include <stddef.h>
 
 typedef int8_t fckc_i8;
 typedef uint8_t fckc_u8;
@@ -20,5 +20,12 @@ typedef uint64_t fckc_u64;
 
 typedef size_t fckc_size_t;
 typedef uintptr_t fckc_uptr;
+
+typedef struct fck_lstring
+{
+	char *data; // Should this actually be char*? Urgh
+	fckc_size_t capacity;
+	fckc_size_t size;
+} fck_lstring;
 
 #endif // !FCKC_INTTYPES_H_INCLUDED

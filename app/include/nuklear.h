@@ -7301,7 +7301,6 @@ nk_dtoa(char* s, double n)
     int digit = 0, m = 0, m1 = 0;
     char* c = s;
     int neg = 0;
-
     NK_ASSERT(s);
     if (!s) return 0;
 
@@ -7340,7 +7339,9 @@ nk_dtoa(char* s, double n)
             *(c++) = (char)('0' + (char)digit);
         }
         if (m == 0 && n > 0)
+        {
             *(c++) = '.';
+        }
         m--;
     }
 
@@ -29350,6 +29351,11 @@ nk_property(struct nk_context* ctx, const char* name, struct nk_property_variant
             ctx->input.mouse.grabbed = nk_true;
         }
     }
+
+    if(*state == NK_PROPERTY_EDIT) {
+        nk_edit_focus(ctx, 0);
+    }
+
     /* check if previously active property is now inactive */
     if (*state == NK_PROPERTY_DEFAULT && old_state != NK_PROPERTY_DEFAULT) {
         if (old_state == NK_PROPERTY_DRAG) {

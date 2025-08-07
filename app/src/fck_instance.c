@@ -240,13 +240,13 @@ const char *fck_identifier_resolve(fck_identifier identifier)
 typedef struct fck_type_handle
 {
 	struct fck_type_registry_ref *registry;
-	fckc_size_t hash;
+	fckc_u64 hash;
 } fck_type_handle;
 
 typedef struct fck_member_handle
 {
 	struct fck_member_registry_ref *registry;
-	fckc_size_t hash;
+	fckc_u64 hash;
 } fck_member_handle;
 
 typedef struct fck_type_info
@@ -920,10 +920,6 @@ void fck_type_serialise(fck_serialiser *serialiser, fck_type_handle type_handle,
 	{
 		return;
 	}
-
-	// Recurse through children
-	char buffer[256];
-	int count = SDL_snprintf(buffer, sizeof(buffer), "%s %s", owner_name_name, name);
 
 	while (!fck_member_handle_is_null(current))
 	{

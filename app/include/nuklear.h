@@ -6382,7 +6382,7 @@ NK_LIB struct nk_property_variant nk_property_variant_double(double value, doubl
 NK_LIB void nk_drag_behavior(nk_flags* state, const struct nk_input* in, struct nk_rect drag, struct nk_property_variant* variant, float inc_per_pixel);
 NK_LIB void nk_property_behavior(nk_flags* ws, const struct nk_input* in, struct nk_rect property, struct nk_rect label, struct nk_rect edit, struct nk_rect empty, int* state, struct nk_property_variant* variant, float inc_per_pixel);
 NK_LIB void nk_draw_property(struct nk_command_buffer* out, const struct nk_style_property* style, const struct nk_rect* bounds, const struct nk_rect* label, nk_flags state, const char* name, int len, const struct nk_user_font* font);
-NK_LIB void nk_do_property(nk_flags* ws, struct nk_command_buffer* out, struct nk_rect property, const char* name, struct nk_property_variant* variant, float inc_per_pixel, char* buffer, int* len, int* state, int* cursor, int* select_begin, int* select_end, const struct nk_style_property* style, enum nk_property_filter filter, struct nk_input* in, const struct nk_user_font* font, struct nk_text_edit* text_edit, enum nk_button_behavior behavior);
+NK_LIB nk_flags nk_do_property(nk_flags* ws, struct nk_command_buffer* out, struct nk_rect property, const char* name, struct nk_property_variant* variant, float inc_per_pixel, char* buffer, int* len, int* state, int* cursor, int* select_begin, int* select_end, const struct nk_style_property* style, enum nk_property_filter filter, struct nk_input* in, const struct nk_user_font* font, struct nk_text_edit* text_edit, enum nk_button_behavior behavior);
 NK_LIB void nk_property(struct nk_context* ctx, const char* name, struct nk_property_variant* variant, float inc_per_pixel, const enum nk_property_filter filter);
 
 #ifdef NK_INCLUDE_FONT_BAKING
@@ -29047,7 +29047,7 @@ nk_draw_property(struct nk_command_buffer* out, const struct nk_style_property* 
         nk_widget_text(out, *label, name, len, &text, NK_TEXT_CENTERED, font);
     }
 }
-NK_LIB void
+NK_LIB nk_flags
 nk_do_property(nk_flags* ws,
     struct nk_command_buffer* out, struct nk_rect property,
     const char* name, struct nk_property_variant* variant,
@@ -29067,6 +29067,7 @@ nk_do_property(nk_flags* ws,
     char string[NK_MAX_NUMBER_BUFFER];
     float size;
 
+    nk_flags edit_flags = 0;
     char* dst = 0;
     int* length;
 
@@ -29194,7 +29195,7 @@ nk_do_property(nk_flags* ws,
     text_edit->string.buffer.memory.ptr = dst;
     text_edit->string.buffer.size = NK_MAX_NUMBER_BUFFER;
     text_edit->mode = NK_TEXT_EDIT_MODE_INSERT;
-    nk_do_edit(ws, out, edit, (int)NK_EDIT_FIELD | (int)NK_EDIT_AUTO_SELECT,
+    edit_flags = nk_do_edit(ws, out, edit, (int)NK_EDIT_FIELD | (int)NK_EDIT_AUTO_SELECT,
         filters[filter], text_edit, &style->edit, (*state == NK_PROPERTY_EDIT) ? in : 0, font);
 
     *length = text_edit->string.len;
@@ -29226,6 +29227,7 @@ nk_do_property(nk_flags* ws,
             break;
         }
     }
+    return edit_flags;
 }
 NK_LIB struct nk_property_variant
 nk_property_variant_int(int value, int min_value, int max_value, int step)
@@ -29289,6 +29291,8 @@ nk_property(struct nk_context* ctx, const char* name, struct nk_property_variant
     int dummy_select_begin = 0;
     int dummy_select_end = 0;
 
+    nk_flags do_property_flags = 0;
+
     NK_ASSERT(ctx);
     NK_ASSERT(ctx->current);
     NK_ASSERT(ctx->current->layout);
@@ -29331,7 +29335,7 @@ nk_property(struct nk_context* ctx, const char* name, struct nk_property_variant
     ctx->text_edit.clip = ctx->clip;
     in = ((s == NK_WIDGET_ROM && !win->property.active) ||
         layout->flags & NK_WINDOW_ROM || s == NK_WIDGET_DISABLED) ? 0 : &ctx->input;
-    nk_do_property(&ctx->last_widget_state, &win->buffer, bounds, name,
+    do_property_flags = nk_do_property(&ctx->last_widget_state, &win->buffer, bounds, name,
         variant, inc_per_pixel, buffer, len, state, cursor, select_begin,
         select_end, &style->property, filter, in, style->font, &ctx->text_edit,
         ctx->button_behavior);
@@ -29352,8 +29356,17 @@ nk_property(struct nk_context* ctx, const char* name, struct nk_property_variant
         }
     }
 
-    if(*state == NK_PROPERTY_EDIT) {
-        nk_edit_focus(ctx, 0);
+    //if(*state == NK_EDIT_ACTIVATED) {
+    //    nk_edit_focus(ctx, 0);
+    //}
+    if ((do_property_flags & NK_EDIT_ACTIVATED) == NK_EDIT_ACTIVATED) {
+        /* current edit is now hot */
+        win->edit.active = nk_true;
+        win->edit.name = hash;
+    }
+    else if ((do_property_flags & NK_EDIT_DEACTIVATED) == NK_EDIT_DEACTIVATED) {
+        /* current edit is now cold */
+        win->edit.active = nk_false;
     }
 
     /* check if previously active property is now inactive */

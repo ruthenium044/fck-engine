@@ -10,6 +10,9 @@ struct fck_serialise_interfaces;
 struct fck_type_info;
 struct fck_member_info;
 
+struct fck_serialiser;
+struct fck_serialiser_params;
+
 typedef struct fck_identifier
 {
 	// This is ok, if we can guarantee a STABLE pointer
@@ -44,7 +47,7 @@ typedef struct fck_serialise_i
 } fck_serialise_i;
 
 // Maybe prefer:
-//typedef struct fck_serialise_i2
+// typedef struct fck_serialise_i2
 //{
 //	struct fck_serialise_interfaces;
 //	// fck_type type; // Maybe instead of hash?
@@ -61,8 +64,8 @@ int fck_identifier_is_null(fck_identifier identifier);
 int fck_identifier_is_same(fck_identifier a, fck_identifier b);
 const char *fck_identifier_resolve(fck_identifier identifier);
 
-fck_identifiers *fck_identifiers_alloc();
-void fck_identifiers_free(fck_identifiers *ptr);
+struct fck_identifiers *fck_identifiers_alloc(fckc_size_t capacity);
+void fck_identifiers_free(struct fck_identifiers *ptr);
 
 typedef struct fck_identifier_desc
 {
@@ -77,7 +80,10 @@ fck_type fck_type_null();
 int fck_type_is_null(fck_type type);
 int fck_type_is_same(fck_type a, fck_type b);
 int fck_type_is(fck_type a, const char *str);
+
 struct fck_type_info *fck_type_resolve(fck_type type);
+fck_identifier fck_type_info_identify(struct fck_type_info *info);
+fck_member fck_type_info_first_member(struct fck_type_info *info);
 
 struct fck_types *fck_types_alloc(struct fck_identifiers *identifiers, fckc_size_t capacity);
 void fck_types_free(struct fck_types *types);
@@ -94,9 +100,14 @@ fck_type fck_types_find_from_string(struct fck_types *types, const char *name);
 fck_member fck_member_null();
 int fck_member_is_null(fck_member member);
 int fck_member_is_same(fck_member a, fck_member b);
-struct fck_member_info *fck_member_resolve(fck_member member);
 
-fck_members *fck_member_registry_alloc(struct fck_identifiers *identifiers, fckc_size_t capacity);
+struct fck_member_info *fck_member_resolve(fck_member member);
+fck_identifier fck_member_info_identify(struct fck_member_info *info);
+fck_type fck_member_info_type(struct fck_member_info *info);
+fck_member fck_member_info_next(struct fck_member_info *info);
+fckc_size_t fck_member_info_stride(struct fck_member_info *info);
+
+struct fck_members *fck_members_alloc(struct fck_identifiers *identifiers, fckc_size_t capacity);
 void fck_members_free(struct fck_members *members);
 
 typedef struct fck_member_desc

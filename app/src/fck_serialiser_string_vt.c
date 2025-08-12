@@ -178,12 +178,12 @@ void fck_read_string_i16(fck_serialiser *s, fck_serialiser_params *p, fckc_i16 *
 {
 	char buffer[FCK_READ_BUFFER_STRING_SIZE];
 
-	for (fckc_i8* end = v + c; v != end; v++)
+	for (fckc_i16 *end = v + c; v != end; v++)
 	{
 		fckc_size_t len = fck_read_string_number_length(s);
 		SDL_assert(len != 0 && len < sizeof(buffer));
 
-		fckc_u8* at = s->bytes + s->at;
+		fckc_u8 *at = s->bytes + s->at;
 		SDL_memcpy(buffer, at, len);
 		buffer[len] = '\0';
 
@@ -197,12 +197,12 @@ void fck_read_string_i32(fck_serialiser *s, fck_serialiser_params *p, fckc_i32 *
 {
 	char buffer[FCK_READ_BUFFER_STRING_SIZE];
 
-	for (fckc_i8* end = v + c; v != end; v++)
+	for (fckc_i32 *end = v + c; v != end; v++)
 	{
 		fckc_size_t len = fck_read_string_number_length(s);
 		SDL_assert(len != 0 && len < sizeof(buffer));
 
-		fckc_u8* at = s->bytes + s->at;
+		fckc_u8 *at = s->bytes + s->at;
 		SDL_memcpy(buffer, at, len);
 		buffer[len] = '\0';
 
@@ -216,12 +216,12 @@ void fck_read_string_i64(fck_serialiser *s, fck_serialiser_params *p, fckc_i64 *
 {
 	char buffer[FCK_READ_BUFFER_STRING_SIZE];
 
-	for (fckc_i8* end = v + c; v != end; v++)
+	for (fckc_i64 *end = v + c; v != end; v++)
 	{
 		fckc_size_t len = fck_read_string_number_length(s);
 		SDL_assert(len != 0 && len < sizeof(buffer));
 
-		fckc_u8* at = s->bytes + s->at;
+		fckc_u8 *at = s->bytes + s->at;
 		SDL_memcpy(buffer, at, len);
 		buffer[len] = '\0';
 
@@ -235,12 +235,12 @@ void fck_read_string_u8(fck_serialiser *s, fck_serialiser_params *p, fckc_u8 *v,
 {
 	char buffer[FCK_READ_BUFFER_STRING_SIZE];
 
-	for (fckc_i8* end = v + c; v != end; v++)
+	for (fckc_u8 *end = v + c; v != end; v++)
 	{
 		fckc_size_t len = fck_read_string_number_length(s);
 		SDL_assert(len != 0 && len < sizeof(buffer));
 
-		fckc_u8* at = s->bytes + s->at;
+		fckc_u8 *at = s->bytes + s->at;
 		SDL_memcpy(buffer, at, len);
 		buffer[len] = '\0';
 
@@ -254,12 +254,12 @@ void fck_read_string_u16(fck_serialiser *s, fck_serialiser_params *p, fckc_u16 *
 {
 	char buffer[FCK_READ_BUFFER_STRING_SIZE];
 
-	for (fckc_i8* end = v + c; v != end; v++)
+	for (fckc_u16 *end = v + c; v != end; v++)
 	{
 		fckc_size_t len = fck_read_string_number_length(s);
 		SDL_assert(len != 0 && len < sizeof(buffer));
 
-		fckc_u8* at = s->bytes + s->at;
+		fckc_u8 *at = s->bytes + s->at;
 		SDL_memcpy(buffer, at, len);
 		buffer[len] = '\0';
 
@@ -273,12 +273,12 @@ void fck_read_string_u32(fck_serialiser *s, fck_serialiser_params *p, fckc_u32 *
 {
 	char buffer[FCK_READ_BUFFER_STRING_SIZE];
 
-	for (fckc_i8* end = v + c; v != end; v++)
+	for (fckc_u32 *end = v + c; v != end; v++)
 	{
 		fckc_size_t len = fck_read_string_number_length(s);
 		SDL_assert(len != 0 && len < sizeof(buffer));
 
-		fckc_u8* at = s->bytes + s->at;
+		fckc_u8 *at = s->bytes + s->at;
 		SDL_memcpy(buffer, at, len);
 		buffer[len] = '\0';
 
@@ -292,12 +292,12 @@ void fck_read_string_u64(fck_serialiser *s, fck_serialiser_params *p, fckc_u64 *
 {
 	char buffer[FCK_READ_BUFFER_STRING_SIZE];
 
-	for (fckc_i8* end = v + c; v != end; v++)
+	for (fckc_u64 *end = v + c; v != end; v++)
 	{
 		fckc_size_t len = fck_read_string_number_length(s);
 		SDL_assert(len != 0 && len < sizeof(buffer));
 
-		fckc_u8* at = s->bytes + s->at;
+		fckc_u8 *at = s->bytes + s->at;
 		SDL_memcpy(buffer, at, len);
 		buffer[len] = '\0';
 
@@ -311,12 +311,12 @@ void fck_read_string_f32(fck_serialiser *s, fck_serialiser_params *p, float *v, 
 {
 	char buffer[FCK_READ_BUFFER_STRING_SIZE];
 
-	for (fckc_i8* end = v + c; v != end; v++)
+	for (float *end = v + c; v != end; v++)
 	{
 		fckc_size_t len = fck_read_string_number_length(s);
 		SDL_assert(len != 0 && len < sizeof(buffer));
 
-		fckc_u8* at = s->bytes + s->at;
+		fckc_u8 *at = s->bytes + s->at;
 		SDL_memcpy(buffer, at, len);
 		buffer[len] = '\0';
 
@@ -330,12 +330,12 @@ void fck_read_string_f64(fck_serialiser *s, fck_serialiser_params *p, double *v,
 {
 	char buffer[FCK_READ_BUFFER_STRING_SIZE];
 
-	for (fckc_i8* end = v + c; v != end; v++)
+	for (double *end = v + c; v != end; v++)
 	{
 		fckc_size_t len = fck_read_string_number_length(s);
 		SDL_assert(len != 0 && len < sizeof(buffer));
 
-		fckc_u8* at = s->bytes + s->at;
+		fckc_u8 *at = s->bytes + s->at;
 		SDL_memcpy(buffer, at, len);
 		buffer[len] = '\0';
 

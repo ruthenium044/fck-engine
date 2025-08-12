@@ -2,11 +2,11 @@
 #ifndef FCK_KLL_H_INCLUDED
 #define FCK_KLL_H_INCLUDED
 
-#include <inttypes.h>
+#include <fckc_inttypes.h>
 
 typedef struct kll_context kll_context;
 
-typedef void *(kll_realloc_function)(kll_context *context, void *ptr, size_t size, size_t line, const char *file);
+typedef void *(kll_realloc_function)(kll_context *context, void *ptr, fckc_size_t size, fckc_size_t line, const char *file);
 
 typedef struct kll_vt
 {

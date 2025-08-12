@@ -1,5 +1,8 @@
 
+// TODO: Make it portable...
+#if _WIN32
 #include <Windows.h>
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -25,7 +28,7 @@ typedef struct fck_hash_for_each_file_context
 {
 	fck_hash_simple_writer writer;
 	fck_hash_simple_reader reader;
-	
+
 	fck_hash_simple_writer full;
 	fck_hash_simple_writer entries;
 } fck_hash_for_each_file_context;
@@ -419,7 +422,7 @@ static void for_each_file(fck_hash_for_each_file_context *context, const char *f
 	simple_writer_append_char(&context->full, '\n');
 }
 
-static char *from_args(const char* token, int argc, char **argv)
+static char *from_args(const char *token, int argc, char **argv)
 {
 	int offset = strlen(token) - 1;
 	for (int i = 0; i < argc; i++)
@@ -465,20 +468,20 @@ int main(int argc, char **argv)
 	printf("%s [%fs]\n", "Finishing static hash pre build step", elapsed);
 
 	simple_writer_append_char(&context.full, '\0');
-	//printf("%s", context.full.buffer);
+	// printf("%s", context.full.buffer);
 
-	char* output = from_args("output", argc, argv);
-	if(output != NULL) 
+	char *output = from_args("output", argc, argv);
+	if (output != NULL)
 	{
 		printf("%s%s\n", "Writing entries to file: ", output);
 
 		HANDLE file = CreateFile(output,
-			GENERIC_WRITE, //
-			0,                            //
-			NULL,                         //
-			CREATE_ALWAYS,                //
-			FILE_ATTRIBUTE_NORMAL,        //
-			NULL);
+		                         GENERIC_WRITE,         //
+		                         0,                     //
+		                         NULL,                  //
+		                         CREATE_ALWAYS,         //
+		                         FILE_ATTRIBUTE_NORMAL, //
+		                         NULL);
 		BOOL result = WriteFile(file, context.entries.buffer, context.entries.position - 1, NULL, NULL);
 	}
 
@@ -490,3 +493,4 @@ int main(int argc, char **argv)
 
 	return 0;
 }
+#endif

@@ -2,6 +2,8 @@
 #define NK_IMPLEMENTATION
 #include "fck_ui.h"
 
+#include <fckc_inttypes.h>
+
 #include <SDL3/SDL_assert.h>
 #include <SDL3/SDL_clipboard.h>
 #include <SDL3/SDL_events.h>
@@ -16,7 +18,7 @@
  *
  * ===============================================================
  */
- // TODO: Prefer SDL libs
+// TODO: Prefer SDL libs
 #include <stdlib.h>
 #include <string.h>
 
@@ -31,7 +33,7 @@ typedef union nk_sdl_input_event {
 
 typedef struct nk_sdl_input_event_queue
 {
-	size_t count;
+	fckc_size_t count;
 	nk_sdl_input_event events[64];
 } nk_sdl_input_event_queue;
 
@@ -130,12 +132,12 @@ static void nk_sdl_clipboard_copy(nk_handle usr, const char *text, int len)
 	{
 		return;
 	}
-	str = (char *)malloc((size_t)len + 1);
+	str = (char *)malloc((fckc_size_t)len + 1);
 	if (!str)
 	{
 		return;
 	}
-	memcpy(str, text, (size_t)len);
+	memcpy(str, text, (fckc_size_t)len);
 	str[len] = '\0';
 	SDL_SetClipboardText(str);
 	free(str);
@@ -188,7 +190,7 @@ void fck_ui_free(fck_ui *ui)
 
 static void fck_ui_handle_grab(struct fck_ui *ui, struct SDL_Window *window)
 {
-	// NOTE: Demo said I need that, but idk :D 
+	// NOTE: Demo said I need that, but idk :D
 	// struct nk_context *ctx = &ui->sdl.ctx;
 	// if (ctx->input.mouse.grab)
 	//{
@@ -407,9 +409,9 @@ void fck_ui_render(struct fck_ui *ui, struct SDL_Renderer *renderer)
 #endif
 		bool clipping_enabled;
 		int vs = sizeof(struct nk_sdl_vertex);
-		size_t vp = offsetof(struct nk_sdl_vertex, position);
-		size_t vt = offsetof(struct nk_sdl_vertex, uv);
-		size_t vc = offsetof(struct nk_sdl_vertex, col);
+		fckc_size_t vp = offsetof(struct nk_sdl_vertex, position);
+		fckc_size_t vt = offsetof(struct nk_sdl_vertex, uv);
+		fckc_size_t vc = offsetof(struct nk_sdl_vertex, col);
 
 		/* convert from command queue into draw list and draw to screen */
 		const struct nk_draw_command *cmd;
@@ -515,7 +517,7 @@ void fck_ui_render(struct fck_ui *ui, struct SDL_Renderer *renderer)
 
 static struct nk_color fck_ui_cached_colour_table[NK_COLOR_COUNT];
 
-struct nk_color* fck_ui_set_style(struct nk_context* ctx, enum theme theme)
+struct nk_color *fck_ui_set_style(struct nk_context *ctx, enum theme theme)
 {
 	if (theme == THEME_WHITE)
 	{

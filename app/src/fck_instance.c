@@ -12,17 +12,13 @@
 #include "fck_ui_window_manager.h"
 
 #include "fck_serialiser.h"
-#include "fck_serialiser_byte_vt.h"
 #include "fck_serialiser_json_vt.h"
 #include "fck_serialiser_nk_edit_vt.h"
-#include "fck_serialiser_string_vt.h"
 #include "fck_serialiser_vt.h"
 
 #include "kll_heap.h"
 
-#ifndef offsetof
-#define offsetof(st, m) ((fckc_uptr) & (((st *)0)->m))
-#endif
+#include "fck_type_system.h"
 
 typedef fckc_u32 fck_entity_index;
 typedef struct fck_entity
@@ -39,271 +35,13 @@ typedef struct fck_entity_set
 	fck_entity_index id[1];
 } fck_entity_set;
 
-typedef struct fck_identifier_registry_entry
-{
-	fck_hash_int hash;
-	char *str;
-} fck_identifier_registry_entry;
-
-typedef struct fck_identifier_registry
-{
-	fckc_size_t count;
-	fckc_size_t capacity;
-
-	fck_identifier_registry_entry identifiers[1]; // ...
-} fck_identifier_registry;
-
-typedef struct fck_identifier_registry_ref
-{
-	fck_identifier_registry *value;
-} fck_identifier_registry_ref;
-
-typedef struct fck_identifier
-{
-	const fck_identifier_registry_ref *table;
-	fck_hash_int hash;
-} fck_identifier;
-
-static fckc_u64 fck_registry_add_next_capacity(fckc_u64 n)
-{
-	if (n == 0)
-		return 1;
-
-	n--;
-	n |= n >> 1;
-	n |= n >> 2;
-	n |= n >> 4;
-	n |= n >> 8;
-	n |= n >> 16;
-	n |= n >> 32;
-	n++;
-
-	return n;
-}
-
-fck_identifier_registry *fck_identifier_registry_alloc(fckc_size_t capacity)
-{
-	const fckc_size_t size = offsetof(fck_identifier_registry, identifiers[capacity]);
-	fck_identifier_registry *table = (fck_identifier_registry *)SDL_malloc(size);
-
-	for (fckc_size_t index = 0; index < capacity; index++)
-	{
-		fck_identifier_registry_entry *entry = &table->identifiers[index];
-		entry->hash = 0;
-		entry->str = NULL;
-	}
-
-	table->capacity = capacity;
-	table->count = 0;
-	return table;
-}
-
-fck_identifier_registry *fck_identifier_registry_free(fck_identifier_registry *ptr)
-{
-	SDL_free(ptr);
-	return NULL;
-}
-
-fck_identifier fck_identifier_null()
-{
-	return (fck_identifier){NULL, 0};
-}
-
-int fck_identifier_is_null(fck_identifier str)
-{
-	return str.table == NULL;
-}
-
-int fck_identifier_is_same(fck_identifier a, fck_identifier b)
-{
-	return a.table == b.table && a.hash == b.hash;
-}
-
-fck_identifier fck_identifiers_add(fck_identifier_registry_ref *identifiers_ref, const char *str)
-{
-	SDL_assert(identifiers_ref != NULL);
-
-	if (identifiers_ref->value->count >= (identifiers_ref->value->capacity >> 1))
-	{
-		// Realloc if required
-		fckc_size_t next_capacity = fck_registry_add_next_capacity(identifiers_ref->value->capacity + 1); // + 1... I think
-		fck_identifier_registry *result = fck_identifier_registry_alloc(next_capacity);
-
-		for (fckc_size_t index = 0; index < identifiers_ref->value->capacity; index++)
-		{
-			fck_identifier_registry_entry *entry = &identifiers_ref->value->identifiers[index];
-			if (entry->str == NULL)
-			{
-				continue;
-			}
-
-			fckc_size_t new_index = entry->hash % result->capacity;
-			while (1)
-			{
-				fck_identifier_registry_entry *new_entry = &identifiers_ref->value->identifiers[new_index];
-				if (new_entry->str == NULL)
-				{
-					SDL_memcpy(new_entry, entry, sizeof(*entry));
-					break;
-				}
-				new_index = new_index + 1 % result->capacity;
-			}
-		}
-
-		result->capacity = next_capacity;
-		result->count = identifiers_ref->value->count;
-		fck_identifier_registry_free(identifiers_ref->value);
-		identifiers_ref->value = result;
-	}
-
-	{
-		// Add or get...
-		fck_identifier_registry *identifiers = identifiers_ref->value;
-
-		fck_hash_int hash = fck_hash(str, strlen(str));
-		fckc_size_t index = hash % identifiers->capacity;
-
-		// That this while loop breaks is enforced through the realloc and size check
-		while (1)
-		{
-			fck_identifier_registry_entry *entry = &identifiers->identifiers[index];
-			const char *string = entry->str;
-			if (entry->hash == hash)
-			{
-				SDL_assert(SDL_strcmp(str, entry->str) == 0);
-				return (fck_identifier){identifiers_ref, hash};
-			}
-			if (string == NULL)
-			{
-				// Newly added
-				entry->hash = hash;
-				entry->str = SDL_strdup(str);
-				identifiers_ref->value->count = identifiers_ref->value->count + 1;
-				return (fck_identifier){identifiers_ref, hash};
-			}
-			index = index + 1;
-		}
-	}
-}
-
-fck_identifier fck_identifier_find_from_hash(fck_identifier_registry_ref *identifiers, fck_hash_int hash)
-{
-	SDL_assert(identifiers != NULL);
-
-	fckc_size_t index = hash % identifiers->value->capacity;
-
-	// That this while loop breaks is enforced through the realloc and size check
-	while (1)
-	{
-		fck_identifier_registry_entry *entry = &identifiers->value->identifiers[index];
-		const char *string = entry->str;
-		if (entry->hash == hash)
-		{
-			return (fck_identifier){identifiers, hash};
-		}
-		if (string == NULL)
-		{
-			return (fck_identifier){NULL, 0};
-		}
-		index = index + 1;
-	}
-}
-
-fck_identifier fck_identifier_find_from_string(fck_identifier_registry_ref *identifiers, const char *str)
-{
-	SDL_assert(identifiers != NULL);
-
-	fck_hash_int hash = fck_hash(str, strlen(str));
-	return fck_identifier_find_from_hash(identifiers, hash);
-}
-
-const char *fck_identifier_resolve(fck_identifier identifier)
-{
-	fckc_size_t index = identifier.hash % identifier.table->value->capacity;
-	while (1)
-	{
-		fck_identifier_registry_entry *entry = &identifier.table->value->identifiers[index];
-		const char *str = entry->str;
-
-		if (entry->hash == identifier.hash)
-		{
-			return str;
-		}
-		if (str == NULL)
-		{
-			return NULL;
-		}
-		index = index + 1;
-	}
-}
-
-typedef struct fck_type_handle
-{
-	struct fck_type_registry_ref *registry;
-	fckc_u64 hash;
-} fck_type_handle;
-
-typedef struct fck_member_handle
-{
-	struct fck_member_registry_ref *registry;
-	fckc_u64 hash;
-} fck_member_handle;
-
-typedef struct fck_type_info
-{
-	fck_hash_int hash;
-	fck_identifier identifier;
-	fck_member_handle first_member;
-	fck_member_handle last_member;
-} fck_type_info;
-
-typedef struct fck_member_info
-{
-	fck_hash_int hash;
-	fck_type_handle owner;
-	fck_identifier identifier;
-	fck_type_handle type;
-	fckc_size_t stride;
-	fck_member_handle next;
-} fck_member_info;
-
-typedef struct fck_member_registry
-{
-	fckc_size_t count;
-	fckc_size_t capacity;
-
-	fck_identifier_registry_ref *identifiers;
-
-	fck_member_info info[1];
-} fck_member_registry;
-
-typedef struct fck_type_registry
-{
-	fckc_size_t count;
-	fckc_size_t capacity;
-
-	fck_identifier_registry_ref *identifiers;
-
-	fck_type_info info[1];
-} fck_type_registry;
-
-typedef struct fck_member_registry_ref
-{
-	fck_member_registry *value;
-} fck_member_registry_ref;
-
-typedef struct fck_type_registry_ref
-{
-	fck_type_registry *value;
-} fck_type_registry_ref;
-
 typedef void (*fck_serialise_function)(fck_serialiser *, fck_serialiser_params *, void *, fckc_size_t);
 
 #define FCK_SERIALISE_FUNC(x) (fck_serialise_function)(x)
 
 typedef struct fck_serialiser_info
 {
-	fck_type_handle type;
+	fck_type type;
 	fck_serialise_function serialise;
 } fck_serialiser_info;
 
@@ -319,288 +57,6 @@ typedef struct fck_serialiser_registry_ref
 	fck_serialiser_registry *value;
 } fck_serialiser_registry_ref;
 
-fck_type_handle fck_type_handle_null()
-{
-	return (fck_type_handle){NULL, 0};
-}
-
-fck_member_handle fck_member_handle_null()
-{
-	return (fck_member_handle){NULL, 0};
-}
-
-int fck_type_handle_is_null(fck_type_handle handle)
-{
-	return handle.registry == NULL;
-}
-
-int fck_member_handle_is_null(fck_member_handle handle)
-{
-	return handle.registry == NULL;
-}
-
-int fck_type_handle_is_same(fck_type_handle a, fck_type_handle b)
-{
-	return a.registry == b.registry && a.hash == b.hash;
-}
-
-int fck_type_is(fck_type_handle a, const char *str)
-{
-	return a.registry != NULL && (a.hash == fck_hash(str, SDL_strlen(str)));
-}
-
-int fck_member_handle_is_same(fck_member_handle a, fck_member_handle b)
-{
-	return a.registry == b.registry && a.hash == b.hash;
-}
-
-fck_type_info *fck_type_handle_resolve(fck_type_handle handle)
-{
-	fckc_size_t index = handle.hash % handle.registry->value->capacity;
-	while (1)
-	{
-		fck_type_info *entry = &handle.registry->value->info[index];
-
-		if (entry->hash == handle.hash)
-		{
-			return entry;
-		}
-		if (fck_identifier_is_null(entry->identifier))
-		{
-			return NULL;
-		}
-		index = index + 1;
-	}
-}
-
-fck_member_info *fck_member_handle_resolve(fck_member_handle handle)
-{
-	fckc_size_t index = handle.hash % handle.registry->value->capacity;
-	while (1)
-	{
-		fck_member_info *entry = &handle.registry->value->info[index];
-
-		if (entry->hash == handle.hash)
-		{
-			return entry;
-		}
-		if (fck_identifier_is_null(entry->identifier))
-		{
-			return NULL;
-		}
-		index = index + 1;
-	}
-}
-
-fck_type_registry *fck_type_registry_alloc(fckc_size_t capacity, fck_identifier_registry_ref *identifiers)
-{
-	fckc_size_t size = offsetof(fck_type_registry, info[capacity]);
-	fck_type_registry *registry = (fck_type_registry *)SDL_malloc(size);
-	for (fckc_size_t index = 0; index < capacity; index++)
-	{
-		fck_type_info *entry = &registry->info[index];
-		entry->hash = 0;
-		entry->identifier = fck_identifier_null();
-	}
-
-	registry->count = 0;
-	registry->capacity = capacity;
-	registry->identifiers = identifiers;
-	return registry;
-}
-
-void fck_type_registry_free(fck_type_registry *registry)
-{
-	SDL_free(registry);
-}
-
-fck_type_handle fck_type_registry_add(fck_type_registry_ref *registry, const char *name)
-{
-	SDL_assert(registry != NULL);
-
-	if (registry->value->count >= (registry->value->capacity >> 1))
-	{
-		// Realloc if required
-		fckc_size_t next_capacity = fck_registry_add_next_capacity(registry->value->capacity + 1); // + 1... I think
-		fck_type_registry *result = fck_type_registry_alloc(next_capacity, registry->value->identifiers);
-
-		for (fckc_size_t index = 0; index < registry->value->capacity; index++)
-		{
-			fck_type_info *entry = &registry->value->info[index];
-			if (fck_identifier_is_null(entry->identifier))
-			{
-				continue;
-			}
-
-			fckc_size_t new_index = entry->hash % result->capacity;
-			while (1)
-			{
-				fck_type_info *new_entry = &registry->value->info[new_index];
-				if (fck_identifier_is_null(new_entry->identifier))
-				{
-					SDL_memcpy(new_entry, entry, sizeof(*entry));
-					break;
-				}
-				new_index = new_index + 1 % result->capacity;
-			}
-		}
-
-		result->capacity = next_capacity;
-		result->count = registry->value->count;
-		fck_type_registry_free(registry->value);
-		registry->value = result;
-	}
-
-	fck_type_registry *head = registry->value;
-
-	fck_identifier identifier = fck_identifiers_add(head->identifiers, name);
-	const char *str = fck_identifier_resolve(identifier);
-	const fck_hash_int hash = fck_hash(str, SDL_strlen(str));
-	fckc_size_t index = ((fckc_size_t)hash) % registry->value->capacity;
-
-	while (1)
-	{
-		// No need for safe iteration. ONE element IS empty for sure due to pre-condition
-		const fck_type_info *current = &registry->value->info[index];
-		if (fck_identifier_is_null(current->identifier))
-		{
-			break;
-		}
-		if (fck_identifier_is_same(current->identifier, identifier))
-		{
-			// ALREADY ADDED MAYBE ERROR?! WHAT THE ACUTAL FUCK
-			return (fck_type_handle){registry, hash};
-		}
-		index = (index + 1) % registry->value->capacity;
-	}
-
-	// After the while loop above we know index "points" to a valid, empty slot
-	fck_type_info *info = registry->value->info + index;
-	info->hash = hash;
-	info->identifier = identifier;
-	info->first_member = fck_member_handle_null();
-	info->last_member = fck_member_handle_null();
-	registry->value->count = registry->value->count + 1;
-	return (fck_type_handle){registry, hash};
-}
-
-fck_type_handle fck_type_registry_get(fck_type_registry_ref *registry, const char *name)
-{
-	const fck_hash_int hash = fck_hash(name, SDL_strlen(name));
-	fckc_size_t index = ((fckc_size_t)hash) % registry->value->capacity;
-	fck_type_handle handle = {registry, hash};
-	while (1)
-	{
-		// No need for safe iteration. ONE element IS empty for sure due to pre-condition
-		const fck_type_info *current = &registry->value->info[index];
-		if (fck_identifier_is_null(current->identifier))
-		{
-			return fck_type_handle_null();
-		}
-		if (current->hash == hash)
-		{
-			SDL_assert(SDL_strcmp(name, fck_identifier_resolve(current->identifier)) == 0);
-			return (fck_type_handle){registry, hash};
-			// ALREADY ADDED MAYBE ERROR?! WHAT THE ACUTAL FUCK
-		}
-		index = (index + 1) % registry->value->capacity;
-	}
-
-	return handle;
-}
-
-void fck_type_info_add_member(fck_type_handle type_handle, fck_member_handle member_handle)
-{
-	fck_type_info *info = fck_type_handle_resolve(type_handle);
-	fck_member_info *member = fck_member_handle_resolve(member_handle);
-
-	member->owner = type_handle;
-	member->next = fck_member_handle_null();
-	if (fck_member_handle_is_null(info->first_member))
-	{
-		info->first_member = member_handle;
-		info->last_member = member_handle;
-		return;
-	}
-	// else
-	fck_member_info *last_member = fck_member_handle_resolve(info->last_member);
-	last_member->next = member_handle;
-	info->last_member = member_handle;
-};
-
-fck_member_registry *fck_member_registry_alloc(fckc_size_t capacity, fck_identifier_registry_ref *identifiers_ref)
-{
-	fckc_size_t size = offsetof(fck_member_registry, info[capacity]);
-	fck_member_registry *registry = (fck_member_registry *)SDL_malloc(size);
-	for (fckc_size_t index = 0; index < capacity; index++)
-	{
-		fck_member_info *entry = &registry->info[index];
-		entry->hash = 0;
-		entry->identifier = fck_identifier_null();
-	}
-
-	registry->count = 0;
-	registry->capacity = capacity;
-	registry->identifiers = identifiers_ref;
-	return registry;
-}
-
-void fck_member_registry_free(fck_member_registry *registry)
-{
-	SDL_free(registry);
-}
-
-typedef struct fck_member_desc
-{
-	fck_type_handle type;
-	fck_type_handle owner;
-	const char *name;
-	fckc_size_t stride;
-} fck_member_desc;
-
-fck_member_handle fck_member_registry_add(fck_member_registry_ref *registry, fck_member_desc desc)
-{
-	fck_member_registry *head = registry->value;
-	fck_type_info *owner_info = fck_type_handle_resolve(desc.owner);
-
-	fck_identifier identifier = fck_identifiers_add(head->identifiers, desc.name);
-	const char *str = fck_identifier_resolve(identifier);
-	const char *owner_str = fck_identifier_resolve(owner_info->identifier);
-
-	fckc_size_t required_size = SDL_strlen(str) + SDL_strlen(owner_str) + 64;
-	fckc_u8 *buffer = (fckc_u8 *)SDL_malloc(required_size);
-	fckc_size_t offset = SDL_snprintf(buffer, required_size, "%s %s", str, owner_str);
-
-	const fck_hash_int hash = fck_hash(buffer, offset);
-	fckc_size_t index = ((fckc_size_t)hash) % registry->value->capacity;
-	SDL_free(buffer);
-
-	while (1)
-	{
-		// No need for safe iteration. ONE element IS empty for sure due to pre-condition
-		const fck_member_info *current = &registry->value->info[index];
-		if (fck_identifier_is_null(current->identifier))
-		{
-			break;
-		}
-		SDL_assert(!(fck_identifier_is_same(current->identifier, identifier) && fck_type_handle_is_same(current->owner, desc.owner)));
-		index = (index + 1) % registry->value->capacity;
-	}
-
-	// After the while loop above we know index "points" to a valid, empty slot
-	fck_member_info *info = registry->value->info + index;
-	info->hash = hash;
-	info->identifier = identifier;
-	info->next = fck_member_handle_null();
-	info->owner = desc.owner;
-	info->type = desc.type;
-	info->stride = desc.stride;
-	registry->value->count = registry->value->count + 1;
-	fck_member_handle member = {registry, hash};
-	fck_type_info_add_member(desc.owner, member);
-	return member;
-}
-
 fck_serialiser_registry *fck_serialiser_registry_alloc(fckc_size_t capacity)
 {
 	fckc_size_t size = offsetof(fck_serialiser_registry, info[capacity]);
@@ -609,7 +65,7 @@ fck_serialiser_registry *fck_serialiser_registry_alloc(fckc_size_t capacity)
 	for (fckc_size_t index = 0; index < capacity; index++)
 	{
 		fck_serialiser_info *entry = &registry->info[index];
-		entry->type = fck_type_handle_null();
+		entry->type = fck_type_null();
 		entry->serialise = NULL;
 	}
 
@@ -623,20 +79,20 @@ void fck_serialiser_registry_free(fck_serialiser_registry *registry)
 	SDL_free(registry);
 }
 
-void fck_serialiser_registry_add(fck_serialiser_registry_ref *registry, fck_type_handle type, fck_serialise_function serialise_func)
+void fck_serialiser_registry_add(fck_serialiser_registry_ref *registry, fck_type type, fck_serialise_function serialise_func)
 {
 	SDL_assert(registry);
-	SDL_assert(!fck_type_handle_is_null(type));
+	SDL_assert(!fck_type_is_null(type));
 
 	fckc_size_t index = ((fckc_size_t)type.hash) % registry->value->capacity;
 	while (1)
 	{
 		const fck_serialiser_info *current = &registry->value->info[index];
-		if (fck_type_handle_is_null(current->type))
+		if (fck_type_is_null(current->type))
 		{
 			break;
 		}
-		SDL_assert(!fck_type_handle_is_same(type, current->type) && "Already added, do not add twice?!");
+		SDL_assert(!fck_type_is_same(type, current->type) && "Already added, do not add twice?!");
 		index = (index + 1) % registry->value->capacity;
 	}
 
@@ -645,20 +101,20 @@ void fck_serialiser_registry_add(fck_serialiser_registry_ref *registry, fck_type
 	info->serialise = serialise_func;
 }
 
-fck_serialise_function fck_serialiser_registry_get(fck_serialiser_registry_ref *registry, fck_type_handle type)
+fck_serialise_function fck_serialiser_registry_get(fck_serialiser_registry_ref *registry, fck_type type)
 {
 	SDL_assert(registry);
-	SDL_assert(!fck_type_handle_is_null(type));
+	SDL_assert(!fck_type_is_null(type));
 
 	fckc_size_t index = ((fckc_size_t)type.hash) % registry->value->capacity;
 	while (1)
 	{
 		const fck_serialiser_info *current = &registry->value->info[index];
-		if (fck_type_handle_is_null(current->type))
+		if (fck_type_is_null(current->type))
 		{
 			return NULL;
 		}
-		if (fck_type_handle_is_same(type, current->type))
+		if (fck_type_is_same(type, current->type))
 		{
 			return current->serialise;
 		}
@@ -668,7 +124,7 @@ fck_serialise_function fck_serialiser_registry_get(fck_serialiser_registry_ref *
 
 typedef struct fck_component_info
 {
-	fck_type_info *type;
+	struct fck_type_info *type;
 } fck_component_info;
 
 typedef fckc_u16 fck_component_id;
@@ -710,9 +166,9 @@ fckc_components *fck_components_alloc(fckc_size_t capacity)
 	return components;
 }
 
-fck_identifier_registry_ref identifiers;
-fck_member_registry_ref members;
-fck_type_registry_ref types;
+struct fck_identifiers *identifiers;
+struct fck_members *members;
+struct fck_types *types;
 fck_serialiser_registry_ref serialisers;
 
 #define fck_id(s) #s
@@ -739,34 +195,34 @@ typedef struct example_type
 	fckc_u32 some_int;
 } example_type;
 
-void fck_type_add_u32(fck_member_registry_ref *registry, fck_type_handle type, const char *name, fckc_size_t stride)
+void fck_type_add_u32(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
 {
-	fck_type_handle member_type = fck_type_registry_get(&types, fck_id(fckc_u32));
-	fck_member_registry_add(registry, (fck_member_desc){.type = member_type, .name = name, .owner = type, .stride = stride});
+	fck_type member_type = fck_types_find_from_string(type.types, fck_id(fckc_u32));
+	fck_members_add(members, (fck_member_desc){.type = member_type, .name = name, .owner = type, .stride = stride});
 }
 
-void fck_type_add_double(fck_member_registry_ref *registry, fck_type_handle type, const char *name, fckc_size_t stride)
+void fck_type_add_double(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
 {
-	fck_type_handle member_type = fck_type_registry_get(&types, fck_id(double));
-	fck_member_registry_add(registry, (fck_member_desc){.type = member_type, .name = name, .owner = type, .stride = stride});
+	fck_type member_type = fck_types_find_from_string(type.types, fck_id(double));
+	fck_members_add(members, (fck_member_desc){.type = member_type, .name = name, .owner = type, .stride = stride});
 }
 
-void fck_type_add_float(fck_member_registry_ref *registry, fck_type_handle type, const char *name, fckc_size_t stride)
+void fck_type_add_float(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
 {
-	fck_type_handle member_type = fck_type_registry_get(&types, fck_id(float));
-	fck_member_registry_add(registry, (fck_member_desc){.type = member_type, .name = name, .owner = type, .stride = stride});
+	fck_type member_type = fck_types_find_from_string(type.types, fck_id(float));
+	fck_members_add(members, (fck_member_desc){.type = member_type, .name = name, .owner = type, .stride = stride});
 }
 
-void fck_type_add_float2(fck_member_registry_ref *registry, fck_type_handle type, const char *name, fckc_size_t stride)
+void fck_type_add_float2(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
 {
-	fck_type_handle member_type = fck_type_registry_get(&types, fck_id(float2));
-	fck_member_registry_add(registry, (fck_member_desc){.type = member_type, .name = name, .owner = type, .stride = stride});
+	fck_type member_type = fck_types_find_from_string(type.types, fck_id(float2));
+	fck_members_add(members, (fck_member_desc){.type = member_type, .name = name, .owner = type, .stride = stride});
 }
 
-void fck_type_add_float3(fck_member_registry_ref *registry, fck_type_handle type, const char *name, fckc_size_t stride)
+void fck_type_add_float3(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
 {
-	fck_type_handle member_type = fck_type_registry_get(&types, fck_id(float3));
-	fck_member_registry_add(registry, (fck_member_desc){.type = member_type, .name = name, .owner = type, .stride = stride});
+	fck_type member_type = fck_types_find_from_string(type.types, fck_id(float3));
+	fck_members_add(members, (fck_member_desc){.type = member_type, .name = name, .owner = type, .stride = stride});
 }
 
 void fck_serialise_float(fck_serialiser *serialiser, fck_serialiser_params *params, float *value, fckc_size_t count)
@@ -811,9 +267,9 @@ void fck_serialise_u64(fck_serialiser *serialiser, fck_serialiser_params *params
 }
 
 #define fck_setup_base_primitive(types, serialisers, type, serialise)                                                                      \
-	fck_serialiser_registry_add(serialisers, fck_type_registry_add(types, fck_id(type)), FCK_SERIALISE_FUNC(serialise))
+	fck_serialiser_registry_add(serialisers, fck_types_add(types, (fck_type_desc){fck_id(type)}), FCK_SERIALISE_FUNC(serialise))
 
-void setup_base_primitives(fck_type_registry_ref *types, fck_serialiser_registry_ref *serialisers)
+void setup_base_primitives(struct fck_types *types, fck_serialiser_registry_ref *serialisers)
 {
 	fck_setup_base_primitive(types, serialisers, float, fck_serialise_float);
 	fck_setup_base_primitive(types, serialisers, double, fck_serialise_double);
@@ -829,41 +285,42 @@ void setup_base_primitives(fck_type_registry_ref *types, fck_serialiser_registry
 
 void setup_some_stuff()
 {
-	identifiers.value = fck_identifier_registry_alloc(128);
+	identifiers = fck_identifiers_alloc(128);
 
-	members.value = fck_member_registry_alloc(64, &identifiers);
-	types.value = fck_type_registry_alloc(64, &identifiers);
+	members = fck_members_alloc(identifiers, 64);
+	types = fck_types_alloc(identifiers, 64);
 	serialisers.value = fck_serialiser_registry_alloc(64);
 
-	setup_base_primitives(&types, &serialisers);
+	setup_base_primitives(types, &serialisers);
 
-	fck_type_handle float_type_handle = fck_type_registry_get(&types, fck_id(float));
-	fck_type_handle float2_type_handle = fck_type_registry_add(&types, fck_id(float2));
-	fck_type_add_float(&members, float2_type_handle, "x", sizeof(float) * 0);
-	fck_type_add_float(&members, float2_type_handle, "y", sizeof(float) * 1);
+	fck_type float_type_handle = fck_types_add(types, (fck_type_desc){fck_id(float)});
+	fck_type float2_type_handle = fck_types_add(types, (fck_type_desc){fck_id(float2)});
+	fck_type_add_float(members, float2_type_handle, "x", sizeof(float) * 0);
+	fck_type_add_float(members, float2_type_handle, "y", sizeof(float) * 1);
 
-	fck_type_handle float3_type_handle = fck_type_registry_add(&types, fck_id(float3));
-	fck_type_add_float(&members, float3_type_handle, "x", sizeof(float) * 0);
-	fck_type_add_float(&members, float3_type_handle, "y", sizeof(float) * 1);
-	fck_type_add_float(&members, float3_type_handle, "z", sizeof(float) * 2);
+	fck_type float3_type_handle = fck_types_add(types, (fck_type_desc){fck_id(float3)});
+	fck_type_add_float(members, float3_type_handle, "x", sizeof(float) * 0);
+	fck_type_add_float(members, float3_type_handle, "y", sizeof(float) * 1);
+	fck_type_add_float(members, float3_type_handle, "z", sizeof(float) * 2);
 
-	fck_type_handle example_type_handle = fck_type_registry_add(&types, fck_id(example_type));
-	fck_type_add_float(&members, example_type_handle, fck_id(cooldown), offsetof(example_type, cooldown));
-	fck_type_add_float2(&members, example_type_handle, fck_id(position), offsetof(example_type, position));
-	fck_type_add_float3(&members, example_type_handle, fck_id(rgb), offsetof(example_type, rgb));
-	fck_type_add_double(&members, example_type_handle, fck_id(double_value), offsetof(example_type, double_value));
-	fck_type_add_u32(&members, example_type_handle, fck_id(some_int), offsetof(example_type, some_int));
+	fck_type example_type_handle = fck_types_add(types, (fck_type_desc){fck_id(example_type)});
+	fck_type_add_float(members, example_type_handle, fck_id(cooldown), offsetof(example_type, cooldown));
+	fck_type_add_float2(members, example_type_handle, fck_id(position), offsetof(example_type, position));
+	fck_type_add_float3(members, example_type_handle, fck_id(rgb), offsetof(example_type, rgb));
+	fck_type_add_double(members, example_type_handle, fck_id(double_value), offsetof(example_type, double_value));
+	fck_type_add_u32(members, example_type_handle, fck_id(some_int), offsetof(example_type, some_int));
 }
 
-void fck_type_read(fck_type_handle type_handel, void *value)
+void fck_type_read(fck_type type_handel, void *value)
 {
 }
 
-
-void fck_type_edit(fck_serialiser *serialiser, fck_ui_ctx *ctx, fck_type_handle type_handle, const char *name, void *data)
+void fck_type_edit(fck_serialiser *serialiser, fck_ui_ctx *ctx, fck_type type_handle, const char *name, void *data)
 {
-	fck_type_info *type = fck_type_handle_resolve(type_handle);
-	const char *owner_name_name = fck_identifier_resolve(type->identifier);
+	struct fck_type_info *type = fck_type_resolve(type_handle);
+	fck_identifier owner_identifier = fck_type_info_identify(type);
+
+	const char *owner_name_name = fck_identifier_resolve(owner_identifier);
 
 	fck_serialise_function serialise = fck_serialiser_registry_get(&serialisers, type_handle);
 	if (serialise != NULL)
@@ -876,8 +333,8 @@ void fck_type_edit(fck_serialiser *serialiser, fck_ui_ctx *ctx, fck_type_handle 
 		serialise(serialiser, &params, data, 1);
 	}
 
-	fck_member_handle current = type->first_member;
-	if (fck_member_handle_is_null(type->first_member))
+	fck_member current = fck_type_info_first_member(type);
+	if (fck_member_is_null(current))
 	{
 		return;
 	}
@@ -887,22 +344,26 @@ void fck_type_edit(fck_serialiser *serialiser, fck_ui_ctx *ctx, fck_type_handle 
 	int count = SDL_snprintf(buffer, sizeof(buffer), "%s %s", owner_name_name, name);
 	if (nk_tree_push_hashed(ctx, NK_TREE_NODE, buffer, NK_MINIMIZED, buffer, count, __LINE__))
 	{
-		while (!fck_member_handle_is_null(current))
+		while (!fck_member_is_null(current))
 		{
-			fck_member_info *member = fck_member_handle_resolve(current);
-			const char *member_name = fck_identifier_resolve(member->identifier);
-			fckc_u8 *offset_ptr = ((fckc_u8 *)(data)) + member->stride;
-			fck_type_edit(serialiser, ctx, member->type, member_name, (void *)(offset_ptr));
-			current = member->next;
+			struct fck_member_info *member = fck_member_resolve(current);
+			fck_identifier member_identifier = fck_member_info_identify(member);
+			const char *member_name = fck_identifier_resolve(member_identifier);
+			fckc_u8 *offset_ptr = ((fckc_u8 *)(data)) + fck_member_info_stride(member);
+			fck_type member_type = fck_member_info_type(member);
+			fck_type_edit(serialiser, ctx, member_type, member_name, (void *)(offset_ptr));
+
+			current = fck_member_info_next(member);
 		}
 		nk_tree_pop(ctx);
 	}
 }
 
-void fck_type_serialise(fck_serialiser *serialiser, fck_type_handle type_handle, const char *name, void *data)
+void fck_type_serialise(fck_serialiser *serialiser, fck_type type_handle, const char *name, void *data)
 {
-	fck_type_info *type = fck_type_handle_resolve(type_handle);
-	const char *owner_name_name = fck_identifier_resolve(type->identifier);
+	struct fck_type_info *type = fck_type_resolve(type_handle);
+	fck_identifier owner_identifier = fck_type_info_identify(type);
+	const char *owner_name_name = fck_identifier_resolve(owner_identifier);
 
 	fck_serialise_function serialise = fck_serialiser_registry_get(&serialisers, type_handle);
 	if (serialise != NULL)
@@ -915,19 +376,17 @@ void fck_type_serialise(fck_serialiser *serialiser, fck_type_handle type_handle,
 		serialise(serialiser, &params, data, 1);
 	}
 
-	fck_member_handle current = type->first_member;
-	if (fck_member_handle_is_null(type->first_member))
+	fck_member current = fck_type_info_first_member(type);
+	while (!fck_member_is_null(current))
 	{
-		return;
-	}
+		struct fck_member_info *member = fck_member_resolve(current);
+		fck_identifier member_identifier = fck_member_info_identify(member);
+		const char *member_name = fck_identifier_resolve(member_identifier);
+		fckc_u8 *offset_ptr = ((fckc_u8 *)(data)) + fck_member_info_stride(member);
+		fck_type member_type = fck_member_info_type(member);
+		fck_type_serialise(serialiser, member_type, member_name, (void *)(offset_ptr));
 
-	while (!fck_member_handle_is_null(current))
-	{
-		fck_member_info *member = fck_member_handle_resolve(current);
-		const char *member_name = fck_identifier_resolve(member->identifier);
-		fckc_u8 *offset_ptr = ((fckc_u8 *)(data)) + member->stride;
-		fck_type_serialise(serialiser, member->type, member_name, (void *)(offset_ptr));
-		current = member->next;
+		current = fck_member_info_next(member);
 	}
 }
 
@@ -937,9 +396,8 @@ int fck_ui_window_entities(struct fck_ui *ui, fck_ui_window *window, void *userd
 
 	nk_layout_row_dynamic(ctx, 25, 1);
 
-	fck_type_handle custom_type = fck_type_registry_get(&types, fck_id(example_type));
-
-	fck_type_info *type = fck_type_handle_resolve(custom_type);
+	fck_type custom_type = fck_types_find_from_string(types, fck_id(example_type));
+	struct fck_type_info *type = fck_type_resolve(custom_type);
 
 	// fck_serialiser serialiser = fck_serialiser_alloc(kll_heap, fck_byte_writer_vt, 256);
 	// fck_serialiser serialiser = fck_serialiser_alloc(kll_heap, fck_byte_reader_vt, 256);

@@ -291,7 +291,6 @@ struct fck_serialiser *fck_serliaser_json_writer_alloc(struct fck_serialiser *s,
 	return s;
 }
 
-
 const char *fck_serliaser_json_string_alloc(struct fck_serialiser *s)
 {
 	yyjson_mut_doc *doc = (yyjson_mut_doc *)s->user;
@@ -299,11 +298,12 @@ const char *fck_serliaser_json_string_alloc(struct fck_serialiser *s)
 	return json;
 }
 
-const char *fck_serliaser_json_string_free(struct fck_serialiser *s, const char *json)
+void fck_serliaser_json_string_free(struct fck_serialiser *s, const char *json)
 {
 	kll_json_free(s->allocator, (void *)json);
 }
 
-struct fck_serialiser *fck_serliaser_json_writer_free(struct fck_serialiser *s)
+void fck_serliaser_json_writer_free(struct fck_serialiser *s)
 {
+	yyjson_doc_free(s->user);
 }

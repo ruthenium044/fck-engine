@@ -28,4 +28,8 @@ typedef struct fck_lstring
 	fckc_size_t size;
 } fck_lstring;
 
+#ifndef offsetof
+#define offsetof(st, m) ((fckc_uptr) & (((st *)0)->m))
+#endif
+
 #endif // !FCKC_INTTYPES_H_INCLUDED

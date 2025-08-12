@@ -4,13 +4,17 @@
 
 #include "kll.h"
 #include "kll_impl_util.h"
-#include <malloc.h>
 
-static void *heap_realloc(kll_context *context, void *ptr, size_t size, size_t line, const char* file)
+#include <fckc_inttypes.h>
+
+#include <stdlib.h>
+
+static void *heap_realloc(kll_context *context, void *ptr, fckc_size_t size, fckc_size_t line, const char *file)
 {
-	if(ptr == NULL && size == 0) {
+	if (ptr == NULL && size == 0)
+	{
 		return NULL;
-	} 
+	}
 	// NULL && N > 0 == malloc
 	// non-NULL && N > 0 == realloc
 	// non-NULL && N == 0 == free

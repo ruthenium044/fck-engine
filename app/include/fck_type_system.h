@@ -38,13 +38,7 @@ typedef struct fck_member
 // TODO: Test if we can pointer cast this one a la me-style in emscripten
 // TODO: Might need resolve? What if we get interface and then we simply exchange it during runtime
 // Keeping it open addressed COULD be better... Maybe run the call through type_ysten TU even?
-typedef void (*fck_serialise_i_func)(void *self, fckc_size_t c, struct fck_serialiser *s, struct fck_serialiser_params *p);
-typedef struct fck_serialise_i
-{
-	// Maybe...
-	// fck_type type;
-	fck_serialise_i_func func;
-} fck_serialise_i;
+typedef void(fck_serialise_func)(void *self, fckc_size_t c, struct fck_serialiser *s, struct fck_serialiser_params *p);
 
 // Maybe prefer:
 // typedef struct fck_serialise_i2
@@ -53,7 +47,7 @@ typedef struct fck_serialise_i
 //	// fck_type type; // Maybe instead of hash?
 //	fckc_u64 hash;
 //} fck_serialise_i2;
-// fck_serialise_i_func fck_serialise_i2_resolve(fck_serialise_i2 interface);
+// fck_serialise_func fck_serialise_i2_resolve(fck_serialise_i2 interface);
 //  or
 // void fck_serialise_i2_invoke(fck_serialise_i2 interface, void *self, fckc_size_t c, struct fck_serialiser *s,
 //                             struct fck_serialiser_params *p);
@@ -120,17 +114,16 @@ typedef struct fck_member_desc
 fck_member fck_members_add(struct fck_members *members, fck_member_desc desc);
 
 // Serialisers
-struct fck_serialiser_interfaces *fck_serialiser_interfaces_alloc(fckc_size_t capacity);
-void fck_serialiser_interfaces_free(struct fck_serialiser_interfaces *interfaces);
+struct fck_serialise_interfaces *fck_serialise_interfaces_alloc(fckc_size_t capacity);
+void fck_serialise_interfaces_free(struct fck_serialise_interfaces *interfaces);
 
 typedef struct fck_serialise_desc
 {
 	// They just happen to be the same...
 	fck_type type;
-	fck_serialise_i_func func;
+	fck_serialise_func *func;
 } fck_serialise_desc;
-void fck_serialiser_interfaces_add(struct fck_serialiser_interfaces *interfaces, fck_serialise_desc desc);
+void fck_serialise_interfaces_add(struct fck_serialise_interfaces *interfaces, fck_serialise_desc desc);
 // Kind of breaks semantics... "get" -> prefer resolve?
-fck_serialise_i fck_serialiser_interfaces_get(struct fck_serialiser_interfaces *interfaces, fck_type type);
-
+fck_serialise_func *fck_serialise_interfaces_get(struct fck_serialise_interfaces *interfaces, fck_type type);
 #endif // !FCK_TYPE_SYSTEM_H_INCLUDED

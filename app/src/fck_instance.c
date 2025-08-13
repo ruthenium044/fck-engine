@@ -35,92 +35,7 @@ typedef struct fck_entity_set
 	fck_entity_index id[1];
 } fck_entity_set;
 
-typedef void (*fck_serialise_function)(fck_serialiser *, fck_serialiser_params *, void *, fckc_size_t);
-
-#define FCK_SERIALISE_FUNC(x) (fck_serialise_function)(x)
-
-typedef struct fck_serialiser_info
-{
-	fck_type type;
-	fck_serialise_function serialise;
-} fck_serialiser_info;
-
-typedef struct fck_serialiser_registry
-{
-	fckc_size_t count;
-	fckc_size_t capacity;
-	fck_serialiser_info info[1];
-} fck_serialiser_registry;
-
-typedef struct fck_serialiser_registry_ref
-{
-	fck_serialiser_registry *value;
-} fck_serialiser_registry_ref;
-
-fck_serialiser_registry *fck_serialiser_registry_alloc(fckc_size_t capacity)
-{
-	fckc_size_t size = offsetof(fck_serialiser_registry, info[capacity]);
-	fck_serialiser_registry *registry = (fck_serialiser_registry *)SDL_malloc(size);
-
-	for (fckc_size_t index = 0; index < capacity; index++)
-	{
-		fck_serialiser_info *entry = &registry->info[index];
-		entry->type = fck_type_null();
-		entry->serialise = NULL;
-	}
-
-	registry->count = 0;
-	registry->capacity = capacity;
-	return registry;
-}
-
-void fck_serialiser_registry_free(fck_serialiser_registry *registry)
-{
-	SDL_free(registry);
-}
-
-void fck_serialiser_registry_add(fck_serialiser_registry_ref *registry, fck_type type, fck_serialise_function serialise_func)
-{
-	SDL_assert(registry);
-	SDL_assert(!fck_type_is_null(type));
-
-	fckc_size_t index = ((fckc_size_t)type.hash) % registry->value->capacity;
-	while (1)
-	{
-		const fck_serialiser_info *current = &registry->value->info[index];
-		if (fck_type_is_null(current->type))
-		{
-			break;
-		}
-		SDL_assert(!fck_type_is_same(type, current->type) && "Already added, do not add twice?!");
-		index = (index + 1) % registry->value->capacity;
-	}
-
-	fck_serialiser_info *info = registry->value->info + index;
-	info->type = type;
-	info->serialise = serialise_func;
-}
-
-fck_serialise_function fck_serialiser_registry_get(fck_serialiser_registry_ref *registry, fck_type type)
-{
-	SDL_assert(registry);
-	SDL_assert(!fck_type_is_null(type));
-
-	fckc_size_t index = ((fckc_size_t)type.hash) % registry->value->capacity;
-	while (1)
-	{
-		const fck_serialiser_info *current = &registry->value->info[index];
-		if (fck_type_is_null(current->type))
-		{
-			return NULL;
-		}
-		if (fck_type_is_same(type, current->type))
-		{
-			return current->serialise;
-		}
-		index = (index + 1) % registry->value->capacity;
-	}
-}
+#define FCK_SERIALISE_FUNC(x) (fck_serialise_func *)(x)
 
 typedef struct fck_component_info
 {
@@ -169,7 +84,7 @@ fckc_components *fck_components_alloc(fckc_size_t capacity)
 struct fck_identifiers *identifiers;
 struct fck_members *members;
 struct fck_types *types;
-fck_serialiser_registry_ref serialisers;
+struct fck_serialise_interfaces *serialisers;
 
 #define fck_id(s) #s
 
@@ -225,53 +140,54 @@ void fck_type_add_float3(struct fck_members *members, fck_type type, const char 
 	fck_members_add(members, (fck_member_desc){.type = member_type, .name = name, .owner = type, .stride = stride});
 }
 
-void fck_serialise_float(fck_serialiser *serialiser, fck_serialiser_params *params, float *value, fckc_size_t count)
+void fck_serialise_float(float *value, fckc_size_t count, fck_serialiser *serialiser, fck_serialiser_params *params)
 {
 	serialiser->vt->f32(serialiser, params, value, count);
 }
-void fck_serialise_double(fck_serialiser *serialiser, fck_serialiser_params *params, double *value, fckc_size_t count)
+void fck_serialise_double(double *value, fckc_size_t count, fck_serialiser *serialiser, fck_serialiser_params *params)
 {
 	serialiser->vt->f64(serialiser, params, value, count);
 }
-void fck_serialise_i8(fck_serialiser *serialiser, fck_serialiser_params *params, fckc_i8 *value, fckc_size_t count)
+void fck_serialise_i8(fckc_i8 *value, fckc_size_t count, fck_serialiser *serialiser, fck_serialiser_params *params)
 {
 	serialiser->vt->i8(serialiser, params, value, count);
 }
-void fck_serialise_i16(fck_serialiser *serialiser, fck_serialiser_params *params, fckc_i16 *value, fckc_size_t count)
+void fck_serialise_i16(fckc_i16 *value, fckc_size_t count, fck_serialiser *serialiser, fck_serialiser_params *params)
 {
 	serialiser->vt->i16(serialiser, params, value, count);
 }
-void fck_serialise_i32(fck_serialiser *serialiser, fck_serialiser_params *params, fckc_i32 *value, fckc_size_t count)
+void fck_serialise_i32(fckc_i32 *value, fckc_size_t count, fck_serialiser *serialiser, fck_serialiser_params *params)
 {
 	serialiser->vt->i32(serialiser, params, value, count);
 }
-void fck_serialise_i64(fck_serialiser *serialiser, fck_serialiser_params *params, fckc_i64 *value, fckc_size_t count)
+void fck_serialise_i64(fckc_i64 *value, fckc_size_t count, fck_serialiser *serialiser, fck_serialiser_params *params)
 {
 	serialiser->vt->i64(serialiser, params, value, count);
 }
-void fck_serialise_u8(fck_serialiser *serialiser, fck_serialiser_params *params, fckc_u8 *value, fckc_size_t count)
+void fck_serialise_u8(fckc_u8 *value, fckc_size_t count, fck_serialiser *serialiser, fck_serialiser_params *params)
 {
 	serialiser->vt->u8(serialiser, params, value, count);
 }
-void fck_serialise_u16(fck_serialiser *serialiser, fck_serialiser_params *params, fckc_u16 *value, fckc_size_t count)
+void fck_serialise_u16(fckc_u16 *value, fckc_size_t count, fck_serialiser *serialiser, fck_serialiser_params *params)
 {
 	serialiser->vt->u16(serialiser, params, value, count);
 }
-void fck_serialise_u32(fck_serialiser *serialiser, fck_serialiser_params *params, fckc_u32 *value, fckc_size_t count)
+void fck_serialise_u32(fckc_u32 *value, fckc_size_t count, fck_serialiser *serialiser, fck_serialiser_params *params)
 {
 	serialiser->vt->u32(serialiser, params, value, count);
 }
-void fck_serialise_u64(fck_serialiser *serialiser, fck_serialiser_params *params, fckc_u64 *value, fckc_size_t count)
+void fck_serialise_u64(fckc_u64 *value, fckc_size_t count, fck_serialiser *serialiser, fck_serialiser_params *params)
 {
 	serialiser->vt->u64(serialiser, params, value, count);
 }
 
 #define fck_setup_base_primitive(types, serialisers, type, serialise)                                                                      \
-	fck_serialiser_registry_add(serialisers, fck_types_add(types, (fck_type_desc){fck_id(type)}), FCK_SERIALISE_FUNC(serialise))
+	fck_serialise_interfaces_add(serialisers,                                                                                              \
+	                             (fck_serialise_desc){fck_types_add(types, (fck_type_desc){fck_id(type)}), FCK_SERIALISE_FUNC(serialise)})
 
-void setup_base_primitives(struct fck_types *types, fck_serialiser_registry_ref *serialisers)
+void setup_base_primitives(struct fck_types *types, struct fck_serialise_interfaces *serialisers)
 {
-	fck_setup_base_primitive(types, serialisers, float, fck_serialise_float);
+	fck_setup_base_primitive(types, serialisers, float, fck_serialise_double);
 	fck_setup_base_primitive(types, serialisers, double, fck_serialise_double);
 	fck_setup_base_primitive(types, serialisers, fckc_i8, fck_serialise_i8);
 	fck_setup_base_primitive(types, serialisers, fckc_i16, fck_serialise_i16);
@@ -289,9 +205,9 @@ void setup_some_stuff()
 
 	members = fck_members_alloc(identifiers, 64);
 	types = fck_types_alloc(identifiers, 64);
-	serialisers.value = fck_serialiser_registry_alloc(64);
+	serialisers = fck_serialise_interfaces_alloc(64);
 
-	setup_base_primitives(types, &serialisers);
+	setup_base_primitives(types, serialisers);
 
 	fck_type float_type_handle = fck_types_add(types, (fck_type_desc){fck_id(float)});
 	fck_type float2_type_handle = fck_types_add(types, (fck_type_desc){fck_id(float2)});
@@ -322,7 +238,7 @@ void fck_type_edit(fck_serialiser *serialiser, fck_ui_ctx *ctx, fck_type type_ha
 
 	const char *owner_name_name = fck_identifier_resolve(owner_identifier);
 
-	fck_serialise_function serialise = fck_serialiser_registry_get(&serialisers, type_handle);
+	fck_serialise_func *serialise = fck_serialise_interfaces_get(serialisers, type_handle);
 	if (serialise != NULL)
 	{
 		fck_serialiser_params params;
@@ -330,7 +246,7 @@ void fck_type_edit(fck_serialiser *serialiser, fck_ui_ctx *ctx, fck_type type_ha
 		params.user = NULL;
 
 		fckc_size_t label_start = serialiser->at;
-		serialise(serialiser, &params, data, 1);
+		serialise(data, 1, serialiser, &params);
 	}
 
 	fck_member current = fck_type_info_first_member(type);
@@ -365,7 +281,7 @@ void fck_type_serialise(fck_serialiser *serialiser, fck_type type_handle, const 
 	fck_identifier owner_identifier = fck_type_info_identify(type);
 	const char *owner_name_name = fck_identifier_resolve(owner_identifier);
 
-	fck_serialise_function serialise = fck_serialiser_registry_get(&serialisers, type_handle);
+	fck_serialise_func *serialise = fck_serialise_interfaces_get(serialisers, type_handle);
 	if (serialise != NULL)
 	{
 		fck_serialiser_params params;
@@ -373,7 +289,7 @@ void fck_type_serialise(fck_serialiser *serialiser, fck_type type_handle, const 
 		params.user = NULL;
 
 		fckc_size_t label_start = serialiser->at;
-		serialise(serialiser, &params, data, 1);
+		serialise(data, 1, serialiser, &params);
 	}
 
 	fck_member current = fck_type_info_first_member(type);

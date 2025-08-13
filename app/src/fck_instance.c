@@ -187,7 +187,7 @@ void fck_serialise_u64(fckc_u64 *value, fckc_size_t count, fck_serialiser *seria
 
 void setup_base_primitives(struct fck_types *types, struct fck_serialise_interfaces *serialisers)
 {
-	fck_setup_base_primitive(types, serialisers, float, fck_serialise_double);
+	fck_setup_base_primitive(types, serialisers, float, fck_serialise_float);
 	fck_setup_base_primitive(types, serialisers, double, fck_serialise_double);
 	fck_setup_base_primitive(types, serialisers, fckc_i8, fck_serialise_i8);
 	fck_setup_base_primitive(types, serialisers, fckc_i16, fck_serialise_i16);

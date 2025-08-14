@@ -72,7 +72,7 @@ fck_type_info *fck_type_resolve(fck_type handle)
 		{
 			return NULL;
 		}
-		index = index + 1;
+		index = (index + 1) % handle.types->value->capacity;
 	}
 }
 
@@ -147,13 +147,13 @@ fck_type fck_types_add(struct fck_types *types, fck_type_desc desc)
 			fckc_size_t new_index = entry->hash % result->capacity;
 			while (1)
 			{
-				fck_type_info *new_entry = &types->value->info[new_index];
+				fck_type_info *new_entry = &result->info[new_index];
 				if (fck_identifier_is_null(new_entry->identifier))
 				{
 					SDL_memcpy(new_entry, entry, sizeof(*entry));
 					break;
 				}
-				new_index = new_index + 1 % result->capacity;
+				new_index = (new_index + 1) % result->capacity;
 			}
 		}
 
@@ -168,7 +168,10 @@ fck_type fck_types_add(struct fck_types *types, fck_type_desc desc)
 	fck_identifier_desc identifier_desc;
 	identifier_desc.name = desc.name;
 
+	SDL_assert(head->identifiers != NULL);
 	fck_identifier identifier = fck_identifiers_add(head->identifiers, identifier_desc);
+	SDL_assert(head->identifiers != NULL);
+
 	const char *str = fck_identifier_resolve(identifier);
 	const fck_hash_int hash = fck_hash(str, SDL_strlen(str));
 	fckc_size_t index = ((fckc_size_t)hash) % types->value->capacity;

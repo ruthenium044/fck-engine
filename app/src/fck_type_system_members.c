@@ -20,6 +20,23 @@ typedef struct fck_members
 	struct fck_member_registry *value;
 } fck_members;
 
+static fckc_u64 fck_member_registry_add_next_capacity(fckc_u64 n)
+{
+	if (n == 0)
+		return 1;
+
+	n--;
+	n |= n >> 1;
+	n |= n >> 2;
+	n |= n >> 4;
+	n |= n >> 8;
+	n |= n >> 16;
+	n |= n >> 32;
+	n++;
+
+	return n;
+}
+
 fck_member fck_member_null()
 {
 	return (fck_member){NULL, 0};
@@ -38,7 +55,7 @@ int fck_member_is_same(fck_member a, fck_member b)
 fck_member_info *fck_member_resolve(fck_member member)
 {
 	fckc_size_t index = member.hash % member.members->value->capacity;
-	while (1)
+	for (;;)
 	{
 		fck_member_info *entry = &member.members->value->info[index];
 
@@ -50,7 +67,7 @@ fck_member_info *fck_member_resolve(fck_member member)
 		{
 			return NULL;
 		}
-		index = index + 1;
+		index = (index + 1) % member.members->value->capacity;
 	}
 }
 
@@ -132,10 +149,42 @@ static void fck_type_info_add_member(fck_type type_handle, fck_member member_han
 	info->last_member = member_handle;
 };
 
-fck_member fck_members_add(fck_members *registry, fck_member_desc desc)
+fck_member fck_members_add(fck_members *members, fck_member_desc desc)
 {
-	// TODO: realloc
-	fck_member_registry *head = registry->value;
+	// Maybe resize
+	if (members->value->count >= (members->value->capacity >> 1))
+	{
+		fckc_size_t next = (fckc_size_t)fck_member_registry_add_next_capacity(members->value->capacity + 1);
+		fck_member_registry *result = fck_member_registry_alloc(members->value->identifiers, next);
+		for (fckc_size_t index = 0; index < members->value->capacity; index++)
+		{
+			fck_member_info *entry = &members->value->info[index];
+			if (fck_identifier_is_null(entry->identifier))
+			{
+				continue;
+			}
+
+			// Re-probe that bad boy
+			fckc_size_t new_index = entry->hash % result->capacity;
+			for (;;)
+			{
+				fck_member_info *new_entry = &result->info[new_index];
+				if (fck_identifier_is_null(new_entry->identifier))
+				{
+					SDL_memcpy(new_entry, entry, sizeof(*entry));
+					break;
+				}
+				new_index = (new_index + 1) % result->capacity;
+			}
+		}
+
+		result->count = members->value->count;
+		result->capacity = next;
+		fck_member_registry_free(members->value);
+		members->value = result;
+	}
+
+	fck_member_registry *head = members->value;
 	struct fck_type_info *owner_info = fck_type_resolve(desc.owner);
 
 	fck_identifier_desc identifier_desc;
@@ -151,31 +200,31 @@ fck_member fck_members_add(fck_members *registry, fck_member_desc desc)
 	fckc_size_t offset = SDL_snprintf(buffer, required_size, "%s %s", str, owner_str);
 
 	const fck_hash_int hash = fck_hash(buffer, offset);
-	fckc_size_t index = ((fckc_size_t)hash) % registry->value->capacity;
+	fckc_size_t index = ((fckc_size_t)hash) % members->value->capacity;
 	SDL_free(buffer);
 
-	while (1)
+	for (;;)
 	{
 		// No need for safe iteration. ONE element IS empty for sure due to pre-condition
-		const fck_member_info *current = &registry->value->info[index];
+		const fck_member_info *current = &members->value->info[index];
 		if (fck_identifier_is_null(current->identifier))
 		{
 			break;
 		}
 		SDL_assert(!(fck_identifier_is_same(current->identifier, identifier) && fck_type_is_same(current->owner, desc.owner)));
-		index = (index + 1) % registry->value->capacity;
+		index = (index + 1) % members->value->capacity;
 	}
 
 	// After the while loop above we know index "points" to a valid, empty slot
-	fck_member_info *info = registry->value->info + index;
+	fck_member_info *info = members->value->info + index;
 	info->hash = hash;
 	info->identifier = identifier;
 	info->next = fck_member_null();
 	info->owner = desc.owner;
 	info->type = desc.type;
 	info->stride = desc.stride;
-	registry->value->count = registry->value->count + 1;
-	fck_member member = {registry, hash};
+	members->value->count = members->value->count + 1;
+	fck_member member = {members, hash};
 	fck_type_info_add_member(desc.owner, member);
 	return member;
 }

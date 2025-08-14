@@ -73,7 +73,7 @@ const char *fck_identifier_resolve(fck_identifier identifier)
 		{
 			return NULL;
 		}
-		index = index + 1;
+		index = (index + 1) % identifier.identifiers->value->capacity;
 	}
 }
 
@@ -126,8 +126,8 @@ fck_identifier fck_identifiers_add(struct fck_identifiers *identifiers, fck_iden
 	if (identifiers->value->count >= (identifiers->value->capacity >> 1))
 	{
 		// Realloc if required
-		fckc_size_t next_capacity = fck_identifier_registry_add_next_capacity(identifiers->value->capacity + 1); // + 1... I think
-		fck_identifier_registry *result = fck_identifier_registry_alloc(next_capacity);
+		fckc_size_t next = (fckc_size_t)fck_identifier_registry_add_next_capacity(identifiers->value->capacity + 1); // + 1... I think
+		fck_identifier_registry *result = fck_identifier_registry_alloc(next);
 
 		for (fckc_size_t index = 0; index < identifiers->value->capacity; index++)
 		{
@@ -140,17 +140,17 @@ fck_identifier fck_identifiers_add(struct fck_identifiers *identifiers, fck_iden
 			fckc_size_t new_index = entry->hash % result->capacity;
 			while (1)
 			{
-				fck_identifier_registry_entry *new_entry = &identifiers->value->identifiers[new_index];
+				fck_identifier_registry_entry *new_entry = &result->identifiers[new_index];
 				if (new_entry->str == NULL)
 				{
 					SDL_memcpy(new_entry, entry, sizeof(*entry));
 					break;
 				}
-				new_index = new_index + 1 % result->capacity;
+				new_index = (new_index + 1) % result->capacity;
 			}
 		}
 
-		result->capacity = next_capacity;
+		result->capacity = next;
 		result->count = identifiers->value->count;
 		fck_identifier_registry_free(identifiers->value);
 		identifiers->value = result;

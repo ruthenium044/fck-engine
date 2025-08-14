@@ -201,11 +201,11 @@ void setup_base_primitives(struct fck_types *types, struct fck_serialise_interfa
 
 void setup_some_stuff()
 {
-	identifiers = fck_identifiers_alloc(128);
+	identifiers = fck_identifiers_alloc(1);
 
-	members = fck_members_alloc(identifiers, 64);
-	types = fck_types_alloc(identifiers, 64);
-	serialisers = fck_serialise_interfaces_alloc(64);
+	members = fck_members_alloc(identifiers, 1);
+	types = fck_types_alloc(identifiers, 1);
+	serialisers = fck_serialise_interfaces_alloc(1);
 
 	setup_base_primitives(types, serialisers);
 
@@ -347,66 +347,7 @@ int fck_ui_window_entities(struct fck_ui *ui, fck_ui_window *window, void *userd
 	const char *json_data = fck_serliaser_json_string_alloc(&json);
 
 	fck_serialiser_free(&serialiser);
-	// fck_member_handle current = type->first_member;
-	// if (nk_tree_push(ctx, NK_TREE_TAB, owner_name_name, NK_MINIMIZED))
-	//{
-	//	while (!fck_member_handle_is_null(current))
-	//	{
-	//		fck_member_info *member = fck_member_handle_resolve(current);
-	//		fck_type_info *member_type = fck_type_handle_resolve(member->type);
-	//		const char *type_name = fck_identifier_resolve(member_type->identifier);
-	//		const char *member_name = fck_identifier_resolve(member->identifier);
 
-	//		nk_labelf(ctx, NK_TEXT_LEFT, "%s %s", type_name, member_name);
-	//		current = member->next;
-	//	}
-
-	//	nk_tree_pop(ctx);
-	//}
-
-	const char *identifier = "float";
-
-	// static fckc_u32 counter = 0;
-	// if (nk_button_label(ctx, "Add float"))
-	//{
-	//	fck_type_handle type_handle = fck_type_registry_get(&types, identifier);
-	//	fck_type_info *type_info = fck_type_handle_resolve(type_handle);
-	//	const char *type_name = fck_identifier_resolve(type_info->identifier);
-
-	//	char buffer[256];
-	//	int count = SDL_snprintf(buffer, sizeof(buffer), "%s_%u", type_name, counter);
-
-	//	fck_member_registry_add(&members, custom_type, type_handle, buffer);
-	//	counter++;
-	//}
-
-	// if (nk_button_label(ctx, "Add int"))
-	//{
-	//	fck_type_handle type_handle = fck_type_registry_get(&types, "int");
-	//	fck_type_info *type_info = fck_type_handle_resolve(type_handle);
-	//	const char *type_name = fck_identifier_resolve(type_info->identifier);
-	//	char buffer[256];
-	//	SDL_snprintf(buffer, sizeof(buffer), "%s_%u", type_name, counter);
-
-	//	fck_member_registry_add(&members, custom_type, type_handle, buffer);
-	//	counter++;
-	//}
-
-	// if (nk_button_label(ctx, "Add double"))
-	//{
-	//	fck_type_handle type_handle = fck_type_registry_get(&types, "double");
-	//	fck_type_info *type_info = fck_type_handle_resolve(type_handle);
-	//	const char *type_name = fck_identifier_resolve(type_info->identifier);
-	//	char buffer[256];
-	//	SDL_snprintf(buffer, sizeof(buffer), "%s_%u", type_name, counter);
-
-	//	fck_member_registry_add(&members, custom_type, type_handle, buffer);
-	//	counter++;
-	//}
-
-	// fck_identifier_registry_free(identifiers);
-	// fck_type_registry_free(type_registry);
-	// fck_member_registry_free(member_registry);
 	return 1;
 }
 

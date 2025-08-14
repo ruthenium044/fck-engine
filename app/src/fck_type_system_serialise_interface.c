@@ -21,6 +21,23 @@ typedef struct fck_serialise_interfaces
 	struct fck_serialiser_registry *value;
 } fck_serialise_interfaces;
 
+static fckc_u64 fck_serialiser_registry_add_next_capacity(fckc_u64 n)
+{
+	if (n == 0)
+		return 1;
+
+	n--;
+	n |= n >> 1;
+	n |= n >> 2;
+	n |= n >> 4;
+	n |= n >> 8;
+	n |= n >> 16;
+	n |= n >> 32;
+	n++;
+
+	return n;
+}
+
 static fck_serialiser_registry *fck_serialiser_registry_alloc(fckc_size_t capacity)
 {
 	fckc_size_t size = offsetof(fck_serialiser_registry, info[capacity]);
@@ -60,9 +77,42 @@ void fck_serialise_interfaces_free(struct fck_serialise_interfaces *interfaces)
 
 void fck_serialise_interfaces_add(struct fck_serialise_interfaces *interfaces, fck_serialise_desc desc)
 {
-	// TODO: resize
 	SDL_assert(interfaces);
 	SDL_assert(!fck_type_is_null(desc.type));
+
+	// Maybe resize
+	if (interfaces->value->count >= (interfaces->value->capacity >> 1))
+	{
+		fckc_size_t next = fck_serialiser_registry_add_next_capacity(interfaces->value->capacity + 1);
+		fck_serialiser_registry *result = fck_serialiser_registry_alloc(next);
+
+		for (fckc_size_t index = 0; index < interfaces->value->capacity; index++)
+		{
+			fck_serialiser_info *entry = &interfaces->value->info[index];
+			// Maybe check for func == NULL?
+			if (fck_type_is_null(entry->type))
+			{
+				continue;
+			}
+
+			fckc_size_t new_index = entry->type.hash % result->capacity;
+			while (1)
+			{
+				fck_serialiser_info *new_entry = &result->info[new_index];
+				if (fck_type_is_null(new_entry->type))
+				{
+					SDL_memcpy(new_entry, entry, sizeof(*entry));
+					break;
+				}
+				new_index = (new_index + 1) % result->capacity;
+			}
+		}
+
+		result->count = interfaces->value->count;
+		result->capacity = next;
+		fck_serialiser_registry_free(interfaces->value);
+		interfaces->value = result;
+	}
 
 	fckc_size_t index = ((fckc_size_t)desc.type.hash) % interfaces->value->capacity;
 	while (1)
@@ -79,6 +129,7 @@ void fck_serialise_interfaces_add(struct fck_serialise_interfaces *interfaces, f
 	fck_serialiser_info *info = interfaces->value->info + index;
 	info->type = desc.type;
 	info->serialise = desc.func;
+	interfaces->value->count = interfaces->value->count + 1;
 }
 
 fck_serialise_func *fck_serialise_interfaces_get(struct fck_serialise_interfaces *interfaces, fck_type type)

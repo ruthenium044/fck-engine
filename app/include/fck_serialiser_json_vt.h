@@ -1,8 +1,6 @@
 #ifndef FCK_SERIALISER_JSON_VT_H_INCLUDED
 #define FCK_SERIALISER_JSON_VT_H_INCLUDED
 
-#include "fckc_inttypes.h"
-
 extern struct fck_serialiser_vt *fck_json_writer_vt;
 extern struct fck_serialiser_vt *fck_json_reader_vt;
 

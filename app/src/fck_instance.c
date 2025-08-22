@@ -14,7 +14,6 @@
 #include "fck_serialiser.h"
 #include "fck_serialiser_json_vt.h"
 #include "fck_serialiser_nk_edit_vt.h"
-#include "fck_serialiser_vt.h"
 
 #include "kll_heap.h"
 
@@ -35,7 +34,7 @@ typedef struct fck_entity_set
 	fck_entity_index id[1];
 } fck_entity_set;
 
-#define FCK_SERIALISE_FUNC(x) (fck_serialise_func *)(x)
+static fck_entity_set *entities;
 
 typedef struct fck_component_info
 {
@@ -86,118 +85,15 @@ struct fck_members *members;
 struct fck_types *types;
 struct fck_serialise_interfaces *serialisers;
 
-#define fck_id(s) #s
-
-typedef struct float2
-{
-	float x;
-	float y;
-} float2;
-
-typedef struct float3
-{
-	float x;
-	float y;
-	float z;
-} float3;
-
 typedef struct example_type
 {
+	fckc_f32x2 other;
 	double double_value;
 	float cooldown;
-	float2 position;
-	float3 rgb;
+	fckc_f32x2 position;
+	fckc_f32x3 rgb;
 	fckc_u32 some_int;
 } example_type;
-
-void fck_type_add_u32(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type member_type = fck_types_find_from_string(type.types, fck_id(fckc_u32));
-	fck_members_add(members, (fck_member_desc){.type = member_type, .name = name, .owner = type, .stride = stride});
-}
-
-void fck_type_add_double(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type member_type = fck_types_find_from_string(type.types, fck_id(double));
-	fck_members_add(members, (fck_member_desc){.type = member_type, .name = name, .owner = type, .stride = stride});
-}
-
-void fck_type_add_float(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type member_type = fck_types_find_from_string(type.types, fck_id(float));
-	fck_members_add(members, (fck_member_desc){.type = member_type, .name = name, .owner = type, .stride = stride});
-}
-
-void fck_type_add_float2(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type member_type = fck_types_find_from_string(type.types, fck_id(float2));
-	fck_members_add(members, (fck_member_desc){.type = member_type, .name = name, .owner = type, .stride = stride});
-}
-
-void fck_type_add_float3(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type member_type = fck_types_find_from_string(type.types, fck_id(float3));
-	fck_members_add(members, (fck_member_desc){.type = member_type, .name = name, .owner = type, .stride = stride});
-}
-
-void fck_serialise_float(float *value, fckc_size_t count, fck_serialiser *serialiser, fck_serialiser_params *params)
-{
-	serialiser->vt->f32(serialiser, params, value, count);
-}
-void fck_serialise_double(double *value, fckc_size_t count, fck_serialiser *serialiser, fck_serialiser_params *params)
-{
-	serialiser->vt->f64(serialiser, params, value, count);
-}
-void fck_serialise_i8(fckc_i8 *value, fckc_size_t count, fck_serialiser *serialiser, fck_serialiser_params *params)
-{
-	serialiser->vt->i8(serialiser, params, value, count);
-}
-void fck_serialise_i16(fckc_i16 *value, fckc_size_t count, fck_serialiser *serialiser, fck_serialiser_params *params)
-{
-	serialiser->vt->i16(serialiser, params, value, count);
-}
-void fck_serialise_i32(fckc_i32 *value, fckc_size_t count, fck_serialiser *serialiser, fck_serialiser_params *params)
-{
-	serialiser->vt->i32(serialiser, params, value, count);
-}
-void fck_serialise_i64(fckc_i64 *value, fckc_size_t count, fck_serialiser *serialiser, fck_serialiser_params *params)
-{
-	serialiser->vt->i64(serialiser, params, value, count);
-}
-void fck_serialise_u8(fckc_u8 *value, fckc_size_t count, fck_serialiser *serialiser, fck_serialiser_params *params)
-{
-	serialiser->vt->u8(serialiser, params, value, count);
-}
-void fck_serialise_u16(fckc_u16 *value, fckc_size_t count, fck_serialiser *serialiser, fck_serialiser_params *params)
-{
-	serialiser->vt->u16(serialiser, params, value, count);
-}
-void fck_serialise_u32(fckc_u32 *value, fckc_size_t count, fck_serialiser *serialiser, fck_serialiser_params *params)
-{
-	serialiser->vt->u32(serialiser, params, value, count);
-}
-void fck_serialise_u64(fckc_u64 *value, fckc_size_t count, fck_serialiser *serialiser, fck_serialiser_params *params)
-{
-	serialiser->vt->u64(serialiser, params, value, count);
-}
-
-#define fck_setup_base_primitive(types, serialisers, type, serialise)                                                                      \
-	fck_serialise_interfaces_add(serialisers,                                                                                              \
-	                             (fck_serialise_desc){fck_types_add(types, (fck_type_desc){fck_id(type)}), FCK_SERIALISE_FUNC(serialise)})
-
-void setup_base_primitives(struct fck_types *types, struct fck_serialise_interfaces *serialisers)
-{
-	fck_setup_base_primitive(types, serialisers, float, fck_serialise_float);
-	fck_setup_base_primitive(types, serialisers, double, fck_serialise_double);
-	fck_setup_base_primitive(types, serialisers, fckc_i8, fck_serialise_i8);
-	fck_setup_base_primitive(types, serialisers, fckc_i16, fck_serialise_i16);
-	fck_setup_base_primitive(types, serialisers, fckc_i32, fck_serialise_i32);
-	fck_setup_base_primitive(types, serialisers, fckc_i64, fck_serialise_i64);
-	fck_setup_base_primitive(types, serialisers, fckc_u8, fck_serialise_u8);
-	fck_setup_base_primitive(types, serialisers, fckc_u16, fck_serialise_u16);
-	fck_setup_base_primitive(types, serialisers, fckc_u32, fck_serialise_u32);
-	fck_setup_base_primitive(types, serialisers, fckc_u64, fck_serialise_u64);
-}
 
 void setup_some_stuff()
 {
@@ -207,24 +103,15 @@ void setup_some_stuff()
 	types = fck_types_alloc(identifiers, 1);
 	serialisers = fck_serialise_interfaces_alloc(1);
 
-	setup_base_primitives(types, serialisers);
+	fck_type_system_setup_primitives(types, members, serialisers);
 
-	fck_type float_type_handle = fck_types_add(types, (fck_type_desc){fck_id(float)});
-	fck_type float2_type_handle = fck_types_add(types, (fck_type_desc){fck_id(float2)});
-	fck_type_add_float(members, float2_type_handle, "x", sizeof(float) * 0);
-	fck_type_add_float(members, float2_type_handle, "y", sizeof(float) * 1);
-
-	fck_type float3_type_handle = fck_types_add(types, (fck_type_desc){fck_id(float3)});
-	fck_type_add_float(members, float3_type_handle, "x", sizeof(float) * 0);
-	fck_type_add_float(members, float3_type_handle, "y", sizeof(float) * 1);
-	fck_type_add_float(members, float3_type_handle, "z", sizeof(float) * 2);
-
-	fck_type example_type_handle = fck_types_add(types, (fck_type_desc){fck_id(example_type)});
-	fck_type_add_float(members, example_type_handle, fck_id(cooldown), offsetof(example_type, cooldown));
-	fck_type_add_float2(members, example_type_handle, fck_id(position), offsetof(example_type, position));
-	fck_type_add_float3(members, example_type_handle, fck_id(rgb), offsetof(example_type, rgb));
-	fck_type_add_double(members, example_type_handle, fck_id(double_value), offsetof(example_type, double_value));
-	fck_type_add_u32(members, example_type_handle, fck_id(some_int), offsetof(example_type, some_int));
+	fck_type example_type_handle = fck_types_add(types, (fck_type_desc){fck_name(example_type)});
+	fck_type_add_f32x2(members, example_type_handle, fck_name(other), offsetof(example_type, other));
+	fck_type_add_f32(members, example_type_handle, fck_name(cooldown), offsetof(example_type, cooldown));
+	fck_type_add_f32x2(members, example_type_handle, fck_name(position), offsetof(example_type, position));
+	fck_type_add_f32x3(members, example_type_handle, fck_name(rgb), offsetof(example_type, rgb));
+	fck_type_add_f64(members, example_type_handle, fck_name(double_value), offsetof(example_type, double_value));
+	fck_type_add_u32(members, example_type_handle, fck_name(some_int), offsetof(example_type, some_int));
 }
 
 void fck_type_read(fck_type type_handel, void *value)
@@ -275,13 +162,13 @@ void fck_type_edit(fck_serialiser *serialiser, fck_ui_ctx *ctx, fck_type type_ha
 	}
 }
 
-void fck_type_serialise(fck_serialiser *serialiser, fck_type type_handle, const char *name, void *data)
+void fck_type_serialise(fck_serialiser *serialiser, fck_type type, const char *name, void *data)
 {
-	struct fck_type_info *type = fck_type_resolve(type_handle);
-	fck_identifier owner_identifier = fck_type_info_identify(type);
+	struct fck_type_info *type_info = fck_type_resolve(type);
+	fck_identifier owner_identifier = fck_type_info_identify(type_info);
 	const char *owner_name_name = fck_identifier_resolve(owner_identifier);
 
-	fck_serialise_func *serialise = fck_serialise_interfaces_get(serialisers, type_handle);
+	fck_serialise_func *serialise = fck_serialise_interfaces_get(serialisers, type);
 	if (serialise != NULL)
 	{
 		fck_serialiser_params params;
@@ -292,7 +179,7 @@ void fck_type_serialise(fck_serialiser *serialiser, fck_type type_handle, const 
 		serialise(data, 1, serialiser, &params);
 	}
 
-	fck_member current = fck_type_info_first_member(type);
+	fck_member current = fck_type_info_first_member(type_info);
 	while (!fck_member_is_null(current))
 	{
 		struct fck_member_info *member = fck_member_resolve(current);
@@ -312,7 +199,7 @@ int fck_ui_window_entities(struct fck_ui *ui, fck_ui_window *window, void *userd
 
 	nk_layout_row_dynamic(ctx, 25, 1);
 
-	fck_type custom_type = fck_types_find_from_string(types, fck_id(example_type));
+	fck_type custom_type = fck_types_find_from_string(types, fck_name(example_type));
 	struct fck_type_info *type = fck_type_resolve(custom_type);
 
 	// fck_serialiser serialiser = fck_serialiser_alloc(kll_heap, fck_byte_writer_vt, 256);
@@ -333,16 +220,26 @@ int fck_ui_window_entities(struct fck_ui *ui, fck_ui_window *window, void *userd
 	if (is_init == 0)
 	{
 		is_init = 1;
+		example.other.x = 99.0f;
+		example.other.y = 123.0f;
 		example.cooldown = 69.0f;
 		example.position.x = 1.0f;
 		example.position.y = 2.0f;
-		example.rgb = (float3){4.0f, 2.0, 0.0f};
+		example.rgb = (fckc_f32x3){4.0f, 2.0, 0.0f};
 		example.some_int = 99;
 		example.double_value = 999.0;
 	}
 	static fckc_u8 opaque[64];
-	fck_type_edit(&serialiser, ctx, custom_type, "dummy", &opaque);
-	fck_type_serialise(&json, custom_type, "dummy", &example);
+	fck_type_edit(&serialiser, ctx, custom_type, "dummy", &example);
+	// fck_type_serialise(&json, custom_type, "dummy", &example);
+
+	fck_serialise_func *serialise = fck_serialise_interfaces_get(serialisers, fck_types_find_from_string(types, fck_name(float)));
+	fck_serialiser_params params;
+	params.name = "SOME TEST";
+	params.user = NULL;
+
+	fckc_size_t label_start = serialiser.at;
+	serialise(&example, 2, &serialiser, &params);
 
 	const char *json_data = fck_serliaser_json_string_alloc(&json);
 
@@ -381,7 +278,7 @@ fck_instance_result fck_instance_overlay(fck_instance *instance)
 fck_instance *fck_instance_alloc(const char *title, int with, int height, SDL_WindowFlags window_flags, const char *renderer_name)
 {
 	fck_instance *app = (fck_instance *)SDL_malloc(sizeof(fck_instance));
-	app->window = SDL_CreateWindow(title, 1920, 1080, SDL_WINDOW_RESIZABLE);
+	app->window = SDL_CreateWindow(title, 1280, 720, SDL_WINDOW_RESIZABLE);
 	app->renderer = SDL_CreateRenderer(app->window, renderer_name);
 	app->ui = fck_ui_alloc(app->renderer);
 	app->window_manager = fck_ui_window_manager_alloc(16);
@@ -391,6 +288,10 @@ fck_instance *fck_instance_alloc(const char *title, int with, int height, SDL_Wi
 	fck_ui_set_style(fck_ui_context(app->ui), THEME_DRACULA);
 
 	setup_some_stuff();
+
+	entities = SDL_malloc(offsetof(fck_entity_set, id[128]));
+	entities->capacity = 128;
+	entities->count = 2;
 
 	return app;
 }

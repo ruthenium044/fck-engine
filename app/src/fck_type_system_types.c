@@ -5,6 +5,8 @@
 
 #include <fck_hash.h>
 
+#include "fck_serialiser.h"
+
 typedef struct fck_type_registry
 {
 	fckc_size_t count;

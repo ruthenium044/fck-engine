@@ -3,10 +3,13 @@
 
 #include <fckc_inttypes.h>
 
+#define fck_name(s) #s
+
 struct fck_identifiers;
 struct fck_types;
 struct fck_members;
 struct fck_serialise_interfaces;
+
 struct fck_type_info;
 struct fck_member_info;
 
@@ -124,6 +127,63 @@ typedef struct fck_serialise_desc
 	fck_serialise_func *func;
 } fck_serialise_desc;
 void fck_serialise_interfaces_add(struct fck_serialise_interfaces *interfaces, fck_serialise_desc desc);
-// Kind of breaks semantics... "get" -> prefer resolve?
+// Kind of breaks semantics... "get" -> prefer resolve? Meine find_from_type?
 fck_serialise_func *fck_serialise_interfaces_get(struct fck_serialise_interfaces *interfaces, fck_type type);
+
+// Absolute base primitives
+void fck_type_add_f32(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
+void fck_type_add_f64(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
+void fck_type_add_i8(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
+void fck_type_add_i16(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
+void fck_type_add_i32(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
+void fck_type_add_i64(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
+void fck_type_add_u8(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
+void fck_type_add_u16(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
+void fck_type_add_u32(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
+void fck_type_add_u64(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
+
+// Combined primitives
+void fck_type_add_f32x2(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
+void fck_type_add_f32x3(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
+void fck_type_add_f32x4(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride); // TODO
+
+void fck_type_add_f64x2(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride); // TODO
+void fck_type_add_f64x3(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride); // TODO
+void fck_type_add_f64x4(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride); // TODO
+
+void fck_type_add_i8x2(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride); // TODO
+void fck_type_add_i8x3(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride); // TODO
+void fck_type_add_i8x4(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride); // TODO
+
+void fck_type_add_i16x2(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride); // TODO
+void fck_type_add_i16x3(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride); // TODO
+void fck_type_add_i16x4(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride); // TODO
+
+void fck_type_add_i32x2(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
+void fck_type_add_i32x3(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
+void fck_type_add_i32x4(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride); // TODO
+
+void fck_type_add_i64x2(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride); // TODO
+void fck_type_add_i64x3(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride); // TODO
+void fck_type_add_i64x4(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride); // TODO
+
+void fck_type_add_u8x2(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride); // TODO
+void fck_type_add_u8x3(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride); // TODO
+void fck_type_add_u8x4(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride); // TODO
+
+void fck_type_add_u16x2(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride); // TODO
+void fck_type_add_u16x3(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride); // TODO
+void fck_type_add_u16x4(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride); // TODO
+
+void fck_type_add_u32x2(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride); // TODO
+void fck_type_add_u32x3(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride); // TODO
+void fck_type_add_u32x4(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride); // TODO
+
+void fck_type_add_u64x2(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride); // TODO
+void fck_type_add_u64x3(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride); // TODO
+void fck_type_add_u64x4(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride); // TODO
+
+// Setup!
+void fck_type_system_setup_primitives(struct fck_types *types, struct fck_members *members, struct fck_serialise_interfaces *serialisers);
+
 #endif // !FCK_TYPE_SYSTEM_H_INCLUDED

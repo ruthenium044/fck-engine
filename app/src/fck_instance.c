@@ -118,14 +118,14 @@ void fck_type_read(fck_type type_handel, void *value)
 {
 }
 
-void fck_type_edit(fck_serialiser *serialiser, fck_ui_ctx *ctx, fck_type type_handle, const char *name, void *data)
+void fck_type_edit(fck_serialiser *serialiser, fck_ui_ctx *ctx, fck_type type, const char *name, void *data)
 {
-	struct fck_type_info *type = fck_type_resolve(type_handle);
-	fck_identifier owner_identifier = fck_type_info_identify(type);
+	struct fck_type_info *info = fck_type_resolve(type);
+	fck_identifier owner_identifier = fck_type_info_identify(info);
 
 	const char *owner_name_name = fck_identifier_resolve(owner_identifier);
 
-	fck_serialise_func *serialise = fck_serialise_interfaces_get(serialisers, type_handle);
+	fck_serialise_func *serialise = fck_serialise_interfaces_get(serialisers, type);
 	if (serialise != NULL)
 	{
 		fck_serialiser_params params;
@@ -136,7 +136,7 @@ void fck_type_edit(fck_serialiser *serialiser, fck_ui_ctx *ctx, fck_type type_ha
 		serialise(data, 1, serialiser, &params);
 	}
 
-	fck_member current = fck_type_info_first_member(type);
+	fck_member current = fck_type_info_first_member(info);
 	if (fck_member_is_null(current))
 	{
 		return;
@@ -206,8 +206,6 @@ int fck_ui_window_entities(struct fck_ui *ui, fck_ui_window *window, void *userd
 	// fck_serialiser serialiser = fck_serialiser_alloc(kll_heap, fck_byte_reader_vt, 256);
 	// fck_serialiser serialiser = fck_serialiser_alloc(kll_heap, fck_string_writer_vt, 256);
 	// fck_serialiser serialiser = fck_serialiser_alloc(kll_heap, fck_string_reader_vt, 256);
-	fck_serialiser json;
-	fck_serliaser_json_writer_alloc(&json, kll_heap);
 
 	// This one below does not make sense - We need a json serialiser and a json READER
 	// but the reader cannot be a serialiser since it does not... serialised LOL
@@ -233,17 +231,25 @@ int fck_ui_window_entities(struct fck_ui *ui, fck_ui_window *window, void *userd
 	fck_type_edit(&serialiser, ctx, custom_type, "dummy", &example);
 	// fck_type_serialise(&json, custom_type, "dummy", &example);
 
-	fck_serialise_func *serialise = fck_serialise_interfaces_get(serialisers, fck_types_find_from_string(types, fck_name(float)));
-	fck_serialiser_params params;
-	params.name = "SOME TEST";
-	params.user = NULL;
+	// fck_serialise_func *serialise = fck_serialise_interfaces_get(serialisers, fck_types_find_from_string(types, fck_name(float)));
+	// fck_serialiser_params params;
+	// params.name = "SOME TEST";
+	// params.user = NULL;
 
-	fckc_size_t label_start = serialiser.at;
-	serialise(&example, 2, &serialiser, &params);
+	// fckc_size_t label_start = serialiser.at;
+	// serialise(&example, 2, &serialiser, &params);
 
-	const char *json_data = fck_serliaser_json_string_alloc(&json);
+	if (nk_button_label(ctx, "Save to disk"))
+	{
+		fck_serialiser json;
+		fck_serialiser_json_writer_alloc(&json, kll_heap);
+		fck_type_serialise(&json, custom_type, "Template", &example);
 
-	fck_serialiser_free(&serialiser);
+		char *json_data = fck_serialiser_json_string_alloc(&json);
+		fck_serialiser_json_string_free(&json, json_data);
+
+		fck_serialiser_free(&serialiser);
+	}
 
 	return 1;
 }

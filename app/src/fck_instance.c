@@ -11,7 +11,7 @@
 #include "fck_nuklear_demos.h"
 #include "fck_ui_window_manager.h"
 
-#include "fck_serialiser.h"
+#include "fck_serialiser_vt.h"
 #include "fck_serialiser_json_vt.h"
 #include "fck_serialiser_nk_edit_vt.h"
 
@@ -88,8 +88,8 @@ struct fck_serialise_interfaces *serialisers;
 typedef struct example_type
 {
 	fckc_f32x2 other;
-	double double_value;
-	float cooldown;
+	fckc_f64 double_value;
+	fckc_f32 cooldown;
 	fckc_f32x2 position;
 	fckc_f32x3 rgb;
 	fckc_u32 some_int;
@@ -103,7 +103,7 @@ void setup_some_stuff()
 	types = fck_types_alloc(identifiers, 1);
 	serialisers = fck_serialise_interfaces_alloc(1);
 
-	fck_type_system_setup_primitives(types, members, serialisers);
+	fck_type_system_setup_core(types, members, serialisers);
 
 	fck_type example_type_handle = fck_types_add(types, (fck_type_desc){fck_name(example_type)});
 	fck_type_add_f32x2(members, example_type_handle, fck_name(other), offsetof(example_type, other));
@@ -132,14 +132,32 @@ void fck_type_edit(fck_serialiser *serialiser, fck_ui_ctx *ctx, fck_type type, c
 		params.name = name;
 		params.user = NULL;
 
-		fckc_size_t label_start = serialiser->at;
-		serialise(data, 1, serialiser, &params);
+		serialise(serialiser, &params, data, 1);
 	}
 
 	fck_member current = fck_type_info_first_member(info);
 	if (fck_member_is_null(current))
 	{
 		return;
+	}
+
+	struct fck_apis* api_reg;
+
+	fck_load_type_system(api_reg);
+	
+	fck_type_system* api = fck_get_type_system(api_reg);
+
+	fck_type big_pp_type = api->type->find_from_string("big_penis");
+	struct fck_type_info* big_pp_info = api->type->resolve(big_pp_type);
+	fck_identifier big_pp_id = api->type->identify(big_pp_info);
+
+	fck_type small_pp_type = api->type->find_from_string("small_penis");
+	struct fck_type_info* small_pp_info = api->type->resolve(small_pp_type);
+	fck_identifier small_pp_id = api->type->identify(small_pp_info);
+
+	if(!api->identifier->is_same(small_pp_id, big_pp_id)) 
+	{
+		api->member->push((fck_member_desc) {.owner = big_pp_type, .type = small_pp_type, .name = "David", .stride = 0});
 	}
 
 	// Recurse through children
@@ -155,7 +173,7 @@ void fck_type_edit(fck_serialiser *serialiser, fck_ui_ctx *ctx, fck_type type, c
 			fckc_u8 *offset_ptr = ((fckc_u8 *)(data)) + fck_member_info_stride(member);
 			fck_type member_type = fck_member_info_type(member);
 			fck_type_edit(serialiser, ctx, member_type, member_name, (void *)(offset_ptr));
-
+			
 			current = fck_member_info_next(member);
 		}
 		nk_tree_pop(ctx);
@@ -175,8 +193,7 @@ void fck_type_serialise(fck_serialiser *serialiser, fck_type type, const char *n
 		params.name = name;
 		params.user = NULL;
 
-		fckc_size_t label_start = serialiser->at;
-		serialise(data, 1, serialiser, &params);
+		serialise(serialiser, &params, data, 1);
 	}
 
 	fck_member current = fck_type_info_first_member(type_info);
@@ -202,16 +219,7 @@ int fck_ui_window_entities(struct fck_ui *ui, fck_ui_window *window, void *userd
 	fck_type custom_type = fck_types_find_from_string(types, fck_name(example_type));
 	struct fck_type_info *type = fck_type_resolve(custom_type);
 
-	// fck_serialiser serialiser = fck_serialiser_alloc(kll_heap, fck_byte_writer_vt, 256);
-	// fck_serialiser serialiser = fck_serialiser_alloc(kll_heap, fck_byte_reader_vt, 256);
-	// fck_serialiser serialiser = fck_serialiser_alloc(kll_heap, fck_string_writer_vt, 256);
-	// fck_serialiser serialiser = fck_serialiser_alloc(kll_heap, fck_string_reader_vt, 256);
-
-	// This one below does not make sense - We need a json serialiser and a json READER
-	// but the reader cannot be a serialiser since it does not... serialised LOL
-	// fck_serialiser serialiser = fck_serialiser_alloc(kll_heap, fck_json_reader_vt, 256);
-	fck_serialiser serialiser = fck_serialiser_alloc(kll_heap, fck_nk_edit_vt, 256);
-	serialiser.user = ctx;
+	fck_nk_serialiser serialiser = {.ctx = ctx, .vt = fck_nk_edit_vt };
 
 	static int is_init = 0;
 	static example_type example;
@@ -229,26 +237,17 @@ int fck_ui_window_entities(struct fck_ui *ui, fck_ui_window *window, void *userd
 	}
 	static fckc_u8 opaque[64];
 	fck_type_edit(&serialiser, ctx, custom_type, "dummy", &example);
-	// fck_type_serialise(&json, custom_type, "dummy", &example);
-
-	// fck_serialise_func *serialise = fck_serialise_interfaces_get(serialisers, fck_types_find_from_string(types, fck_name(float)));
-	// fck_serialiser_params params;
-	// params.name = "SOME TEST";
-	// params.user = NULL;
-
-	// fckc_size_t label_start = serialiser.at;
-	// serialise(&example, 2, &serialiser, &params);
 
 	if (nk_button_label(ctx, "Save to disk"))
 	{
-		fck_serialiser json;
-		fck_serialiser_json_writer_alloc(&json, kll_heap);
-		fck_type_serialise(&json, custom_type, "Template", &example);
+		//fck_serialiser json;
+		//fck_serialiser_json_writer_alloc(&json, kll_heap);
+		//fck_type_serialise(&json, custom_type, "Template", &example);
 
-		char *json_data = fck_serialiser_json_string_alloc(&json);
-		fck_serialiser_json_string_free(&json, json_data);
+		//char *json_data = fck_serialiser_json_string_alloc(&json);
+		//fck_serialiser_json_string_free(&json, json_data);
 
-		fck_serialiser_free(&serialiser);
+		//fck_serialiser_free(&serialiser);
 	}
 
 	return 1;

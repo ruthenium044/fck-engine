@@ -24,31 +24,29 @@ static fckc_u64 fck_serialiser_buffer_next_capacity(fckc_u64 n)
 	return n;
 }
 
-fck_serialiser fck_serialiser_create(struct fck_serialiser_vt *vt, fckc_u8 *bytes, fckc_size_t capacity)
+fck_memory_serialiser fck_memory_serialiser_create(struct fck_serialiser_vt *vt, fckc_u8 *bytes, fckc_size_t capacity)
 {
-	fck_serialiser serialiser;
+	fck_memory_serialiser serialiser;
 	serialiser.vt = vt;
 	serialiser.allocator = NULL;
 	serialiser.capacity = capacity;
 	serialiser.at = 0;
 	serialiser.bytes = bytes;
-	serialiser.user = NULL;
 	return serialiser;
 };
 
-fck_serialiser fck_serialiser_alloc(struct kll_allocator *allocator, struct fck_serialiser_vt *vt, fckc_size_t capacity)
+fck_memory_serialiser fck_memory_serialiser_alloc(struct kll_allocator *allocator, struct fck_serialiser_vt *vt, fckc_size_t capacity)
 {
-	fck_serialiser serialiser;
+	fck_memory_serialiser serialiser;
 	serialiser.vt = vt;
 	serialiser.allocator = allocator;
 	serialiser.capacity = capacity;
 	serialiser.at = 0;
-	serialiser.user = NULL;
 	serialiser.bytes = kll_malloc(allocator, capacity);
 	return serialiser;
 };
 
-void fck_serialiser_realloc(fck_serialiser *serialiser, fckc_size_t capacity)
+void fck_memory_serialiser_realloc(fck_memory_serialiser *serialiser, fckc_size_t capacity)
 {
 	SDL_assert(serialiser);
 	SDL_assert(serialiser->allocator);
@@ -61,7 +59,7 @@ void fck_serialiser_realloc(fck_serialiser *serialiser, fckc_size_t capacity)
 	serialiser->bytes = bytes;
 };
 
-void fck_serialiser_maybe_realloc(fck_serialiser *serialiser, fckc_size_t extra)
+void fck_memory_serialiser_maybe_realloc(fck_memory_serialiser *serialiser, fckc_size_t extra)
 {
 	SDL_assert(serialiser);
 
@@ -70,11 +68,11 @@ void fck_serialiser_maybe_realloc(fck_serialiser *serialiser, fckc_size_t extra)
 	{
 		SDL_assert(serialiser->allocator);
 		next_capacity = fck_serialiser_buffer_next_capacity(next_capacity);
-		fck_serialiser_realloc(serialiser, next_capacity);
+		fck_memory_serialiser_realloc(serialiser, next_capacity);
 	}
 };
 
-void fck_serialiser_free(fck_serialiser *serialiser)
+void fck_memory_serialiser_free(fck_memory_serialiser *serialiser)
 {
 	SDL_assert(serialiser);
 	SDL_assert(serialiser->allocator);

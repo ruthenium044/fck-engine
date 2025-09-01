@@ -11,6 +11,7 @@
 #define FCK_STATIC_HASH(...)                                                                                                               \
 	FCK_STATIC_HASH_CHOOSE(__VA_ARGS__, FCK_STATIC_HASH_NO_HASH_EXISTS(__VA_ARGS__), FCK_STATIC_HASH_HASH_EXISTS(__VA_ARGS__))
 
+// I do not know if I still approve hash_int... hash_type, maybe?
 typedef unsigned long long fck_hash_int;
 
 static fck_hash_int fck_hash_unsafe(const char *str)

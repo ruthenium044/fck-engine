@@ -76,6 +76,11 @@ fck_identifier fck_member_info_identify(struct fck_member_info *info)
 	return info->identifier;
 }
 
+fck_type fck_member_info_owner(struct fck_member_info *info)
+{
+	return info->owner;
+}
+
 fck_type fck_member_info_type(struct fck_member_info *info)
 {
 	return info->type;

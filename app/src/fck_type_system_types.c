@@ -14,13 +14,44 @@ typedef struct fck_type_registry
 
 	struct fck_identifiers *identifiers;
 
-	fck_type_info info[1];
+	// Open-addressed so we can iterate through the dense part!!
+	fck_type_info info[1]; // info is plural...
 } fck_type_registry;
 
 typedef struct fck_types
 {
 	struct fck_type_registry *value;
 } fck_types;
+
+typedef struct fck_types_it
+{
+	struct fck_type_info *current;
+} fck_types_it;
+
+fck_types_it fck_types_it_begin(fck_types types)
+{
+	fck_types_it it = {.current = types.value->info};
+	it.current--;
+	return it;
+}
+
+int fck_types_it_next(fck_types *types, fck_types_it *it)
+{
+	// Always go next!
+	it->current++;
+
+	const fck_type_info *end = types->value->info + types->value->capacity;
+	for (fck_type_info *entry = it->current; entry != end; entry++)
+	{
+		if (fck_identifier_is_null(entry->identifier))
+		{
+			continue;
+		}
+		it->current = entry;
+		return 1;
+	}
+	return 0;
+}
 
 static fckc_u64 fck_type_registry_add_next_capacity(fckc_u64 n)
 {

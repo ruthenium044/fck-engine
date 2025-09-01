@@ -6,7 +6,6 @@
 #include "fck_ui.h"
 
 #include <SDL3/SDL_assert.h>
-#include <float.h>
 
 #ifndef INT_MIN
 #define INT_MIN (int)0xFFFFFFFFF
@@ -16,15 +15,22 @@
 #define INT_MAX (int)0xEFFFFFFFF
 #endif
 
+static void fck_nk_edit_precondition(fck_serialiser *s)
+{
+	SDL_assert(s->vt == fck_nk_edit_vt);
+}
+
 static const fckc_size_t FCK_WRITE_BUFFER_STRING_SIZE = 256;
 static const fckc_size_t FCK_READ_BUFFER_STRING_SIZE = 256;
 
 void fck_nk_edit_i8(fck_serialiser *s, fck_serialiser_params *p, fckc_i8 *v, fckc_size_t c)
 {
+	fck_nk_edit_precondition(s);
+
 	char buffer[FCK_READ_BUFFER_STRING_SIZE];
 	static const float ratio[] = {120, 150};
 
-	fck_ui_ctx *ctx = (fck_ui_ctx *)s->user;
+	fck_ui_ctx *ctx = (fck_ui_ctx *)((fck_nk_serialiser *)s)->ctx;
 
 	nk_layout_row(ctx, NK_STATIC, 25, 1 + c, ratio);
 	nk_label(ctx, p->name ? p->name : "", NK_TEXT_LEFT);
@@ -39,10 +45,12 @@ void fck_nk_edit_i8(fck_serialiser *s, fck_serialiser_params *p, fckc_i8 *v, fck
 
 void fck_nk_edit_i16(fck_serialiser *s, fck_serialiser_params *p, fckc_i16 *v, fckc_size_t c)
 {
+	fck_nk_edit_precondition(s);
+
 	char buffer[FCK_READ_BUFFER_STRING_SIZE];
 	static const float ratio[] = {120, 150};
 
-	fck_ui_ctx *ctx = (fck_ui_ctx *)s->user;
+	fck_ui_ctx *ctx = (fck_ui_ctx *)((fck_nk_serialiser *)s)->ctx;
 
 	nk_layout_row(ctx, NK_STATIC, 25, 2, ratio);
 	nk_label(ctx, p->name ? p->name : "", NK_TEXT_LEFT);
@@ -57,10 +65,12 @@ void fck_nk_edit_i16(fck_serialiser *s, fck_serialiser_params *p, fckc_i16 *v, f
 
 void fck_nk_edit_i32(fck_serialiser *s, fck_serialiser_params *p, fckc_i32 *v, fckc_size_t c)
 {
+	fck_nk_edit_precondition(s);
+
 	char buffer[FCK_READ_BUFFER_STRING_SIZE];
 	static const float ratio[] = {120, 150};
 
-	fck_ui_ctx *ctx = (fck_ui_ctx *)s->user;
+	fck_ui_ctx *ctx = (fck_ui_ctx *)((fck_nk_serialiser *)s)->ctx;
 
 	nk_layout_row(ctx, NK_STATIC, 25, 2, ratio);
 	nk_label(ctx, p->name ? p->name : "", NK_TEXT_LEFT);
@@ -75,10 +85,12 @@ void fck_nk_edit_i32(fck_serialiser *s, fck_serialiser_params *p, fckc_i32 *v, f
 
 void fck_nk_edit_i64(fck_serialiser *s, fck_serialiser_params *p, fckc_i64 *v, fckc_size_t c)
 {
+	fck_nk_edit_precondition(s);
+
 	char buffer[FCK_READ_BUFFER_STRING_SIZE];
 	static const float ratio[] = {120, 150};
 
-	fck_ui_ctx *ctx = (fck_ui_ctx *)s->user;
+	fck_ui_ctx *ctx = (fck_ui_ctx *)((fck_nk_serialiser *)s)->ctx;
 
 	nk_layout_row(ctx, NK_STATIC, 25, 2, ratio);
 	nk_label(ctx, p->name ? p->name : "", NK_TEXT_LEFT);
@@ -93,10 +105,12 @@ void fck_nk_edit_i64(fck_serialiser *s, fck_serialiser_params *p, fckc_i64 *v, f
 
 void fck_nk_edit_u8(fck_serialiser *s, fck_serialiser_params *p, fckc_u8 *v, fckc_size_t c)
 {
+	fck_nk_edit_precondition(s);
+
 	char buffer[FCK_READ_BUFFER_STRING_SIZE];
 	static const float ratio[] = {120, 150};
 
-	fck_ui_ctx *ctx = (fck_ui_ctx *)s->user;
+	fck_ui_ctx *ctx = (fck_ui_ctx *)((fck_nk_serialiser *)s)->ctx;
 
 	nk_layout_row(ctx, NK_STATIC, 25, 2, ratio);
 	nk_label(ctx, p->name ? p->name : "", NK_TEXT_LEFT);
@@ -111,10 +125,12 @@ void fck_nk_edit_u8(fck_serialiser *s, fck_serialiser_params *p, fckc_u8 *v, fck
 
 void fck_nk_edit_u16(fck_serialiser *s, fck_serialiser_params *p, fckc_u16 *v, fckc_size_t c)
 {
+	fck_nk_edit_precondition(s);
+
 	char buffer[FCK_READ_BUFFER_STRING_SIZE];
 	static const float ratio[] = {120, 150};
 
-	fck_ui_ctx *ctx = (fck_ui_ctx *)s->user;
+	fck_ui_ctx *ctx = (fck_ui_ctx *)((fck_nk_serialiser *)s)->ctx;
 
 	nk_layout_row(ctx, NK_STATIC, 25, 2, ratio);
 	nk_label(ctx, p->name ? p->name : "", NK_TEXT_LEFT);
@@ -129,10 +145,12 @@ void fck_nk_edit_u16(fck_serialiser *s, fck_serialiser_params *p, fckc_u16 *v, f
 
 void fck_nk_edit_u32(fck_serialiser *s, fck_serialiser_params *p, fckc_u32 *v, fckc_size_t c)
 {
+	fck_nk_edit_precondition(s);
+
 	char buffer[FCK_READ_BUFFER_STRING_SIZE];
 	static const float ratio[] = {120, 150};
 
-	fck_ui_ctx *ctx = (fck_ui_ctx *)s->user;
+	fck_ui_ctx *ctx = (fck_ui_ctx *)((fck_nk_serialiser *)s)->ctx;
 
 	nk_layout_row(ctx, NK_STATIC, 25, 2, ratio);
 	nk_label(ctx, p->name ? p->name : "", NK_TEXT_LEFT);
@@ -147,10 +165,12 @@ void fck_nk_edit_u32(fck_serialiser *s, fck_serialiser_params *p, fckc_u32 *v, f
 
 void fck_nk_edit_u64(fck_serialiser *s, fck_serialiser_params *p, fckc_u64 *v, fckc_size_t c)
 {
+	fck_nk_edit_precondition(s);
+
 	char buffer[FCK_READ_BUFFER_STRING_SIZE];
 	static const float ratio[] = {120, 150};
 
-	fck_ui_ctx *ctx = (fck_ui_ctx *)s->user;
+	fck_ui_ctx *ctx = (fck_ui_ctx *)((fck_nk_serialiser *)s)->ctx;
 
 	nk_layout_row(ctx, NK_STATIC, 25, 2, ratio);
 	nk_label(ctx, p->name ? p->name : "", NK_TEXT_LEFT);
@@ -165,7 +185,9 @@ void fck_nk_edit_u64(fck_serialiser *s, fck_serialiser_params *p, fckc_u64 *v, f
 
 void fck_nk_edit_generic_label(fck_serialiser *s, fck_serialiser_params *p, fckc_size_t c, float label_ratio)
 {
-	fck_ui_ctx *ctx = (fck_ui_ctx *)s->user;
+	fck_nk_edit_precondition(s);
+
+	fck_ui_ctx *ctx = (fck_ui_ctx *)((fck_nk_serialiser *)s)->ctx;
 	fckc_size_t col_count = (p->name != NULL ? 1 : 0) + c;
 
 	nk_layout_row_begin(ctx, NK_DYNAMIC, 25, (int)col_count);
@@ -178,6 +200,8 @@ void fck_nk_edit_generic_label(fck_serialiser *s, fck_serialiser_params *p, fckc
 
 void fck_nk_edit_f32(fck_serialiser *s, fck_serialiser_params *p, float *v, fckc_size_t c)
 {
+	fck_nk_edit_precondition(s);
+
 	if (p->name == NULL && c == 0)
 	{
 		return;
@@ -186,7 +210,7 @@ void fck_nk_edit_f32(fck_serialiser *s, fck_serialiser_params *p, float *v, fckc
 	const float min = -1e6;
 	const float max = 1e6;
 	const float value_ratio = 0.7f;
-	fck_ui_ctx *ctx = (fck_ui_ctx *)s->user;
+	fck_ui_ctx *ctx = (fck_ui_ctx *)((fck_nk_serialiser *)s)->ctx;
 
 	// One # to force hashing with seq
 	// other # to make the name conditionally invisible
@@ -210,11 +234,13 @@ void fck_nk_edit_f32(fck_serialiser *s, fck_serialiser_params *p, float *v, fckc
 
 void fck_nk_edit_f64(fck_serialiser *s, fck_serialiser_params *p, double *v, fckc_size_t c)
 {
+	fck_nk_edit_precondition(s);
+
 	char buffer[FCK_READ_BUFFER_STRING_SIZE];
 	static const float ratio[] = {120, 150};
 	const double min = -1e12;
 	const double max = 1e12;
-	fck_ui_ctx *ctx = (fck_ui_ctx *)s->user;
+	fck_ui_ctx *ctx = (fck_ui_ctx *)((fck_nk_serialiser *)s)->ctx;
 
 	nk_layout_row(ctx, NK_STATIC, 25, 2, ratio);
 	nk_label(ctx, p->name ? p->name : "", NK_TEXT_LEFT);
@@ -228,6 +254,8 @@ void fck_nk_edit_f64(fck_serialiser *s, fck_serialiser_params *p, double *v, fck
 
 void fck_nk_edit_string(fck_serialiser *s, fck_serialiser_params *p, fck_lstring *v, fckc_size_t c)
 {
+	fck_nk_edit_precondition(s);
+
 	SDL_assert(false && "NOT SUPPORTED FOR NOW");
 }
 

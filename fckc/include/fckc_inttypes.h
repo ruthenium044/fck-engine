@@ -6,6 +6,10 @@
 #include <inttypes.h>
 #include <stddef.h>
 
+// Semantics types...
+typedef float fckc_f32;
+typedef double fckc_f64;
+
 typedef int8_t fckc_i8;
 typedef uint8_t fckc_u8;
 
@@ -20,6 +24,8 @@ typedef uint64_t fckc_u64;
 
 typedef size_t fckc_size_t;
 typedef uintptr_t fckc_uintptr;
+
+// TODO: Remove all this junk below... it is part of math...
 
 #define FCK_VECTOR_TYPE_DECLARATION(name, type)                                                                                            \
 	typedef union fckc_##name##x2 {                                                                                                        \
@@ -50,9 +56,9 @@ typedef uintptr_t fckc_uintptr;
 		type v[4];                                                                                                                         \
 	} fckc_##name##x4
 
-// Maybe just expand them...
-FCK_VECTOR_TYPE_DECLARATION(f32, float);
-FCK_VECTOR_TYPE_DECLARATION(f64, float);
+// Maybe just expand them... 
+FCK_VECTOR_TYPE_DECLARATION(f32, fckc_f32);
+FCK_VECTOR_TYPE_DECLARATION(f64, fckc_f64);
 FCK_VECTOR_TYPE_DECLARATION(i8, fckc_i8);
 FCK_VECTOR_TYPE_DECLARATION(i16, fckc_i16);
 FCK_VECTOR_TYPE_DECLARATION(i32, fckc_i32);

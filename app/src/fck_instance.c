@@ -11,12 +11,13 @@
 #include "fck_nuklear_demos.h"
 #include "fck_ui_window_manager.h"
 
-#include "fck_serialiser_vt.h"
 #include "fck_serialiser_json_vt.h"
 #include "fck_serialiser_nk_edit_vt.h"
+#include "fck_serialiser_vt.h"
 
 #include "kll_heap.h"
 
+#include "fck_apis.h"
 #include "fck_type_system.h"
 
 typedef fckc_u32 fck_entity_index;
@@ -79,12 +80,6 @@ fckc_components *fck_components_alloc(fckc_size_t capacity)
 	components->count = 0;
 	return components;
 }
-
-struct fck_identifiers *identifiers;
-struct fck_members *members;
-struct fck_types *types;
-struct fck_serialise_interfaces *serialisers;
-
 typedef struct example_type
 {
 	fckc_f32x2 other;
@@ -95,37 +90,39 @@ typedef struct example_type
 	fckc_u32 some_int;
 } example_type;
 
-void setup_some_stuff()
+void setup_some_stuff(fck_instance *app)
 {
-	identifiers = fck_identifiers_alloc(1);
 
-	members = fck_members_alloc(identifiers, 1);
-	types = fck_types_alloc(identifiers, 1);
-	serialisers = fck_serialise_interfaces_alloc(1);
+	// identifiers = fck_identifiers_alloc(1);
+	// members = fck_members_alloc(identifiers, 1);
+	// types = fck_types_alloc(identifiers, 1);
+	// serialisers = fck_serialise_interfaces_alloc(1);
 
-	fck_type_system_setup_core(types, members, serialisers);
+	// fck_type_system_setup_core(types, members, serialisers);
+	fck_type_system *ts = fck_get_type_system(app->apis);
 
-	fck_type example_type_handle = fck_types_add(types, (fck_type_desc){fck_name(example_type)});
-	fck_type_add_f32x2(members, example_type_handle, fck_name(other), offsetof(example_type, other));
-	fck_type_add_f32(members, example_type_handle, fck_name(cooldown), offsetof(example_type, cooldown));
-	fck_type_add_f32x2(members, example_type_handle, fck_name(position), offsetof(example_type, position));
-	fck_type_add_f32x3(members, example_type_handle, fck_name(rgb), offsetof(example_type, rgb));
-	fck_type_add_f64(members, example_type_handle, fck_name(double_value), offsetof(example_type, double_value));
-	fck_type_add_u32(members, example_type_handle, fck_name(some_int), offsetof(example_type, some_int));
+	// fck_type example_type_handle = fck_types_add(ts->get_types(), (fck_type_desc){fck_name(example_type)});
+	fck_type example_type_handle = ts->type->add((fck_type_desc){fck_name(example_type)});
+	fck_type_add_f32x2(ts->get_members(), example_type_handle, fck_name(other), offsetof(example_type, other));
+	fck_type_add_f32(ts->get_members(), example_type_handle, fck_name(cooldown), offsetof(example_type, cooldown));
+	fck_type_add_f32x2(ts->get_members(), example_type_handle, fck_name(position), offsetof(example_type, position));
+	fck_type_add_f32x3(ts->get_members(), example_type_handle, fck_name(rgb), offsetof(example_type, rgb));
+	fck_type_add_f64(ts->get_members(), example_type_handle, fck_name(double_value), offsetof(example_type, double_value));
+	fck_type_add_u32(ts->get_members(), example_type_handle, fck_name(some_int), offsetof(example_type, some_int));
 }
 
 void fck_type_read(fck_type type_handel, void *value)
 {
 }
 
-void fck_type_edit(fck_serialiser *serialiser, fck_ui_ctx *ctx, fck_type type, const char *name, void *data)
+void fck_type_edit(fck_type_system *ts, fck_serialiser *serialiser, fck_ui_ctx *ctx, fck_type type, const char *name, void *data)
 {
-	struct fck_type_info *info = fck_type_resolve(type);
-	fck_identifier owner_identifier = fck_type_info_identify(info);
+	struct fck_type_info *info = ts->type->resolve(type);
+	fck_identifier owner_identifier = ts->type->identify(info);
 
-	const char *owner_name_name = fck_identifier_resolve(owner_identifier);
+	const char *owner_name_name = ts->identifier->resolve(owner_identifier);
 
-	fck_serialise_func *serialise = fck_serialise_interfaces_get(serialisers, type);
+	fck_serialise_func *serialise = ts->serialise->get(type);
 	if (serialise != NULL)
 	{
 		fck_serialiser_params params;
@@ -135,58 +132,59 @@ void fck_type_edit(fck_serialiser *serialiser, fck_ui_ctx *ctx, fck_type type, c
 		serialise(serialiser, &params, data, 1);
 	}
 
-	fck_member current = fck_type_info_first_member(info);
-	if (fck_member_is_null(current))
+	fck_member current = ts->type->members_of(info);
+	if (ts->member->is_null(current))
 	{
 		return;
 	}
 
-	struct fck_apis* api_reg;
+	// struct fck_apis *api_reg;
 
-	fck_load_type_system(api_reg);
-	
-	fck_type_system* api = fck_get_type_system(api_reg);
+	// fck_load_type_system(api_reg);
 
-	fck_type big_pp_type = api->type->find_from_string("big_penis");
-	struct fck_type_info* big_pp_info = api->type->resolve(big_pp_type);
-	fck_identifier big_pp_id = api->type->identify(big_pp_info);
+	// fck_type_system *api = fck_get_type_system(api_reg);
 
-	fck_type small_pp_type = api->type->find_from_string("small_penis");
-	struct fck_type_info* small_pp_info = api->type->resolve(small_pp_type);
-	fck_identifier small_pp_id = api->type->identify(small_pp_info);
+	// fck_type big_pp_type = api->type->find_from_string("big_penis");
+	// struct fck_type_info *big_pp_info = api->type->resolve(big_pp_type);
+	// fck_identifier big_pp_id = api->type->identify(big_pp_info);
 
-	if(!api->identifier->is_same(small_pp_id, big_pp_id)) 
-	{
-		api->member->push((fck_member_desc) {.owner = big_pp_type, .type = small_pp_type, .name = "David", .stride = 0});
-	}
+	// fck_type small_pp_type = api->type->find_from_string("small_penis");
+	// struct fck_type_info *small_pp_info = api->type->resolve(small_pp_type);
+	// fck_identifier small_pp_id = api->type->identify(small_pp_info);
+
+	// if (!api->identifier->is_same(small_pp_id, big_pp_id))
+	//{
+	//	api->member->add((fck_member_desc){.owner = big_pp_type, .type = small_pp_type, .name = "David", .stride = 0});
+	// }
 
 	// Recurse through children
 	char buffer[256];
 	int count = SDL_snprintf(buffer, sizeof(buffer), "%s %s", owner_name_name, name);
 	if (nk_tree_push_hashed(ctx, NK_TREE_NODE, buffer, NK_MINIMIZED, buffer, count, __LINE__))
 	{
-		while (!fck_member_is_null(current))
+		while (!ts->member->is_null(current))
 		{
-			struct fck_member_info *member = fck_member_resolve(current);
-			fck_identifier member_identifier = fck_member_info_identify(member);
-			const char *member_name = fck_identifier_resolve(member_identifier);
-			fckc_u8 *offset_ptr = ((fckc_u8 *)(data)) + fck_member_info_stride(member);
-			fck_type member_type = fck_member_info_type(member);
-			fck_type_edit(serialiser, ctx, member_type, member_name, (void *)(offset_ptr));
-			
-			current = fck_member_info_next(member);
+			struct fck_member_info *member = ts->member->resolve(current);
+			fck_identifier member_identifier = ts->member->identify(member);
+			const char *member_name = ts->identifier->resolve(member_identifier);
+			fckc_u8 *offset_ptr = ((fckc_u8 *)(data)) + ts->member->stride_of(member);
+			fck_type member_type = ts->member->type_of(member);
+			fck_type_edit(ts, serialiser, ctx, member_type, member_name, (void *)(offset_ptr));
+
+			current = ts->member->next_of(member);
 		}
 		nk_tree_pop(ctx);
 	}
 }
 
-void fck_type_serialise(fck_serialiser *serialiser, fck_type type, const char *name, void *data)
+void fck_type_serialise(fck_type_system *ts, fck_serialiser *serialiser, fck_type type, const char *name, void *data)
 {
-	struct fck_type_info *type_info = fck_type_resolve(type);
-	fck_identifier owner_identifier = fck_type_info_identify(type_info);
-	const char *owner_name_name = fck_identifier_resolve(owner_identifier);
+	struct fck_type_info *info = ts->type->resolve(type);
+	fck_identifier owner_identifier = ts->type->identify(info);
 
-	fck_serialise_func *serialise = fck_serialise_interfaces_get(serialisers, type);
+	const char *owner_name_name = ts->identifier->resolve(owner_identifier);
+
+	fck_serialise_func *serialise = ts->serialise->get(type);
 	if (serialise != NULL)
 	{
 		fck_serialiser_params params;
@@ -196,30 +194,33 @@ void fck_type_serialise(fck_serialiser *serialiser, fck_type type, const char *n
 		serialise(serialiser, &params, data, 1);
 	}
 
-	fck_member current = fck_type_info_first_member(type_info);
-	while (!fck_member_is_null(current))
+	fck_member current = ts->type->members_of(info);
+	while (!ts->member->is_null(current))
 	{
-		struct fck_member_info *member = fck_member_resolve(current);
-		fck_identifier member_identifier = fck_member_info_identify(member);
-		const char *member_name = fck_identifier_resolve(member_identifier);
-		fckc_u8 *offset_ptr = ((fckc_u8 *)(data)) + fck_member_info_stride(member);
-		fck_type member_type = fck_member_info_type(member);
-		fck_type_serialise(serialiser, member_type, member_name, (void *)(offset_ptr));
+		struct fck_member_info *member = ts->member->resolve(current);
+		fck_identifier member_identifier = ts->member->identify(member);
+		const char *member_name = ts->identifier->resolve(member_identifier);
+		fckc_u8 *offset_ptr = ((fckc_u8 *)(data)) + ts->member->stride_of(member);
+		fck_type member_type = ts->member->type_of(member);
+		fck_type_serialise(ts, serialiser, member_type, member_name, (void *)(offset_ptr));
 
-		current = fck_member_info_next(member);
+		current = ts->member->next_of(member);
 	}
 }
 
 int fck_ui_window_entities(struct fck_ui *ui, fck_ui_window *window, void *userdata)
 {
+	fck_instance *app = (fck_instance *)userdata;
 	fck_ui_ctx *ctx = fck_ui_context(ui);
 
 	nk_layout_row_dynamic(ctx, 25, 1);
 
-	fck_type custom_type = fck_types_find_from_string(types, fck_name(example_type));
-	struct fck_type_info *type = fck_type_resolve(custom_type);
+	fck_type_system *ts = fck_get_type_system(app->apis);
 
-	fck_nk_serialiser serialiser = {.ctx = ctx, .vt = fck_nk_edit_vt };
+	fck_type custom_type = ts->type->find_from_string(fck_name(example_type));
+	struct fck_type_info *type = ts->type->resolve(custom_type);
+
+	fck_nk_serialiser serialiser = {.ctx = ctx, .vt = fck_nk_edit_vt};
 
 	static int is_init = 0;
 	static example_type example;
@@ -236,18 +237,18 @@ int fck_ui_window_entities(struct fck_ui *ui, fck_ui_window *window, void *userd
 		example.double_value = 999.0;
 	}
 	static fckc_u8 opaque[64];
-	fck_type_edit(&serialiser, ctx, custom_type, "dummy", &example);
+	fck_type_edit(ts, &serialiser, ctx, custom_type, "dummy", &example);
 
 	if (nk_button_label(ctx, "Save to disk"))
 	{
-		//fck_serialiser json;
-		//fck_serialiser_json_writer_alloc(&json, kll_heap);
-		//fck_type_serialise(&json, custom_type, "Template", &example);
+		// fck_serialiser json;
+		// fck_serialiser_json_writer_alloc(&json, kll_heap);
+		// fck_type_serialise(&json, custom_type, "Template", &example);
 
-		//char *json_data = fck_serialiser_json_string_alloc(&json);
-		//fck_serialiser_json_string_free(&json, json_data);
+		// char *json_data = fck_serialiser_json_string_alloc(&json);
+		// fck_serialiser_json_string_free(&json, json_data);
 
-		//fck_serialiser_free(&serialiser);
+		// fck_serialiser_free(&serialiser);
 	}
 
 	return 1;
@@ -288,11 +289,14 @@ fck_instance *fck_instance_alloc(const char *title, int with, int height, SDL_Wi
 	app->ui = fck_ui_alloc(app->renderer);
 	app->window_manager = fck_ui_window_manager_alloc(16);
 
-	fck_ui_window_manager_create(app->window_manager, "Entities", NULL, fck_ui_window_entities);
+	app->apis = fck_apis_load();
+	fck_load_type_system(app->apis);
+
+	fck_ui_window_manager_create(app->window_manager, "Entities", app, fck_ui_window_entities);
 	fck_ui_window_manager_create(app->window_manager, "Nk Overview", NULL, fck_ui_window_overview);
 	fck_ui_set_style(fck_ui_context(app->ui), THEME_DRACULA);
 
-	setup_some_stuff();
+	setup_some_stuff(app);
 
 	entities = SDL_malloc(offsetof(fck_entity_set, id[128]));
 	entities->capacity = 128;

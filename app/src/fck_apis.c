@@ -36,9 +36,9 @@ static void fck_apis_add(const char *name, void *api)
 		current = tail->next;
 	}
 
-	current->next->hash = hash;
-	current->next->next = NULL;
-	current->next->api = api;
+	current->hash = hash;
+	current->next = NULL;
+	current->api = api;
 	fck_apis_storage.tails[slot] = current;
 }
 

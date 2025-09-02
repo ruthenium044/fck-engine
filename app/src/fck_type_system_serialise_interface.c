@@ -1,4 +1,4 @@
-#include "fck_type_system.h"
+#include "fck_type_system.inl"
 
 #include "SDL3/SDL_assert.h"
 #include <SDL3/SDL_stdinc.h>

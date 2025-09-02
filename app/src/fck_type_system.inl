@@ -2,6 +2,61 @@
 
 #include <fck_hash.h>
 
+// Identifiers
+// Let's make these public for now
+fck_identifier fck_identifier_null();
+int fck_identifier_is_null(fck_identifier identifier);
+int fck_identifier_is_same(fck_identifier a, fck_identifier b);
+const char* fck_identifier_resolve(fck_identifier identifier);
+
+struct fck_identifiers* fck_identifiers_alloc(fckc_size_t capacity);
+void fck_identifiers_free(struct fck_identifiers* ptr);
+
+fck_identifier fck_identifiers_add(struct fck_identifiers* identifiers, fck_identifier_desc desc);
+fck_identifier fck_identifiers_find_from_hash(struct fck_identifiers* identifiers, fckc_u64 hash);
+fck_identifier fck_identifiers_find_from_string(struct fck_identifiers* identifiers, const char* str);
+
+// Types
+fck_type fck_type_null();
+int fck_type_is_null(fck_type type);
+int fck_type_is_same(fck_type a, fck_type b);
+int fck_type_is(fck_type a, const char* str);
+
+struct fck_type_info* fck_type_resolve(fck_type type);
+fck_identifier fck_type_info_identify(struct fck_type_info* info);
+fck_member fck_type_info_first_member(struct fck_type_info* info);
+
+struct fck_types* fck_types_alloc(struct fck_identifiers* identifiers, fckc_size_t capacity);
+void fck_types_free(struct fck_types* types);
+
+fck_type fck_types_add(struct fck_types* types, fck_type_desc desc);
+fck_type fck_types_find_from_hash(struct fck_types* types, fckc_u64 hash);
+fck_type fck_types_find_from_string(struct fck_types* types, const char* name);
+
+// Members
+fck_member fck_member_null();
+int fck_member_is_null(fck_member member);
+int fck_member_is_same(fck_member a, fck_member b);
+
+struct fck_member_info* fck_member_resolve(fck_member member);
+fck_identifier fck_member_info_identify(struct fck_member_info* info);
+fck_type fck_member_info_owner(struct fck_member_info* info);
+fck_type fck_member_info_type(struct fck_member_info* info);
+fck_member fck_member_info_next(struct fck_member_info* info);
+fckc_size_t fck_member_info_stride(struct fck_member_info* info);
+
+struct fck_members* fck_members_alloc(struct fck_identifiers* identifiers, fckc_size_t capacity);
+void fck_members_free(struct fck_members* members);
+
+fck_member fck_members_add(struct fck_members* members, fck_member_desc desc);
+
+// Serialisers
+struct fck_serialise_interfaces* fck_serialise_interfaces_alloc(fckc_size_t capacity);
+void fck_serialise_interfaces_free(struct fck_serialise_interfaces* interfaces);
+
+void fck_serialise_interfaces_add(struct fck_serialise_interfaces* interfaces, fck_serialise_desc desc);
+fck_serialise_func* fck_serialise_interfaces_get(struct fck_serialise_interfaces* interfaces, fck_type type);
+
 typedef struct fck_member_info
 {
 	fck_hash_int hash;
@@ -19,3 +74,5 @@ typedef struct fck_type_info
 	fck_member first_member;
 	fck_member last_member;
 } fck_type_info;
+
+void fck_type_system_setup_core(struct fck_types* types, struct fck_members* members, struct fck_serialise_interfaces* serialisers);

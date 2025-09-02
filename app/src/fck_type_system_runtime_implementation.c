@@ -1,4 +1,4 @@
-#include "fck_type_system.h"
+#include "fck_type_system.inl"
 
 #include "fck_serialiser.h"
 #include "fck_serialiser_vt.h"
@@ -316,4 +316,4 @@ void fck_type_system_setup_core(struct fck_types *types, struct fck_members *mem
 	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_u64x2)), fck_id(fckc_u64), sizeof(fckc_u64), 0, "x", "y", NULL);
 	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_u64x3)), fck_id(fckc_u64), sizeof(fckc_u64), 0, "x", "y", "z", NULL);
 	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_u64x4)), fck_id(fckc_u64), sizeof(fckc_u64), 0, "x", "y", "z", "w", NULL);
-}
+} 

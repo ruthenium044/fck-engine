@@ -54,6 +54,10 @@ int fck_member_is_same(fck_member a, fck_member b)
 
 fck_member_info *fck_member_resolve(fck_member member)
 {
+	if (fck_member_is_null(member))
+	{
+		return NULL;
+	}
 	fckc_size_t index = member.hash % member.members->value->capacity;
 	for (;;)
 	{
@@ -94,6 +98,11 @@ fck_member fck_member_info_next(struct fck_member_info *info)
 fckc_size_t fck_member_info_stride(struct fck_member_info *info)
 {
 	return info->stride;
+}
+
+fckc_size_t fck_member_info_count(struct fck_member_info* info)
+{
+	return info->extra_count + 1;
 }
 
 fck_member_registry *fck_member_registry_alloc(struct fck_identifiers *identifiers, fckc_size_t capacity)
@@ -228,6 +237,7 @@ fck_member fck_members_add(fck_members *members, fck_member_desc desc)
 	info->owner = desc.owner;
 	info->type = desc.type;
 	info->stride = desc.stride;
+	info->extra_count = desc.extra_count;
 	members->value->count = members->value->count + 1;
 	fck_member member = {members, hash};
 	fck_type_info_add_member(desc.owner, member);

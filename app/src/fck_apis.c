@@ -8,7 +8,7 @@
 typedef struct fck_apis_node
 {
 	fckc_u64 hash;
-
+	const char* name;
 	void *api;
 
 	struct fck_apis_node *next;
@@ -18,7 +18,7 @@ const fckc_size_t fck_apis_hash_map_capacity = 256;
 typedef struct fck_apis_hash_map
 {
 	fck_apis_node *tails[fck_apis_hash_map_capacity];
-	fck_apis_node nodes[fck_apis_hash_map_capacity];
+	fck_apis_node heads[fck_apis_hash_map_capacity];
 } fck_apis_hash_map;
 
 static fck_apis_hash_map fck_apis_storage;
@@ -28,7 +28,7 @@ static void fck_apis_add(const char *name, void *api)
 	fck_hash_int hash = fck_hash_unsafe(name);
 	fck_hash_int slot = hash % fck_apis_hash_map_capacity;
 
-	fck_apis_node *current = &fck_apis_storage.nodes[slot];
+	fck_apis_node *current = &fck_apis_storage.heads[slot];
 	fck_apis_node *tail = fck_apis_storage.tails[slot];
 	if (tail != NULL)
 	{
@@ -38,21 +38,47 @@ static void fck_apis_add(const char *name, void *api)
 
 	current->hash = hash;
 	current->next = NULL;
+	current->name = name;
 	current->api = api;
 	fck_apis_storage.tails[slot] = current;
 }
 
-static void fck_apis_remove(const char *name)
+static fck_api_bool fck_apis_remove(const char *name)
 {
-	SDL_assert(0 && "NOT IMPLEMENTED");
-	// TODO: We do not remove yet, so ehhhhh
+	fck_hash_int hash = fck_hash_unsafe(name);
+	fck_hash_int slot = hash % fck_apis_hash_map_capacity;
+
+	fck_apis_node *current = &fck_apis_storage.heads[slot];
+	fck_apis_node *tail = fck_apis_storage.tails[slot];
+	if (tail == NULL)
+	{
+		return 0;
+	}
+
+	// This should work
+	fck_apis_node *next = current->next;
+	current->api = NULL;
+	current->hash = 0;
+	current->next = NULL;
+	current->name = NULL;
+
+	if (next != NULL)
+	{
+		SDL_memcpy(current, next, sizeof(*current));
+		SDL_free(next);
+	}
+
+	if (tail == current)
+	{
+		tail = NULL;
+	}
+	return 1;
 }
 
 static void *fck_apis_find_from_hash(fckc_u64 hash)
 {
 	fck_hash_int slot = hash % fck_apis_hash_map_capacity;
-	fck_apis_node *current = &fck_apis_storage.nodes[slot];
-
+	fck_apis_node *current = &fck_apis_storage.heads[slot];
 	for (;;)
 	{
 		if (current->hash == hash)
@@ -70,7 +96,7 @@ static void *fck_apis_find_from_hash(fckc_u64 hash)
 static void *fck_apis_find_from_string(const char *name)
 {
 	fck_hash_int hash = fck_hash_unsafe(name);
-	void* api = fck_apis_find_from_hash(hash);
+	void *api = fck_apis_find_from_hash(hash);
 	return api;
 }
 
@@ -82,9 +108,9 @@ static void *fck_apis_next(void *prev)
 
 fck_apis fck_apis_runtime_state = {
 	.add = fck_apis_add,
-	.remove = fck_apis_remove,
-	.find_from_hash = fck_apis_find_from_hash,
+	.find = fck_apis_find_from_hash,
 	.find_from_string = fck_apis_find_from_string,
+	.remove = fck_apis_remove,
 	.next = fck_apis_next,
 };
 

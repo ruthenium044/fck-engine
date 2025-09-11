@@ -517,7 +517,7 @@ void fck_ui_render(struct fck_ui *ui, struct SDL_Renderer *renderer)
 
 static struct nk_color fck_ui_cached_colour_table[NK_COLOR_COUNT];
 
-struct nk_color *fck_ui_set_style(struct nk_context *ctx, enum theme theme)
+struct nk_color *fck_ui_set_style(struct nk_context *ctx, enum fck_theme theme)
 {
 	if (theme == THEME_WHITE)
 	{

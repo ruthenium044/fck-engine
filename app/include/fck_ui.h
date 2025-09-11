@@ -7,7 +7,7 @@ struct SDL_Window;
 struct SDL_Renderer;
 union SDL_Event;
 
-enum theme
+enum fck_theme
 {
 	THEME_BLACK,
 	THEME_WHITE,
@@ -34,7 +34,7 @@ void fck_ui_enqueue_event(fck_ui* ui, union SDL_Event const* event);
 
 fck_ui_ctx * fck_ui_context(fck_ui* ui);
 
-struct nk_color* fck_ui_set_style(struct nk_context* ctx, enum theme theme);
+struct nk_color* fck_ui_set_style(struct nk_context* ctx, enum fck_theme theme);
 
 // Odd declaration, but the source file requires it to be like this!
 // This way the user only needs to #include<fck_ui.h>

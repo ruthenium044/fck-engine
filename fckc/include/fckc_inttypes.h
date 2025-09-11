@@ -27,7 +27,14 @@ typedef uintptr_t fckc_uintptr;
 
 // TODO: Remove all this junk below... it is part of math...
 
-#define FCK_VECTOR_TYPE_DECLARATION(name, type)                                                                                            \
+#define FCK_NAMED_VECTOR_TYPE(name, type)                                                                                                  \
+	typedef union fckc_##name##x1 {                                                                                                        \
+		struct                                                                                                                             \
+		{                                                                                                                                  \
+			type x;                                                                                                                        \
+		};                                                                                                                                 \
+		type v[1];                                                                                                                         \
+	} fckc_##name##x1;                                                                                                                     \
 	typedef union fckc_##name##x2 {                                                                                                        \
 		struct                                                                                                                             \
 		{                                                                                                                                  \
@@ -56,17 +63,23 @@ typedef uintptr_t fckc_uintptr;
 		type v[4];                                                                                                                         \
 	} fckc_##name##x4
 
-// Maybe just expand them... 
-FCK_VECTOR_TYPE_DECLARATION(f32, fckc_f32);
-FCK_VECTOR_TYPE_DECLARATION(f64, fckc_f64);
-FCK_VECTOR_TYPE_DECLARATION(i8, fckc_i8);
-FCK_VECTOR_TYPE_DECLARATION(i16, fckc_i16);
-FCK_VECTOR_TYPE_DECLARATION(i32, fckc_i32);
-FCK_VECTOR_TYPE_DECLARATION(i64, fckc_i64);
-FCK_VECTOR_TYPE_DECLARATION(u8, fckc_u8);
-FCK_VECTOR_TYPE_DECLARATION(u16, fckc_u16);
-FCK_VECTOR_TYPE_DECLARATION(u32, fckc_u32);
-FCK_VECTOR_TYPE_DECLARATION(u64, fckc_u64);
+// Maybe just expand them...
+FCK_NAMED_VECTOR_TYPE(f32, fckc_f32);
+FCK_NAMED_VECTOR_TYPE(f64, fckc_f64);
+FCK_NAMED_VECTOR_TYPE(i8, fckc_i8);
+FCK_NAMED_VECTOR_TYPE(i16, fckc_i16);
+FCK_NAMED_VECTOR_TYPE(i32, fckc_i32);
+FCK_NAMED_VECTOR_TYPE(i64, fckc_i64);
+FCK_NAMED_VECTOR_TYPE(u8, fckc_u8);
+FCK_NAMED_VECTOR_TYPE(u16, fckc_u16);
+FCK_NAMED_VECTOR_TYPE(u32, fckc_u32);
+FCK_NAMED_VECTOR_TYPE(u64, fckc_u64);
+
+#define FCK_VECTOR_TYPE(type, count)                                                                                                       \
+	typedef struct fckc_type##x##count                                                                                                     \
+	{                                                                                                                                      \
+		type v[count];                                                                                                                     \
+	} fckc_type##x##count;
 
 typedef struct fck_lstring
 {

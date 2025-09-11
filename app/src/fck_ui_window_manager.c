@@ -5,7 +5,6 @@
 #include <SDL3/SDL_stdinc.h>
 
 #include "fck_ui.h"
-#include "fckc_inttypes.h"
 
 #define FCK_UI_WINDOW_MANAGER_ASSERT(expr) SDL_assert(expr)
 #define FCK_UI_WINDOW_MANAGER_ZERO_POINTER(x) SDL_zerop(x)

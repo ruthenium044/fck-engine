@@ -20,6 +20,31 @@ static void fck_nk_edit_precondition(fck_serialiser *s)
 	SDL_assert(s->vt == fck_nk_edit_vt);
 }
 
+static float fck_nk_edit_generic_label(const char *type, fck_serialiser *s, fck_serialiser_params *p, fckc_size_t c)
+{
+	fck_nk_edit_precondition(s);
+
+	fck_ui_ctx *ctx = (fck_ui_ctx *)((fck_nk_serialiser *)s)->ctx;
+	fckc_size_t col_count = (p->name != NULL ? 1 : 0) + c;
+
+	const float label_ratio = 0.2f;
+
+	if (p->name != NULL && c == 1)
+	{
+		// Value
+		nk_layout_row_begin(ctx, NK_DYNAMIC, 25, (int)2);
+		nk_layout_row_push(ctx, label_ratio);
+		nk_labelf(ctx, NK_TEXT_LEFT, "%s : %s", p->name, type);
+		return 1.0f - label_ratio;
+	}
+	else
+	{
+		// Array
+		nk_layout_row_begin(ctx, NK_DYNAMIC, 25, (int)1);
+		return 1.0f;
+	}
+}
+
 static const fckc_size_t FCK_WRITE_BUFFER_STRING_SIZE = 256;
 static const fckc_size_t FCK_READ_BUFFER_STRING_SIZE = 256;
 
@@ -27,204 +52,266 @@ void fck_nk_edit_i8(fck_serialiser *s, fck_serialiser_params *p, fckc_i8 *v, fck
 {
 	fck_nk_edit_precondition(s);
 
-	char buffer[FCK_READ_BUFFER_STRING_SIZE];
-	static const float ratio[] = {120, 150};
+	const char type_name[] = "u16";
+	const int min = -127;
+	const int max = 127;
+
+	if (p->name == NULL && c == 0)
+	{
+		return;
+	}
 
 	fck_ui_ctx *ctx = (fck_ui_ctx *)((fck_nk_serialiser *)s)->ctx;
+	const float value_ratio = fck_nk_edit_generic_label(type_name, s, p, c);
+	const char *name_format_invisible_token = c == 1 ? "##" : "#";
+	char buffer[FCK_READ_BUFFER_STRING_SIZE];
 
-	nk_layout_row(ctx, NK_STATIC, 25, 1 + c, ratio);
-	nk_label(ctx, p->name ? p->name : "", NK_TEXT_LEFT);
-	for (fckc_i8 *end = v + c; v != end; v++)
+	for (fckc_size_t i = 0; i < c; i++)
 	{
-		int result = SDL_snprintf(buffer, sizeof(buffer), "##%s", p->name);
-		int value = *(int *)v;
-		nk_property_int(ctx, buffer, INT_MIN, &value, INT_MAX, 1.0, 1.0f);
-		*v = (fckc_i8)value;
+		float *value = v + i;
+		int result = SDL_snprintf(buffer, sizeof(buffer), "%s[%u] : %s", name_format_invisible_token, (unsigned int)i, type_name);
+
+		nk_layout_row_push(ctx, value_ratio);
+		nk_property_int(ctx, buffer, min, value, max, 1, 1.0f);
+		*value = SDL_clamp(*value, min, max);
 	}
+	nk_layout_row_end(ctx);
 }
 
 void fck_nk_edit_i16(fck_serialiser *s, fck_serialiser_params *p, fckc_i16 *v, fckc_size_t c)
 {
 	fck_nk_edit_precondition(s);
 
-	char buffer[FCK_READ_BUFFER_STRING_SIZE];
-	static const float ratio[] = {120, 150};
+	const char type_name[] = "u16";
+	const int min = -32767;
+	const int max = 32767;
+
+	if (p->name == NULL && c == 0)
+	{
+		return;
+	}
 
 	fck_ui_ctx *ctx = (fck_ui_ctx *)((fck_nk_serialiser *)s)->ctx;
+	const float value_ratio = fck_nk_edit_generic_label(type_name, s, p, c);
+	const char *name_format_invisible_token = c == 1 ? "##" : "#";
+	char buffer[FCK_READ_BUFFER_STRING_SIZE];
 
-	nk_layout_row(ctx, NK_STATIC, 25, 2, ratio);
-	nk_label(ctx, p->name ? p->name : "", NK_TEXT_LEFT);
-	for (fckc_i16 *end = v + c; v != end; v++)
+	for (fckc_size_t i = 0; i < c; i++)
 	{
-		int result = SDL_snprintf(buffer, sizeof(buffer), "##%s", p->name);
-		int value = *(int *)v;
-		nk_property_int(ctx, buffer, INT_MIN, &value, INT_MAX, 1.0, 1.0f);
-		*v = (fckc_i16)value;
+		float *value = v + i;
+		int result = SDL_snprintf(buffer, sizeof(buffer), "%s[%u] : %s", name_format_invisible_token, (unsigned int)i, type_name);
+
+		nk_layout_row_push(ctx, value_ratio);
+		nk_property_int(ctx, buffer, min, value, max, 1, 1.0f);
+		*value = SDL_clamp(*value, min, max);
 	}
+	nk_layout_row_end(ctx);
 }
 
 void fck_nk_edit_i32(fck_serialiser *s, fck_serialiser_params *p, fckc_i32 *v, fckc_size_t c)
 {
 	fck_nk_edit_precondition(s);
 
-	char buffer[FCK_READ_BUFFER_STRING_SIZE];
-	static const float ratio[] = {120, 150};
+	const char type_name[] = "i32";
+	const int min = INT_MIN;
+	const int max = INT_MAX;
+
+	if (p->name == NULL && c == 0)
+	{
+		return;
+	}
 
 	fck_ui_ctx *ctx = (fck_ui_ctx *)((fck_nk_serialiser *)s)->ctx;
+	const float value_ratio = fck_nk_edit_generic_label(type_name, s, p, c);
+	const char *name_format_invisible_token = c == 1 ? "##" : "#";
+	char buffer[FCK_READ_BUFFER_STRING_SIZE];
 
-	nk_layout_row(ctx, NK_STATIC, 25, 2, ratio);
-	nk_label(ctx, p->name ? p->name : "", NK_TEXT_LEFT);
-	for (fckc_i32 *end = v + c; v != end; v++)
+	for (fckc_size_t i = 0; i < c; i++)
 	{
-		int result = SDL_snprintf(buffer, sizeof(buffer), "##%s", p->name);
-		int value = *(int *)v;
-		nk_property_int(ctx, buffer, INT_MIN, &value, INT_MAX, 1.0, 1.0f);
-		*v = (fckc_i32)value;
+		float *value = v + i;
+		int result = SDL_snprintf(buffer, sizeof(buffer), "%s[%u] : %s", name_format_invisible_token, (unsigned int)i, type_name);
+
+		nk_layout_row_push(ctx, value_ratio);
+		nk_property_int(ctx, buffer, min, value, max, 1, 1.0f);
+		*value = SDL_clamp(*value, min, max);
 	}
+	nk_layout_row_end(ctx);
 }
 
 void fck_nk_edit_i64(fck_serialiser *s, fck_serialiser_params *p, fckc_i64 *v, fckc_size_t c)
 {
 	fck_nk_edit_precondition(s);
 
-	char buffer[FCK_READ_BUFFER_STRING_SIZE];
-	static const float ratio[] = {120, 150};
+	const char type_name[] = "i64";
+	const int min = INT_MIN;
+	const int max = INT_MAX;
+
+	if (p->name == NULL && c == 0)
+	{
+		return;
+	}
 
 	fck_ui_ctx *ctx = (fck_ui_ctx *)((fck_nk_serialiser *)s)->ctx;
+	const float value_ratio = fck_nk_edit_generic_label(type_name, s, p, c);
+	const char *name_format_invisible_token = c == 1 ? "##" : "#";
+	char buffer[FCK_READ_BUFFER_STRING_SIZE];
 
-	nk_layout_row(ctx, NK_STATIC, 25, 2, ratio);
-	nk_label(ctx, p->name ? p->name : "", NK_TEXT_LEFT);
-	for (fckc_i64 *end = v + c; v != end; v++)
+	for (fckc_size_t i = 0; i < c; i++)
 	{
-		int result = SDL_snprintf(buffer, sizeof(buffer), "##%s", p->name);
-		int value = *(int *)v;
-		nk_property_int(ctx, buffer, INT_MIN, &value, INT_MAX, 1.0, 1.0f);
-		*v = (fckc_i64)value;
+		float *value = v + i;
+		int result = SDL_snprintf(buffer, sizeof(buffer), "%s[%u] : %s", name_format_invisible_token, (unsigned int)i, type_name);
+
+		nk_layout_row_push(ctx, value_ratio);
+		nk_property_int(ctx, buffer, min, value, max, 1, 1.0f);
+		*value = SDL_clamp(*value, min, max);
 	}
+	nk_layout_row_end(ctx);
 }
 
 void fck_nk_edit_u8(fck_serialiser *s, fck_serialiser_params *p, fckc_u8 *v, fckc_size_t c)
 {
 	fck_nk_edit_precondition(s);
 
-	char buffer[FCK_READ_BUFFER_STRING_SIZE];
-	static const float ratio[] = {120, 150};
+	const char type_name[] = "u8";
+	const int min = 0;
+	const int max = 0xFF;
+
+	if (p->name == NULL && c == 0)
+	{
+		return;
+	}
 
 	fck_ui_ctx *ctx = (fck_ui_ctx *)((fck_nk_serialiser *)s)->ctx;
+	const float value_ratio = fck_nk_edit_generic_label(type_name, s, p, c);
+	const char *name_format_invisible_token = c == 1 ? "##" : "#";
+	char buffer[FCK_READ_BUFFER_STRING_SIZE];
 
-	nk_layout_row(ctx, NK_STATIC, 25, 2, ratio);
-	nk_label(ctx, p->name ? p->name : "", NK_TEXT_LEFT);
-	for (fckc_u8 *end = v + c; v != end; v++)
+	for (fckc_size_t i = 0; i < c; i++)
 	{
-		int result = SDL_snprintf(buffer, sizeof(buffer), "##%s", p->name);
-		int value = *(int *)v;
-		nk_property_int(ctx, buffer, 0, &value, INT_MAX, 1.0, 1.0f);
-		*v = (fckc_u8)value;
+		float *value = v + i;
+		int result = SDL_snprintf(buffer, sizeof(buffer), "%s[%u] : %s", name_format_invisible_token, (unsigned int)i, type_name);
+
+		nk_layout_row_push(ctx, value_ratio);
+		nk_property_int(ctx, buffer, min, value, max, 1, 1.0f);
+		*value = SDL_clamp(*value, min, max);
 	}
+	nk_layout_row_end(ctx);
 }
 
 void fck_nk_edit_u16(fck_serialiser *s, fck_serialiser_params *p, fckc_u16 *v, fckc_size_t c)
 {
 	fck_nk_edit_precondition(s);
 
-	char buffer[FCK_READ_BUFFER_STRING_SIZE];
-	static const float ratio[] = {120, 150};
+	const char type_name[] = "u16";
+	const int min = 0;
+	const int max = 0xFFFF;
+
+	if (p->name == NULL && c == 0)
+	{
+		return;
+	}
 
 	fck_ui_ctx *ctx = (fck_ui_ctx *)((fck_nk_serialiser *)s)->ctx;
+	const float value_ratio = fck_nk_edit_generic_label(type_name, s, p, c);
+	const char *name_format_invisible_token = c == 1 ? "##" : "#";
+	char buffer[FCK_READ_BUFFER_STRING_SIZE];
 
-	nk_layout_row(ctx, NK_STATIC, 25, 2, ratio);
-	nk_label(ctx, p->name ? p->name : "", NK_TEXT_LEFT);
-	for (fckc_u16 *end = v + c; v != end; v++)
+	for (fckc_size_t i = 0; i < c; i++)
 	{
-		int result = SDL_snprintf(buffer, sizeof(buffer), "##%s", p->name);
-		int value = *(int *)v;
-		nk_property_int(ctx, buffer, 0, &value, INT_MAX, 1.0, 1.0f);
-		*v = (fckc_u16)value;
+		float *value = v + i;
+		int result = SDL_snprintf(buffer, sizeof(buffer), "%s[%u] : %s", name_format_invisible_token, (unsigned int)i, type_name);
+
+		nk_layout_row_push(ctx, value_ratio);
+		nk_property_int(ctx, buffer, min, value, max, 1, 1.0f);
+		*value = SDL_clamp(*value, min, max);
 	}
+	nk_layout_row_end(ctx);
 }
 
 void fck_nk_edit_u32(fck_serialiser *s, fck_serialiser_params *p, fckc_u32 *v, fckc_size_t c)
 {
 	fck_nk_edit_precondition(s);
 
-	char buffer[FCK_READ_BUFFER_STRING_SIZE];
-	static const float ratio[] = {120, 150};
+	const char type_name[] = "u32";
+	const int min = 0;
+	const int max = INT_MAX;
+
+	if (p->name == NULL && c == 0)
+	{
+		return;
+	}
 
 	fck_ui_ctx *ctx = (fck_ui_ctx *)((fck_nk_serialiser *)s)->ctx;
+	const float value_ratio = fck_nk_edit_generic_label(type_name, s, p, c);
+	const char *name_format_invisible_token = c == 1 ? "##" : "#";
+	char buffer[FCK_READ_BUFFER_STRING_SIZE];
 
-	nk_layout_row(ctx, NK_STATIC, 25, 2, ratio);
-	nk_label(ctx, p->name ? p->name : "", NK_TEXT_LEFT);
-	for (fckc_u32 *end = v + c; v != end; v++)
+	for (fckc_size_t i = 0; i < c; i++)
 	{
-		int result = SDL_snprintf(buffer, sizeof(buffer), "##%s", p->name);
-		int value = *(int *)v;
-		nk_property_int(ctx, buffer, 0, &value, INT_MAX, 1.0, 1.0f);
-		*v = (fckc_u32)value;
+		float *value = v + i;
+		int result = SDL_snprintf(buffer, sizeof(buffer), "%s[%u] : %s", name_format_invisible_token, (unsigned int)i, type_name);
+
+		nk_layout_row_push(ctx, value_ratio);
+		nk_property_int(ctx, buffer, min, value, max, 1, 1.0f);
+		*value = SDL_clamp(*value, min, max);
 	}
+	nk_layout_row_end(ctx);
 }
 
 void fck_nk_edit_u64(fck_serialiser *s, fck_serialiser_params *p, fckc_u64 *v, fckc_size_t c)
 {
 	fck_nk_edit_precondition(s);
 
+	const char type_name[] = "u64";
+	const int min = 0;
+	const int max = INT_MAX;
+
+	if (p->name == NULL && c == 0)
+	{
+		return;
+	}
+
+	fck_ui_ctx *ctx = (fck_ui_ctx *)((fck_nk_serialiser *)s)->ctx;
+	const float value_ratio = fck_nk_edit_generic_label(type_name, s, p, c);
+	const char *name_format_invisible_token = c == 1 ? "##" : "#";
 	char buffer[FCK_READ_BUFFER_STRING_SIZE];
-	static const float ratio[] = {120, 150};
 
-	fck_ui_ctx *ctx = (fck_ui_ctx *)((fck_nk_serialiser *)s)->ctx;
-
-	nk_layout_row(ctx, NK_STATIC, 25, 2, ratio);
-	nk_label(ctx, p->name ? p->name : "", NK_TEXT_LEFT);
-	for (fckc_u64 *end = v + c; v != end; v++)
+	for (fckc_size_t i = 0; i < c; i++)
 	{
-		int result = SDL_snprintf(buffer, sizeof(buffer), "##%s", p->name);
-		int value = *(int *)v;
-		nk_property_int(ctx, buffer, 0, &value, INT_MAX, 1.0, 1.0f);
-		*v = (fckc_u64)value;
+		float *value = v + i;
+		int result = SDL_snprintf(buffer, sizeof(buffer), "%s[%u] : %s", name_format_invisible_token, (unsigned int)i, type_name);
+
+		nk_layout_row_push(ctx, value_ratio);
+		nk_property_int(ctx, buffer, min, value, max, 1, 1.0f);
+		*value = SDL_clamp(*value, min, max);
 	}
-}
-
-void fck_nk_edit_generic_label(fck_serialiser *s, fck_serialiser_params *p, fckc_size_t c, float label_ratio)
-{
-	fck_nk_edit_precondition(s);
-
-	fck_ui_ctx *ctx = (fck_ui_ctx *)((fck_nk_serialiser *)s)->ctx;
-	fckc_size_t col_count = (p->name != NULL ? 1 : 0) + c;
-
-	nk_layout_row_begin(ctx, NK_DYNAMIC, 25, (int)col_count);
-	nk_layout_row_push(ctx, label_ratio);
-	if (p->name != NULL)
-	{
-		nk_label(ctx, p->name, NK_TEXT_LEFT);
-	}
+	nk_layout_row_end(ctx);
 }
 
 void fck_nk_edit_f32(fck_serialiser *s, fck_serialiser_params *p, float *v, fckc_size_t c)
 {
 	fck_nk_edit_precondition(s);
 
+	const char type_name[] = "f32";
+	const float min = -1e6;
+	const float max = 1e6;
+
 	if (p->name == NULL && c == 0)
 	{
 		return;
 	}
-	const float label_ratio = 0.3f;
-	const float min = -1e6;
-	const float max = 1e6;
-	const float value_ratio = 0.7f;
+
 	fck_ui_ctx *ctx = (fck_ui_ctx *)((fck_nk_serialiser *)s)->ctx;
-
-	// One # to force hashing with seq
-	// other # to make the name conditionally invisible
+	const float value_ratio = fck_nk_edit_generic_label(type_name, s, p, c);
 	const char *name_format_invisible_token = c == 1 ? "##" : "#";
-
 	char buffer[FCK_READ_BUFFER_STRING_SIZE];
-	fck_nk_edit_generic_label(s, p, c, label_ratio);
 
 	for (fckc_size_t i = 0; i < c; i++)
 	{
 		float *value = v + i;
-		int result = SDL_snprintf(buffer, sizeof(buffer), "%s[%u]", name_format_invisible_token, (unsigned int)i);
+		int result = SDL_snprintf(buffer, sizeof(buffer), "%s[%u] : %s", name_format_invisible_token, (unsigned int)i, type_name);
 
-		nk_layout_row_push(ctx, value_ratio / c);
+		nk_layout_row_push(ctx, value_ratio);
 		nk_property_float(ctx, buffer, min, value, max, 1.0f, 1.0f);
 		*value = SDL_clamp(*value, min, max);
 	}
@@ -236,20 +323,31 @@ void fck_nk_edit_f64(fck_serialiser *s, fck_serialiser_params *p, double *v, fck
 {
 	fck_nk_edit_precondition(s);
 
-	char buffer[FCK_READ_BUFFER_STRING_SIZE];
-	static const float ratio[] = {120, 150};
+	const char type_name[] = "f64";
+
 	const double min = -1e12;
 	const double max = 1e12;
-	fck_ui_ctx *ctx = (fck_ui_ctx *)((fck_nk_serialiser *)s)->ctx;
-
-	nk_layout_row(ctx, NK_STATIC, 25, 2, ratio);
-	nk_label(ctx, p->name ? p->name : "", NK_TEXT_LEFT);
-	for (double *end = v + c; v != end; v++)
+	if (p->name == NULL && c == 0)
 	{
-		int result = SDL_snprintf(buffer, sizeof(buffer), "##%s", p->name);
-		nk_property_double(ctx, buffer, min, v, max, 1.0f, 1.0f);
-		*v = SDL_clamp(*v, min, max);
+		return;
 	}
+
+	fck_ui_ctx *ctx = (fck_ui_ctx *)((fck_nk_serialiser *)s)->ctx;
+	const float value_ratio = fck_nk_edit_generic_label(type_name, s, p, c);
+	const char *name_format_invisible_token = c == 1 ? "##" : "#";
+	char buffer[FCK_READ_BUFFER_STRING_SIZE];
+
+	for (fckc_size_t i = 0; i < c; i++)
+	{
+		float *value = v + i;
+		int result = SDL_snprintf(buffer, sizeof(buffer), "%s[%u] : %s", name_format_invisible_token, (unsigned int)i, type_name);
+
+		nk_layout_row_push(ctx, value_ratio);
+		nk_property_double(ctx, buffer, min, value, max, 1.0f, 1.0f);
+		*value = SDL_clamp(*value, min, max);
+	}
+
+	nk_layout_row_end(ctx);
 }
 
 void fck_nk_edit_string(fck_serialiser *s, fck_serialiser_params *p, fck_lstring *v, fckc_size_t c)

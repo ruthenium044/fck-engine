@@ -44,6 +44,7 @@ fck_type fck_member_info_owner(struct fck_member_info* info);
 fck_type fck_member_info_type(struct fck_member_info* info);
 fck_member fck_member_info_next(struct fck_member_info* info);
 fckc_size_t fck_member_info_stride(struct fck_member_info* info);
+fckc_size_t fck_member_info_count(struct fck_member_info* info);
 
 struct fck_members* fck_members_alloc(struct fck_identifiers* identifiers, fckc_size_t capacity);
 void fck_members_free(struct fck_members* members);
@@ -64,6 +65,7 @@ typedef struct fck_member_info
 	fck_identifier identifier;
 	fck_type type;
 	fckc_size_t stride;
+	fckc_size_t extra_count;
 	fck_member next;
 } fck_member_info;
 

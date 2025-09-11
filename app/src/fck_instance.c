@@ -115,7 +115,7 @@ void fck_type_read(fck_type type_handel, void *value)
 {
 }
 
-void fck_type_edit(fck_type_system *ts, fck_serialiser *serialiser, fck_ui_ctx *ctx, fck_type type, const char *name, void *data)
+void fck_type_edit(fck_type_system *ts, fck_nk_serialiser *serialiser, fck_type type, const char *name, void *data, fckc_size_t count)
 {
 	struct fck_type_info *info = ts->type->resolve(type);
 	fck_identifier owner_identifier = ts->type->identify(info);
@@ -129,7 +129,7 @@ void fck_type_edit(fck_type_system *ts, fck_serialiser *serialiser, fck_ui_ctx *
 		params.name = name;
 		params.user = NULL;
 
-		serialise(serialiser, &params, data, 1);
+		serialise(serialiser, &params, data, count);
 	}
 
 	fck_member current = ts->type->members_of(info);
@@ -159,8 +159,8 @@ void fck_type_edit(fck_type_system *ts, fck_serialiser *serialiser, fck_ui_ctx *
 
 	// Recurse through children
 	char buffer[256];
-	int count = SDL_snprintf(buffer, sizeof(buffer), "%s %s", owner_name_name, name);
-	if (nk_tree_push_hashed(ctx, NK_TREE_NODE, buffer, NK_MINIMIZED, buffer, count, __LINE__))
+	int result = SDL_snprintf(buffer, sizeof(buffer), "%s %s", owner_name_name, name);
+	if (nk_tree_push_hashed(serialiser->ctx, NK_TREE_NODE, buffer, NK_MINIMIZED, buffer, result, __LINE__))
 	{
 		while (!ts->member->is_null(current))
 		{
@@ -169,11 +169,12 @@ void fck_type_edit(fck_type_system *ts, fck_serialiser *serialiser, fck_ui_ctx *
 			const char *member_name = ts->identifier->resolve(member_identifier);
 			fckc_u8 *offset_ptr = ((fckc_u8 *)(data)) + ts->member->stride_of(member);
 			fck_type member_type = ts->member->type_of(member);
-			fck_type_edit(ts, serialiser, ctx, member_type, member_name, (void *)(offset_ptr));
+			fckc_size_t primitive_count = ts->member->count(member);
+			fck_type_edit(ts, serialiser, member_type, member_name, (void *)(offset_ptr), primitive_count);
 
 			current = ts->member->next_of(member);
 		}
-		nk_tree_pop(ctx);
+		nk_tree_pop(serialiser->ctx);
 	}
 }
 
@@ -215,6 +216,7 @@ int fck_ui_window_entities(struct fck_ui *ui, fck_ui_window *window, void *userd
 
 	nk_layout_row_dynamic(ctx, 25, 1);
 
+
 	fck_type_system *ts = fck_get_type_system(app->apis);
 
 	fck_type custom_type = ts->type->find_from_string(fck_name(example_type));
@@ -237,7 +239,7 @@ int fck_ui_window_entities(struct fck_ui *ui, fck_ui_window *window, void *userd
 		example.double_value = 999.0;
 	}
 	static fckc_u8 opaque[64];
-	fck_type_edit(ts, &serialiser, ctx, custom_type, "dummy", &example);
+	fck_type_edit(ts, &serialiser, custom_type, "dummy", &example, 1);
 
 	if (nk_button_label(ctx, "Save to disk"))
 	{

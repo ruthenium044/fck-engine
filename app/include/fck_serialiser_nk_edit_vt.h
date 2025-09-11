@@ -1,6 +1,9 @@
 #ifndef FCK_SERIALISER_NK_EDIT_VT_H_INCLUDED
 #define FCK_SERIALISER_NK_EDIT_VT_H_INCLUDED
 
+struct fck_serialiser_vt;
+struct fck_ui_ctx;
+
 typedef struct fck_nk_serialiser
 {
 	struct fck_serialiser_vt *vt;

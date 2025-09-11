@@ -125,6 +125,7 @@ void fck_load_type_system(struct fck_apis *apis)
 	ts->member->type_of = fck_member_info_type;
 	ts->member->next_of = fck_member_info_next;
 	ts->member->stride_of = fck_member_info_stride;
+	ts->member->count = fck_member_info_count;
 
 	ts->member->add = fck_members_add_api;
 	// Serialiser public API

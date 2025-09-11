@@ -3,7 +3,8 @@
 #include "fck_serialiser.h"
 #include "fck_serialiser_vt.h"
 
-#include <stdarg.h>
+#include <SDL3/SDL_assert.h>
+#include <SDL3/SDL_stdinc.h>
 
 #define fck_setup_base_primitive(types, serialisers, type, serialise)                                                                      \
 	fck_serialise_interfaces_add(                                                                                                          \
@@ -231,27 +232,11 @@ void fck_type_add_u64x4(struct fck_members *members, fck_type type, const char *
 	fck_type_add_member(members, type, fck_id(fckc_u64x4), name, stride);
 }
 
-static fckc_size_t fck_type_add_members_n(struct fck_members *members, fck_type owner, const char *type_name, fckc_size_t size,
-                                          fckc_size_t stride, ...)
+static fck_member fck_type_add_members_n(struct fck_members *members, fck_type owner, const char *type_name, fckc_size_t count)
 {
-	va_list args;
-
-	va_start(args, owner);
-
-	fck_type type = fck_types_find_from_string(owner.types, fck_id(fckc_f32));
-
-	for (;;)
-	{
-		char *name = va_arg(args, char *);
-		if (name == NULL)
-		{
-			break;
-		}
-		fck_members_add(members, (fck_member_desc){.type = type, .name = name, .owner = owner, .stride = stride});
-		stride = stride + size;
-	}
-	va_end(args);
-	return stride;
+	fck_type type = fck_types_find_from_string(owner.types, type_name);
+	return fck_members_add(
+		members, (fck_member_desc){.type = type, .name = fck_name(values), .owner = owner, .stride = 0, .extra_count = count - 1});
 }
 
 static fck_type fck_declare(struct fck_types *types, const char *name)
@@ -277,43 +262,43 @@ void fck_type_system_setup_core(struct fck_types *types, struct fck_members *mem
 	fck_setup_base_primitive(t, s, fckc_u64, fck_serialise_u64);
 
 	struct fck_members *m = members;
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_f32x2)), fck_id(fckc_f32), sizeof(fckc_f32), 0, "x", "y", NULL);
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_f32x3)), fck_id(fckc_f32), sizeof(fckc_f32), 0, "x", "y", "z", NULL);
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_f32x4)), fck_id(fckc_f32), sizeof(fckc_f32), 0, "x", "y", "z", "w", NULL);
+	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_f32x2)), fck_id(fckc_f32), 2);
+	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_f32x3)), fck_id(fckc_f32), 3);
+	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_f32x4)), fck_id(fckc_f32), 4);
 
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_f64x2)), fck_id(fckc_f64), sizeof(fckc_f64), 0, "x", "y", NULL);
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_f64x3)), fck_id(fckc_f64), sizeof(fckc_f64), 0, "x", "y", "z", NULL);
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_f64x4)), fck_id(fckc_f64), sizeof(fckc_f64), 0, "x", "y", "z", "w", NULL);
+	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_f64x2)), fck_id(fckc_f64), 2);
+	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_f64x3)), fck_id(fckc_f64), 3);
+	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_f64x4)), fck_id(fckc_f64), 4);
 
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_i8x2)), fck_id(fckc_i8), sizeof(fckc_i8), 0, "x", "y", NULL);
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_i8x3)), fck_id(fckc_i8), sizeof(fckc_i8), 0, "x", "y", "z", NULL);
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_i8x4)), fck_id(fckc_i8), sizeof(fckc_i8), 0, "x", "y", "z", "w", NULL);
+	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_i8x2)), fck_id(fckc_i8), 2);
+	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_i8x3)), fck_id(fckc_i8), 3);
+	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_i8x4)), fck_id(fckc_i8), 4);
 
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_i16x2)), fck_id(fckc_i16), sizeof(fckc_i16), 0, "x", "y", NULL);
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_i16x3)), fck_id(fckc_i16), sizeof(fckc_i16), 0, "x", "y", "z", NULL);
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_i16x4)), fck_id(fckc_i16), sizeof(fckc_i16), 0, "x", "y", "z", "w", NULL);
+	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_i16x2)), fck_id(fckc_i16), 2);
+	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_i16x3)), fck_id(fckc_i16), 3);
+	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_i16x4)), fck_id(fckc_i16), 4);
 
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_i32x2)), fck_id(fckc_i32), sizeof(fckc_i32), 0, "x", "y", NULL);
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_i32x3)), fck_id(fckc_i32), sizeof(fckc_i32), 0, "x", "y", "z", NULL);
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_i32x4)), fck_id(fckc_i32), sizeof(fckc_i32), 0, "x", "y", "z", "w", NULL);
+	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_i32x2)), fck_id(fckc_i32), 2);
+	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_i32x3)), fck_id(fckc_i32), 3);
+	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_i32x4)), fck_id(fckc_i32), 4);
 
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_i64x2)), fck_id(fckc_i64), sizeof(fckc_i64), 0, "x", "y", NULL);
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_i64x3)), fck_id(fckc_i64), sizeof(fckc_i64), 0, "x", "y", "z", NULL);
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_i64x4)), fck_id(fckc_i64), sizeof(fckc_i64), 0, "x", "y", "z", "w", NULL);
+	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_i64x2)), fck_id(fckc_i64), 2);
+	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_i64x3)), fck_id(fckc_i64), 3);
+	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_i64x4)), fck_id(fckc_i64), 4);
 
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_u8x2)), fck_id(fckc_u8), sizeof(fckc_u8), 0, "x", "y", NULL);
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_u8x3)), fck_id(fckc_u8), sizeof(fckc_u8), 0, "x", "y", "z", NULL);
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_u8x4)), fck_id(fckc_u8), sizeof(fckc_u8), 0, "x", "y", "z", "w", NULL);
+	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_u8x2)), fck_id(fckc_u8), 2);
+	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_u8x3)), fck_id(fckc_u8), 3);
+	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_u8x4)), fck_id(fckc_u8), 4);
 
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_u16x2)), fck_id(fckc_u16), sizeof(fckc_u16), 0, "x", "y", NULL);
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_u16x3)), fck_id(fckc_u16), sizeof(fckc_u16), 0, "x", "y", "z", NULL);
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_u16x4)), fck_id(fckc_u16), sizeof(fckc_u16), 0, "x", "y", "z", "w", NULL);
+	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_u16x2)), fck_id(fckc_u16), 2);
+	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_u16x3)), fck_id(fckc_u16), 3);
+	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_u16x4)), fck_id(fckc_u16), 4);
 
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_u32x2)), fck_id(fckc_u32), sizeof(fckc_u32), 0, "x", "y", NULL);
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_u32x3)), fck_id(fckc_u32), sizeof(fckc_u32), 0, "x", "y", "z", NULL);
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_u32x4)), fck_id(fckc_u32), sizeof(fckc_u32), 0, "x", "y", "z", "w", NULL);
+	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_u32x2)), fck_id(fckc_u32), 2);
+	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_u32x3)), fck_id(fckc_u32), 3);
+	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_u32x4)), fck_id(fckc_u32), 4);
 
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_u64x2)), fck_id(fckc_u64), sizeof(fckc_u64), 0, "x", "y", NULL);
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_u64x3)), fck_id(fckc_u64), sizeof(fckc_u64), 0, "x", "y", "z", NULL);
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_u64x4)), fck_id(fckc_u64), sizeof(fckc_u64), 0, "x", "y", "z", "w", NULL);
-} 
+	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_u64x2)), fck_id(fckc_u64), 2);
+	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_u64x3)), fck_id(fckc_u64), 3);
+	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_u64x4)), fck_id(fckc_u64), 4);
+}

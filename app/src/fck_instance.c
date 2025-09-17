@@ -83,10 +83,10 @@ fckc_components *fck_components_alloc(fckc_size_t capacity)
 typedef struct example_type
 {
 	fckc_f32x2 other;
-	fckc_f64 double_value;
 	fckc_f32 cooldown;
 	fckc_f32x2 position;
 	fckc_f32x3 rgb;
+	fckc_f64 double_value;
 	fckc_u32 some_int;
 } example_type;
 
@@ -103,12 +103,25 @@ void setup_some_stuff(fck_instance *app)
 
 	// fck_type example_type_handle = fck_types_add(ts->get_types(), (fck_type_desc){fck_name(example_type)});
 	fck_type example_type_handle = ts->type->add((fck_type_desc){fck_name(example_type)});
-	fck_type_add_f32x2(ts->get_members(), example_type_handle, fck_name(other), offsetof(example_type, other));
-	fck_type_add_f32(ts->get_members(), example_type_handle, fck_name(cooldown), offsetof(example_type, cooldown));
-	fck_type_add_f32x2(ts->get_members(), example_type_handle, fck_name(position), offsetof(example_type, position));
-	fck_type_add_f32x3(ts->get_members(), example_type_handle, fck_name(rgb), offsetof(example_type, rgb));
-	fck_type_add_f64(ts->get_members(), example_type_handle, fck_name(double_value), offsetof(example_type, double_value));
-	fck_type_add_u32(ts->get_members(), example_type_handle, fck_name(some_int), offsetof(example_type, some_int));
+	
+	fck_type f32= ts->type->find_from_string(fck_id(fckc_f32));
+	fck_type f64 = ts->type->find_from_string(fck_id(fckc_f64));
+	fck_type u32 = ts->type->find_from_string(fck_id(fckc_u32));
+	ts->member->add(example_type_handle, fck_array_decl(example_type, f32, other, 2));
+	ts->member->add(example_type_handle, fck_value_decl(example_type, f32, cooldown));
+	ts->member->add(example_type_handle, fck_array_decl(example_type, f32, position, 2));
+	ts->member->add(example_type_handle, fck_array_decl(example_type, f32, rgb, 3));
+	ts->member->add(example_type_handle, fck_value_decl(example_type, f64, double_value));
+	ts->member->add(example_type_handle, fck_value_decl(example_type, u32, some_int));
+	// TODO: These arrays are NOT getting printed with a nice name and nk_tree_push_hashed yet...
+	// Let's change that
+
+	//fck_type_add_f32x2(ts->get_members(), example_type_handle, fck_name(other), offsetof(example_type, other));
+	//fck_type_add_f32(ts->get_members(), example_type_handle, fck_name(cooldown), offsetof(example_type, cooldown));
+	//fck_type_add_f32x2(ts->get_members(), example_type_handle, fck_name(position), offsetof(example_type, position));
+	//fck_type_add_f32x3(ts->get_members(), example_type_handle, fck_name(rgb), offsetof(example_type, rgb));
+	//fck_type_add_f64(ts->get_members(), example_type_handle, fck_name(double_value), offsetof(example_type, double_value));
+	//fck_type_add_u32(ts->get_members(), example_type_handle, fck_name(some_int), offsetof(example_type, some_int));
 }
 
 void fck_type_read(fck_type type_handel, void *value)
@@ -116,6 +129,55 @@ void fck_type_read(fck_type type_handel, void *value)
 }
 
 void fck_type_edit(fck_type_system *ts, fck_nk_serialiser *serialiser, fck_type type, const char *name, void *data, fckc_size_t count)
+{
+	struct fck_type_info *info = ts->type->resolve(type);
+	fck_identifier owner_identifier = ts->type->identify(info);
+
+	const char *owner_name = ts->identifier->resolve(owner_identifier);
+
+	fck_serialise_func *serialise = ts->serialise->get(type);
+	if (serialise != NULL)
+	{
+		fck_serialiser_params params;
+		params.name = name;
+		params.user = NULL;
+
+		serialise(serialiser, &params, data, count);
+		return;
+	}
+
+	fck_member members = ts->type->members_of(info);
+	if (ts->member->is_null(members))
+	{
+		return;
+	}
+
+	for (fckc_size_t index = 0; index < count; index++)
+	{
+		fck_member current = members;
+		// Recurse through children
+		char buffer[256];
+		int result = SDL_snprintf(buffer, sizeof(buffer), "%s %s", owner_name, name);
+		if (nk_tree_push_hashed(serialiser->ctx, NK_TREE_NODE, buffer, NK_MINIMIZED, buffer, result, __LINE__))
+		{
+			while (!ts->member->is_null(current))
+			{
+				struct fck_member_info *member = ts->member->resolve(current);
+				fck_identifier member_identifier = ts->member->identify(member);
+				const char *member_name = ts->identifier->resolve(member_identifier);
+				fckc_u8 *offset_ptr = ((fckc_u8 *)(data)) + ts->member->stride_of(member);
+				fck_type member_type = ts->member->type_of(member);
+				fckc_size_t primitive_count = ts->member->count_of(member);
+				fck_type_edit(ts, serialiser, member_type, member_name, (void *)(offset_ptr), primitive_count);
+
+				current = ts->member->next_of(member);
+			}
+			nk_tree_pop(serialiser->ctx);
+		}
+	}
+}
+
+void fck_type_serialise(fck_type_system *ts, fck_serialiser *serialiser, fck_type type, const char *name, void *data, fckc_size_t count)
 {
 	struct fck_type_info *info = ts->type->resolve(type);
 	fck_identifier owner_identifier = ts->type->identify(info);
@@ -132,36 +194,15 @@ void fck_type_edit(fck_type_system *ts, fck_nk_serialiser *serialiser, fck_type 
 		serialise(serialiser, &params, data, count);
 	}
 
-	fck_member current = ts->type->members_of(info);
-	if (ts->member->is_null(current))
+	fck_member members = ts->type->members_of(info);
+	if (ts->member->is_null(members))
 	{
 		return;
 	}
 
-	// struct fck_apis *api_reg;
-
-	// fck_load_type_system(api_reg);
-
-	// fck_type_system *api = fck_get_type_system(api_reg);
-
-	// fck_type big_pp_type = api->type->find_from_string("big_penis");
-	// struct fck_type_info *big_pp_info = api->type->resolve(big_pp_type);
-	// fck_identifier big_pp_id = api->type->identify(big_pp_info);
-
-	// fck_type small_pp_type = api->type->find_from_string("small_penis");
-	// struct fck_type_info *small_pp_info = api->type->resolve(small_pp_type);
-	// fck_identifier small_pp_id = api->type->identify(small_pp_info);
-
-	// if (!api->identifier->is_same(small_pp_id, big_pp_id))
-	//{
-	//	api->member->add((fck_member_desc){.owner = big_pp_type, .type = small_pp_type, .name = "David", .stride = 0});
-	// }
-
-	// Recurse through children
-	char buffer[256];
-	int result = SDL_snprintf(buffer, sizeof(buffer), "%s %s", owner_name_name, name);
-	if (nk_tree_push_hashed(serialiser->ctx, NK_TREE_NODE, buffer, NK_MINIMIZED, buffer, result, __LINE__))
+	for (fckc_size_t index = 0; index < count; index++)
 	{
+		fck_member current = members;
 		while (!ts->member->is_null(current))
 		{
 			struct fck_member_info *member = ts->member->resolve(current);
@@ -169,43 +210,11 @@ void fck_type_edit(fck_type_system *ts, fck_nk_serialiser *serialiser, fck_type 
 			const char *member_name = ts->identifier->resolve(member_identifier);
 			fckc_u8 *offset_ptr = ((fckc_u8 *)(data)) + ts->member->stride_of(member);
 			fck_type member_type = ts->member->type_of(member);
-			fckc_size_t primitive_count = ts->member->count(member);
-			fck_type_edit(ts, serialiser, member_type, member_name, (void *)(offset_ptr), primitive_count);
+			fckc_size_t primitive_count = ts->member->count_of(member);
+			fck_type_serialise(ts, serialiser, member_type, member_name, (void *)(offset_ptr), primitive_count);
 
 			current = ts->member->next_of(member);
 		}
-		nk_tree_pop(serialiser->ctx);
-	}
-}
-
-void fck_type_serialise(fck_type_system *ts, fck_serialiser *serialiser, fck_type type, const char *name, void *data)
-{
-	struct fck_type_info *info = ts->type->resolve(type);
-	fck_identifier owner_identifier = ts->type->identify(info);
-
-	const char *owner_name_name = ts->identifier->resolve(owner_identifier);
-
-	fck_serialise_func *serialise = ts->serialise->get(type);
-	if (serialise != NULL)
-	{
-		fck_serialiser_params params;
-		params.name = name;
-		params.user = NULL;
-
-		serialise(serialiser, &params, data, 1);
-	}
-
-	fck_member current = ts->type->members_of(info);
-	while (!ts->member->is_null(current))
-	{
-		struct fck_member_info *member = ts->member->resolve(current);
-		fck_identifier member_identifier = ts->member->identify(member);
-		const char *member_name = ts->identifier->resolve(member_identifier);
-		fckc_u8 *offset_ptr = ((fckc_u8 *)(data)) + ts->member->stride_of(member);
-		fck_type member_type = ts->member->type_of(member);
-		fck_type_serialise(ts, serialiser, member_type, member_name, (void *)(offset_ptr));
-
-		current = ts->member->next_of(member);
 	}
 }
 
@@ -215,7 +224,6 @@ int fck_ui_window_entities(struct fck_ui *ui, fck_ui_window *window, void *userd
 	fck_ui_ctx *ctx = fck_ui_context(ui);
 
 	nk_layout_row_dynamic(ctx, 25, 1);
-
 
 	fck_type_system *ts = fck_get_type_system(app->apis);
 

@@ -49,7 +49,7 @@ fckc_size_t fck_member_info_count(struct fck_member_info* info);
 struct fck_members* fck_members_alloc(struct fck_identifiers* identifiers, fckc_size_t capacity);
 void fck_members_free(struct fck_members* members);
 
-fck_member fck_members_add(struct fck_members* members, fck_member_desc desc);
+fck_member fck_members_add(struct fck_members* members, fck_type owner, fck_member_desc desc);
 
 // Serialisers
 struct fck_serialise_interfaces* fck_serialise_interfaces_alloc(fckc_size_t capacity);

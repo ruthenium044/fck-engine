@@ -55,7 +55,7 @@ static void fck_type_add_member(struct fck_members *members, fck_type owner, con
 {
 	// TODO: string kind of dumb tho
 	fck_type member_type = fck_types_find_from_string(owner.types, type_name);
-	fck_members_add(members, (fck_member_desc){.type = member_type, .name = name, .owner = owner, .stride = stride});
+	fck_members_add(members, owner, (fck_member_desc){.type = member_type, .name = name, .stride = stride});
 }
 
 void fck_type_add_f32(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
@@ -236,7 +236,7 @@ static fck_member fck_type_add_members_n(struct fck_members *members, fck_type o
 {
 	fck_type type = fck_types_find_from_string(owner.types, type_name);
 	return fck_members_add(
-		members, (fck_member_desc){.type = type, .name = fck_name(values), .owner = owner, .stride = 0, .extra_count = count - 1});
+		members, owner, (fck_member_desc){.type = type, .name = fck_name(values), .stride = 0, .extra_count = count - 1});
 }
 
 static fck_type fck_declare(struct fck_types *types, const char *name)

@@ -163,7 +163,7 @@ static void fck_type_info_add_member(fck_type type_handle, fck_member member_han
 	info->last_member = member_handle;
 };
 
-fck_member fck_members_add(fck_members *members, fck_member_desc desc)
+fck_member fck_members_add(fck_members *members, fck_type owner, fck_member_desc desc)
 {
 	// Maybe resize
 	if (members->value->count >= (members->value->capacity >> 1))
@@ -199,7 +199,7 @@ fck_member fck_members_add(fck_members *members, fck_member_desc desc)
 	}
 
 	fck_member_registry *head = members->value;
-	struct fck_type_info *owner_info = fck_type_resolve(desc.owner);
+	struct fck_type_info *owner_info = fck_type_resolve(owner);
 
 	fck_identifier_desc identifier_desc;
 	identifier_desc.name = desc.name;
@@ -225,7 +225,7 @@ fck_member fck_members_add(fck_members *members, fck_member_desc desc)
 		{
 			break;
 		}
-		SDL_assert(!(fck_identifier_is_same(current->identifier, identifier) && fck_type_is_same(current->owner, desc.owner)));
+		SDL_assert(!(fck_identifier_is_same(current->identifier, identifier) && fck_type_is_same(current->owner, owner)));
 		index = (index + 1) % members->value->capacity;
 	}
 
@@ -234,12 +234,12 @@ fck_member fck_members_add(fck_members *members, fck_member_desc desc)
 	info->hash = hash;
 	info->identifier = identifier;
 	info->next = fck_member_null();
-	info->owner = desc.owner;
+	info->owner = owner;
 	info->type = desc.type;
 	info->stride = desc.stride;
 	info->extra_count = desc.extra_count;
 	members->value->count = members->value->count + 1;
 	fck_member member = {members, hash};
-	fck_type_info_add_member(desc.owner, member);
+	fck_type_info_add_member(owner, member);
 	return member;
 }

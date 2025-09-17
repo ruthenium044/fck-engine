@@ -57,11 +57,35 @@ typedef struct fck_type_desc
 typedef struct fck_member_desc
 {
 	fck_type type;
-	fck_type owner;
 	const char *name;
 	fckc_size_t stride;
-	fckc_size_t extra_count; // 1 + EXTRA 
+	fckc_size_t extra_count; // 1 + EXTRA
 } fck_member_desc;
+
+#define fck_value_decl(owner, type, member) (fck_member_desc){type, fck_name(member), offsetof(owner, member), 0}
+
+#define fck_array_decl(owner, type, member, count)                                                                                         \
+	(fck_member_desc)                                                                                                                      \
+	{                                                                                                                                      \
+		type, fck_name(member), offsetof(owner, member), ((count) - 1)                                                                     \
+	}
+
+inline fck_member_desc fck_member_desc_zero()
+{
+	return (fck_member_desc){0};
+}
+
+inline fck_member_desc fck_member_desc_value(fck_type type, const char *name, fckc_size_t stride)
+{
+	return (fck_member_desc){.type = type, .name = name, .stride = stride};
+}
+
+inline fck_member_desc fck_member_desc_array(fck_type type, const char *name, fckc_size_t stride, fckc_size_t count)
+{
+	// Count - 1 should break everything... let's see!!
+	// ~0 can also mean nothing as a tombstone... we will see
+	return (fck_member_desc){.type = type, .name = name, .stride = stride, .extra_count = count - 1};
+}
 
 typedef struct fck_serialise_desc
 {
@@ -160,9 +184,9 @@ typedef struct fck_member_api
 	fck_type (*type_of)(struct fck_member_info *info);
 	fck_member (*next_of)(struct fck_member_info *info);
 	fckc_size_t (*stride_of)(struct fck_member_info *info);
-	fckc_size_t (*count)(struct fck_member_info* info);
+	fckc_size_t (*count_of)(struct fck_member_info *info);
 
-	fck_member (*add)(fck_member_desc desc);
+	fck_member (*add)(fck_type owner, fck_member_desc desc);
 } fck_member_api;
 
 typedef struct fck_serialise_interface_api
@@ -175,16 +199,19 @@ typedef struct fck_serialise_interface_api
 
 typedef struct fck_primitive_api
 {
-	void (*add_f32)(fck_type owner, const char* name, fckc_size_t stride);
-	void (*add_f64)(fck_type owner, const char* name, fckc_size_t stride);
-	void (*add_i8)(fck_type owner, const char* name, fckc_size_t stride);
-	void (*add_i16)(fck_type owner, const char* name, fckc_size_t stride);
-	void (*add_i32)(fck_type owner, const char* name, fckc_size_t stride);
-	void (*add_i64)(fck_type owner, const char* name, fckc_size_t stride);
-	void (*add_u8)(fck_type owner, const char* name, fckc_size_t stride);
-	void (*add_u16)(fck_type owner, const char* name, fckc_size_t stride);
-	void (*add_u32)(fck_type owner, const char* name, fckc_size_t stride);
-	void (*add_u64)(fck_type owner, const char* name, fckc_size_t stride);
+	void (*add_f32)(fck_type owner, const char *name, fckc_size_t stride);
+	void (*add_f64)(fck_type owner, const char *name, fckc_size_t stride);
+	void (*add_i8)(fck_type owner, const char *name, fckc_size_t stride);
+	void (*add_i16)(fck_type owner, const char *name, fckc_size_t stride);
+	void (*add_i32)(fck_type owner, const char *name, fckc_size_t stride);
+	void (*add_i64)(fck_type owner, const char *name, fckc_size_t stride);
+	void (*add_u8)(fck_type owner, const char *name, fckc_size_t stride);
+	void (*add_u16)(fck_type owner, const char *name, fckc_size_t stride);
+	void (*add_u32)(fck_type owner, const char *name, fckc_size_t stride);
+	void (*add_u64)(fck_type owner, const char *name, fckc_size_t stride);
+
+	void (*add)(fck_member_desc desc);
+
 } fck_primitive_api;
 
 typedef struct fck_type_system

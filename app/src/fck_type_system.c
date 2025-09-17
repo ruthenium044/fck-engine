@@ -57,9 +57,9 @@ fck_type fck_types_find_from_string_api(const char *name)
 	return fck_types_find_from_string(fck_type_system_api_blob_private.types, name);
 }
 
-fck_member fck_members_add_api(fck_member_desc desc)
+fck_member fck_members_add_api(fck_type owner, fck_member_desc desc)
 {
-	return fck_members_add(fck_type_system_api_blob_private.members, desc);
+	return fck_members_add(fck_type_system_api_blob_private.members, owner, desc);
 }
 
 void fck_serialise_interfaces_add_api(fck_serialise_desc desc)
@@ -125,7 +125,7 @@ void fck_load_type_system(struct fck_apis *apis)
 	ts->member->type_of = fck_member_info_type;
 	ts->member->next_of = fck_member_info_next;
 	ts->member->stride_of = fck_member_info_stride;
-	ts->member->count = fck_member_info_count;
+	ts->member->count_of = fck_member_info_count;
 
 	ts->member->add = fck_members_add_api;
 	// Serialiser public API

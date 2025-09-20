@@ -1,8 +1,8 @@
 
 #include "fck_type_system.h"
-#include "fck_type_system.inl"
 #include "SDL3/SDL_stdinc.h"
 #include "fck_apis.h"
+#include "fck_type_system.inl"
 
 static const char *fck_type_system_api_name = "FCK_TYPE_SYSTEM";
 
@@ -37,7 +37,7 @@ static struct fck_members *get_members(void)
 {
 	return fck_type_system_api_blob_private.members;
 }
-static struct fck_serialise_interfaces* get_serialisers(void)
+static struct fck_serialise_interfaces *get_serialisers(void)
 {
 	return fck_type_system_api_blob_private.serialisers;
 }
@@ -55,6 +55,11 @@ fck_type fck_types_find_from_hash_api(fckc_u64 hash)
 fck_type fck_types_find_from_string_api(const char *name)
 {
 	return fck_types_find_from_string(fck_type_system_api_blob_private.types, name);
+}
+
+int fck_types_iterate_api(fck_type *type)
+{
+	return fck_types_iterate(fck_type_system_api_blob_private.types, type);
 }
 
 fck_member fck_members_add_api(fck_type owner, fck_member_desc desc)
@@ -96,11 +101,6 @@ void fck_load_type_system(struct fck_apis *apis)
 	ts->identifier->is_same = fck_identifier_is_same;
 	ts->identifier->resolve = fck_identifier_resolve;
 
-	ts->get_identifiers = get_identifiers;
-	ts->get_types = get_types;
-	ts->get_members = get_members;
-	ts->get_serialisers = get_serialisers;
-
 	// Types public API
 	ts->type->null = fck_type_null;
 	ts->type->is_null = fck_type_is_null;
@@ -114,6 +114,7 @@ void fck_load_type_system(struct fck_apis *apis)
 	ts->type->add = fck_types_add_api;
 	ts->type->find_from_hash = fck_types_find_from_hash_api;
 	ts->type->find_from_string = fck_types_find_from_string_api;
+	ts->type->iterate = fck_types_iterate_api;
 
 	// Member public API
 	ts->member->null = fck_member_null;

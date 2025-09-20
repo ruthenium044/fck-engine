@@ -235,8 +235,8 @@ void fck_type_add_u64x4(struct fck_members *members, fck_type type, const char *
 static fck_member fck_type_add_members_n(struct fck_members *members, fck_type owner, const char *type_name, fckc_size_t count)
 {
 	fck_type type = fck_types_find_from_string(owner.types, type_name);
-	return fck_members_add(
-		members, owner, (fck_member_desc){.type = type, .name = fck_name(values), .stride = 0, .extra_count = count - 1});
+	return fck_members_add(members, owner,
+	                       (fck_member_desc){.type = type, .name = fck_name(values), .stride = 0, .extra_count = count - 1});
 }
 
 static fck_type fck_declare(struct fck_types *types, const char *name)
@@ -261,6 +261,7 @@ void fck_type_system_setup_core(struct fck_types *types, struct fck_members *mem
 	fck_setup_base_primitive(t, s, fckc_u32, fck_serialise_u32);
 	fck_setup_base_primitive(t, s, fckc_u64, fck_serialise_u64);
 
+	return;
 	struct fck_members *m = members;
 	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_f32x2)), fck_id(fckc_f32), 2);
 	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_f32x3)), fck_id(fckc_f32), 3);

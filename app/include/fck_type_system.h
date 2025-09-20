@@ -94,59 +94,6 @@ typedef struct fck_serialise_desc
 	fck_serialise_func *func;
 } fck_serialise_desc;
 
-// Absolute base primitives
-void fck_type_add_f32(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
-void fck_type_add_f64(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
-void fck_type_add_i8(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
-void fck_type_add_i16(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
-void fck_type_add_i32(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
-void fck_type_add_i64(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
-void fck_type_add_u8(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
-void fck_type_add_u16(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
-void fck_type_add_u32(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
-void fck_type_add_u64(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
-
-// Combined primitives
-void fck_type_add_f32x2(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
-void fck_type_add_f32x3(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
-void fck_type_add_f32x4(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
-
-void fck_type_add_f64x2(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
-void fck_type_add_f64x3(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
-void fck_type_add_f64x4(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
-
-void fck_type_add_i8x2(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
-void fck_type_add_i8x3(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
-void fck_type_add_i8x4(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
-
-void fck_type_add_i16x2(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
-void fck_type_add_i16x3(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
-void fck_type_add_i16x4(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
-
-void fck_type_add_i32x2(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
-void fck_type_add_i32x3(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
-void fck_type_add_i32x4(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
-
-void fck_type_add_i64x2(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
-void fck_type_add_i64x3(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
-void fck_type_add_i64x4(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
-
-void fck_type_add_u8x2(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
-void fck_type_add_u8x3(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
-void fck_type_add_u8x4(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
-
-void fck_type_add_u16x2(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
-void fck_type_add_u16x3(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
-void fck_type_add_u16x4(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
-
-void fck_type_add_u32x2(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
-void fck_type_add_u32x3(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
-void fck_type_add_u32x4(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
-
-void fck_type_add_u64x2(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
-void fck_type_add_u64x3(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
-void fck_type_add_u64x4(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride);
-
 typedef struct fck_identifier_api
 {
 	fck_identifier (*null)(void);
@@ -155,6 +102,7 @@ typedef struct fck_identifier_api
 	const char *(*resolve)(fck_identifier identifier);
 } fck_identifier_api;
 
+// TODO: Nothing SHALL be string-based!! Except name ofc...
 typedef struct fck_type_api
 {
 	fck_type (*null)(void);
@@ -169,6 +117,10 @@ typedef struct fck_type_api
 	fck_type (*add)(fck_type_desc desc);
 	fck_type (*find_from_hash)(fckc_u64 hash);
 	fck_type (*find_from_string)(const char *name);
+
+	// Nice and convenient, but I need sorted
+	int (*iterate)(fck_type *type);
+
 } fck_type_api;
 
 typedef struct fck_member_api
@@ -197,31 +149,8 @@ typedef struct fck_serialise_interface_api
 
 } fck_serialise_interface_api;
 
-typedef struct fck_primitive_api
-{
-	void (*add_f32)(fck_type owner, const char *name, fckc_size_t stride);
-	void (*add_f64)(fck_type owner, const char *name, fckc_size_t stride);
-	void (*add_i8)(fck_type owner, const char *name, fckc_size_t stride);
-	void (*add_i16)(fck_type owner, const char *name, fckc_size_t stride);
-	void (*add_i32)(fck_type owner, const char *name, fckc_size_t stride);
-	void (*add_i64)(fck_type owner, const char *name, fckc_size_t stride);
-	void (*add_u8)(fck_type owner, const char *name, fckc_size_t stride);
-	void (*add_u16)(fck_type owner, const char *name, fckc_size_t stride);
-	void (*add_u32)(fck_type owner, const char *name, fckc_size_t stride);
-	void (*add_u64)(fck_type owner, const char *name, fckc_size_t stride);
-
-	void (*add)(fck_member_desc desc);
-
-} fck_primitive_api;
-
 typedef struct fck_type_system
 {
-	// TODO: Remove these, they just bandaid atm
-	struct fck_identifiers *(*get_identifiers)(void);
-	struct fck_types *(*get_types)(void);
-	struct fck_members *(*get_members)(void);
-	struct fck_serialise_interfaces *(*get_serialisers)(void);
-
 	// Design choice: Pointers to api vs... not that
 	fck_identifier_api *identifier;
 	fck_type_api *type;

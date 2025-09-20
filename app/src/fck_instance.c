@@ -16,6 +16,8 @@
 #include "fck_serialiser_vt.h"
 
 #include "kll_heap.h"
+#include <kll.h>
+#include <kll_malloc.h>>
 
 #include "fck_apis.h"
 #include "fck_type_system.h"
@@ -87,41 +89,93 @@ typedef struct example_type
 	fckc_f32x2 position;
 	fckc_f32x3 rgb;
 	fckc_f64 double_value;
-	fckc_u32 some_int;
+	fckc_i32 some_int;
+
+	fckc_i8 i8;
+	fckc_i16 i16;
+	fckc_i32 i32;
+	fckc_i64 i64;
+
+	fckc_u8 u8;
+	fckc_u16 u16;
+	fckc_u32 u32;
+	fckc_u64 u64;
 } example_type;
+
+typedef struct fck_type_memory
+{
+	kll_allocator *alloctor;
+	fckc_size_t size;
+	fckc_u8 *buffer;
+} fck_type_memory;
+
+fck_type_memory fck_type_memory_create(kll_allocator *alloctor)
+{
+	return (fck_type_memory){alloctor, 0, NULL};
+}
+
+void fck_type_memory_alloc(fck_type_memory *memory, fckc_size_t size)
+{
+	memory->buffer = (fckc_u8 *)kll_malloc(memory->alloctor, size);
+	memory->size = size;
+}
+
+void fck_type_memory_free(fck_type_memory *memory)
+{
+	kll_free(memory->alloctor, memory->buffer);
+	memory->size = 0;
+	memory->buffer = NULL;
+}
+
+fckc_u8 *fck_type_memory_squeeze(fck_type_memory *memory, fckc_size_t stride, fckc_size_t size)
+{
+	fck_type_memory result = fck_type_memory_create(memory->alloctor);
+	fck_type_memory_alloc(&result, memory->size + size);
+
+	SDL_memcpy(result.buffer, memory->buffer, memory->size);
+	fckc_u8 *src = memory->buffer + stride;
+	fckc_u8 *dst = memory->buffer + size;
+	SDL_memmove(dst, src, size);
+
+	fck_type_memory_free(memory);
+	*memory = result;
+
+	// Return start of added memory for convenience
+	return memory->buffer + stride;
+}
 
 void setup_some_stuff(fck_instance *app)
 {
-
-	// identifiers = fck_identifiers_alloc(1);
-	// members = fck_members_alloc(identifiers, 1);
-	// types = fck_types_alloc(identifiers, 1);
-	// serialisers = fck_serialise_interfaces_alloc(1);
-
-	// fck_type_system_setup_core(types, members, serialisers);
 	fck_type_system *ts = fck_get_type_system(app->apis);
 
 	// fck_type example_type_handle = fck_types_add(ts->get_types(), (fck_type_desc){fck_name(example_type)});
 	fck_type example_type_handle = ts->type->add((fck_type_desc){fck_name(example_type)});
-	
-	fck_type f32= ts->type->find_from_string(fck_id(fckc_f32));
+
+	fck_type f32 = ts->type->find_from_string(fck_id(fckc_f32));
 	fck_type f64 = ts->type->find_from_string(fck_id(fckc_f64));
+	fck_type i8 = ts->type->find_from_string(fck_id(fckc_i8));
+	fck_type i16 = ts->type->find_from_string(fck_id(fckc_i16));
+	fck_type i32 = ts->type->find_from_string(fck_id(fckc_i32));
+	fck_type i64 = ts->type->find_from_string(fck_id(fckc_i64));
+	fck_type u8 = ts->type->find_from_string(fck_id(fckc_u8));
+	fck_type u16 = ts->type->find_from_string(fck_id(fckc_u16));
 	fck_type u32 = ts->type->find_from_string(fck_id(fckc_u32));
+	fck_type u64 = ts->type->find_from_string(fck_id(fckc_u64));
+
 	ts->member->add(example_type_handle, fck_array_decl(example_type, f32, other, 2));
 	ts->member->add(example_type_handle, fck_value_decl(example_type, f32, cooldown));
 	ts->member->add(example_type_handle, fck_array_decl(example_type, f32, position, 2));
 	ts->member->add(example_type_handle, fck_array_decl(example_type, f32, rgb, 3));
 	ts->member->add(example_type_handle, fck_value_decl(example_type, f64, double_value));
-	ts->member->add(example_type_handle, fck_value_decl(example_type, u32, some_int));
-	// TODO: These arrays are NOT getting printed with a nice name and nk_tree_push_hashed yet...
-	// Let's change that
-
-	//fck_type_add_f32x2(ts->get_members(), example_type_handle, fck_name(other), offsetof(example_type, other));
-	//fck_type_add_f32(ts->get_members(), example_type_handle, fck_name(cooldown), offsetof(example_type, cooldown));
-	//fck_type_add_f32x2(ts->get_members(), example_type_handle, fck_name(position), offsetof(example_type, position));
-	//fck_type_add_f32x3(ts->get_members(), example_type_handle, fck_name(rgb), offsetof(example_type, rgb));
-	//fck_type_add_f64(ts->get_members(), example_type_handle, fck_name(double_value), offsetof(example_type, double_value));
-	//fck_type_add_u32(ts->get_members(), example_type_handle, fck_name(some_int), offsetof(example_type, some_int));
+	ts->member->add(example_type_handle, fck_value_decl(example_type, i32, some_int));
+	ts->member->add(example_type_handle, fck_value_decl(example_type, i8, i8));
+	ts->member->add(example_type_handle, fck_value_decl(example_type, i16, i16));
+	ts->member->add(example_type_handle, fck_value_decl(example_type, i32, i32));
+	ts->member->add(example_type_handle, fck_value_decl(example_type, i64, i64));
+	ts->member->add(example_type_handle, fck_value_decl(example_type, u8, u8));
+	ts->member->add(example_type_handle, fck_value_decl(example_type, u16, u16));
+	ts->member->add(example_type_handle, fck_value_decl(example_type, u32, u32));
+	ts->member->add(example_type_handle, fck_value_decl(example_type, u64, u64));
 }
 
 void fck_type_read(fck_type type_handel, void *value)
@@ -246,9 +300,17 @@ int fck_ui_window_entities(struct fck_ui *ui, fck_ui_window *window, void *userd
 		example.some_int = 99;
 		example.double_value = 999.0;
 	}
-	static fckc_u8 opaque[64];
-	fck_type_edit(ts, &serialiser, custom_type, "dummy", &example, 1);
 
+	static fckc_u8 opaque[1024];
+	static fckc_size_t offset = sizeof(example);
+	fck_type_edit(ts, &serialiser, custom_type, "dummy", opaque, 1);
+
+	nk_layout_row_begin(ctx, NK_DYNAMIC, 25, (int)1);
+
+	nk_layout_row_push(ctx, 1.0f);
+	nk_label(ctx, "", NK_TEXT_ALIGN_LEFT);
+
+	nk_layout_row_push(ctx, 1.0f);
 	if (nk_button_label(ctx, "Save to disk"))
 	{
 		// fck_serialiser json;
@@ -260,6 +322,36 @@ int fck_ui_window_entities(struct fck_ui *ui, fck_ui_window *window, void *userd
 
 		// fck_serialiser_free(&serialiser);
 	}
+
+	static char input_text_buffer[512];
+	static int input_text_len = 0;
+	nk_layout_row_push(ctx, 1.0f);
+	nk_edit_string(ctx, NK_EDIT_SIMPLE, input_text_buffer, &input_text_len, sizeof(input_text_buffer), nk_filter_default);
+
+	nk_layout_row_push(ctx, 1.0f);
+	nk_label(ctx, "", NK_TEXT_ALIGN_LEFT);
+
+	fck_type current = ts->type->null();
+	while (ts->type->iterate(&current))
+	{
+		struct fck_type_info *info = ts->type->resolve(current);
+		fck_identifier identifier = ts->type->identify(info);
+		const char *name = ts->identifier->resolve(identifier);
+		nk_layout_row_push(ctx, 1.0f);
+		if (nk_button_label(ctx, name))
+		{
+			fck_member_desc desc;
+			desc.extra_count = 0;
+			desc.stride = offset;
+			desc.type = current;
+
+			desc.name = input_text_buffer;
+
+			ts->member->add(custom_type, desc);
+			offset = offset + 8;
+		}
+	}
+	nk_layout_row_end(ctx);
 
 	return 1;
 }

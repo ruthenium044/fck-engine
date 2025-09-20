@@ -265,3 +265,45 @@ fck_type fck_types_find_from_string(struct fck_types *types, const char *name)
 	const fck_hash_int hash = fck_hash(name, SDL_strlen(name));
 	return fck_types_find_from_hash(types, hash);
 }
+
+int fck_types_iterate(struct fck_types *types, fck_type *type)
+{
+	fckc_size_t index = 0;
+	if (fck_type_is_null(*type))
+	{
+		for (; index < types->value->capacity; index++)
+		{
+			const fck_type_info *current = &types->value->info[index];
+			if (!fck_identifier_is_null(current->identifier))
+			{
+				type->types = types;
+				type->hash = current->hash;
+				return 1;
+			}
+		}
+		return 0;
+	}
+
+	SDL_assert(type->types == types);
+
+	index = ((fckc_size_t)type->hash) % types->value->capacity;
+	for (; index < types->value->capacity; index++)
+	{
+		const fck_type_info *current = &types->value->info[index];
+		if (current->hash == type->hash)
+		{
+			for (index = index + 1; index < types->value->capacity; index++)
+			{
+				current = &types->value->info[index];
+				if (!fck_identifier_is_null(current->identifier))
+				{
+					type->types = types;
+					type->hash = current->hash;
+					return 1;
+				}
+			}
+		}
+	}
+
+	return 0;
+}

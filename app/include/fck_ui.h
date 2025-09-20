@@ -26,15 +26,15 @@ typedef struct nk_context fck_ui_ctx;
 
 typedef struct fck_ui fck_ui;
 
-fck_ui* fck_ui_alloc(struct SDL_Renderer* renderer);
-void fck_ui_free(fck_ui* ui);
+fck_ui *fck_ui_alloc(struct SDL_Renderer *renderer);
+void fck_ui_free(fck_ui *ui);
 
-void fck_ui_render(fck_ui* ui, struct SDL_Renderer* renderer);
-void fck_ui_enqueue_event(fck_ui* ui, union SDL_Event const* event);
+void fck_ui_render(fck_ui *ui, struct SDL_Renderer *renderer);
+void fck_ui_enqueue_event(fck_ui *ui, union SDL_Event const *event);
 
-fck_ui_ctx * fck_ui_context(fck_ui* ui);
+fck_ui_ctx *fck_ui_context(fck_ui *ui);
 
-struct nk_color* fck_ui_set_style(struct nk_context* ctx, enum fck_theme theme);
+struct nk_color *fck_ui_set_style(struct nk_context *ctx, enum fck_theme theme);
 
 // Odd declaration, but the source file requires it to be like this!
 // This way the user only needs to #include<fck_ui.h>

@@ -100,7 +100,7 @@ fckc_size_t fck_member_info_stride(struct fck_member_info *info)
 	return info->stride;
 }
 
-fckc_size_t fck_member_info_count(struct fck_member_info* info)
+fckc_size_t fck_member_info_count(struct fck_member_info *info)
 {
 	return info->extra_count + 1;
 }
@@ -211,7 +211,7 @@ fck_member fck_members_add(fck_members *members, fck_type owner, fck_member_desc
 
 	fckc_size_t required_size = SDL_strlen(str) + SDL_strlen(owner_str) + 64;
 	char *buffer = (char *)SDL_malloc(required_size);
-	fckc_size_t offset = SDL_snprintf(buffer, required_size, "%s %s", str, owner_str);
+	fckc_size_t offset = SDL_snprintf(buffer, required_size, "%s::%s", str, owner_str);
 
 	const fck_hash_int hash = fck_hash(buffer, offset);
 	fckc_size_t index = ((fckc_size_t)hash) % members->value->capacity;

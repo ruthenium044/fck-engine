@@ -1,10 +1,97 @@
 
 #include "fck_type_system.h"
-#include "SDL3/SDL_stdinc.h"
+#include <SDL3/SDL_assert.h>
+
 #include "fck_apis.h"
 #include "fck_type_system.inl"
 
+#include "fck_serialiser_vt.h"
+
 static const char *fck_type_system_api_name = "FCK_TYPE_SYSTEM";
+
+typedef struct fck_serialiser_type_size_of
+{
+	fck_serialiser_vt *vt;
+	fckc_size_t size;
+} fck_serialiser_type_size_of;
+
+void fck_size_of_i8(fck_serialiser *s, fck_serialiser_params *p, fckc_i8 *v, fckc_size_t c)
+{
+	fck_serialiser_type_size_of *size_of = (fck_serialiser_type_size_of *)s;
+	size_of->size = size_of->size + (sizeof(*v) * c);
+}
+
+void fck_size_of_i16(fck_serialiser *s, fck_serialiser_params *p, fckc_i16 *v, fckc_size_t c)
+{
+	fck_serialiser_type_size_of *size_of = (fck_serialiser_type_size_of *)s;
+	size_of->size = size_of->size + (sizeof(*v) * c);
+}
+
+void fck_size_of_i32(fck_serialiser *s, fck_serialiser_params *p, fckc_i32 *v, fckc_size_t c)
+{
+	fck_serialiser_type_size_of *size_of = (fck_serialiser_type_size_of *)s;
+	size_of->size = size_of->size + (sizeof(*v) * c);
+}
+
+void fck_size_of_i64(fck_serialiser *s, fck_serialiser_params *p, fckc_i64 *v, fckc_size_t c)
+{
+	fck_serialiser_type_size_of *size_of = (fck_serialiser_type_size_of *)s;
+	size_of->size = size_of->size + (sizeof(*v) * c);
+}
+
+void fck_size_of_u8(fck_serialiser *s, fck_serialiser_params *p, fckc_u8 *v, fckc_size_t c)
+{
+	fck_serialiser_type_size_of *size_of = (fck_serialiser_type_size_of *)s;
+	size_of->size = size_of->size + (sizeof(*v) * c);
+}
+
+void fck_size_of_u16(fck_serialiser *s, fck_serialiser_params *p, fckc_u16 *v, fckc_size_t c)
+{
+	fck_serialiser_type_size_of *size_of = (fck_serialiser_type_size_of *)s;
+	size_of->size = size_of->size + (sizeof(*v) * c);
+}
+
+void fck_size_of_u32(fck_serialiser *s, fck_serialiser_params *p, fckc_u32 *v, fckc_size_t c)
+{
+	fck_serialiser_type_size_of *size_of = (fck_serialiser_type_size_of *)s;
+	size_of->size = size_of->size + (sizeof(*v) * c);
+}
+
+void fck_size_of_u64(fck_serialiser *s, fck_serialiser_params *p, fckc_u64 *v, fckc_size_t c)
+{
+	fck_serialiser_type_size_of *size_of = (fck_serialiser_type_size_of *)s;
+	size_of->size = size_of->size + (sizeof(*v) * c);
+}
+
+void fck_size_of_f32(fck_serialiser *s, fck_serialiser_params *p, float *v, fckc_size_t c)
+{
+	fck_serialiser_type_size_of *size_of = (fck_serialiser_type_size_of *)s;
+	size_of->size = size_of->size + (sizeof(*v) * c);
+}
+
+void fck_size_of_f64(fck_serialiser *s, fck_serialiser_params *p, double *v, fckc_size_t c)
+{
+	fck_serialiser_type_size_of *size_of = (fck_serialiser_type_size_of *)s;
+	size_of->size = size_of->size + (sizeof(*v) * c);
+}
+
+void fck_size_of_string(fck_serialiser *s, fck_serialiser_params *p, fck_lstring *v, fckc_size_t c)
+{
+	SDL_assert(false && "Not implemented");
+}
+
+static fck_serialiser_vt fck_size_of_vt = {
+	.f64 = fck_size_of_f64,
+	.f32 = fck_size_of_f32,
+	.i8 = fck_size_of_i8,
+	.i16 = fck_size_of_i16,
+	.i32 = fck_size_of_i32,
+	.i64 = fck_size_of_i64,
+	.u8 = fck_size_of_u8,
+	.u16 = fck_size_of_u16,
+	.u32 = fck_size_of_u32,
+	.u64 = fck_size_of_u64,
+};
 
 typedef struct fck_type_system_api_blob
 {
@@ -40,6 +127,39 @@ static struct fck_members *get_members(void)
 static struct fck_serialise_interfaces *get_serialisers(void)
 {
 	return fck_type_system_api_blob_private.serialisers;
+}
+
+void fck_type_size_of(struct fck_serialiser_type_size_of *s, struct fck_serialiser_params *p, void *self, fckc_size_t c)
+{
+	// fck_serialiser_type_size_of *size_of = (fck_serialiser_type_size_of *)s;
+
+	fck_serialise_func *serialise = fck_serialise_interfaces_get(fck_type_system_api_blob_private.serialisers, *p->type);
+	if (serialise != NULL)
+	{
+		serialise((fck_serialiser *)s, p, self, c);
+		return;
+	}
+
+	fck_type_info *info = fck_type_resolve(*p->type);
+	fck_member members = fck_type_info_first_member(info);
+	for (fckc_size_t index = 0; index < c; index++)
+	{
+		fck_member current = members;
+		while (!fck_member_is_null(current))
+		{
+			struct fck_member_info *member = fck_member_resolve(current);
+			fck_identifier member_identifier = fck_member_info_identify(member);
+			fckc_u8 *offset_ptr = ((fckc_u8 *)(self)) + fck_member_info_stride(member);
+			fck_type member_type = fck_member_info_type(member);
+			fckc_size_t next_count = fck_member_info_count(member);
+			fck_serialiser_params parameters = *p;
+			parameters.name = fck_identifier_resolve(member_identifier);
+			parameters.type = &member_type;
+
+			p->caller((fck_serialiser *)s, &parameters, offset_ptr, next_count);
+			current = fck_member_info_next(member);
+		}
+	}
 }
 
 fck_type fck_types_add_api(fck_type_desc desc)

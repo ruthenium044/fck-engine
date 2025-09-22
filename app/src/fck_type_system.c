@@ -77,6 +77,11 @@ fck_serialise_func *fck_serialise_interfaces_get_api(fck_type type)
 	return fck_serialise_interfaces_get(fck_type_system_api_blob_private.serialisers, type);
 }
 
+int fck_members_is_stretchy(struct fck_member_info *info)
+{
+	return info->extra_count == (fckc_size_t)(~0LLU);
+}
+
 void fck_load_type_system(struct fck_apis *apis)
 {
 	// fck_type_system_api_blob *api = (fck_type_system_api_blob *)SDL_malloc(sizeof(*api));
@@ -112,8 +117,8 @@ void fck_load_type_system(struct fck_apis *apis)
 	ts->type->members_of = fck_type_info_first_member;
 
 	ts->type->add = fck_types_add_api;
-	ts->type->find_from_hash = fck_types_find_from_hash_api;
-	ts->type->find_from_string = fck_types_find_from_string_api;
+	ts->type->get = fck_types_find_from_hash_api;
+	ts->type->find = fck_types_find_from_string_api;
 	ts->type->iterate = fck_types_iterate_api;
 
 	// Member public API
@@ -127,6 +132,7 @@ void fck_load_type_system(struct fck_apis *apis)
 	ts->member->next_of = fck_member_info_next;
 	ts->member->stride_of = fck_member_info_stride;
 	ts->member->count_of = fck_member_info_count;
+	ts->member->is_stretchy = fck_members_is_stretchy;
 
 	ts->member->add = fck_members_add_api;
 	// Serialiser public API
@@ -143,5 +149,6 @@ void fck_unload_type_system(struct fck_apis *apis)
 
 fck_type_system *fck_get_type_system(struct fck_apis *apis)
 {
-	return apis->find_from_string(fck_type_system_api_name);
+	// TODO: Should be get
+	return apis->find(fck_type_system_api_name);
 }

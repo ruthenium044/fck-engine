@@ -5,7 +5,7 @@
 
 #include <fck_hash.h>
 
-#include "fck_serialiser.h"
+#include "fck_serialiser_vt.h"
 
 typedef struct fck_type_registry
 {

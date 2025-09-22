@@ -8,13 +8,14 @@
 typedef struct fck_apis_node
 {
 	fckc_u64 hash;
-	const char* name;
+	const char *name;
 	void *api;
 
 	struct fck_apis_node *next;
 } fck_apis_node;
 
-const fckc_size_t fck_apis_hash_map_capacity = 256;
+#define fck_apis_hash_map_capacity 256
+
 typedef struct fck_apis_hash_map
 {
 	fck_apis_node *tails[fck_apis_hash_map_capacity];
@@ -108,8 +109,8 @@ static void *fck_apis_next(void *prev)
 
 fck_apis fck_apis_runtime_state = {
 	.add = fck_apis_add,
-	.find = fck_apis_find_from_hash,
-	.find_from_string = fck_apis_find_from_string,
+	.get = fck_apis_find_from_hash,
+	.find = fck_apis_find_from_string,
 	.remove = fck_apis_remove,
 	.next = fck_apis_next,
 };

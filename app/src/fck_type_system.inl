@@ -62,12 +62,27 @@ fck_serialise_func *fck_serialise_interfaces_get(struct fck_serialise_interfaces
 
 typedef struct fck_member_info
 {
+	// Key ;)
 	fck_hash_int hash;
+	// Who owns it?
 	fck_type owner;
+	// The identifier (var name) of member
 	fck_identifier identifier;
+	// The actual type of member
 	fck_type type;
+	// Stride, where to start when getting incoming void* data
 	fckc_size_t stride;
+
+	// extra_count == 0 stays valid, yay
 	fckc_size_t extra_count;
+
+	// All this data so far here is rather static...
+	// We could add a dynamic section
+	// But instead of binding to data, we bind to... idk, kll with void*?
+	// Maybe implementing a fixed_array is ok for now?
+	// We cannot live with type system info alone!!!!! We need to establish protocol/header info
+
+	// Next member
 	fck_member next;
 } fck_member_info;
 
@@ -75,6 +90,8 @@ typedef struct fck_type_info
 {
 	fck_hash_int hash;
 	fck_identifier identifier;
+
+	// Here comes the killer thing... They are NOT ordered by stride. Oh fuck me...
 	fck_member first_member;
 	fck_member last_member;
 } fck_type_info;

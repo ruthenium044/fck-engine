@@ -41,6 +41,8 @@ typedef struct fck_member
 
 typedef void(fck_serialise_func)(struct fck_serialiser *s, struct fck_serialiser_params *p, void *self, fckc_size_t c);
 
+#define fck_
+
 typedef struct fck_identifier_desc
 {
 	const char *name;
@@ -68,6 +70,13 @@ typedef struct fck_member_desc
 	(fck_member_desc)                                                                                                                      \
 	{                                                                                                                                      \
 		type, fck_name(member), offsetof(owner, member), ((count) - 1)                                                                     \
+	}
+
+// or list... idk yet
+#define fck_stretchy_decl(owner, type, member)                                                                                             \
+	(fck_member_desc)                                                                                                                      \
+	{                                                                                                                                      \
+		type, fck_name(member), offsetof(owner, member), (~0llu)                                                                           \
 	}
 
 inline fck_member_desc fck_member_desc_zero()
@@ -113,10 +122,11 @@ typedef struct fck_type_api
 
 	fck_identifier (*identify)(struct fck_type_info *info);
 	fck_member (*members_of)(struct fck_type_info *info);
+	// fckc_size_t (*size_of)(struct fck_type_info* info);
 
 	fck_type (*add)(fck_type_desc desc);
-	fck_type (*find_from_hash)(fckc_u64 hash);
-	fck_type (*find_from_string)(const char *name);
+	fck_type (*get)(fckc_u64 hash);
+	fck_type (*find)(const char *name);
 
 	// Nice and convenient, but I need sorted
 	int (*iterate)(fck_type *type);
@@ -137,6 +147,7 @@ typedef struct fck_member_api
 	fck_member (*next_of)(struct fck_member_info *info);
 	fckc_size_t (*stride_of)(struct fck_member_info *info);
 	fckc_size_t (*count_of)(struct fck_member_info *info);
+	int (*is_stretchy)(struct fck_member_info *info);
 
 	fck_member (*add)(fck_type owner, fck_member_desc desc);
 } fck_member_api;

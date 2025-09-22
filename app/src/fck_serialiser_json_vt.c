@@ -16,8 +16,8 @@ static const fckc_size_t FCK_READ_BUFFER_STRING_SIZE = 64;
 
 void fck_write_json_i8(fck_serialiser *s, fck_serialiser_params *p, fckc_i8 *v, fckc_size_t c)
 {
-	yyjson_mut_doc *doc = (yyjson_mut_doc *)((fck_json_serialiser*)s)->doc;
-	yyjson_mut_val *root = p->user ? (yyjson_mut_val *)p->user : yyjson_mut_doc_get_root(doc);
+	yyjson_mut_doc *doc = (yyjson_mut_doc *)((fck_json_serialiser *)s)->doc;
+	yyjson_mut_val *root = yyjson_mut_doc_get_root(doc);
 
 	SDL_assert(doc && root);
 
@@ -38,8 +38,8 @@ void fck_write_json_i8(fck_serialiser *s, fck_serialiser_params *p, fckc_i8 *v, 
 
 void fck_write_json_i16(fck_serialiser *s, fck_serialiser_params *p, fckc_i16 *v, fckc_size_t c)
 {
-	yyjson_mut_doc *doc = (yyjson_mut_doc *)((fck_json_serialiser*)s)->doc;
-	yyjson_mut_val *root = p->user ? (yyjson_mut_val *)p->user : yyjson_mut_doc_get_root(doc);
+	yyjson_mut_doc *doc = (yyjson_mut_doc *)((fck_json_serialiser *)s)->doc;
+	yyjson_mut_val *root = yyjson_mut_doc_get_root(doc);
 
 	SDL_assert(doc && root);
 
@@ -60,8 +60,8 @@ void fck_write_json_i16(fck_serialiser *s, fck_serialiser_params *p, fckc_i16 *v
 
 void fck_write_json_i32(fck_serialiser *s, fck_serialiser_params *p, fckc_i32 *v, fckc_size_t c)
 {
-	yyjson_mut_doc *doc = (yyjson_mut_doc *)((fck_json_serialiser*)s)->doc;
-	yyjson_mut_val *root = p->user ? (yyjson_mut_val *)p->user : yyjson_mut_doc_get_root(doc);
+	yyjson_mut_doc *doc = (yyjson_mut_doc *)((fck_json_serialiser *)s)->doc;
+	yyjson_mut_val *root = yyjson_mut_doc_get_root(doc);
 
 	SDL_assert(doc && root);
 
@@ -82,8 +82,8 @@ void fck_write_json_i32(fck_serialiser *s, fck_serialiser_params *p, fckc_i32 *v
 
 void fck_write_json_i64(fck_serialiser *s, fck_serialiser_params *p, fckc_i64 *v, fckc_size_t c)
 {
-	yyjson_mut_doc *doc = (yyjson_mut_doc *)((fck_json_serialiser*)s)->doc;
-	yyjson_mut_val *root = p->user ? (yyjson_mut_val *)p->user : yyjson_mut_doc_get_root(doc);
+	yyjson_mut_doc *doc = (yyjson_mut_doc *)((fck_json_serialiser *)s)->doc;
+	yyjson_mut_val *root = yyjson_mut_doc_get_root(doc);
 
 	SDL_assert(doc && root);
 
@@ -104,8 +104,8 @@ void fck_write_json_i64(fck_serialiser *s, fck_serialiser_params *p, fckc_i64 *v
 
 void fck_write_json_u8(fck_serialiser *s, fck_serialiser_params *p, fckc_u8 *v, fckc_size_t c)
 {
-	yyjson_mut_doc *doc = (yyjson_mut_doc *)((fck_json_serialiser*)s)->doc;
-	yyjson_mut_val *root = p->user ? (yyjson_mut_val *)p->user : yyjson_mut_doc_get_root(doc);
+	yyjson_mut_doc *doc = (yyjson_mut_doc *)((fck_json_serialiser *)s)->doc;
+	yyjson_mut_val *root = yyjson_mut_doc_get_root(doc);
 
 	SDL_assert(doc && root);
 
@@ -126,8 +126,8 @@ void fck_write_json_u8(fck_serialiser *s, fck_serialiser_params *p, fckc_u8 *v, 
 
 void fck_write_json_u16(fck_serialiser *s, fck_serialiser_params *p, fckc_u16 *v, fckc_size_t c)
 {
-	yyjson_mut_doc *doc = (yyjson_mut_doc *)((fck_json_serialiser*)s)->doc;
-	yyjson_mut_val *root = p->user ? (yyjson_mut_val *)p->user : yyjson_mut_doc_get_root(doc);
+	yyjson_mut_doc *doc = (yyjson_mut_doc *)((fck_json_serialiser *)s)->doc;
+	yyjson_mut_val *root = yyjson_mut_doc_get_root(doc);
 
 	SDL_assert(doc && root);
 
@@ -148,8 +148,8 @@ void fck_write_json_u16(fck_serialiser *s, fck_serialiser_params *p, fckc_u16 *v
 
 void fck_write_json_u32(fck_serialiser *s, fck_serialiser_params *p, fckc_u32 *v, fckc_size_t c)
 {
-	yyjson_mut_doc *doc = (yyjson_mut_doc *)((fck_json_serialiser*)s)->doc;
-	yyjson_mut_val *root = p->user ? (yyjson_mut_val *)p->user : yyjson_mut_doc_get_root(doc);
+	yyjson_mut_doc *doc = (yyjson_mut_doc *)((fck_json_serialiser *)s)->doc;
+	yyjson_mut_val *root = yyjson_mut_doc_get_root(doc);
 
 	SDL_assert(doc && root);
 
@@ -170,8 +170,8 @@ void fck_write_json_u32(fck_serialiser *s, fck_serialiser_params *p, fckc_u32 *v
 
 void fck_write_json_u64(fck_serialiser *s, fck_serialiser_params *p, fckc_u64 *v, fckc_size_t c)
 {
-	yyjson_mut_doc *doc = (yyjson_mut_doc *)((fck_json_serialiser*)s)->doc;
-	yyjson_mut_val *root = p->user ? (yyjson_mut_val *)p->user : yyjson_mut_doc_get_root(doc);
+	yyjson_mut_doc *doc = (yyjson_mut_doc *)((fck_json_serialiser *)s)->doc;
+	yyjson_mut_val *root = yyjson_mut_doc_get_root(doc);
 
 	SDL_assert(doc && root);
 
@@ -192,8 +192,8 @@ void fck_write_json_u64(fck_serialiser *s, fck_serialiser_params *p, fckc_u64 *v
 
 void fck_write_json_f32(fck_serialiser *s, fck_serialiser_params *p, float *v, fckc_size_t c)
 {
-	yyjson_mut_doc *doc = (yyjson_mut_doc *)((fck_json_serialiser*)s)->doc;
-	yyjson_mut_val *root = p->user ? (yyjson_mut_val *)p->user : yyjson_mut_doc_get_root(doc);
+	yyjson_mut_doc *doc = (yyjson_mut_doc *)((fck_json_serialiser *)s)->doc;
+	yyjson_mut_val *root = yyjson_mut_doc_get_root(doc);
 
 	SDL_assert(doc && root);
 	switch (c)
@@ -213,8 +213,8 @@ void fck_write_json_f32(fck_serialiser *s, fck_serialiser_params *p, float *v, f
 
 void fck_write_json_f64(fck_serialiser *s, fck_serialiser_params *p, double *v, fckc_size_t c)
 {
-	yyjson_mut_doc *doc = (yyjson_mut_doc *)((fck_json_serialiser*)s)->doc;
-	yyjson_mut_val *root = p->user ? (yyjson_mut_val *)p->user : yyjson_mut_doc_get_root(doc);
+	yyjson_mut_doc *doc = (yyjson_mut_doc *)((fck_json_serialiser *)s)->doc;
+	yyjson_mut_val *root = yyjson_mut_doc_get_root(doc);
 
 	SDL_assert(doc && root);
 
@@ -272,7 +272,7 @@ static void kll_json_free(void *ctx, void *ptr)
 	kll_free(alloacotor, ptr);
 }
 
-struct fck_json_serialiser *fck_serialiser_json_writer_alloc(struct fck_json_serialiser*s, struct kll_allocator *a)
+struct fck_json_serialiser *fck_serialiser_json_writer_alloc(struct fck_json_serialiser *s, struct kll_allocator *a)
 {
 	yyjson_alc allocator;
 	allocator.ctx = a;
@@ -290,19 +290,19 @@ struct fck_json_serialiser *fck_serialiser_json_writer_alloc(struct fck_json_ser
 	return s;
 }
 
-char *fck_serialiser_json_string_alloc(struct fck_json_serialiser*s)
+char *fck_serialiser_json_string_alloc(struct fck_json_serialiser *s)
 {
 	yyjson_mut_doc *doc = (yyjson_mut_doc *)s->doc;
 	char *json = yyjson_mut_write(doc, YYJSON_WRITE_PRETTY, NULL);
 	return json;
 }
 
-void fck_serialiser_json_string_free(struct fck_json_serialiser*s, char *json)
+void fck_serialiser_json_string_free(struct fck_json_serialiser *s, char *json)
 {
 	kll_json_free(s->allocator, (void *)json);
 }
 
-void fck_serialiser_json_writer_free(struct fck_json_serialiser*s)
+void fck_serialiser_json_writer_free(struct fck_json_serialiser *s)
 {
 	yyjson_doc_free(s->doc);
 }

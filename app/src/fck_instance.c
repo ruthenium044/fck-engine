@@ -11,16 +11,167 @@
 #include "fck_nuklear_demos.h"
 #include "fck_ui_window_manager.h"
 
-#include "fck_serialiser_json_vt.h"
 #include "fck_serialiser_nk_edit_vt.h"
 #include "fck_serialiser_vt.h"
 
 #include "kll_heap.h"
 #include <kll.h>
-#include <kll_malloc.h>>
+#include <kll_malloc.h>
 
 #include "fck_apis.h"
 #include "fck_type_system.h"
+
+typedef struct fck_stretchy_info
+{
+	kll_allocator *allocator;
+	fckc_size_t element_size;
+	fckc_u32 capacity;
+	fckc_u32 size;
+} fck_stretchy_info;
+
+void *fck_stretchy_alloc(kll_allocator *allocator, fckc_size_t element_size, fckc_size_t capacity)
+{
+	fck_stretchy_info *info;
+	fckc_size_t header_size = sizeof(*info);
+	fckc_u8 *buffer = (fckc_u8 *)kll_malloc(allocator, header_size + (capacity * element_size));
+
+	info = (fck_stretchy_info *)&buffer[0];
+	info->allocator = allocator;
+	info->element_size = element_size;
+	info->capacity = capacity;
+	info->size = 0;
+
+	void *ptr = (void *)(((fckc_size_t)&buffer[sizeof(*info)]));
+	return ptr;
+}
+
+void *fck_stretchy_deref(void *ptr)
+{
+	fckc_u8 *buffer = (fckc_u8 *)ptr;
+	ptr = (void *)(((fckc_size_t)buffer));
+	return ptr;
+}
+
+fck_stretchy_info *fck_stretchy_get_info(void *ptr)
+{
+	fckc_u8 *buffer = (fckc_u8 *)fck_stretchy_deref(ptr);
+	fck_stretchy_info *info = (fck_stretchy_info *)(buffer - sizeof(*info));
+	return info;
+}
+
+void fck_stretchy_free(void *ptr)
+{
+	fck_stretchy_info *info = fck_stretchy_get_info(ptr);
+	kll_free(info->allocator, info);
+}
+
+fckc_size_t fck_stretchy_size(void *ptr)
+{
+	fck_stretchy_info *info = fck_stretchy_get_info(ptr);
+	return info->size;
+}
+
+void fck_stretchy_realloc(void **ref_ptr, fckc_size_t extra)
+{
+	if (extra == 0)
+	{
+		return;
+	}
+
+	fck_stretchy_info *info = fck_stretchy_get_info(*ref_ptr);
+
+	fckc_size_t next_size = info->size + extra;
+	if (info->size != 0)
+	{
+		next_size--;
+		next_size |= next_size >> 1;
+		next_size |= next_size >> 2;
+		next_size |= next_size >> 4;
+		next_size |= next_size >> 8;
+		next_size |= next_size >> 16;
+		next_size |= next_size >> 32;
+		next_size++;
+	}
+
+	void *result = fck_stretchy_alloc(info->allocator, info->element_size, next_size);
+	fck_stretchy_info *result_info = fck_stretchy_get_info(result);
+
+	result_info->size = info->size;
+	SDL_memcpy(result, *ref_ptr, info->size * info->element_size);
+	fck_stretchy_free(*ref_ptr);
+	*ref_ptr = result;
+}
+
+void fck_stretchy_expand(void **ref_ptr, fckc_size_t element_size)
+{
+	fck_stretchy_info *info = fck_stretchy_get_info(*ref_ptr);
+	SDL_assert(element_size == info->element_size);
+
+	if (info->size >= info->capacity)
+	{
+		fck_stretchy_realloc(ref_ptr, 1);
+		// Overwrite info and ref_ptr since realloc happened
+		info = fck_stretchy_get_info(*ref_ptr);
+	}
+
+	fckc_size_t offset = info->element_size * info->size;
+	fckc_u8 *dst = ((fckc_u8 *)*ref_ptr) + offset;
+	// SDL_memcpy(dst, data, element_size);
+	info->size = info->size + 1;
+}
+
+#define fck_stretchy_add(ptr, value) fck_stretchy_expand((void **)&(ptr), sizeof(value)), (ptr)[fck_stretchy_size(ptr) - 1] = value
+#define fck_stretchy_new(type, allocator, size) (type *)fck_stretchy_alloc((allocator), (sizeof(type)), (size))
+#define fck_stretchy_destroy(ptr) fck_stretchy_free(ptr)
+
+void fck_stretchy_edit(struct fck_serialiser *s, struct fck_serialiser_params *p, void **self, fckc_size_t c)
+{
+	// c has to be -1 cause stretchy...
+
+	fck_serialiser_params params = *p;
+	params.name = "Count";
+	if (*self == NULL)
+	{
+		fckc_u64 count = (fckc_u64)0;
+		// s->vt->u64(s, &params, &count, 1);
+		// if (count > 0)
+		{
+			// FUCK, how do I init this element size shit?
+			// p->type_system->type->size_of(); // ????
+			*self = fck_stretchy_alloc(kll_heap, 4, 4);
+			float *test = (float *)*self;
+			fck_stretchy_add(test, 5.0f);
+			fck_stretchy_add(test, 5.0f);
+			fck_stretchy_add(test, 5.0f);
+			fck_stretchy_add(test, 5.0f);
+		}
+		c = count;
+	}
+	// else
+	fckc_u8 *buffer = (fckc_u8 *)(*self);
+	{
+		fck_stretchy_info *info = fck_stretchy_get_info(*self);
+		fckc_u64 count = (fckc_u64)info->size;
+		s->vt->u64(s, &params, &count, 1);
+
+		for (fckc_size_t index = info->size; index < count; index++)
+		{
+			info = fck_stretchy_get_info(*self);
+			fck_stretchy_expand(self, info->element_size);
+		}
+		info = fck_stretchy_get_info(*self);
+		info->size = count;
+
+		c = info->size;
+
+		for (fckc_size_t index = 0; index < c; index++)
+		{
+			// We need introspection, but we have no memory with an empty list...
+			// Oh fuuuck :-((
+			p->caller(s, p, (void *)(buffer + (index * info->element_size)), 1);
+		}
+	}
+}
 
 typedef fckc_u32 fck_entity_index;
 typedef struct fck_entity
@@ -82,6 +233,12 @@ fckc_components *fck_components_alloc(fckc_size_t capacity)
 	components->count = 0;
 	return components;
 }
+
+typedef struct some_type
+{
+	fckc_f32 x, y;
+} some_type;
+
 typedef struct example_type
 {
 	fckc_f32x2 other;
@@ -100,6 +257,10 @@ typedef struct example_type
 	fckc_u16 u16;
 	fckc_u32 u32;
 	fckc_u64 u64;
+
+	fckc_u32 *stretchy;
+
+	some_type arr[5];
 } example_type;
 
 typedef struct fck_type_memory
@@ -114,10 +275,16 @@ fck_type_memory fck_type_memory_create(kll_allocator *alloctor)
 	return (fck_type_memory){alloctor, 0, NULL};
 }
 
+void fck_type_memory_zero(fck_type_memory *memory)
+{
+	SDL_memset(memory->buffer, 0, memory->size);
+}
+
 void fck_type_memory_alloc(fck_type_memory *memory, fckc_size_t size)
 {
 	memory->buffer = (fckc_u8 *)kll_malloc(memory->alloctor, size);
 	memory->size = size;
+	fck_type_memory_zero(memory);
 }
 
 void fck_type_memory_free(fck_type_memory *memory)
@@ -146,22 +313,30 @@ fckc_u8 *fck_type_memory_squeeze(fck_type_memory *memory, fckc_size_t stride, fc
 
 void setup_some_stuff(fck_instance *app)
 {
+	// fck_type_memory mem = fck_type_memory_create(kll_heap);
+	// fck_type_memory_alloc(&mem, sizeof(example_type));
+
 	fck_type_system *ts = fck_get_type_system(app->apis);
 
 	// fck_type example_type_handle = fck_types_add(ts->get_types(), (fck_type_desc){fck_name(example_type)});
 	fck_type example_type_handle = ts->type->add((fck_type_desc){fck_name(example_type)});
+	fck_type some_type_handle = ts->type->add((fck_type_desc){fck_name(some_type)});
 
-	fck_type f32 = ts->type->find_from_string(fck_id(fckc_f32));
-	fck_type f64 = ts->type->find_from_string(fck_id(fckc_f64));
-	fck_type i8 = ts->type->find_from_string(fck_id(fckc_i8));
-	fck_type i16 = ts->type->find_from_string(fck_id(fckc_i16));
-	fck_type i32 = ts->type->find_from_string(fck_id(fckc_i32));
-	fck_type i64 = ts->type->find_from_string(fck_id(fckc_i64));
-	fck_type u8 = ts->type->find_from_string(fck_id(fckc_u8));
-	fck_type u16 = ts->type->find_from_string(fck_id(fckc_u16));
-	fck_type u32 = ts->type->find_from_string(fck_id(fckc_u32));
-	fck_type u64 = ts->type->find_from_string(fck_id(fckc_u64));
+	fck_type f32 = ts->type->find(fck_id(fckc_f32));
+	fck_type f64 = ts->type->find(fck_id(fckc_f64));
+	fck_type i8 = ts->type->find(fck_id(fckc_i8));
+	fck_type i16 = ts->type->find(fck_id(fckc_i16));
+	fck_type i32 = ts->type->find(fck_id(fckc_i32));
+	fck_type i64 = ts->type->find(fck_id(fckc_i64));
+	fck_type u8 = ts->type->find(fck_id(fckc_u8));
+	fck_type u16 = ts->type->find(fck_id(fckc_u16));
+	fck_type u32 = ts->type->find(fck_id(fckc_u32));
+	fck_type u64 = ts->type->find(fck_id(fckc_u64));
 
+	ts->member->add(some_type_handle, fck_value_decl(some_type, f32, x));
+	ts->member->add(some_type_handle, fck_value_decl(some_type, f32, y));
+
+	ts->member->add(example_type_handle, fck_stretchy_decl(example_type, f32, stretchy));
 	ts->member->add(example_type_handle, fck_array_decl(example_type, f32, other, 2));
 	ts->member->add(example_type_handle, fck_value_decl(example_type, f32, cooldown));
 	ts->member->add(example_type_handle, fck_array_decl(example_type, f32, position, 2));
@@ -176,14 +351,18 @@ void setup_some_stuff(fck_instance *app)
 	ts->member->add(example_type_handle, fck_value_decl(example_type, u16, u16));
 	ts->member->add(example_type_handle, fck_value_decl(example_type, u32, u32));
 	ts->member->add(example_type_handle, fck_value_decl(example_type, u64, u64));
+
+	ts->member->add(example_type_handle, fck_array_decl(example_type, some_type_handle, arr, 5));
 }
 
 void fck_type_read(fck_type type_handel, void *value)
 {
 }
 
-void fck_type_edit(fck_type_system *ts, fck_nk_serialiser *serialiser, fck_type type, const char *name, void *data, fckc_size_t count)
+void fck_type_edit(fck_nk_serialiser *serialiser, fck_serialiser_params *params, void *data, fckc_size_t count)
 {
+	fck_type type = *params->type;
+	fck_type_system *ts = params->type_system;
 	struct fck_type_info *info = ts->type->resolve(type);
 	fck_identifier owner_identifier = ts->type->identify(info);
 
@@ -192,11 +371,7 @@ void fck_type_edit(fck_type_system *ts, fck_nk_serialiser *serialiser, fck_type 
 	fck_serialise_func *serialise = ts->serialise->get(type);
 	if (serialise != NULL)
 	{
-		fck_serialiser_params params;
-		params.name = name;
-		params.user = NULL;
-
-		serialise(serialiser, &params, data, count);
+		serialise(serialiser, params, data, count);
 		return;
 	}
 
@@ -208,21 +383,35 @@ void fck_type_edit(fck_type_system *ts, fck_nk_serialiser *serialiser, fck_type 
 
 	for (fckc_size_t index = 0; index < count; index++)
 	{
+		// TODO: CONSIDER INDEX WHEN ADVANCING THROUGH ARRAY MEMBERS!!
+		// IMPORTANT FOR RECURSIVE STRUCT SERIALISATION
 		fck_member current = members;
 		// Recurse through children
 		char buffer[256];
-		int result = SDL_snprintf(buffer, sizeof(buffer), "%s %s", owner_name, name);
+		int result = SDL_snprintf(buffer, sizeof(buffer), "%s %s", owner_name, params->name);
 		if (nk_tree_push_hashed(serialiser->ctx, NK_TREE_NODE, buffer, NK_MINIMIZED, buffer, result, __LINE__))
 		{
 			while (!ts->member->is_null(current))
 			{
+				fck_serialiser_params parameters = *params;
+
 				struct fck_member_info *member = ts->member->resolve(current);
+
 				fck_identifier member_identifier = ts->member->identify(member);
-				const char *member_name = ts->identifier->resolve(member_identifier);
+				parameters.name = ts->identifier->resolve(member_identifier);
 				fckc_u8 *offset_ptr = ((fckc_u8 *)(data)) + ts->member->stride_of(member);
 				fck_type member_type = ts->member->type_of(member);
 				fckc_size_t primitive_count = ts->member->count_of(member);
-				fck_type_edit(ts, serialiser, member_type, member_name, (void *)(offset_ptr), primitive_count);
+				parameters.type = &member_type;
+
+				if (ts->member->is_stretchy(member))
+				{
+					fck_stretchy_edit(serialiser, &parameters, (void *)(offset_ptr), primitive_count);
+				}
+				else
+				{
+					params->caller(serialiser, &parameters, (void *)(offset_ptr), primitive_count);
+				}
 
 				current = ts->member->next_of(member);
 			}
@@ -243,7 +432,6 @@ void fck_type_serialise(fck_type_system *ts, fck_serialiser *serialiser, fck_typ
 	{
 		fck_serialiser_params params;
 		params.name = name;
-		params.user = NULL;
 
 		serialise(serialiser, &params, data, count);
 	}
@@ -281,7 +469,7 @@ int fck_ui_window_entities(struct fck_ui *ui, fck_ui_window *window, void *userd
 
 	fck_type_system *ts = fck_get_type_system(app->apis);
 
-	fck_type custom_type = ts->type->find_from_string(fck_name(example_type));
+	fck_type custom_type = ts->type->find(fck_name(example_type));
 	struct fck_type_info *type = ts->type->resolve(custom_type);
 
 	fck_nk_serialiser serialiser = {.ctx = ctx, .vt = fck_nk_edit_vt};
@@ -299,11 +487,19 @@ int fck_ui_window_entities(struct fck_ui *ui, fck_ui_window *window, void *userd
 		example.rgb = (fckc_f32x3){4.0f, 2.0, 0.0f};
 		example.some_int = 99;
 		example.double_value = 999.0;
+		example.stretchy = fck_stretchy_new(fckc_u32, kll_heap, 8);
 	}
 
 	static fckc_u8 opaque[1024];
 	static fckc_size_t offset = sizeof(example);
-	fck_type_edit(ts, &serialiser, custom_type, "dummy", opaque, 1);
+
+	fck_serialiser_params params;
+	params.name = "dummy";
+	params.type_system = ts;
+	params.type = &custom_type;
+	params.caller = (fck_serialise_func *)fck_type_edit;
+
+	fck_type_edit(&serialiser, &params, opaque, 1);
 
 	nk_layout_row_begin(ctx, NK_DYNAMIC, 25, (int)1);
 

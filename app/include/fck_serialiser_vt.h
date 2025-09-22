@@ -15,11 +15,27 @@ typedef struct fck_serialiser
 	struct fck_serialiser_vt *vt;
 } fck_serialiser;
 
+struct fck_type;
+struct fck_type_system;
+
+typedef void(fck_serialise_func)(struct fck_serialiser *s, struct fck_serialiser_params *p, void *self, fckc_size_t c);
+
 typedef struct fck_serialiser_params
 {
-	const char* name;
-	void* user;
-	// ...
+	// Variable name - Makes sense
+	const char *name;
+
+	// Reference to the fck type... sure, can get used for tagging
+	struct fck_type *type;
+
+	// The type system iteself, else the type is useless - works...
+	// Maybe it makes more sense to just hand around the type info itself?
+	struct fck_type_system *type_system;
+
+	// This one is so tricky...
+	fck_serialise_func *caller;
+	// void *user;
+	//   ...
 
 } fck_serialiser_params;
 

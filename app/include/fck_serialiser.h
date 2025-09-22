@@ -3,6 +3,9 @@
 
 #include <fckc_inttypes.h>
 
+// TODO: Rename this to memory serialiser...
+// Or buffer serialiser?
+
 typedef struct fck_memory_serialiser
 {
 	struct fck_serialiser_vt *vt;

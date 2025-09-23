@@ -128,6 +128,7 @@ typedef struct fck_type_api
 	fck_type (*get)(fckc_u64 hash);
 	fck_type (*find)(const char *name);
 
+	fckc_size_t (*size_of)(fck_type type);
 	// Nice and convenient, but I need sorted
 	int (*iterate)(fck_type *type);
 
@@ -148,6 +149,8 @@ typedef struct fck_member_api
 	fckc_size_t (*stride_of)(struct fck_member_info *info);
 	fckc_size_t (*count_of)(struct fck_member_info *info);
 	int (*is_stretchy)(struct fck_member_info *info);
+
+
 
 	fck_member (*add)(fck_type owner, fck_member_desc desc);
 } fck_member_api;

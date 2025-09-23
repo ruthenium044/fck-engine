@@ -105,6 +105,7 @@ static void *fck_apis_next(void *prev)
 {
 	SDL_assert(0 && "NOT IMPLEMENTED");
 	// TODO: We can do this one later...
+	return NULL;
 }
 
 fck_apis fck_apis_runtime_state = {
@@ -127,7 +128,7 @@ fck_apis *fck_apis_load(void)
 	return &fck_apis_runtime_state;
 }
 
-void fck_apis_unload(fck_apis *)
+void fck_apis_unload(fck_apis *api)
 {
 	// lol
 }

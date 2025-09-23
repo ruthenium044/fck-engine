@@ -76,7 +76,7 @@ static void fck_nk_edit_tree_pop(fck_ui_ctx *ctx, fckc_size_t count)
 }
 
 #define fck_nk_tree_scope(ctx, content_ratio, type_name, name, count)                                                                      \
-	fck_nk_scope(fck_nk_edit_tree_push(ctx, content_ratio, type_name, name, count), fck_nk_edit_tree_pop(ctx, c))
+	fck_nk_scope(fck_nk_edit_tree_push(ctx, content_ratio, type_name, name, count), fck_nk_edit_tree_pop(ctx, count))
 
 static const char *fck_nk_property_prefix(fckc_size_t count)
 {
@@ -87,7 +87,7 @@ void fck_nk_edit_i8(fck_serialiser *s, fck_serialiser_params *p, fckc_i8 *v, fck
 {
 	fck_nk_edit_precondition(s);
 
-	const char type_name[] = "u16";
+	const char type_name[] = "i8";
 	const int min = -127;
 	const int max = 127;
 
@@ -113,7 +113,7 @@ void fck_nk_edit_i16(fck_serialiser *s, fck_serialiser_params *p, fckc_i16 *v, f
 {
 	fck_nk_edit_precondition(s);
 
-	const char type_name[] = "u16";
+	const char type_name[] = "i16";
 	const int min = -32767;
 	const int max = 32767;
 

@@ -102,7 +102,7 @@ typedef struct fck_type_system_api_blob
 	fck_identifier_api identifier_api;
 	fck_type_api type_api;
 	fck_member_api member_api;
-	fck_type_system serialise_api;
+	fck_serialise_interface_api serialise_api;
 
 	struct fck_identifiers *identifiers;
 	struct fck_types *types;
@@ -129,37 +129,70 @@ static struct fck_serialise_interfaces *get_serialisers(void)
 	return fck_type_system_api_blob_private.serialisers;
 }
 
-void fck_type_size_of(struct fck_serialiser_type_size_of *s, struct fck_serialiser_params *p, void *self, fckc_size_t c)
+void fck_type_size_of(struct fck_serialiser *s, struct fck_serialiser_params *p, void *self, fckc_size_t c)
 {
-	// fck_serialiser_type_size_of *size_of = (fck_serialiser_type_size_of *)s;
+	SDL_assert(s->vt == &fck_size_of_vt);
 
-	fck_serialise_func *serialise = fck_serialise_interfaces_get(fck_type_system_api_blob_private.serialisers, *p->type);
+	fck_type_system *ts = p->type_system;
+	fck_serialise_func *serialise = ts->serialise->get(*p->type);
 	if (serialise != NULL)
 	{
-		serialise((fck_serialiser *)s, p, self, c);
+		serialise(s, p, self, c);
 		return;
 	}
 
-	fck_type_info *info = fck_type_resolve(*p->type);
-	fck_member members = fck_type_info_first_member(info);
-	for (fckc_size_t index = 0; index < c; index++)
+	fck_type_info *info = ts->type->resolve(*p->type);
+	fck_member member = ts->type->members_of(info);
+	if (!ts->member->is_null(member))
 	{
-		fck_member current = members;
-		while (!fck_member_is_null(current))
+		// Find member with the FURTHEST stride...
+		// TODO: Maybe cache the furthest member? 
+		fck_member_info *current = ts->member->resolve(member);
+		fck_member_info *member_info = ts->member->resolve(member);
+		member = ts->member->next_of(member_info);
+		while (!ts->member->is_null(member))
 		{
-			struct fck_member_info *member = fck_member_resolve(current);
-			fck_identifier member_identifier = fck_member_info_identify(member);
-			fckc_u8 *offset_ptr = ((fckc_u8 *)(self)) + fck_member_info_stride(member);
-			fck_type member_type = fck_member_info_type(member);
-			fckc_size_t next_count = fck_member_info_count(member);
-			fck_serialiser_params parameters = *p;
-			parameters.name = fck_identifier_resolve(member_identifier);
-			parameters.type = &member_type;
+			member_info = ts->member->resolve(member);
 
-			p->caller((fck_serialiser *)s, &parameters, offset_ptr, next_count);
-			current = fck_member_info_next(member);
+			fckc_size_t current_stride = ts->member->stride_of(current);
+			fckc_size_t member_stride = ts->member->stride_of(member_info);
+			member = ts->member->next_of(member_info);
+			SDL_assert(member_stride != current_stride);
+			if (member_stride > current_stride)
+			{
+				current = member_info;
+			}
 		}
+
+		// Do the counting...
+		fck_serialiser_type_size_of *size_of = (fck_serialiser_type_size_of *)s;
+		fckc_size_t stride_size = ts->member->stride_of(current);
+		if (ts->member->is_stretchy(current))
+		{
+			size_of->size = stride_size + (sizeof(fckc_size_t) * c);
+			return;
+		}
+		fckc_size_t count = ts->member->count_of(current);
+		fck_serialiser_params params = *p;
+		fck_type type = ts->member->type_of(current);
+		params.type = &type;
+		p->caller(s, &params, NULL, count);
+		size_of->size = (stride_size + size_of->size) * c;
 	}
+}
+
+fckc_size_t fck_type_size_of_api(fck_type type)
+{
+	fck_serialiser_type_size_of size_of = {.vt = &fck_size_of_vt, 0};
+	fck_serialiser_params parameters;
+	parameters.caller = fck_type_size_of;
+	parameters.name = NULL;
+	parameters.type = &type;
+	parameters.type_system = &fck_type_system_api_blob_private.type_system;
+
+	fck_type_size_of(&size_of, &parameters, NULL, 1);
+
+	return size_of.size;
 }
 
 fck_type fck_types_add_api(fck_type_desc desc)
@@ -239,6 +272,8 @@ void fck_load_type_system(struct fck_apis *apis)
 	ts->type->add = fck_types_add_api;
 	ts->type->get = fck_types_find_from_hash_api;
 	ts->type->find = fck_types_find_from_string_api;
+	ts->type->size_of = fck_type_size_of_api;
+
 	ts->type->iterate = fck_types_iterate_api;
 
 	// Member public API

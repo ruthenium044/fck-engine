@@ -39,6 +39,13 @@ typedef struct fck_serialiser_params
 
 } fck_serialiser_params;
 
+typedef struct fck_serialiser_prettify_vt
+{
+	int (*label)(char* buffer, fckc_size_t size, struct fck_serialiser_params* p, const char* name, fckc_size_t count);
+	int (*tree_push)(struct fck_serialiser*, struct fck_serialiser_params*, void* data, fckc_size_t count);
+	void (*tree_pop)(struct fck_serialiser*, struct fck_serialiser_params*, void* data, fckc_size_t count);
+}fck_serialiser_prettify_vt;
+
 typedef struct fck_serialiser_vt
 {
 	void (*i8)(struct fck_serialiser *, struct fck_serialiser_params *, fckc_i8 *, fckc_size_t);
@@ -52,6 +59,8 @@ typedef struct fck_serialiser_vt
 	void (*f32)(struct fck_serialiser *, struct fck_serialiser_params *, float *, fckc_size_t);
 	void (*f64)(struct fck_serialiser *, struct fck_serialiser_params *, double *, fckc_size_t);
 	void (*string)(struct fck_serialiser *, struct fck_serialiser_params *, fck_lstring *, fckc_size_t);
+
+	fck_serialiser_prettify_vt* pretty;
 } fck_serialiser_vt;
 
 #endif // FCK_SERIALISER_VT_H_INCLUDED

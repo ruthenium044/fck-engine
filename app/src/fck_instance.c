@@ -45,16 +45,9 @@ void *fck_stretchy_alloc(kll_allocator *allocator, fckc_size_t element_size, fck
 	return ptr;
 }
 
-void *fck_stretchy_deref(void *ptr)
-{
-	fckc_u8 *buffer = (fckc_u8 *)ptr;
-	ptr = (void *)(((fckc_size_t)buffer));
-	return ptr;
-}
-
 fck_stretchy_info *fck_stretchy_get_info(void *ptr)
 {
-	fckc_u8 *buffer = (fckc_u8 *)fck_stretchy_deref(ptr);
+	fckc_u8 *buffer = (fckc_u8 *)ptr;
 	fck_stretchy_info *info = (fck_stretchy_info *)(buffer - sizeof(*info));
 	return info;
 }
@@ -131,62 +124,45 @@ void fck_stretchy_edit(struct fck_serialiser *s, struct fck_serialiser_params *p
 	SDL_assert(c == 0 && "Stretchies are complex enough, no arrays of stretchies!!");
 	fck_type_system *ts = p->type_system;
 
-
 	fck_type type = *p->type;
-	struct fck_type_info* info = ts->type->resolve(type);
-	fck_identifier owner_identifier = ts->type->identify(info);
-	const char* owner_name = ts->identifier->resolve(owner_identifier);
+	struct fck_type_info *type_info = ts->type->resolve(type);
+	fck_serialiser_params params = *p;
+	params.name = "Count";
 
-	char buffer[256];
-	int result = SDL_snprintf(buffer, sizeof(buffer), "%s : %s[*]", p->name, owner_name);
-	if (nk_tree_push_hashed(((fck_nk_serialiser *)s)->ctx, NK_TREE_NODE, buffer, NK_MINIMIZED, buffer, result, __LINE__))
+	fck_stretchy_info *info = fck_stretchy_get_info(*self);
+	fckc_u64 count = *self == NULL ? 0 : (fckc_u64)info->size;
+
+	s->vt->u64(s, &params, &count, 1);
+
+	if (*self == NULL)
 	{
-		fck_serialiser_params params = *p;
-		params.name = "Count";
-		if (*self == NULL)
+		if (count > 0)
 		{
-			fckc_u64 count = (fckc_u64)0;
-			s->vt->u64(s, &params, &count, 1);
-			if (count > 0)
-			{
-				fckc_size_t size = p->type_system->type->size_of(*p->type);
-				*self = fck_stretchy_alloc(kll_heap, size, 0);
-			}
+			fckc_size_t size = p->type_system->type->size_of(type);
+			*self = fck_stretchy_alloc(kll_heap, size, 0);
 		}
-		else
-		{
-			fck_stretchy_info *info = fck_stretchy_get_info(*self);
-			fckc_u64 count = (fckc_u64)info->size;
-			{
-				s->vt->u64(s, &params, &count, 1);
+		return;
+	}
 
-				for (fckc_size_t index = info->size; index < count; index++)
-				{
-					info = fck_stretchy_get_info(*self);
-					fck_stretchy_expand(self, info->element_size);
-					info = fck_stretchy_get_info(*self);
-					fckc_u8 *bytes = (fckc_u8 *)(*self);
-					SDL_memset(&bytes[index * info->element_size], 0, info->element_size);
-				}
-				info = fck_stretchy_get_info(*self);
-				info->size = count;
-			}
+	for (fckc_size_t index = info->size; index < count; index++)
+	{
+		info = fck_stretchy_get_info(*self);
+		fck_stretchy_expand(self, info->element_size);
+		info = fck_stretchy_get_info(*self);
+		fckc_u8 *bytes = (fckc_u8 *)(*self);
+		SDL_memset(&bytes[index * info->element_size], 0, info->element_size);
+	}
+	info = fck_stretchy_get_info(*self);
+	info->size = count;
 
-			// I would say this is rather sub-optimal
-			fckc_u8 *data = (fckc_u8 *)(*self);
-			for (fckc_size_t index = 0; index < count; index++)
-			{
-				fck_serialiser_params params = *p;
-				int result = SDL_snprintf(buffer, sizeof(buffer), "%s[%llu]", p->name, (fckc_u64)index);
-				params.name = buffer;
-
-				// We need introspection, but we have no memory with an empty list...
-				// Oh fuuuck :-((
-				p->caller(s, &params, (void *)(data + (index * info->element_size)), 1);
-			}
-		}
-
-		nk_tree_pop(((fck_nk_serialiser *)s)->ctx);
+	fckc_u8 *data = (fckc_u8 *)(*self);
+	for (fckc_size_t index = 0; index < count; index++)
+	{
+		char buffer[32];
+		int result = SDL_snprintf(buffer, sizeof(buffer), "[%llu]", (fckc_u64)index);
+		params.name = buffer;
+		// p->caller is a bit shit...
+		p->caller(s, &params, (void *)(data + (index * info->element_size)), 1);
 	}
 }
 
@@ -380,7 +356,8 @@ void fck_type_read(fck_type type_handel, void *value)
 {
 }
 
-void fck_type_edit_members(fck_nk_serialiser *serialiser, fck_serialiser_params *params, void *data, fckc_size_t count, fck_member members)
+void fck_type_edit_members_pretty(fck_nk_serialiser *serialiser, fck_serialiser_params *params, void *data, fckc_size_t count,
+                                  fck_member members)
 {
 	fck_type_system *ts = params->type_system;
 
@@ -389,37 +366,17 @@ void fck_type_edit_members(fck_nk_serialiser *serialiser, fck_serialiser_params 
 	fck_identifier owner_identifier = ts->type->identify(info);
 	const char *owner_name = ts->identifier->resolve(owner_identifier);
 
-	if (ts->member->is_null(members))
-	{
-		return;
-	}
-
 	fckc_size_t size = ts->type->size_of(type);
 	for (fckc_size_t index = 0; index < count; index++)
 	{
-		// TODO: CONSIDER INDEX WHEN ADVANCING THROUGH ARRAY MEMBERS!!
-		// IMPORTANT FOR RECURSIVE STRUCT SERIALISATION
 		fck_member current = members;
-		// Recurse through children
-		char buffer[256];
-		int result = 0;
-		if (count > 1)
-		{
-			result = SDL_snprintf(buffer, sizeof(buffer), "%s : %s[%llu]", params->name, owner_name, (fckc_u64)index);
-		}
-		else
-		{
-			result = SDL_snprintf(buffer, sizeof(buffer), "%s : %s", params->name, owner_name);
-		}
-
-		if (nk_tree_push_hashed(serialiser->ctx, NK_TREE_NODE, buffer, NK_MINIMIZED, buffer, result, __LINE__))
+		if (serialiser->vt->pretty->tree_push(serialiser, params, data, count))
 		{
 			while (!ts->member->is_null(current))
 			{
 				fck_serialiser_params parameters = *params;
 
 				struct fck_member_info *member = ts->member->resolve(current);
-
 				fck_identifier member_identifier = ts->member->identify(member);
 				parameters.name = ts->identifier->resolve(member_identifier);
 				fckc_u8 *offset_ptr = ((fckc_u8 *)(data)) + ts->member->stride_of(member) + (size * index);
@@ -429,7 +386,11 @@ void fck_type_edit_members(fck_nk_serialiser *serialiser, fck_serialiser_params 
 
 				if (ts->member->is_stretchy(member))
 				{
-					fck_stretchy_edit((fck_serialiser *)serialiser, &parameters, (void *)(offset_ptr), primitive_count);
+					if (serialiser->vt->pretty->tree_push(serialiser, &parameters, data, primitive_count))
+					{
+						fck_stretchy_edit((fck_serialiser *)serialiser, &parameters, (void *)(offset_ptr), primitive_count);
+						serialiser->vt->pretty->tree_pop(serialiser, params, data, count);
+					}
 				}
 				else
 				{
@@ -438,7 +399,45 @@ void fck_type_edit_members(fck_nk_serialiser *serialiser, fck_serialiser_params 
 
 				current = ts->member->next_of(member);
 			}
-			nk_tree_pop(serialiser->ctx);
+			serialiser->vt->pretty->tree_pop(serialiser, params, data, count);
+		}
+	}
+}
+
+void fck_type_edit_members_ugly(fck_nk_serialiser *serialiser, fck_serialiser_params *params, void *data, fckc_size_t count,
+                                fck_member members)
+{
+	fck_type_system *ts = params->type_system;
+	fck_type type = *params->type;
+
+	fckc_size_t size = ts->type->size_of(type);
+	for (fckc_size_t index = 0; index < count; index++)
+	{
+		fck_member current = members;
+
+		while (!ts->member->is_null(current))
+		{
+			fck_serialiser_params parameters = *params;
+
+			struct fck_member_info *member = ts->member->resolve(current);
+
+			fck_identifier member_identifier = ts->member->identify(member);
+			parameters.name = ts->identifier->resolve(member_identifier);
+			fckc_u8 *offset_ptr = ((fckc_u8 *)(data)) + ts->member->stride_of(member) + (size * index);
+			fck_type member_type = ts->member->type_of(member);
+			fckc_size_t primitive_count = ts->member->count_of(member);
+			parameters.type = &member_type;
+
+			if (ts->member->is_stretchy(member))
+			{
+				fck_stretchy_edit((fck_serialiser *)serialiser, &parameters, (void *)(offset_ptr), primitive_count);
+			}
+			else
+			{
+				params->caller((fck_serialiser *)serialiser, &parameters, (void *)(offset_ptr), primitive_count);
+			}
+
+			current = ts->member->next_of(member);
 		}
 	}
 }
@@ -465,58 +464,16 @@ void fck_type_edit(fck_nk_serialiser *serialiser, fck_serialiser_params *params,
 
 	if (count > 1)
 	{
-		const char *owner_name = ts->identifier->resolve(owner_identifier);
-		char buffer[256];
-		int result = SDL_snprintf(buffer, sizeof(buffer), "%s : %s[%llu]", params->name, owner_name, (fckc_u64)count);
-		if (nk_tree_push_hashed(serialiser->ctx, NK_TREE_NODE, buffer, NK_MINIMIZED, buffer, result, __LINE__))
+		if (serialiser->vt->pretty->tree_push(serialiser, params, data, count))
 		{
-			fck_type_edit_members(serialiser, params, data, count, members);
-			nk_tree_pop(serialiser->ctx);
+			fck_type_edit_members_pretty(serialiser, params, data, count, members);
+			serialiser->vt->pretty->tree_pop(serialiser, params, data, count);
 		}
 	}
 	else
 	{
-		fck_type_edit_members(serialiser, params, data, count, members);
+		fck_type_edit_members_pretty(serialiser, params, data, count, members);
 	}
-
-	// for (fckc_size_t index = 0; index < count; index++)
-	//{
-	//	// TODO: CONSIDER INDEX WHEN ADVANCING THROUGH ARRAY MEMBERS!!
-	//	// IMPORTANT FOR RECURSIVE STRUCT SERIALISATION
-	//	fck_member current = members;
-	//	// Recurse through children
-	//	char buffer[256];
-	//	const char* owner_name = ts->identifier->resolve(owner_identifier);
-	//	int result = SDL_snprintf(buffer, sizeof(buffer), "%s : %s[%llu]", owner_name, params->name, (fckc_u64)index);
-	//	if (nk_tree_push_hashed(serialiser->ctx, NK_TREE_NODE, buffer, NK_MINIMIZED, buffer, result, __LINE__))
-	//	{
-	//		while (!ts->member->is_null(current))
-	//		{
-	//			fck_serialiser_params parameters = *params;
-
-	//			struct fck_member_info *member = ts->member->resolve(current);
-
-	//			fck_identifier member_identifier = ts->member->identify(member);
-	//			parameters.name = ts->identifier->resolve(member_identifier);
-	//			fckc_u8 *offset_ptr = ((fckc_u8 *)(data)) + ts->member->stride_of(member) + (size * index);
-	//			fck_type member_type = ts->member->type_of(member);
-	//			fckc_size_t primitive_count = ts->member->count_of(member);
-	//			parameters.type = &member_type;
-
-	//			if (ts->member->is_stretchy(member))
-	//			{
-	//				fck_stretchy_edit((fck_serialiser *)serialiser, &parameters, (void *)(offset_ptr), primitive_count);
-	//			}
-	//			else
-	//			{
-	//				params->caller((fck_serialiser *)serialiser, &parameters, (void *)(offset_ptr), primitive_count);
-	//			}
-
-	//			current = ts->member->next_of(member);
-	//		}
-	//		nk_tree_pop(serialiser->ctx);
-	//	}
-	//}
 }
 
 void fck_type_serialise(fck_type_system *ts, fck_serialiser *serialiser, fck_type type, const char *name, void *data, fckc_size_t count)
@@ -533,6 +490,7 @@ void fck_type_serialise(fck_type_system *ts, fck_serialiser *serialiser, fck_typ
 		params.name = name;
 
 		serialise(serialiser, &params, data, count);
+		return;
 	}
 
 	fck_member members = ts->type->members_of(info);
@@ -557,6 +515,67 @@ void fck_type_serialise(fck_type_system *ts, fck_serialiser *serialiser, fck_typ
 			current = ts->member->next_of(member);
 		}
 	}
+}
+
+void fck_type_serialise_pretty(fck_nk_serialiser *serialiser, fck_serialiser_params *params, void *data, fckc_size_t count)
+{
+	fck_type type = *params->type;
+	fck_type_system *ts = params->type_system;
+	struct fck_type_info *info = ts->type->resolve(type);
+	fck_identifier owner_identifier = ts->type->identify(info);
+
+	fck_serialise_func *serialise = ts->serialise->get(type);
+	if (serialise != NULL)
+	{
+		serialise((fck_serialiser *)serialiser, params, data, count);
+		return;
+	}
+
+	fck_member members = ts->type->members_of(info);
+	if (ts->member->is_null(members))
+	{
+		return;
+	}
+
+	if (count > 1)
+	{
+		if (serialiser->vt->pretty->tree_push(serialiser, params, data, count))
+		{
+			fck_type_edit_members_pretty(serialiser, params, data, count, members);
+			serialiser->vt->pretty->tree_pop(serialiser, params, data, count);
+		}
+	}
+	else
+	{
+		fck_type_edit_members_pretty(serialiser, params, data, count, members);
+	}
+}
+
+void fck_type_serialise_ugly(fck_nk_serialiser *serialiser, fck_serialiser_params *params, void *data, fckc_size_t count)
+{
+	fck_type type = *params->type;
+	fck_type_system* ts = params->type_system;
+	struct fck_type_info* info = ts->type->resolve(type);
+	fck_identifier owner_identifier = ts->type->identify(info);
+
+	fck_serialise_func* serialise = ts->serialise->get(type);
+	if (serialise != NULL)
+	{
+		serialise((fck_serialiser*)serialiser, params, data, count);
+		return;
+	}
+
+	fck_member members = ts->type->members_of(info);
+	if (ts->member->is_null(members))
+	{
+		return;
+	}
+
+	fck_type_edit_members_ugly(serialiser, params, data, count, members);
+}
+
+void fck_type_serialise_v2(fck_nk_serialiser *serialiser, fck_serialiser_params *params, void *data, fckc_size_t count)
+{
 }
 
 int fck_ui_window_entities(struct fck_ui *ui, fck_ui_window *window, void *userdata)
@@ -596,9 +615,9 @@ int fck_ui_window_entities(struct fck_ui *ui, fck_ui_window *window, void *userd
 	params.name = "dummy";
 	params.type_system = ts;
 	params.type = &custom_type;
-	params.caller = (fck_serialise_func *)fck_type_edit;
+	params.caller = (fck_serialise_func *)fck_type_serialise_pretty;
 
-	fck_type_edit(&serialiser, &params, opaque, 1);
+	fck_type_serialise_pretty(&serialiser, &params, opaque, 1);
 
 	nk_layout_row_begin(ctx, NK_DYNAMIC, 25, (int)1);
 

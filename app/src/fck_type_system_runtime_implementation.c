@@ -6,6 +6,9 @@
 #include <SDL3/SDL_assert.h>
 #include <SDL3/SDL_stdinc.h>
 
+// TODO: THIS FILE SUUUUCKS
+// TODO: SERIOUSLY, FUCK THIS FILE. THIS FILE IS THE FUCKING WORST
+
 #define fck_setup_base_primitive(types, serialisers, type, serialise)                                                                      \
 	fck_serialise_interfaces_add(                                                                                                          \
 		serialisers, (fck_serialise_desc){fck_types_add(types, (fck_type_desc){fck_id(type)}), (fck_serialise_func *)(serialise)})

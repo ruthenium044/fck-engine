@@ -150,8 +150,6 @@ typedef struct fck_member_api
 	fckc_size_t (*count_of)(struct fck_member_info *info);
 	int (*is_stretchy)(struct fck_member_info *info);
 
-
-
 	fck_member (*add)(fck_type owner, fck_member_desc desc);
 } fck_member_api;
 
@@ -171,6 +169,10 @@ typedef struct fck_type_system
 	fck_member_api *member;
 	fck_serialise_interface_api *serialise;
 } fck_type_system;
+
+struct fck_serialiser;
+struct fck_serialiser_params;
+void fck_type_serialise(struct fck_serialiser *serialiser, struct fck_serialiser_params *params, void *data, fckc_size_t count);
 
 struct fck_apis;
 

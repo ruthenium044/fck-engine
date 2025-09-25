@@ -351,16 +351,16 @@ void fck_nk_edit_string(fck_serialiser *s, fck_serialiser_params *p, fck_lstring
 	SDL_assert(false && "NOT SUPPORTED FOR NOW");
 }
 
-int fck_nk_edit_prettify_label(char* buffer, fckc_size_t size, struct fck_serialiser_params *p, const char *name, fckc_size_t count)
+int fck_nk_edit_prettify_label(char *buffer, fckc_size_t size, struct fck_serialiser_params *p, const char *name, fckc_size_t number)
 {
-	switch (count)
+	switch (number)
 	{
 	case 0:
 		return SDL_snprintf(buffer, size, "%s : %s[*]", p->name, name);
 	case 1:
 		return SDL_snprintf(buffer, size, "%s : %s", p->name, name);
 	default:
-		return SDL_snprintf(buffer, size, "%s : %s[%llu]", p->name, name, (fckc_u64)count);
+		return SDL_snprintf(buffer, size, "%s : %s[%llu]", p->name, name, (fckc_u64)number);
 	}
 }
 
@@ -383,9 +383,8 @@ void fck_nk_edit_prettify_tree_pop(struct fck_serialiser *s, struct fck_serialis
 	nk_tree_pop(ctx);
 }
 
-static fck_serialiser_prettify_vt fck_serialiser_nk_edit_pretty_vt = {.tree_push = fck_nk_edit_prettify_tree_push,
-                                                                      .tree_pop = fck_nk_edit_prettify_tree_pop,
-																	  .label = fck_nk_edit_prettify_label };
+static fck_serialiser_prettify_vt fck_serialiser_nk_edit_pretty_vt = {
+	.tree_push = fck_nk_edit_prettify_tree_push, .tree_pop = fck_nk_edit_prettify_tree_pop, .label = fck_nk_edit_prettify_label};
 
 static fck_serialiser_vt fck_serialiser_nk_edit_vt = {.i8 = fck_nk_edit_i8,
                                                       .i16 = fck_nk_edit_i16,

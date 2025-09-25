@@ -32,8 +32,8 @@ typedef struct fck_serialiser_params
 	// Maybe it makes more sense to just hand around the type info itself?
 	struct fck_type_system *type_system;
 
-	// This one is so tricky...
-	fck_serialise_func *caller;
+	// TODO: Propagate parameters for special serialisers might be nice
+	// We can also easily bind them...
 	// void *user;
 	//   ...
 
@@ -41,10 +41,10 @@ typedef struct fck_serialiser_params
 
 typedef struct fck_serialiser_prettify_vt
 {
-	int (*label)(char* buffer, fckc_size_t size, struct fck_serialiser_params* p, const char* name, fckc_size_t count);
-	int (*tree_push)(struct fck_serialiser*, struct fck_serialiser_params*, void* data, fckc_size_t count);
-	void (*tree_pop)(struct fck_serialiser*, struct fck_serialiser_params*, void* data, fckc_size_t count);
-}fck_serialiser_prettify_vt;
+	int (*label)(char *buffer, fckc_size_t size, struct fck_serialiser_params *p, const char *name, fckc_size_t count);
+	int (*tree_push)(struct fck_serialiser *, struct fck_serialiser_params *, void *data, fckc_size_t count);
+	void (*tree_pop)(struct fck_serialiser *, struct fck_serialiser_params *, void *data, fckc_size_t count);
+} fck_serialiser_prettify_vt;
 
 typedef struct fck_serialiser_vt
 {
@@ -60,7 +60,7 @@ typedef struct fck_serialiser_vt
 	void (*f64)(struct fck_serialiser *, struct fck_serialiser_params *, double *, fckc_size_t);
 	void (*string)(struct fck_serialiser *, struct fck_serialiser_params *, fck_lstring *, fckc_size_t);
 
-	fck_serialiser_prettify_vt* pretty;
+	fck_serialiser_prettify_vt *pretty;
 } fck_serialiser_vt;
 
 #endif // FCK_SERIALISER_VT_H_INCLUDED

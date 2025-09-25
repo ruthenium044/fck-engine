@@ -90,10 +90,9 @@ typedef struct fck_lstring
 
 #define fck_scope_str_concat(lhs, rhs) lhs##rhs
 #define fck_scope_unique(lhs, rhs) fck_scope_str_concat(lhs, rhs)
-#define fck_scope(ctor, dtor)                                                                                                           \
-	for (int fck_scope_unique(i, __LINE__) = ((ctor) ? 0 : 1); fck_scope_unique(i, __LINE__) == 0;                                   \
+#define fck_scope(ctor, dtor)                                                                                                              \
+	for (int fck_scope_unique(i, __LINE__) = ((ctor) ? 0 : 1); fck_scope_unique(i, __LINE__) == 0;                                         \
 	     fck_scope_unique(i, __LINE__) += 1, (dtor))
-
 
 #ifndef offsetof
 #define offsetof(st, m) ((fckc_uintptr) & (((st *)0)->m))

@@ -93,6 +93,10 @@ static fck_serialiser_vt fck_size_of_vt = {
 	.u64 = fck_size_of_u64,
 };
 
+// TODO: fck_module? fck_unit? Any of these instead of the blob... This way we can get rid of the static
+// TODO: kll allocators!
+// TODO: fck_memory_api? Something like this for the type system. We use it to create objects through it!
+
 typedef struct fck_type_system_api_blob
 {
 	// Core
@@ -146,7 +150,7 @@ void fck_type_size_of(struct fck_serialiser *s, struct fck_serialiser_params *p,
 	if (!ts->member->is_null(member))
 	{
 		// Find member with the FURTHEST stride...
-		// TODO: Maybe cache the furthest member? 
+		// TODO: Maybe cache the furthest member?
 		fck_member_info *current = ts->member->resolve(member);
 		fck_member_info *member_info = ts->member->resolve(member);
 		member = ts->member->next_of(member_info);
@@ -176,7 +180,7 @@ void fck_type_size_of(struct fck_serialiser *s, struct fck_serialiser_params *p,
 		fck_serialiser_params params = *p;
 		fck_type type = ts->member->type_of(current);
 		params.type = &type;
-		p->caller(s, &params, NULL, count);
+		fck_type_size_of(s, &params, NULL, count);
 		size_of->size = (stride_size + size_of->size) * c;
 	}
 }
@@ -185,7 +189,6 @@ fckc_size_t fck_type_size_of_api(fck_type type)
 {
 	fck_serialiser_type_size_of size_of = {.vt = &fck_size_of_vt, 0};
 	fck_serialiser_params parameters;
-	parameters.caller = fck_type_size_of;
 	parameters.name = NULL;
 	parameters.type = &type;
 	parameters.type_system = &fck_type_system_api_blob_private.type_system;

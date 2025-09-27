@@ -145,21 +145,27 @@ void fck_type_memory_free(fck_type_memory *memory)
 	memory->buffer = NULL;
 }
 
-fckc_u8 *fck_type_memory_squeeze(fck_type_memory *memory, fckc_size_t stride, fckc_size_t size)
+typedef struct fck_memory_squeeze_params
+{
+	fckc_size_t stride;
+	fckc_size_t size;
+} fck_memory_squeeze_params;
+
+fckc_u8 *fck_type_memory_squeeze(fck_type_memory *memory, fck_memory_squeeze_params p)
 {
 	fck_type_memory result = fck_type_memory_create(memory->alloctor);
-	fck_type_memory_alloc(&result, memory->size + size);
+	fck_type_memory_alloc(&result, memory->size + p.size);
 
 	SDL_memcpy(result.buffer, memory->buffer, memory->size);
-	fckc_u8 *src = memory->buffer + stride;
-	fckc_u8 *dst = memory->buffer + size;
-	SDL_memmove(dst, src, size);
+	fckc_u8 *src = memory->buffer + p.stride;
+	fckc_u8 *dst = memory->buffer + p.size;
+	SDL_memmove(dst, src, p.size);
 
 	fck_type_memory_free(memory);
 	*memory = result;
 
 	// Return start of added memory for convenience
-	return memory->buffer + stride;
+	return memory->buffer + p.stride;
 }
 
 void setup_some_stuff(fck_instance *app)
@@ -170,19 +176,19 @@ void setup_some_stuff(fck_instance *app)
 	fck_type_system *ts = fck_get_type_system(app->apis);
 
 	// fck_type example_type_handle = fck_types_add(ts->get_types(), (fck_type_desc){fck_name(example_type)});
-	fck_type example_type_handle = ts->type->add((fck_type_desc){fck_name(example_type)});
-	fck_type some_type_handle = ts->type->add((fck_type_desc){fck_name(some_type)});
+	fck_type example_type_handle = ts->type->add(app->assembly, (fck_type_desc){fck_name(example_type)});
+	fck_type some_type_handle = ts->type->add(app->assembly, (fck_type_desc){fck_name(some_type)});
 
-	fck_type f32 = ts->type->find(fck_id(fckc_f32));
-	fck_type f64 = ts->type->find(fck_id(fckc_f64));
-	fck_type i8 = ts->type->find(fck_id(fckc_i8));
-	fck_type i16 = ts->type->find(fck_id(fckc_i16));
-	fck_type i32 = ts->type->find(fck_id(fckc_i32));
-	fck_type i64 = ts->type->find(fck_id(fckc_i64));
-	fck_type u8 = ts->type->find(fck_id(fckc_u8));
-	fck_type u16 = ts->type->find(fck_id(fckc_u16));
-	fck_type u32 = ts->type->find(fck_id(fckc_u32));
-	fck_type u64 = ts->type->find(fck_id(fckc_u64));
+	fck_type f32 = ts->type->find(app->assembly, fck_id(fckc_f32));
+	fck_type f64 = ts->type->find(app->assembly, fck_id(fckc_f64));
+	fck_type i8 = ts->type->find(app->assembly, fck_id(fckc_i8));
+	fck_type i16 = ts->type->find(app->assembly, fck_id(fckc_i16));
+	fck_type i32 = ts->type->find(app->assembly, fck_id(fckc_i32));
+	fck_type i64 = ts->type->find(app->assembly, fck_id(fckc_i64));
+	fck_type u8 = ts->type->find(app->assembly, fck_id(fckc_u8));
+	fck_type u16 = ts->type->find(app->assembly, fck_id(fckc_u16));
+	fck_type u32 = ts->type->find(app->assembly, fck_id(fckc_u32));
+	fck_type u64 = ts->type->find(app->assembly, fck_id(fckc_u64));
 
 	ts->member->add(some_type_handle, fck_value_decl(some_type, f32, x));
 	ts->member->add(some_type_handle, fck_value_decl(some_type, f32, y));
@@ -204,9 +210,6 @@ void setup_some_stuff(fck_instance *app)
 	ts->member->add(example_type_handle, fck_value_decl(example_type, u64, u64));
 
 	ts->member->add(example_type_handle, fck_array_decl(example_type, some_type_handle, arr, 5));
-
-	fckc_size_t size = ts->type->size_of(example_type_handle);
-	SDL_Log("%llu", size);
 }
 
 int fck_ui_window_entities(struct fck_ui *ui, fck_ui_window *window, void *userdata)
@@ -218,7 +221,7 @@ int fck_ui_window_entities(struct fck_ui *ui, fck_ui_window *window, void *userd
 
 	fck_type_system *ts = fck_get_type_system(app->apis);
 
-	fck_type custom_type = ts->type->find(fck_name(example_type));
+	fck_type custom_type = ts->type->find(app->assembly, fck_name(example_type));
 	struct fck_type_info *type = ts->type->resolve(custom_type);
 
 	fck_nk_serialiser serialiser = {.ctx = ctx, .vt = fck_nk_edit_vt};
@@ -276,7 +279,7 @@ int fck_ui_window_entities(struct fck_ui *ui, fck_ui_window *window, void *userd
 	nk_label(ctx, "", NK_TEXT_ALIGN_LEFT);
 
 	fck_type current = ts->type->null();
-	while (ts->type->iterate(&current))
+	while (ts->type->iterate(app->assembly, &current))
 	{
 		struct fck_type_info *info = ts->type->resolve(current);
 		fck_identifier identifier = ts->type->identify(info);
@@ -336,7 +339,8 @@ fck_instance *fck_instance_alloc(const char *title, int with, int height, SDL_Wi
 	app->window_manager = fck_ui_window_manager_alloc(16);
 
 	app->apis = fck_apis_load();
-	fck_load_type_system(app->apis);
+	fck_type_system *ts = fck_load_type_system(app->apis);
+	app->assembly = ts->assembly->alloc();
 
 	fck_ui_window_manager_create(app->window_manager, "Entities", app, fck_ui_window_entities);
 	fck_ui_window_manager_create(app->window_manager, "Nk Overview", NULL, fck_ui_window_overview);

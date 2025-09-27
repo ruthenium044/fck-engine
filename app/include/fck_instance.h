@@ -10,6 +10,7 @@ typedef fckc_u64 SDL_WindowFlags;
 typedef union SDL_Event SDL_Event;
 typedef struct fck_ui_window_manager fck_ui_window_manager;
 typedef struct fck_apis fck_apis;
+typedef struct fck_assembly fck_assembly;
 
 typedef enum fck_instance_result
 {
@@ -26,7 +27,8 @@ typedef struct fck_instance
 	SDL_Window *window;     // This one could stay public - Makes sense for multi-instance stuff
 	SDL_Renderer *renderer; // User
 	fck_ui_window_manager *window_manager;
-	fck_apis* apis;
+	fck_apis *apis;
+	fck_assembly *assembly;
 } fck_instance;
 
 fck_instance *fck_instance_alloc(const char *title, int with, int height, SDL_WindowFlags window_flags, const char *renderer_name);

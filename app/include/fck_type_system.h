@@ -14,6 +14,7 @@ struct fck_serialise_interfaces;
 
 struct fck_type_info;
 struct fck_member_info;
+struct fck_assembly;
 
 struct fck_serialiser;
 struct fck_serialiser_params;
@@ -124,13 +125,13 @@ typedef struct fck_type_api
 	fck_member (*members_of)(struct fck_type_info *info);
 	// fckc_size_t (*size_of)(struct fck_type_info* info);
 
-	fck_type (*add)(fck_type_desc desc);
-	fck_type (*get)(fckc_u64 hash);
-	fck_type (*find)(const char *name);
+	fck_type (*add)(struct fck_assembly *assembly, fck_type_desc desc);
+	fck_type (*get)(struct fck_assembly *assembly, fckc_u64 hash);
+	fck_type (*find)(struct fck_assembly *assembly, const char *name);
 
 	fckc_size_t (*size_of)(fck_type type);
 	// Nice and convenient, but I need sorted
-	int (*iterate)(fck_type *type);
+	int (*iterate)(struct fck_assembly *assembly, fck_type *type);
 
 } fck_type_api;
 
@@ -161,6 +162,12 @@ typedef struct fck_serialise_interface_api
 
 } fck_serialise_interface_api;
 
+typedef struct fck_assembly_api
+{
+	struct fck_assembly *(*alloc)(void);
+	void (*free)(struct fck_assembly *assembly);
+} fck_assembly_api;
+
 typedef struct fck_type_system
 {
 	// Design choice: Pointers to api vs... not that
@@ -168,6 +175,7 @@ typedef struct fck_type_system
 	fck_type_api *type;
 	fck_member_api *member;
 	fck_serialise_interface_api *serialise;
+	fck_assembly_api *assembly;
 } fck_type_system;
 
 struct fck_serialiser;
@@ -176,7 +184,7 @@ void fck_type_serialise(struct fck_serialiser *serialiser, struct fck_serialiser
 
 struct fck_apis;
 
-void fck_load_type_system(struct fck_apis *apis);
+fck_type_system *fck_load_type_system(struct fck_apis *apis);
 void fck_unload_type_system(struct fck_apis *apis);
 fck_type_system *fck_get_type_system(struct fck_apis *apis);
 

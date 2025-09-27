@@ -1,5 +1,5 @@
 
-#include "fck_type_system.h"
+#include "fck_type_system.inl"
 
 #include "SDL3/SDL_assert.h"
 #include <SDL3/SDL_stdinc.h>
@@ -14,16 +14,13 @@ typedef struct fck_identifier_registry_entry
 
 typedef struct fck_identifier_registry
 {
+	struct fck_assembly *assembly;
+
 	fckc_size_t count;
 	fckc_size_t capacity;
 
 	fck_identifier_registry_entry identifiers[1];
 } fck_identifier_registry;
-
-typedef struct fck_identifiers
-{
-	struct fck_identifier_registry *value;
-} fck_identifiers;
 
 static fckc_u64 fck_identifier_registry_add_next_capacity(fckc_u64 n)
 {
@@ -77,7 +74,7 @@ const char *fck_identifier_resolve(fck_identifier identifier)
 	}
 }
 
-struct fck_identifier_registry *fck_identifier_registry_alloc(fckc_size_t capacity)
+fck_identifier_registry *fck_identifier_registry_alloc(struct fck_assembly *assembly, fckc_size_t capacity)
 {
 	// Do we need to guard for capacity == 0?
 	// SDL_assert(capacity > 0);
@@ -92,16 +89,10 @@ struct fck_identifier_registry *fck_identifier_registry_alloc(fckc_size_t capaci
 		entry->str = NULL;
 	}
 
+	registry->assembly = assembly;
 	registry->capacity = capacity;
 	registry->count = 0;
 	return registry;
-}
-
-struct fck_identifiers *fck_identifiers_alloc(fckc_size_t capacity)
-{
-	fck_identifiers *identifiers = (fck_identifiers *)SDL_malloc(sizeof(*identifiers));
-	identifiers->value = fck_identifier_registry_alloc(capacity);
-	return identifiers;
 }
 
 void fck_identifier_registry_free(struct fck_identifier_registry *ptr)
@@ -127,7 +118,7 @@ fck_identifier fck_identifiers_add(struct fck_identifiers *identifiers, fck_iden
 	{
 		// Realloc if required
 		fckc_size_t next = (fckc_size_t)fck_identifier_registry_add_next_capacity(identifiers->value->capacity + 1); // + 1... I think
-		fck_identifier_registry *result = fck_identifier_registry_alloc(next);
+		fck_identifier_registry *result = fck_identifier_registry_alloc(identifiers->value->assembly, next);
 
 		for (fckc_size_t index = 0; index < identifiers->value->capacity; index++)
 		{

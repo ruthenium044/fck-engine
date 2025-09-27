@@ -5,8 +5,12 @@
 
 #include <fck_hash.h>
 
+struct fck_assembly;
+
 typedef struct fck_member_registry
 {
+	struct fck_assembly *assembly;
+
 	fckc_size_t count;
 	fckc_size_t capacity;
 
@@ -14,11 +18,6 @@ typedef struct fck_member_registry
 
 	fck_member_info info[1];
 } fck_member_registry;
-
-typedef struct fck_members
-{
-	struct fck_member_registry *value;
-} fck_members;
 
 static fckc_u64 fck_member_registry_add_next_capacity(fckc_u64 n)
 {
@@ -105,7 +104,7 @@ fckc_size_t fck_member_info_count(struct fck_member_info *info)
 	return info->extra_count + 1;
 }
 
-fck_member_registry *fck_member_registry_alloc(struct fck_identifiers *identifiers, fckc_size_t capacity)
+fck_member_registry *fck_member_registry_alloc(struct fck_assembly *assembly, struct fck_identifiers *identifiers, fckc_size_t capacity)
 {
 	SDL_assert(identifiers);
 
@@ -118,17 +117,11 @@ fck_member_registry *fck_member_registry_alloc(struct fck_identifiers *identifie
 		entry->identifier = fck_identifier_null();
 	}
 
+	registry->assembly = assembly;
 	registry->count = 0;
 	registry->capacity = capacity;
 	registry->identifiers = identifiers;
 	return registry;
-}
-
-struct fck_members *fck_members_alloc(struct fck_identifiers *identifiers, fckc_size_t capacity)
-{
-	fck_members *members = SDL_malloc(sizeof(*members));
-	members->value = fck_member_registry_alloc(identifiers, capacity);
-	return members;
 }
 
 void fck_member_registry_free(fck_member_registry *ptr)
@@ -169,7 +162,7 @@ fck_member fck_members_add(fck_members *members, fck_type owner, fck_member_desc
 	if (members->value->count >= (members->value->capacity >> 1))
 	{
 		fckc_size_t next = (fckc_size_t)fck_member_registry_add_next_capacity(members->value->capacity + 1);
-		fck_member_registry *result = fck_member_registry_alloc(members->value->identifiers, next);
+		fck_member_registry *result = fck_member_registry_alloc(members->value->assembly, members->value->identifiers, next);
 		for (fckc_size_t index = 0; index < members->value->capacity; index++)
 		{
 			fck_member_info *entry = &members->value->info[index];

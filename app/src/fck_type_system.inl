@@ -9,7 +9,7 @@ int fck_identifier_is_null(fck_identifier identifier);
 int fck_identifier_is_same(fck_identifier a, fck_identifier b);
 const char *fck_identifier_resolve(fck_identifier identifier);
 
-struct fck_identifiers *fck_identifiers_alloc(fckc_size_t capacity);
+struct fck_identifier_registry *fck_identifier_registry_alloc(struct fck_assembly *assembly, fckc_size_t capacity);
 void fck_identifiers_free(struct fck_identifiers *ptr);
 
 fck_identifier fck_identifiers_add(struct fck_identifiers *identifiers, fck_identifier_desc desc);
@@ -26,8 +26,10 @@ struct fck_type_info *fck_type_resolve(fck_type type);
 fck_identifier fck_type_info_identify(struct fck_type_info *info);
 fck_member fck_type_info_first_member(struct fck_type_info *info);
 
-struct fck_types *fck_types_alloc(struct fck_identifiers *identifiers, fckc_size_t capacity);
+struct fck_type_registry *fck_type_registry_alloc(struct fck_assembly *assembly, struct fck_identifiers *identifiers, fckc_size_t capacity);
 void fck_types_free(struct fck_types *types);
+
+struct fck_assembly *fck_types_assembly(struct fck_types *types);
 
 fck_type fck_types_add(struct fck_types *types, fck_type_desc desc);
 fck_type fck_types_find_from_hash(struct fck_types *types, fckc_u64 hash);
@@ -48,13 +50,14 @@ fck_member fck_member_info_next(struct fck_member_info *info);
 fckc_size_t fck_member_info_stride(struct fck_member_info *info);
 fckc_size_t fck_member_info_count(struct fck_member_info *info);
 
-struct fck_members *fck_members_alloc(struct fck_identifiers *identifiers, fckc_size_t capacity);
+struct fck_member_registry *fck_member_registry_alloc(struct fck_assembly *assembly, struct fck_identifiers *identifiers,
+                                                      fckc_size_t capacity);
 void fck_members_free(struct fck_members *members);
 
 fck_member fck_members_add(struct fck_members *members, fck_type owner, fck_member_desc desc);
 
 // Serialisers
-struct fck_serialise_interfaces *fck_serialise_interfaces_alloc(fckc_size_t capacity);
+struct fck_serialiser_registry *fck_serialiser_registry_alloc(struct fck_assembly *assembly, fckc_size_t capacity);
 void fck_serialise_interfaces_free(struct fck_serialise_interfaces *interfaces);
 
 void fck_serialise_interfaces_add(struct fck_serialise_interfaces *interfaces, fck_serialise_desc desc);
@@ -95,5 +98,33 @@ typedef struct fck_type_info
 	fck_member first_member;
 	fck_member last_member;
 } fck_type_info;
+
+typedef struct fck_identifiers
+{
+	struct fck_identifier_registry *value;
+} fck_identifiers;
+
+typedef struct fck_types
+{
+	struct fck_type_registry *value;
+} fck_types;
+
+typedef struct fck_members
+{
+	struct fck_member_registry *value;
+} fck_members;
+
+typedef struct fck_serialise_interfaces
+{
+	struct fck_serialiser_registry *value;
+} fck_serialise_interfaces;
+
+typedef struct fck_assembly
+{
+	fck_identifiers identifiers;
+	fck_types types;
+	fck_members members;
+	fck_serialise_interfaces serialisers;
+} fck_assembly;
 
 void fck_type_system_setup_core(struct fck_types *types, struct fck_members *members, struct fck_serialise_interfaces *serialisers);

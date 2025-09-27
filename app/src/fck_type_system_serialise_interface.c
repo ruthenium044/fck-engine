@@ -11,15 +11,13 @@ typedef struct fck_serialiser_info
 
 typedef struct fck_serialiser_registry
 {
+	struct fck_assembly *assembly;
+
 	fckc_size_t count;
 	fckc_size_t capacity;
+
 	fck_serialiser_info info[1];
 } fck_serialiser_registry;
-
-typedef struct fck_serialise_interfaces
-{
-	struct fck_serialiser_registry *value;
-} fck_serialise_interfaces;
 
 static fckc_u64 fck_serialiser_registry_add_next_capacity(fckc_u64 n)
 {
@@ -38,7 +36,7 @@ static fckc_u64 fck_serialiser_registry_add_next_capacity(fckc_u64 n)
 	return n;
 }
 
-static fck_serialiser_registry *fck_serialiser_registry_alloc(fckc_size_t capacity)
+fck_serialiser_registry *fck_serialiser_registry_alloc(struct fck_assembly *assembly, fckc_size_t capacity)
 {
 	fckc_size_t size = offsetof(fck_serialiser_registry, info[capacity]);
 	fck_serialiser_registry *registry = (fck_serialiser_registry *)SDL_malloc(size);
@@ -49,17 +47,10 @@ static fck_serialiser_registry *fck_serialiser_registry_alloc(fckc_size_t capaci
 		entry->type = fck_type_null();
 		entry->serialise = NULL;
 	}
-
+	registry->assembly = assembly;
 	registry->count = 0;
 	registry->capacity = capacity;
 	return registry;
-}
-
-struct fck_serialise_interfaces *fck_serialise_interfaces_alloc(fckc_size_t capacity)
-{
-	fck_serialise_interfaces *interfaces = (fck_serialise_interfaces *)SDL_malloc(sizeof(*interfaces));
-	interfaces->value = fck_serialiser_registry_alloc(capacity);
-	return interfaces;
 }
 
 void fck_serialiser_registry_free(fck_serialiser_registry *registry)
@@ -84,7 +75,7 @@ void fck_serialise_interfaces_add(struct fck_serialise_interfaces *interfaces, f
 	if (interfaces->value->count >= (interfaces->value->capacity >> 1))
 	{
 		fckc_size_t next = fck_serialiser_registry_add_next_capacity(interfaces->value->capacity + 1);
-		fck_serialiser_registry *result = fck_serialiser_registry_alloc(next);
+		fck_serialiser_registry *result = fck_serialiser_registry_alloc(interfaces->value->assembly, next);
 
 		for (fckc_size_t index = 0; index < interfaces->value->capacity; index++)
 		{

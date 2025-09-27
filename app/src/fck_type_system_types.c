@@ -5,10 +5,12 @@
 
 #include <fck_hash.h>
 
-#include "fck_serialiser_vt.h"
+struct fck_assembly;
 
 typedef struct fck_type_registry
 {
+	struct fck_assembly *assembly;
+
 	fckc_size_t count;
 	fckc_size_t capacity;
 
@@ -17,11 +19,6 @@ typedef struct fck_type_registry
 	// Open-addressed so we can iterate through the dense part!!
 	fck_type_info info[1]; // info is plural...
 } fck_type_registry;
-
-typedef struct fck_types
-{
-	struct fck_type_registry *value;
-} fck_types;
 
 typedef struct fck_types_it
 {
@@ -121,7 +118,7 @@ fck_member fck_type_info_first_member(struct fck_type_info *info)
 	return info->first_member;
 }
 
-struct fck_type_registry *fck_type_registry_alloc(struct fck_identifiers *identifiers, fckc_size_t capacity)
+struct fck_type_registry *fck_type_registry_alloc(struct fck_assembly *assembly, struct fck_identifiers *identifiers, fckc_size_t capacity)
 {
 	SDL_assert(identifiers);
 	fckc_size_t size = offsetof(fck_type_registry, info[capacity]);
@@ -133,17 +130,11 @@ struct fck_type_registry *fck_type_registry_alloc(struct fck_identifiers *identi
 		entry->identifier = fck_identifier_null();
 	}
 
+	registry->assembly = assembly;
 	registry->count = 0;
 	registry->capacity = capacity;
 	registry->identifiers = identifiers;
 	return registry;
-}
-
-struct fck_types *fck_types_alloc(struct fck_identifiers *identifiers, fckc_size_t capacity)
-{
-	fck_types *types = SDL_malloc(sizeof(*types));
-	types->value = fck_type_registry_alloc(identifiers, capacity);
-	return types;
 }
 
 static void fck_type_registry_free(struct fck_type_registry *ptr)
@@ -159,6 +150,11 @@ void fck_types_free(struct fck_types *ptr)
 	SDL_free(ptr);
 }
 
+struct fck_assembly *fck_types_assembly(struct fck_types *types)
+{
+	return types->value->assembly;
+}
+
 fck_type fck_types_add(struct fck_types *types, fck_type_desc desc)
 {
 	SDL_assert(types != NULL);
@@ -167,7 +163,7 @@ fck_type fck_types_add(struct fck_types *types, fck_type_desc desc)
 	{
 		// Realloc if required
 		fckc_size_t next_capacity = fck_type_registry_add_next_capacity(types->value->capacity + 1); // + 1... I think
-		fck_type_registry *result = fck_type_registry_alloc(types->value->identifiers, next_capacity);
+		fck_type_registry *result = fck_type_registry_alloc(types->value->assembly, types->value->identifiers, next_capacity);
 
 		for (fckc_size_t index = 0; index < types->value->capacity; index++)
 		{

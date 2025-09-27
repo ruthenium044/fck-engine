@@ -94,8 +94,36 @@ static fck_serialiser_vt fck_size_of_vt = {
 };
 
 // TODO: fck_module? fck_unit? Any of these instead of the blob... This way we can get rid of the static
-// TODO: kll allocators!
+// TODO: Add user-provided kll allocator!
 // TODO: fck_memory_api? Something like this for the type system. We use it to create objects through it!
+
+fck_assembly *fck_assembly_alloc()
+{
+	// Assembly
+	// -- Identifiers
+	// -- Types
+	// -- Members
+	// -- Serialisers
+	// TODO: Make sub-modules aware of the assembly. This way it may or may not be possible to
+	// traverse upward? Idk.
+	fck_assembly *assembly = (fck_assembly *)SDL_malloc(sizeof(*assembly));
+	assembly->identifiers.value = fck_identifier_registry_alloc(assembly, 1);
+	assembly->types.value = fck_type_registry_alloc(assembly, &assembly->identifiers, 1);
+	assembly->members.value = fck_member_registry_alloc(assembly, &assembly->identifiers, 1);
+	assembly->serialisers.value = fck_serialiser_registry_alloc(assembly, 1);
+	fck_type_system_setup_core(&assembly->types, &assembly->members, &assembly->serialisers);
+
+	return assembly;
+}
+
+void fck_assembly_free(fck_assembly *assembly)
+{
+	fck_serialise_interfaces_free(&assembly->serialisers);
+	fck_members_free(&assembly->members);
+	fck_types_free(&assembly->types);
+	fck_identifiers_free(&assembly->identifiers);
+	SDL_free(assembly);
+}
 
 typedef struct fck_type_system_api_blob
 {
@@ -107,31 +135,10 @@ typedef struct fck_type_system_api_blob
 	fck_type_api type_api;
 	fck_member_api member_api;
 	fck_serialise_interface_api serialise_api;
-
-	struct fck_identifiers *identifiers;
-	struct fck_types *types;
-	struct fck_members *members;
-	struct fck_serialise_interfaces *serialisers;
+	fck_assembly_api assembly_api;
 } fck_type_system_api_blob;
 
 static fck_type_system_api_blob fck_type_system_api_blob_private;
-
-static struct fck_identifiers *get_identifiers(void)
-{
-	return fck_type_system_api_blob_private.identifiers;
-}
-static struct fck_types *get_types(void)
-{
-	return fck_type_system_api_blob_private.types;
-}
-static struct fck_members *get_members(void)
-{
-	return fck_type_system_api_blob_private.members;
-}
-static struct fck_serialise_interfaces *get_serialisers(void)
-{
-	return fck_type_system_api_blob_private.serialisers;
-}
 
 void fck_type_size_of(struct fck_serialiser *s, struct fck_serialiser_params *p, void *self, fckc_size_t c)
 {
@@ -193,44 +200,47 @@ fckc_size_t fck_type_size_of_api(fck_type type)
 	parameters.type = &type;
 	parameters.type_system = &fck_type_system_api_blob_private.type_system;
 
-	fck_type_size_of(&size_of, &parameters, NULL, 1);
+	fck_type_size_of((fck_serialiser *)&size_of, &parameters, NULL, 1);
 
 	return size_of.size;
 }
 
-fck_type fck_types_add_api(fck_type_desc desc)
+fck_type fck_types_add_api(fck_assembly *assembly, fck_type_desc desc)
 {
-	return fck_types_add(fck_type_system_api_blob_private.types, desc);
+	return fck_types_add(&assembly->types, desc);
 }
 
-fck_type fck_types_find_from_hash_api(fckc_u64 hash)
+fck_type fck_types_find_from_hash_api(fck_assembly *assembly, fckc_u64 hash)
 {
-	return fck_types_find_from_hash(fck_type_system_api_blob_private.types, hash);
+	return fck_types_find_from_hash(&assembly->types, hash);
 }
 
-fck_type fck_types_find_from_string_api(const char *name)
+fck_type fck_types_find_from_string_api(fck_assembly *assembly, const char *name)
 {
-	return fck_types_find_from_string(fck_type_system_api_blob_private.types, name);
+	return fck_types_find_from_string(&assembly->types, name);
 }
 
-int fck_types_iterate_api(fck_type *type)
+int fck_types_iterate_api(fck_assembly *assembly, fck_type *type)
 {
-	return fck_types_iterate(fck_type_system_api_blob_private.types, type);
+	return fck_types_iterate(&assembly->types, type);
 }
 
 fck_member fck_members_add_api(fck_type owner, fck_member_desc desc)
 {
-	return fck_members_add(fck_type_system_api_blob_private.members, owner, desc);
+	fck_assembly *assembly = fck_types_assembly(owner.types);
+	return fck_members_add(&assembly->members, owner, desc);
 }
 
 void fck_serialise_interfaces_add_api(fck_serialise_desc desc)
 {
-	fck_serialise_interfaces_add(fck_type_system_api_blob_private.serialisers, desc);
+	fck_assembly *assembly = fck_types_assembly(desc.type.types);
+	fck_serialise_interfaces_add(&assembly->serialisers, desc);
 }
 
 fck_serialise_func *fck_serialise_interfaces_get_api(fck_type type)
 {
-	return fck_serialise_interfaces_get(fck_type_system_api_blob_private.serialisers, type);
+	fck_assembly *assembly = fck_types_assembly(type.types);
+	return fck_serialise_interfaces_get(&assembly->serialisers, type);
 }
 
 int fck_members_is_stretchy(struct fck_member_info *info)
@@ -238,22 +248,16 @@ int fck_members_is_stretchy(struct fck_member_info *info)
 	return info->extra_count == (fckc_size_t)(~0LLU);
 }
 
-void fck_load_type_system(struct fck_apis *apis)
+fck_type_system *fck_load_type_system(struct fck_apis *apis)
 {
 	// fck_type_system_api_blob *api = (fck_type_system_api_blob *)SDL_malloc(sizeof(*api));
 	fck_type_system_api_blob *blob = &fck_type_system_api_blob_private;
-	blob->identifiers = fck_identifiers_alloc(1);
-	blob->members = fck_members_alloc(blob->identifiers, 1);
-	blob->types = fck_types_alloc(blob->identifiers, 1);
-	blob->serialisers = fck_serialise_interfaces_alloc(1);
-	fck_type_system_setup_core(blob->types, blob->members, blob->serialisers);
-
 	// Make sure nothing breaks this cast - This is how we arrange our memory!
 	blob->type_system.identifier = &blob->identifier_api;
 	blob->type_system.type = &blob->type_api;
 	blob->type_system.member = &blob->member_api;
 	blob->type_system.serialise = &blob->serialise_api;
-
+	blob->type_system.assembly = &blob->assembly_api;
 	fck_type_system *ts = (fck_type_system *)blob;
 
 	// Identifiers public API
@@ -297,7 +301,11 @@ void fck_load_type_system(struct fck_apis *apis)
 	ts->serialise->add = fck_serialise_interfaces_add_api;
 	ts->serialise->get = fck_serialise_interfaces_get_api;
 
+	ts->assembly->alloc = fck_assembly_alloc;
+	ts->assembly->free = fck_assembly_free;
+
 	apis->add(fck_type_system_api_name, ts);
+	return ts;
 }
 
 void fck_unload_type_system(struct fck_apis *apis)

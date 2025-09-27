@@ -18,8 +18,6 @@ typedef struct fck_serialiser
 struct fck_type;
 struct fck_type_system;
 
-typedef void(fck_serialise_func)(struct fck_serialiser *s, struct fck_serialiser_params *p, void *self, fckc_size_t c);
-
 typedef struct fck_serialiser_params
 {
 	// Variable name - Makes sense

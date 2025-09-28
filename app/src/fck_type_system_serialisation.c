@@ -97,8 +97,17 @@ void fck_type_serialise_pretty(fck_serialiser *serialiser, fck_serialiser_params
 		switch (count)
 		{
 		case 0:
+			// We could make this an abstracted concept.
+			// template_serialiser serialise = ts->template->get(member)
+			// The template_serialiser or however we call it should rebind self/data and hand out a size
+			// like the stretchy one is doing it right now. Only requirement: linear memory(maybe?)
+			// otherwise we need a iteration abstraction which can be paaaainful :-D
+			// if(serialise != NULL && serialise(serialiser, params, (void **)(data), &count)) { ... }
 			if (fck_stretchy_serialise(serialiser, params, (void **)(data), &count))
 			{
+				// This cast to void** and then deref is ugly and shit
+				// It is more advisable to let let the xxx_serialise function provide us with a new
+				// payload pointer
 				fck_type_serialise_pretty(serialiser, params, *(void **)data, count);
 			}
 			break;

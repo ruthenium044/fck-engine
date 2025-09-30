@@ -11,6 +11,7 @@
 #include "fck_nuklear_demos.h"
 #include "fck_ui_window_manager.h"
 
+#include "fck_serialiser_json_vt.h"
 #include "fck_serialiser_nk_edit_vt.h"
 #include "fck_serialiser_vt.h"
 
@@ -225,25 +226,10 @@ int fck_ui_window_entities(struct fck_ui *ui, fck_ui_window *window, void *userd
 	struct fck_type_info *type = ts->type->resolve(custom_type);
 
 	fck_nk_serialiser serialiser = {.ctx = ctx, .vt = fck_nk_edit_vt};
-
-	static int is_init = 0;
-	static example_type example;
-	if (is_init == 0)
-	{
-		is_init = 1;
-		example.other.x = 99.0f;
-		example.other.y = 123.0f;
-		example.cooldown = 69.0f;
-		example.position.x = 1.0f;
-		example.position.y = 2.0f;
-		example.rgb = (fckc_f32x3){4.0f, 2.0, 0.0f};
-		example.some_int = 99;
-		example.double_value = 999.0;
-		example.stretchy = fck_stretchy_new(some_type, kll_heap, 8);
-	}
+	fck_json_serialiser json;
+	fck_serialiser_json_writer_alloc(&json, kll_heap);
 
 	static fckc_u8 opaque[1024];
-	static fckc_size_t offset = sizeof(example);
 
 	fck_serialiser_params params;
 	params.name = "dummy";
@@ -251,6 +237,14 @@ int fck_ui_window_entities(struct fck_ui *ui, fck_ui_window *window, void *userd
 	params.type = &custom_type;
 
 	fck_type_serialise((fck_serialiser *)&serialiser, &params, opaque, 1);
+	fck_type assembly_type = ts->type->find(app->assembly, fck_name(fck_assembly));
+	fck_serialiser_params json_params;
+	json_params.name = "Assembly";
+	json_params.type_system = ts;
+	json_params.type = &assembly_type;
+	fck_type_serialise((fck_serialiser *)&json, &json_params, app->assembly, 1);
+	char *text = fck_serialiser_json_string_alloc(&json);
+	SDL_Log("%s", text);
 
 	nk_layout_row_begin(ctx, NK_DYNAMIC, 25, (int)1);
 
@@ -287,6 +281,8 @@ int fck_ui_window_entities(struct fck_ui *ui, fck_ui_window *window, void *userd
 		nk_layout_row_push(ctx, 1.0f);
 		if (nk_button_label(ctx, name))
 		{
+			fckc_size_t offset = sizeof(example_type);
+
 			fck_member_desc desc;
 			desc.extra_count = 0;
 			desc.stride = offset;

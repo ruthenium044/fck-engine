@@ -236,7 +236,7 @@ fck_type fck_types_find_from_hash(struct fck_types *types, fckc_u64 hash)
 {
 	fckc_size_t index = ((fckc_size_t)hash) % types->value->capacity;
 	fck_type handle = (fck_type){types, hash};
-	while (1)
+	for (;;)
 	{
 		// No need for safe iteration. ONE element IS empty for sure due to pre-condition
 		const fck_type_info *current = &types->value->info[index];
@@ -302,4 +302,26 @@ int fck_types_iterate(struct fck_types *types, fck_type *type)
 	}
 
 	return 0;
+}
+
+void fck_serialise_types(struct fck_serialiser *serialiser, struct fck_serialiser_params *params, fck_types *v, fckc_size_t c)
+{
+	if (v == NULL)
+	{
+		return;
+	}
+
+	for (fckc_size_t i = 0; i < c; i++)
+	{
+		fck_types *types = v + i;
+
+		for (fckc_size_t index = 0; index < types->value->capacity; index++)
+		{
+			fck_type_info *entry = &types->value->info[index];
+			if (!fck_identifier_is_null(entry->identifier))
+			{
+				fck_serialise_type_info(serialiser, params, entry, 1);
+			}
+		}
+	}
 }

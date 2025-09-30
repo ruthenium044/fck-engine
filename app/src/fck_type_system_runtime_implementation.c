@@ -54,192 +54,58 @@ void fck_serialise_u64(fck_serialiser *serialiser, fck_serialiser_params *params
 	serialiser->vt->u64(serialiser, params, value, count);
 }
 
-static void fck_type_add_member(struct fck_members *members, fck_type owner, const char *type_name, const char *name, fckc_size_t stride)
+void fck_serialise_type(fck_serialiser *serialiser, fck_serialiser_params *params, fck_type *value, fckc_size_t count)
 {
-	// TODO: string kind of dumb tho
-	fck_type member_type = fck_types_find_from_string(owner.types, type_name);
-	fck_members_add(members, owner, (fck_member_desc){.type = member_type, .name = name, .stride = stride});
+	for (fckc_size_t index = 0; index < count; index++)
+	{
+		fck_serialise_u64(serialiser, params, &value[index].hash, 1);
+	}
 }
+void fck_serialise_member(fck_serialiser *serialiser, fck_serialiser_params *params, fck_member *value, fckc_size_t count)
+{
+	for (fckc_size_t index = 0; index < count; index++)
+	{
+		fck_serialise_u64(serialiser, params, &value[index].hash, 1);
+	}
+}
+void fck_serialise_identifier(fck_serialiser *serialiser, fck_serialiser_params *params, fck_identifier *value, fckc_size_t count)
+{
+	for (fckc_size_t index = 0; index < count; index++)
+	{
+		fck_serialise_u64(serialiser, params, &value[index].hash, 1);
+	}
+}
+void fck_serialise_type_info(fck_serialiser *serialiser, fck_serialiser_params *params, fck_type_info *value, fckc_size_t count)
+{
+	for (fckc_size_t index = 0; index < count; index++)
+	{
+		fck_type_info *info = value + index;
+		fck_serialise_identifier(serialiser, params, &info->identifier, 1);
+		fck_serialise_u64(serialiser, params, &info->hash, 1);
+		fck_serialise_member(serialiser, params, &info->first_member, 1);
+		fck_serialise_member(serialiser, params, &info->last_member, 1);
+	}
+}
+void fck_serialise_member_info(fck_serialiser *serialiser, fck_serialiser_params *params, fck_member_info *value, fckc_size_t count)
+{
+	for (fckc_size_t index = 0; index < count; index++)
+	{
+		fck_member_info *info = value + index;
+		fck_serialise_type(serialiser, params, &info->owner, 1);
+		fck_serialise_type(serialiser, params, &info->type, 1);
+		fck_serialise_identifier(serialiser, params, &info->identifier, 1);
+		fck_serialise_u64(serialiser, params, &info->hash, 1);
 
-void fck_type_add_f32(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type_add_member(members, type, fck_id(fckc_f32), name, stride);
-}
+		fckc_u64 extra_count = info->extra_count;
+		fck_serialise_u64(serialiser, params, &extra_count, 1);
+		info->extra_count = (fckc_size_t)extra_count;
 
-void fck_type_add_f64(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type_add_member(members, type, fck_id(fckc_f64), name, stride);
-}
+		fckc_u64 stride = info->stride;
+		fck_serialise_u64(serialiser, params, &stride, 1);
+		info->stride = (fckc_size_t)stride;
 
-void fck_type_add_i8(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type_add_member(members, type, fck_id(fckc_i8), name, stride);
-}
-void fck_type_add_i16(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type_add_member(members, type, fck_id(fckc_i16), name, stride);
-}
-void fck_type_add_i32(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type_add_member(members, type, fck_id(fckc_i32), name, stride);
-}
-void fck_type_add_i64(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type_add_member(members, type, fck_id(fckc_i64), name, stride);
-}
-
-void fck_type_add_u8(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type_add_member(members, type, fck_id(fckc_u8), name, stride);
-}
-void fck_type_add_u16(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type_add_member(members, type, fck_id(fckc_u16), name, stride);
-}
-void fck_type_add_u32(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type_add_member(members, type, fck_id(fckc_u32), name, stride);
-}
-void fck_type_add_u64(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type_add_member(members, type, fck_id(fckc_u64), name, stride);
-}
-
-void fck_type_add_f32x2(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type_add_member(members, type, fck_id(fckc_f32x2), name, stride);
-}
-void fck_type_add_f32x3(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type_add_member(members, type, fck_id(fckc_f32x3), name, stride);
-}
-void fck_type_add_f32x4(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type_add_member(members, type, fck_id(fckc_f32x4), name, stride);
-}
-
-void fck_type_add_f64x2(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type_add_member(members, type, fck_id(fckc_f64x2), name, stride);
-}
-void fck_type_add_f64x3(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type_add_member(members, type, fck_id(fckc_f64x3), name, stride);
-}
-void fck_type_add_f64x4(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type_add_member(members, type, fck_id(fckc_f64x4), name, stride);
-}
-
-void fck_type_add_i8x2(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type_add_member(members, type, fck_id(fckc_i8x2), name, stride);
-}
-void fck_type_add_i8x3(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type_add_member(members, type, fck_id(fckc_i8x3), name, stride);
-}
-void fck_type_add_i8x4(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type_add_member(members, type, fck_id(fckc_i8x4), name, stride);
-}
-
-void fck_type_add_i16x2(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type_add_member(members, type, fck_id(fckc_i16x2), name, stride);
-}
-void fck_type_add_i16x3(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type_add_member(members, type, fck_id(fckc_i16x3), name, stride);
-}
-void fck_type_add_i16x4(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type_add_member(members, type, fck_id(fckc_i16x4), name, stride);
-}
-
-void fck_type_add_i32x2(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type_add_member(members, type, fck_id(fckc_i32x2), name, stride);
-}
-void fck_type_add_i32x3(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type_add_member(members, type, fck_id(fckc_i32x3), name, stride);
-}
-void fck_type_add_i32x4(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type_add_member(members, type, fck_id(fckc_i32x4), name, stride);
-}
-
-void fck_type_add_i64x2(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type_add_member(members, type, fck_id(fckc_i64x2), name, stride);
-}
-void fck_type_add_i64x3(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type_add_member(members, type, fck_id(fckc_i64x3), name, stride);
-}
-void fck_type_add_i64x4(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type_add_member(members, type, fck_id(fckc_i64x4), name, stride);
-}
-
-void fck_type_add_u8x2(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type_add_member(members, type, fck_id(fckc_u8x2), name, stride);
-}
-void fck_type_add_u8x3(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type_add_member(members, type, fck_id(fckc_u8x3), name, stride);
-}
-void fck_type_add_u8x4(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type_add_member(members, type, fck_id(fckc_u8x4), name, stride);
-}
-
-void fck_type_add_u16x2(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type_add_member(members, type, fck_id(fckc_u16x2), name, stride);
-}
-void fck_type_add_u16x3(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type_add_member(members, type, fck_id(fckc_u16x3), name, stride);
-}
-void fck_type_add_u16x4(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type_add_member(members, type, fck_id(fckc_u16x4), name, stride);
-}
-
-void fck_type_add_u32x2(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type_add_member(members, type, fck_id(fckc_u32x2), name, stride);
-}
-void fck_type_add_u32x3(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type_add_member(members, type, fck_id(fckc_u32x3), name, stride);
-}
-void fck_type_add_u32x4(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type_add_member(members, type, fck_id(fckc_u32x4), name, stride);
-}
-
-void fck_type_add_u64x2(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type_add_member(members, type, fck_id(fckc_u64x2), name, stride);
-}
-void fck_type_add_u64x3(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type_add_member(members, type, fck_id(fckc_u64x3), name, stride);
-}
-void fck_type_add_u64x4(struct fck_members *members, fck_type type, const char *name, fckc_size_t stride)
-{
-	fck_type_add_member(members, type, fck_id(fckc_u64x4), name, stride);
-}
-
-static fck_member fck_type_add_members_n(struct fck_members *members, fck_type owner, const char *type_name, fckc_size_t count)
-{
-	fck_type type = fck_types_find_from_string(owner.types, type_name);
-	return fck_members_add(members, owner,
-	                       (fck_member_desc){.type = type, .name = fck_name(values), .stride = 0, .extra_count = count - 1});
+		fck_serialise_member(serialiser, params, &info->next, 1);
+	}
 }
 
 static fck_type fck_declare(struct fck_types *types, const char *name)
@@ -250,6 +116,7 @@ static fck_type fck_declare(struct fck_types *types, const char *name)
 void fck_type_system_setup_core(struct fck_types *types, struct fck_members *members, struct fck_serialise_interfaces *serialisers)
 {
 	struct fck_types *t = types;
+	struct fck_members *m = members;
 	struct fck_serialise_interfaces *s = serialisers;
 
 	// The backbone :frown:
@@ -264,45 +131,34 @@ void fck_type_system_setup_core(struct fck_types *types, struct fck_members *mem
 	fck_setup_base_primitive(t, s, fckc_u32, fck_serialise_u32);
 	fck_setup_base_primitive(t, s, fckc_u64, fck_serialise_u64);
 
-	return;
-	struct fck_members *m = members;
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_f32x2)), fck_id(fckc_f32), 2);
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_f32x3)), fck_id(fckc_f32), 3);
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_f32x4)), fck_id(fckc_f32), 4);
+	fck_setup_base_primitive(t, s, fck_identifier, fck_serialise_identifier);
+	fck_setup_base_primitive(t, s, fck_type, fck_serialise_type);
+	fck_setup_base_primitive(t, s, fck_member, fck_serialise_member);
 
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_f64x2)), fck_id(fckc_f64), 2);
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_f64x3)), fck_id(fckc_f64), 3);
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_f64x4)), fck_id(fckc_f64), 4);
+	fck_setup_base_primitive(t, s, fck_type_info, fck_serialise_type_info);
+	fck_setup_base_primitive(t, s, fck_member_info, fck_serialise_member_info);
 
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_i8x2)), fck_id(fckc_i8), 2);
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_i8x3)), fck_id(fckc_i8), 3);
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_i8x4)), fck_id(fckc_i8), 4);
+	fck_setup_base_primitive(t, s, fck_identifiers, fck_serialise_identifiers);
+	fck_setup_base_primitive(t, s, fck_types, fck_serialise_types);
+	fck_setup_base_primitive(t, s, fck_members, fck_serialise_members);
 
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_i16x2)), fck_id(fckc_i16), 2);
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_i16x3)), fck_id(fckc_i16), 3);
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_i16x4)), fck_id(fckc_i16), 4);
+	fck_type id_type = fck_types_find_from_string(t, fck_id(fck_identifier));
+	fck_type type_type = fck_types_find_from_string(t, fck_id(fck_type));
+	fck_type member_type = fck_types_find_from_string(t, fck_id(fck_member));
 
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_i32x2)), fck_id(fckc_i32), 2);
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_i32x3)), fck_id(fckc_i32), 3);
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_i32x4)), fck_id(fckc_i32), 4);
+	fck_type type_info_type = fck_types_find_from_string(t, fck_id(fck_type_info));
+	fck_type member_info_type = fck_types_find_from_string(t, fck_id(fck_member_info));
 
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_i64x2)), fck_id(fckc_i64), 2);
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_i64x3)), fck_id(fckc_i64), 3);
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_i64x4)), fck_id(fckc_i64), 4);
+	fck_type identifiers_type = fck_types_find_from_string(t, fck_id(fck_identifiers));
+	fck_type types_type = fck_types_find_from_string(t, fck_id(fck_types));
+	fck_type members_type = fck_types_find_from_string(t, fck_id(fck_members));
 
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_u8x2)), fck_id(fckc_u8), 2);
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_u8x3)), fck_id(fckc_u8), 3);
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_u8x4)), fck_id(fckc_u8), 4);
+	fck_type u64_type = fck_types_find_from_string(t, fck_id(fckc_u64));
 
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_u16x2)), fck_id(fckc_u16), 2);
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_u16x3)), fck_id(fckc_u16), 3);
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_u16x4)), fck_id(fckc_u16), 4);
+	fck_type assembly_type = fck_declare(t, fck_id(fck_assembly));
+	fck_members_add(m, assembly_type, fck_value_decl(fck_assembly, identifiers_type, identifiers));
+	fck_members_add(m, assembly_type, fck_value_decl(fck_assembly, types_type, types));
+	fck_members_add(m, assembly_type, fck_value_decl(fck_assembly, members_type, members));
 
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_u32x2)), fck_id(fckc_u32), 2);
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_u32x3)), fck_id(fckc_u32), 3);
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_u32x4)), fck_id(fckc_u32), 4);
-
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_u64x2)), fck_id(fckc_u64), 2);
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_u64x3)), fck_id(fckc_u64), 3);
-	fck_type_add_members_n(m, fck_declare(types, fck_id(fckc_u64x4)), fck_id(fckc_u64), 4);
+	// fck_setup_base_primitive(t, s, fck_assembly, fck_serialise_assembly);
 }

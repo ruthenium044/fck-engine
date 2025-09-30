@@ -236,3 +236,25 @@ fck_member fck_members_add(fck_members *members, fck_type owner, fck_member_desc
 	fck_type_info_add_member(owner, member);
 	return member;
 }
+
+void fck_serialise_members(struct fck_serialiser *serialiser, struct fck_serialiser_params *params, fck_members *v, fckc_size_t c)
+{
+	if (v == NULL)
+	{
+		return;
+	}
+
+	for (fckc_size_t i = 0; i < c; i++)
+	{
+		fck_members *members = v + i;
+
+		for (fckc_size_t index = 0; index < members->value->capacity; index++)
+		{
+			fck_member_info *entry = &members->value->info[index];
+			if (!fck_identifier_is_null(entry->identifier))
+			{
+				fck_serialise_member_info(serialiser, params, entry, 1);
+			}
+		}
+	}
+}

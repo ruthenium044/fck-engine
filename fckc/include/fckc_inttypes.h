@@ -75,15 +75,9 @@ FCK_NAMED_VECTOR_TYPE(u16, fckc_u16);
 FCK_NAMED_VECTOR_TYPE(u32, fckc_u32);
 FCK_NAMED_VECTOR_TYPE(u64, fckc_u64);
 
-#define FCK_VECTOR_TYPE(type, count)                                                                                                       \
-	typedef struct fckc_type##x##count                                                                                                     \
-	{                                                                                                                                      \
-		type v[count];                                                                                                                     \
-	} fckc_type##x##count;
-
 typedef struct fck_lstring
 {
-	char *data; // Should this actually be char*? Urgh
+	char *str; // Should this actually be char*? Urgh
 	fckc_size_t capacity;
 	fckc_size_t size;
 } fck_lstring;

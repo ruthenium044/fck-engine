@@ -128,3 +128,13 @@ typedef struct fck_assembly
 } fck_assembly;
 
 void fck_type_system_setup_core(struct fck_types *types, struct fck_members *members, struct fck_serialise_interfaces *serialisers);
+
+void fck_serialise_identifier(struct fck_serialiser *serialiser, struct fck_serialiser_params *params, fck_identifier *v, fckc_size_t c);
+void fck_serialise_type(struct fck_serialiser *serialiser, struct fck_serialiser_params *params, fck_type *v, fckc_size_t c);
+void fck_serialise_member(struct fck_serialiser *serialiser, struct fck_serialiser_params *params, fck_member *v, fckc_size_t c);
+void fck_serialise_type_info(struct fck_serialiser *serialiser, struct fck_serialiser_params *params, fck_type_info *v, fckc_size_t c);
+void fck_serialise_member_info(struct fck_serialiser *serialiser, struct fck_serialiser_params *params, fck_member_info *v, fckc_size_t c);
+
+void fck_serialise_identifiers(struct fck_serialiser *serialiser, struct fck_serialiser_params *params, fck_identifiers *v, fckc_size_t c);
+void fck_serialise_types(struct fck_serialiser *serialiser, struct fck_serialiser_params *params, fck_types *v, fckc_size_t c);
+void fck_serialise_members(struct fck_serialiser *serialiser, struct fck_serialiser_params *params, fck_members *v, fckc_size_t c);

@@ -1,7 +1,13 @@
 
 #include "fck_type_system.inl"
 
-#include "SDL3/SDL_assert.h"
+#include "fck_serialiser_vt.h"
+
+#include <kll.h>
+#include <kll_heap.h>
+#include <kll_malloc.h>
+
+#include <SDL3/SDL_assert.h>
 #include <SDL3/SDL_stdinc.h>
 
 #include <fck_hash.h>
@@ -129,7 +135,7 @@ fck_identifier fck_identifiers_add(struct fck_identifiers *identifiers, fck_iden
 			}
 
 			fckc_size_t new_index = entry->hash % result->capacity;
-			while (1)
+			for (;;)
 			{
 				fck_identifier_registry_entry *new_entry = &result->identifiers[new_index];
 				if (new_entry->str == NULL)
@@ -155,7 +161,7 @@ fck_identifier fck_identifiers_add(struct fck_identifiers *identifiers, fck_iden
 		fckc_size_t index = hash % registry->capacity;
 
 		// That this while loop breaks is enforced through the realloc and size check
-		while (1)
+		for (;;)
 		{
 			fck_identifier_registry_entry *entry = &registry->identifiers[index];
 			const char *string = entry->str;
@@ -172,7 +178,7 @@ fck_identifier fck_identifiers_add(struct fck_identifiers *identifiers, fck_iden
 				identifiers->value->count = identifiers->value->count + 1;
 				return (fck_identifier){identifiers, hash};
 			}
-			index = index + 1;
+			index = (index + 1) % registry->capacity;
 		}
 	}
 }
@@ -206,4 +212,40 @@ fck_identifier fck_identifiers_find_from_string(struct fck_identifiers *identifi
 
 	fck_hash_int hash = fck_hash(str, strlen(str));
 	return fck_identifiers_find_from_hash(identifiers, hash);
+}
+
+void fck_serialise_identifiers(struct fck_serialiser *serialiser, struct fck_serialiser_params *params, fck_identifiers *v, fckc_size_t c)
+{
+	if (v == NULL)
+	{
+		return;
+	}
+
+	for (fckc_size_t i = 0; i < c; i++)
+	{
+		fck_identifiers *identifiers = v + i;
+		for (fckc_size_t index = 0; index < identifiers->value->capacity; index++)
+		{
+			fck_identifier_registry_entry *entry = identifiers->value->identifiers + index;
+			if (entry->str != NULL)
+			{
+				params->name = "Hash";
+				serialiser->vt->u64(serialiser, params, &entry->hash, 1);
+
+				// No clue if that will work lol
+				fckc_size_t len = SDL_strlen(entry->str);
+				fckc_u64 change = (fckc_u64)len;
+				params->name = "";
+				serialiser->vt->u64(serialiser, params, &change, 1);
+
+				if (change > len)
+				{
+					kll_free(kll_heap, entry->str);
+					entry->str = kll_malloc(kll_heap, change);
+				}
+				serialiser->vt->u8(serialiser, params, (fckc_u8 *)entry->str, change);
+				// fck_serialise_type_info(serialiser, params, entry, 1);
+			}
+		}
+	}
 }

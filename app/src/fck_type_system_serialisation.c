@@ -161,7 +161,7 @@ void fck_type_serialise_ugly(fck_serialiser *serialiser, fck_serialiser_params *
 	{
 		if (fck_stretchy_serialise(serialiser, params, (void **)(data), &count))
 		{
-			fck_type_serialise_pretty(serialiser, params, *(void **)data, count);
+			fck_type_serialise_ugly(serialiser, params, *(void **)data, count);
 		}
 		return;
 	}

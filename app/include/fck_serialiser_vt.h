@@ -20,6 +20,9 @@ struct fck_type_system;
 
 typedef struct fck_serialiser_params
 {
+	// The previous params if recursive
+	struct fck_serialiser_params *parent;
+
 	// Variable name - Makes sense
 	const char *name;
 
@@ -36,6 +39,14 @@ typedef struct fck_serialiser_params
 	//   ...
 
 } fck_serialiser_params;
+
+static inline fck_serialiser_params fck_serialiser_params_next(fck_serialiser_params *prev, const char *name, struct fck_type *type)
+{
+	fck_serialiser_params p = *prev;
+	p.type = type;
+	p.name = name;
+	return p;
+}
 
 typedef struct fck_serialiser_prettify_vt
 {

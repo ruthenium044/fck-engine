@@ -225,9 +225,9 @@ int fck_ui_window_entities(struct fck_ui *ui, fck_ui_window *window, void *userd
 	fck_type custom_type = ts->type->find(app->assembly, fck_name(example_type));
 	struct fck_type_info *type = ts->type->resolve(custom_type);
 
-	fck_nk_serialiser serialiser = {.ctx = ctx, .vt = fck_nk_edit_vt};
-	fck_json_serialiser json;
-	fck_serialiser_json_writer_alloc(&json, kll_heap);
+	fck_nk_serialiser serialiser = {.ctx = ctx, .vt = fck_nk_read_vt};
+	// fck_json_serialiser json;
+	// fck_serialiser_json_writer_alloc(&json, kll_heap);
 
 	static fckc_u8 opaque[1024];
 
@@ -236,21 +236,33 @@ int fck_ui_window_entities(struct fck_ui *ui, fck_ui_window *window, void *userd
 	params.type_system = ts;
 	params.type = &custom_type;
 
-	fck_type_serialise((fck_serialiser *)&serialiser, &params, opaque, 1);
+	// fck_type_serialise((fck_serialiser *)&serialiser, &params, opaque, 1);
 	fck_type assembly_type = ts->type->find(app->assembly, fck_name(fck_assembly));
 	fck_serialiser_params json_params;
 	json_params.name = "Assembly";
 	json_params.type_system = ts;
 	json_params.type = &assembly_type;
-	fck_type_serialise((fck_serialiser *)&json, &json_params, app->assembly, 1);
-	char *text = fck_serialiser_json_string_alloc(&json);
-	SDL_Log("%s", text);
+	json_params.parent = NULL;
+	fck_type_serialise((fck_serialiser *)&serialiser, &json_params, app->assembly, 1);
+	//    char *text = fck_serialiser_json_string_alloc(&json);
+	//    SDL_Log("%s", text);
 
 	nk_layout_row_begin(ctx, NK_DYNAMIC, 25, (int)1);
 
 	nk_layout_row_push(ctx, 1.0f);
 	nk_label(ctx, "", NK_TEXT_ALIGN_LEFT);
 
+	struct fck_type_info *info = ts->type->resolve(assembly_type);
+	fck_member mem = ts->type->members_of(info);
+	while (!ts->member->is_null(mem))
+	{
+		struct fck_member_info *mem_info = ts->member->resolve(mem);
+
+		nk_layout_row_push(ctx, 1.0f);
+		const char *text = ts->identifier->resolve(ts->member->identify(mem_info));
+		nk_button_label(ctx, text);
+		mem = ts->member->next_of(mem_info);
+	}
 	nk_layout_row_push(ctx, 1.0f);
 	if (nk_button_label(ctx, "Save to disk"))
 	{
@@ -264,6 +276,7 @@ int fck_ui_window_entities(struct fck_ui *ui, fck_ui_window *window, void *userd
 		// fck_serialiser_free(&serialiser);
 	}
 
+	return 1;
 	static char input_text_buffer[512];
 	static int input_text_len = 0;
 	nk_layout_row_push(ctx, 1.0f);

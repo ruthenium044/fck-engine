@@ -202,7 +202,7 @@ fck_member fck_members_add(fck_members *members, fck_type owner, fck_member_desc
 
 	const char *owner_str = fck_identifier_resolve(owner_info->identifier);
 
-	fckc_size_t required_size = SDL_strlen(str) + SDL_strlen(owner_str) + 64;
+	fckc_size_t required_size = SDL_strlen(str) + SDL_strlen(owner_str);
 	char *buffer = (char *)SDL_malloc(required_size);
 	fckc_size_t offset = SDL_snprintf(buffer, required_size, "%s::%s", str, owner_str);
 

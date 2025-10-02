@@ -229,13 +229,13 @@ void fck_serialise_identifiers(struct fck_serialiser *serialiser, struct fck_ser
 			fck_identifier_registry_entry *entry = identifiers->value->identifiers + index;
 			if (entry->str != NULL)
 			{
-				params->name = "Hash";
+				params->name = "hash";
 				serialiser->vt->u64(serialiser, params, &entry->hash, 1);
 
 				// No clue if that will work lol
 				fckc_size_t len = SDL_strlen(entry->str);
 				fckc_u64 change = (fckc_u64)len;
-				params->name = "";
+				params->name = "strlen";
 				serialiser->vt->u64(serialiser, params, &change, 1);
 
 				if (change > len)
@@ -243,7 +243,8 @@ void fck_serialise_identifiers(struct fck_serialiser *serialiser, struct fck_ser
 					kll_free(kll_heap, entry->str);
 					entry->str = kll_malloc(kll_heap, change);
 				}
-				serialiser->vt->u8(serialiser, params, (fckc_u8 *)entry->str, change);
+				params->name = "str";
+				serialiser->vt->string(serialiser, params, &entry->str, 1);
 				// fck_serialise_type_info(serialiser, params, entry, 1);
 			}
 		}

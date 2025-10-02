@@ -11,5 +11,6 @@ typedef struct fck_nk_serialiser
 } fck_nk_serialiser;
 
 extern struct fck_serialiser_vt *fck_nk_edit_vt;
+extern struct fck_serialiser_vt *fck_nk_read_vt;
 
 #endif // FCK_SERIALISER_NK_EDIT_VT_H_INCLUDED

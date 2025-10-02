@@ -56,15 +56,16 @@ void fck_type_serialise_members_pretty(fck_serialiser *serialiser, fck_serialise
 
 	while (!ts->member->is_null(members))
 	{
-		fck_serialiser_params parameters = *params;
 
 		struct fck_member_info *info = ts->member->resolve(members);
 		fck_identifier identifier = ts->member->identify(info);
-		parameters.name = ts->identifier->resolve(identifier);
+		// parameters.name = ts->identifier->resolve(identifier);
+
 		fckc_u8 *self = ((fckc_u8 *)(data)) + ts->member->stride_of(info);
 		fck_type type = ts->member->type_of(info);
 		fckc_size_t count = ts->member->count_of(info);
-		parameters.type = &type;
+		// parameters.type = &type;
+		fck_serialiser_params parameters = fck_serialiser_params_next(params, ts->identifier->resolve(identifier), &type);
 
 		fck_type_serialise_pretty((fck_serialiser *)serialiser, &parameters, (void *)(self), count);
 

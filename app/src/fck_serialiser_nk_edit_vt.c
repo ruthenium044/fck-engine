@@ -13,15 +13,9 @@
 static const fckc_size_t FCK_WRITE_BUFFER_STRING_SIZE = 256;
 static const fckc_size_t FCK_READ_BUFFER_STRING_SIZE = 256;
 
-#define fck_nk_scope_str_concat(lhs, rhs) lhs##rhs
-#define fck_nk_scope_unique(lhs, rhs) fck_nk_scope_str_concat(lhs, rhs)
-#define fck_nk_scope(ctor, dtor)                                                                                                           \
-	for (int fck_nk_scope_unique(i, __LINE__) = ((ctor) ? 0 : 1); fck_nk_scope_unique(i, __LINE__) == 0;                                   \
-	     fck_nk_scope_unique(i, __LINE__) += 1, (dtor))
-
 static void fck_nk_edit_precondition(fck_serialiser *s)
 {
-	SDL_assert(s->vt == fck_nk_edit_vt);
+	SDL_assert(s->vt == fck_nk_edit_vt || s->vt == fck_nk_read_vt);
 }
 
 static float fck_nk_edit_value_label(const char *type, fck_ui_ctx *ctx, const char *name, fckc_size_t c)
@@ -77,7 +71,7 @@ static void fck_nk_edit_tree_pop(fck_ui_ctx *ctx, fckc_size_t count)
 }
 
 #define fck_nk_tree_scope(ctx, content_ratio, type_name, name, count)                                                                      \
-	fck_nk_scope(fck_nk_edit_tree_push(ctx, content_ratio, type_name, name, count), fck_nk_edit_tree_pop(ctx, count))
+	fck_scope(fck_nk_edit_tree_push(ctx, content_ratio, type_name, name, count), fck_nk_edit_tree_pop(ctx, count))
 
 static const char *fck_nk_property_prefix(fckc_size_t count)
 {
@@ -351,6 +345,227 @@ void fck_nk_edit_string(fck_serialiser *s, fck_serialiser_params *p, fck_lstring
 	SDL_assert(false && "NOT SUPPORTED FOR NOW");
 }
 
+void fck_nk_read_i8(fck_serialiser *s, fck_serialiser_params *p, fckc_i8 *v, fckc_size_t c)
+{
+	fck_nk_edit_precondition(s);
+
+	const char type_name[] = "i8";
+
+	fck_ui_ctx *ctx = (fck_ui_ctx *)((fck_nk_serialiser *)s)->ctx;
+
+	float content_ratio = 0.0f;
+	fck_nk_tree_scope(ctx, &content_ratio, type_name, p->name, c)
+	{
+		for (fckc_size_t i = 0; i < c; i++)
+		{
+			int value = (int)v[i];
+			nk_layout_row_push(ctx, content_ratio);
+			nk_labelf(ctx, NK_TEXT_LEFT, "%d", value);
+		}
+	}
+}
+
+void fck_nk_read_i16(fck_serialiser *s, fck_serialiser_params *p, fckc_i16 *v, fckc_size_t c)
+{
+	fck_nk_edit_precondition(s);
+
+	const char type_name[] = "i16";
+
+	fck_ui_ctx *ctx = (fck_ui_ctx *)((fck_nk_serialiser *)s)->ctx;
+
+	float content_ratio = 0.0f;
+	fck_nk_tree_scope(ctx, &content_ratio, type_name, p->name, c)
+	{
+		for (fckc_size_t i = 0; i < c; i++)
+		{
+			int value = (int)v[i];
+			nk_layout_row_push(ctx, content_ratio);
+			nk_labelf(ctx, NK_TEXT_LEFT, "%d", value);
+		}
+	}
+}
+
+void fck_nk_read_i32(fck_serialiser *s, fck_serialiser_params *p, fckc_i32 *v, fckc_size_t c)
+{
+	fck_nk_edit_precondition(s);
+
+	const char type_name[] = "i32";
+
+	fck_ui_ctx *ctx = (fck_ui_ctx *)((fck_nk_serialiser *)s)->ctx;
+
+	float content_ratio = 0.0f;
+	fck_nk_tree_scope(ctx, &content_ratio, type_name, p->name, c)
+	{
+		for (fckc_size_t i = 0; i < c; i++)
+		{
+			fckc_i32 value = v[i];
+
+			nk_layout_row_push(ctx, content_ratio);
+			nk_labelf(ctx, NK_TEXT_LEFT, "%lld", (long long)value);
+		}
+	}
+}
+
+void fck_nk_read_i64(fck_serialiser *s, fck_serialiser_params *p, fckc_i64 *v, fckc_size_t c)
+{
+	fck_nk_edit_precondition(s);
+
+	const char type_name[] = "i64";
+
+	fck_ui_ctx *ctx = (fck_ui_ctx *)((fck_nk_serialiser *)s)->ctx;
+
+	float content_ratio = 0.0f;
+	fck_nk_tree_scope(ctx, &content_ratio, type_name, p->name, c)
+	{
+		for (fckc_size_t i = 0; i < c; i++)
+		{
+			fckc_i64 value = v[i];
+			nk_layout_row_push(ctx, content_ratio);
+			nk_labelf(ctx, NK_TEXT_LEFT, "%lld", (long long)value);
+		}
+	}
+}
+
+void fck_nk_read_u8(fck_serialiser *s, fck_serialiser_params *p, fckc_u8 *v, fckc_size_t c)
+{
+	fck_nk_edit_precondition(s);
+
+	const char type_name[] = "u8";
+
+	fck_ui_ctx *ctx = (fck_ui_ctx *)((fck_nk_serialiser *)s)->ctx;
+
+	float content_ratio = 0.0f;
+	fck_nk_tree_scope(ctx, &content_ratio, type_name, p->name, c)
+	{
+		for (fckc_size_t i = 0; i < c; i++)
+		{
+			int value = (int)v[i];
+			nk_layout_row_push(ctx, content_ratio);
+			nk_labelf(ctx, NK_TEXT_LEFT, "%d", value);
+		}
+	}
+}
+
+void fck_nk_read_u16(fck_serialiser *s, fck_serialiser_params *p, fckc_u16 *v, fckc_size_t c)
+{
+	fck_nk_edit_precondition(s);
+
+	const char type_name[] = "u16";
+
+	fck_ui_ctx *ctx = (fck_ui_ctx *)((fck_nk_serialiser *)s)->ctx;
+
+	float content_ratio = 0.0f;
+	fck_nk_tree_scope(ctx, &content_ratio, type_name, p->name, c)
+	{
+		for (fckc_size_t i = 0; i < c; i++)
+		{
+			int value = (int)v[i];
+			nk_layout_row_push(ctx, content_ratio);
+			nk_labelf(ctx, NK_TEXT_LEFT, "%d", value);
+		}
+	}
+}
+
+void fck_nk_read_u32(fck_serialiser *s, fck_serialiser_params *p, fckc_u32 *v, fckc_size_t c)
+{
+	fck_nk_edit_precondition(s);
+
+	const char type_name[] = "u32";
+
+	fck_ui_ctx *ctx = (fck_ui_ctx *)((fck_nk_serialiser *)s)->ctx;
+
+	float content_ratio = 0.0f;
+	fck_nk_tree_scope(ctx, &content_ratio, type_name, p->name, c)
+	{
+		for (fckc_size_t i = 0; i < c; i++)
+		{
+			fckc_u32 value = v[i];
+			nk_layout_row_push(ctx, content_ratio);
+			nk_labelf(ctx, NK_TEXT_LEFT, "%llu", (unsigned long long)value);
+		}
+	}
+}
+
+void fck_nk_read_u64(fck_serialiser *s, fck_serialiser_params *p, fckc_u64 *v, fckc_size_t c)
+{
+	fck_nk_edit_precondition(s);
+
+	const char type_name[] = "u64";
+
+	fck_ui_ctx *ctx = (fck_ui_ctx *)((fck_nk_serialiser *)s)->ctx;
+
+	float content_ratio = 0.0f;
+	fck_nk_tree_scope(ctx, &content_ratio, type_name, p->name, c)
+	{
+		for (fckc_size_t i = 0; i < c; i++)
+		{
+			fckc_u64 value = v[i];
+			nk_layout_row_push(ctx, content_ratio);
+			nk_labelf(ctx, NK_TEXT_LEFT, "%llu", (unsigned long long)value);
+		}
+	}
+}
+
+void fck_nk_read_f32(fck_serialiser *s, fck_serialiser_params *p, fckc_f32 *v, fckc_size_t c)
+{
+	fck_nk_edit_precondition(s);
+
+	const char type_name[] = "f32";
+
+	fck_ui_ctx *ctx = (fck_ui_ctx *)((fck_nk_serialiser *)s)->ctx;
+
+	float content_ratio = 0.0f;
+	fck_nk_tree_scope(ctx, &content_ratio, type_name, p->name, c)
+	{
+		for (fckc_size_t i = 0; i < c; i++)
+		{
+			fckc_f32 value = v[i];
+			nk_layout_row_push(ctx, content_ratio);
+			nk_labelf(ctx, NK_TEXT_LEFT, "%f", value);
+		}
+	}
+}
+
+void fck_nk_read_f64(fck_serialiser *s, fck_serialiser_params *p, fckc_f64 *v, fckc_size_t c)
+{
+	fck_nk_edit_precondition(s);
+
+	const char type_name[] = "f64";
+
+	fck_ui_ctx *ctx = (fck_ui_ctx *)((fck_nk_serialiser *)s)->ctx;
+
+	float content_ratio = 0.0f;
+	fck_nk_tree_scope(ctx, &content_ratio, type_name, p->name, c)
+	{
+		for (fckc_size_t i = 0; i < c; i++)
+		{
+			fckc_f64 value = v[i];
+			nk_layout_row_push(ctx, content_ratio);
+			nk_labelf(ctx, NK_TEXT_LEFT, "%f", value);
+		}
+	}
+}
+
+void fck_nk_read_string(fck_serialiser *s, fck_serialiser_params *p, fck_lstring *v, fckc_size_t c)
+{
+	fck_nk_edit_precondition(s);
+
+	const char type_name[] = "string";
+
+	fck_ui_ctx *ctx = (fck_ui_ctx *)((fck_nk_serialiser *)s)->ctx;
+
+	float content_ratio = 0.0f;
+	fck_nk_tree_scope(ctx, &content_ratio, type_name, p->name, c)
+	{
+		for (fckc_size_t i = 0; i < c; i++)
+		{
+			const char *value = *((const char **)(v + i));
+			nk_layout_row_push(ctx, content_ratio);
+			nk_labelf(ctx, NK_TEXT_LEFT, "%s", value);
+		}
+	}
+}
+
 int fck_nk_edit_prettify_label(char *buffer, fckc_size_t size, struct fck_serialiser_params *p, const char *name, fckc_size_t number)
 {
 	switch (number)
@@ -386,17 +601,37 @@ void fck_nk_edit_prettify_tree_pop(struct fck_serialiser *s, struct fck_serialis
 static fck_serialiser_prettify_vt fck_serialiser_nk_edit_pretty_vt = {
 	.tree_push = fck_nk_edit_prettify_tree_push, .tree_pop = fck_nk_edit_prettify_tree_pop, .label = fck_nk_edit_prettify_label};
 
-static fck_serialiser_vt fck_serialiser_nk_edit_vt = {.i8 = fck_nk_edit_i8,
-                                                      .i16 = fck_nk_edit_i16,
-                                                      .i32 = fck_nk_edit_i32,
-                                                      .i64 = fck_nk_edit_i64,
-                                                      .u8 = fck_nk_edit_u8,
-                                                      .u16 = fck_nk_edit_u16,
-                                                      .u32 = fck_nk_edit_u32,
-                                                      .u64 = fck_nk_edit_u64,
-                                                      .f32 = fck_nk_edit_f32,
-                                                      .f64 = fck_nk_edit_f64,
-                                                      .string = fck_nk_edit_string,
-                                                      .pretty = &fck_serialiser_nk_edit_pretty_vt};
+static fck_serialiser_vt fck_serialiser_nk_edit_vt = //
+	{
+		.i8 = fck_nk_edit_i8,                       //
+		.i16 = fck_nk_edit_i16,                     //
+		.i32 = fck_nk_edit_i32,                     //
+		.i64 = fck_nk_edit_i64,                     //
+		.u8 = fck_nk_edit_u8,                       //
+		.u16 = fck_nk_edit_u16,                     //
+		.u32 = fck_nk_edit_u32,                     //
+		.u64 = fck_nk_edit_u64,                     //
+		.f32 = fck_nk_edit_f32,                     //
+		.f64 = fck_nk_edit_f64,                     //
+		.string = fck_nk_edit_string,               //
+		.pretty = &fck_serialiser_nk_edit_pretty_vt //
+};
+
+static fck_serialiser_vt fck_serialiser_nk_read_vt = //
+	{
+		.i8 = fck_nk_read_i8,                       //
+		.i16 = fck_nk_read_i16,                     //
+		.i32 = fck_nk_read_i32,                     //
+		.i64 = fck_nk_read_i64,                     //
+		.u8 = fck_nk_read_u8,                       //
+		.u16 = fck_nk_read_u16,                     //
+		.u32 = fck_nk_read_u32,                     //
+		.u64 = fck_nk_read_u64,                     //
+		.f32 = fck_nk_read_f32,                     //
+		.f64 = fck_nk_read_f64,                     //
+		.string = fck_nk_read_string,               //
+		.pretty = &fck_serialiser_nk_edit_pretty_vt //
+};
 
 fck_serialiser_vt *fck_nk_edit_vt = &fck_serialiser_nk_edit_vt;
+fck_serialiser_vt *fck_nk_read_vt = &fck_serialiser_nk_read_vt;

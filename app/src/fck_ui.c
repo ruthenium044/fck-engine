@@ -329,7 +329,8 @@ static int fck_ui_handle_event(struct fck_ui *ui, nk_sdl_input_event const *evt)
 
 	case SDL_EVENT_TEXT_INPUT: {
 		nk_glyph glyph;
-		memcpy(glyph, evt->text.text, NK_UTF_SIZE);
+		size_t size = SDL_strlen(evt->text.text);
+		memcpy(glyph, evt->text.text, size);
 		nk_input_glyph(ctx, glyph);
 	}
 		return 1;

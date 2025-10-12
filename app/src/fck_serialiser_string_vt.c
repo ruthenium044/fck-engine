@@ -6,8 +6,8 @@
 
 #include <SDL3/SDL_assert.h>
 
-static const fckc_size_t FCK_WRITE_BUFFER_STRING_SIZE = 32;
-static const fckc_size_t FCK_READ_BUFFER_STRING_SIZE = 32;
+#define FCK_WRITE_BUFFER_STRING_SIZE 32
+#define FCK_READ_BUFFER_STRING_SIZE 32
 
 void fck_write_string_i8(fck_serialiser *s, fck_serialiser_params *p, fckc_i8 *v, fckc_size_t c)
 {

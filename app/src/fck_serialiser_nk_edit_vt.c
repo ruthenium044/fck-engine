@@ -10,8 +10,8 @@
 
 #include <limits.h>
 
-static const fckc_size_t FCK_WRITE_BUFFER_STRING_SIZE = 256;
-static const fckc_size_t FCK_READ_BUFFER_STRING_SIZE = 256;
+#define FCK_WRITE_BUFFER_STRING_SIZE 256
+#define FCK_READ_BUFFER_STRING_SIZE 256
 
 static void fck_nk_edit_precondition(fck_serialiser *s)
 {

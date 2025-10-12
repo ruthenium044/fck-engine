@@ -3,23 +3,8 @@
 
 #include <fckc_inttypes.h>
 
-typedef enum fck_set_key_state
-{
-	FCK_SET_KEY_EMPTY = 0, // 00
-	FCK_SET_KEY_TAKEN = 1, // 01
-	FCK_SET_KEY_STALE = 2, // 10 (11 is unsed... - 1 wasted bit)
-} fck_set_key_state;
-
-typedef struct fck_set_state
-{
-	fckc_u64 state; // Bits for 16 elements...
-} fck_set_state;
-
-typedef struct fck_set_key
-{
-	fckc_u64 hash; // Good enough
-	// TODO: Maybe a string representation
-} fck_set_key;
+struct fck_set_key;
+struct fck_set_state;
 
 typedef struct fck_set_info
 {
@@ -29,8 +14,23 @@ typedef struct fck_set_info
 	fckc_size_t capacity;
 	fckc_size_t size;
 
-
-	fck_set_key* keys;
+	struct fck_set_key *keys; // sizeof(fck_set_info) + (el_size * capacity)
+	struct fck_set_state *states;
 } fck_set_info;
 
+fck_set_info *fck_set_inspect(void *ptr, fckc_size_t align);
+
+void *fck_set_alloc(fck_set_info info);
+void fck_set_free(void *ptr, fckc_size_t align);
+fckc_size_t fck_set_weak_add(void **ptr, fckc_u64 hash, fckc_size_t align);
+void fck_set_remove(void **ptr, fckc_u64 hash, fckc_size_t align);
+
+#define fck_set_new(type, alloc, cap)                                                                                                      \
+	(type *)fck_set_alloc(                                                                                                                 \
+		(fck_set_info){.allocator = (alloc), .el_align = sizeof(type), .el_size = sizeof(type), .capacity = (cap), .size = 0})
+
+// Let's see if ptr to ptr makes sense
+#define fck_set_destroy(ptr) fck_set_free((void *)(ptr), sizeof(*(ptr)))
+#define fck_set_add(ptr, hash, value) ptr[fck_set_weak_add((void **)&(ptr), hash, sizeof(*(ptr)))] = value
+#define fck_set_erase(ptr, hash) fck_set_remove((void **)&(ptr), hash, sizeof(*(ptr)));
 #endif // FCK_SET_H_INCLUDED

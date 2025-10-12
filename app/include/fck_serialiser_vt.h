@@ -57,17 +57,17 @@ typedef struct fck_serialiser_prettify_vt
 
 typedef struct fck_serialiser_vt
 {
-	void (*i8)(struct fck_serialiser *, struct fck_serialiser_params *, fckc_i8 *, fckc_size_t);
-	void (*i16)(struct fck_serialiser *, struct fck_serialiser_params *, fckc_i16 *, fckc_size_t);
-	void (*i32)(struct fck_serialiser *, struct fck_serialiser_params *, fckc_i32 *, fckc_size_t);
-	void (*i64)(struct fck_serialiser *, struct fck_serialiser_params *, fckc_i64 *, fckc_size_t);
-	void (*u8)(struct fck_serialiser *, struct fck_serialiser_params *, fckc_u8 *, fckc_size_t);
-	void (*u16)(struct fck_serialiser *, struct fck_serialiser_params *, fckc_u16 *, fckc_size_t);
-	void (*u32)(struct fck_serialiser *, struct fck_serialiser_params *, fckc_u32 *, fckc_size_t);
-	void (*u64)(struct fck_serialiser *, struct fck_serialiser_params *, fckc_u64 *, fckc_size_t);
-	void (*f32)(struct fck_serialiser *, struct fck_serialiser_params *, float *, fckc_size_t);
-	void (*f64)(struct fck_serialiser *, struct fck_serialiser_params *, double *, fckc_size_t);
-	void (*string)(struct fck_serialiser *, struct fck_serialiser_params *, fck_lstring *, fckc_size_t);
+	void (*i8)(struct fck_serialiser *s, struct fck_serialiser_params *p, fckc_i8 *v, fckc_size_t c);
+	void (*i16)(struct fck_serialiser *s, struct fck_serialiser_params *p, fckc_i16 *v, fckc_size_t c);
+	void (*i32)(struct fck_serialiser *s, struct fck_serialiser_params *p, fckc_i32 *v, fckc_size_t c);
+	void (*i64)(struct fck_serialiser *s, struct fck_serialiser_params *p, fckc_i64 *v, fckc_size_t c);
+	void (*u8)(struct fck_serialiser *s, struct fck_serialiser_params *p, fckc_u8 *v, fckc_size_t c);
+	void (*u16)(struct fck_serialiser *s, struct fck_serialiser_params *p, fckc_u16 *v, fckc_size_t c);
+	void (*u32)(struct fck_serialiser *s, struct fck_serialiser_params *p, fckc_u32 *v, fckc_size_t c);
+	void (*u64)(struct fck_serialiser *s, struct fck_serialiser_params *p, fckc_u64 *v, fckc_size_t c);
+	void (*f32)(struct fck_serialiser *s, struct fck_serialiser_params *p, float *v, fckc_size_t c);
+	void (*f64)(struct fck_serialiser *s, struct fck_serialiser_params *p, double *v, fckc_size_t c);
+	void (*string)(struct fck_serialiser *s, struct fck_serialiser_params *p, fck_lstring *v, fckc_size_t c);
 
 	fck_serialiser_prettify_vt *pretty;
 } fck_serialiser_vt;

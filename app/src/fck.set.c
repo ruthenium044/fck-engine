@@ -161,7 +161,6 @@ fckc_size_t fck_set_weak_add(void **ptr, fckc_u64 hash, fckc_size_t align)
 		fck_set_free(*ptr, info->el_align);
 
 		// Refresh all pointers...
-		info = new_info;
 		*ptr = (void *)new_mem;
 		info = (fck_set_info *)(((fckc_u8 *)(*ptr)) - data_offset);
 	}

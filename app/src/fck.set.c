@@ -30,7 +30,7 @@ static fckc_size_t fck_set_align(fckc_size_t offset, fckc_size_t align)
 	return (offset + align - 1) & ~(align - 1);
 }
 
-fck_set_info *fck_set_inspect(void *ptr, fckc_size_t align)
+fck_set_info * fck_opaque_set_inspect(void *ptr, fckc_size_t align)
 {
 	fck_set_info *info;
 
@@ -40,7 +40,7 @@ fck_set_info *fck_set_inspect(void *ptr, fckc_size_t align)
 	return (fck_set_info *)((fckc_u8 *)(ptr)-data_offset);
 }
 
-void *fck_set_alloc(fck_set_info info)
+void *fck_opaque_set_alloc(fck_set_info info)
 {
 	SDL_assert(info.el_size);
 	SDL_assert(info.el_align);
@@ -60,7 +60,7 @@ void *fck_set_alloc(fck_set_info info)
 	fckc_size_t keys_offset = fck_set_align(data_offset + data_size, fck_set_alignof(*total->keys));
 	fckc_size_t states_offset = fck_set_align(keys_offset + key_size, fck_set_alignof(*total->states));
 
-	fckc_u8 *mem = (fckc_u8 *)kll_malloc(info.allocator, key_size + state_size);
+	fckc_u8 *mem = (fckc_u8 *)kll_malloc(info.allocator, states_offset + state_size);
 	total = (fck_set_info *)mem;
 
 	SDL_memcpy(total, &info, sizeof(*total));
@@ -73,7 +73,7 @@ void *fck_set_alloc(fck_set_info info)
 	return (void *)(mem + data_offset);
 }
 
-void fck_set_free(void *ptr, fckc_size_t align)
+void fck_opaque_set_free(void *ptr, fckc_size_t align)
 {
 	SDL_assert(ptr);
 
@@ -88,7 +88,20 @@ void fck_set_free(void *ptr, fckc_size_t align)
 	kll_free(info->allocator, info);
 }
 
-fckc_size_t fck_set_weak_add(void **ptr, fckc_u64 hash, fckc_size_t align)
+fckc_size_t fck_set_suggested_align(fckc_size_t x)
+{
+	// TODO: Fix up for 32-bit... We only do 64-bit for now anyway 
+	x |= x >> 1;
+	x |= x >> 2;
+	x |= x >> 4;
+	x |= x >> 8;
+	x |= x >> 16;
+	x |= x >> 32;
+	x = x - (x >> 1);
+	return x;
+}
+
+fckc_size_t fck_opaque_set_weak_add(void **ptr, fckc_u64 hash, fckc_size_t align)
 {
 	SDL_assert(ptr);
 	SDL_assert(*ptr);
@@ -120,7 +133,7 @@ fckc_size_t fck_set_weak_add(void **ptr, fckc_u64 hash, fckc_size_t align)
 		}
 
 		fckc_u8 *old_mem = (fckc_u8 *)(*ptr);
-		fckc_u8 *new_mem = fck_set_alloc(input_info);
+		fckc_u8 *new_mem = fck_opaque_set_alloc(input_info);
 
 		fck_set_info *new_info = (fck_set_info *)(new_mem - data_offset);
 		fck_set_key *new_keys = new_info->keys;
@@ -158,7 +171,7 @@ fckc_size_t fck_set_weak_add(void **ptr, fckc_u64 hash, fckc_size_t align)
 		}
 
 		new_info->size = info->size;
-		fck_set_free(*ptr, info->el_align);
+		fck_opaque_set_free(*ptr, info->el_align);
 
 		// Refresh all pointers...
 		*ptr = (void *)new_mem;
@@ -191,7 +204,7 @@ fckc_size_t fck_set_weak_add(void **ptr, fckc_u64 hash, fckc_size_t align)
 	}
 }
 
-void fck_set_remove(void **ptr, fckc_u64 hash, fckc_size_t align)
+void fck_opaque_set_remove(void **ptr, fckc_u64 hash, fckc_size_t align)
 {
 	SDL_assert(ptr);
 	SDL_assert(*ptr);
@@ -225,6 +238,9 @@ void fck_set_remove(void **ptr, fckc_u64 hash, fckc_size_t align)
 			// Shift the mask from FCK_SET_KEY_TAKEN (0x01) to FCK_SET_KEY_STALE (0x02)
 			state->mask = state->mask & ~taken_mask;
 			state->mask = state->mask | stale_mask;
+			info->size = info->size - 1;
+			// Maybe debug clear memory?!
+			// key->hash = (fckc_u64)0xDEADFACEDEADFACE;
 			return;
 		}
 

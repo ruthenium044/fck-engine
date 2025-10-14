@@ -57,7 +57,7 @@ void fck_stretchy_realloc(void **ref_ptr, fckc_size_t extra)
 		next_size |= next_size >> 1;
 		next_size |= next_size >> 2;
 		next_size |= next_size >> 4;
-		next_size |= next_size >> 8;
+		next_size |= next_size >> 8; 
 		next_size |= next_size >> 16;
 		next_size |= next_size >> 32;
 		next_size++;

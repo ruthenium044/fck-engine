@@ -67,7 +67,7 @@ static fckc_u64 fck_type_registry_add_next_capacity(fckc_u64 n)
 	return n;
 }
 
-fck_type fck_type_null()
+fck_type fck_type_null(void)
 {
 	return (fck_type){NULL, 0};
 }

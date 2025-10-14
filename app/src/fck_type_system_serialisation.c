@@ -80,7 +80,7 @@ void fck_type_serialise_pretty(fck_serialiser *serialiser, fck_serialiser_params
 	struct fck_type_info *info = ts->type->resolve(type);
 	fck_identifier owner_identifier = ts->type->identify(info);
 
-	fck_serialise_func *serialise = ts->serialise->get(type);
+	fck_marshal_func *serialise = ts->marshal->get(type);
 	if (serialise != NULL)
 	{
 		serialise((fck_serialiser *)serialiser, params, data, count);
@@ -144,7 +144,7 @@ void fck_type_serialise_ugly(fck_serialiser *serialiser, fck_serialiser_params *
 	fck_type type = *params->type;
 	fck_type_system *ts = params->type_system;
 
-	fck_serialise_func *serialise = ts->serialise->get(type);
+	fck_marshal_func *serialise = ts->marshal->get(type);
 	if (serialise != NULL)
 	{
 		serialise((fck_serialiser *)serialiser, params, data, count);

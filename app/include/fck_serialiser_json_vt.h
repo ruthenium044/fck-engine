@@ -7,6 +7,7 @@ extern struct fck_serialiser_vt *fck_json_writer_vt;
 extern struct fck_serialiser_vt *fck_json_reader_vt;
 
 struct kll_allocator;
+struct yyjson_mut_doc;
 
 typedef struct fck_json_serialiser
 {

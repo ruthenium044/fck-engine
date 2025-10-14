@@ -45,7 +45,7 @@ static fckc_u64 fck_identifier_registry_add_next_capacity(fckc_u64 n)
 	return n;
 }
 
-fck_identifier fck_identifier_null()
+fck_identifier fck_identifier_null(void)
 {
 	return (fck_identifier){NULL, 0};
 }

@@ -97,7 +97,7 @@ static fck_serialiser_vt fck_size_of_vt = {
 // TODO: Add user-provided kll allocator!
 // TODO: fck_memory_api? Something like this for the type system. We use it to create objects through it!
 
-fck_assembly *fck_assembly_alloc()
+fck_assembly *fck_assembly_alloc(void)
 {
 	// Assembly
 	// -- Identifiers
@@ -110,15 +110,15 @@ fck_assembly *fck_assembly_alloc()
 	assembly->identifiers.value = fck_identifier_registry_alloc(assembly, 1);
 	assembly->types.value = fck_type_registry_alloc(assembly, &assembly->identifiers, 1);
 	assembly->members.value = fck_member_registry_alloc(assembly, &assembly->identifiers, 1);
-	assembly->serialisers.value = fck_serialiser_registry_alloc(assembly, 1);
-	fck_type_system_setup_core(&assembly->types, &assembly->members, &assembly->serialisers);
+	assembly->marshal.value = fck_marshal_registry_alloc(assembly, 1);
+	fck_type_system_setup_core(&assembly->types, &assembly->members, &assembly->marshal);
 
 	return assembly;
 }
 
 void fck_assembly_free(fck_assembly *assembly)
 {
-	fck_serialise_interfaces_free(&assembly->serialisers);
+	fck_marshal_free(&assembly->marshal);
 	fck_members_free(&assembly->members);
 	fck_types_free(&assembly->types);
 	fck_identifiers_free(&assembly->identifiers);
@@ -134,7 +134,7 @@ typedef struct fck_type_system_api_blob
 	fck_identifier_api identifier_api;
 	fck_type_api type_api;
 	fck_member_api member_api;
-	fck_serialise_interface_api serialise_api;
+	fck_marshal_api marshal_api;
 	fck_assembly_api assembly_api;
 } fck_type_system_api_blob;
 
@@ -145,7 +145,7 @@ void fck_type_size_of(struct fck_serialiser *s, struct fck_serialiser_params *p,
 	SDL_assert(s->vt == &fck_size_of_vt);
 
 	fck_type_system *ts = p->type_system;
-	fck_serialise_func *serialise = ts->serialise->get(*p->type);
+	fck_marshal_func *serialise = ts->marshal->get(*p->type);
 	if (serialise != NULL)
 	{
 		serialise(s, p, self, c);
@@ -231,16 +231,16 @@ fck_member fck_members_add_api(fck_type owner, fck_member_desc desc)
 	return fck_members_add(&assembly->members, owner, desc);
 }
 
-void fck_serialise_interfaces_add_api(fck_serialise_desc desc)
+void fck_marshal_add_api(fck_marshal_desc desc)
 {
 	fck_assembly *assembly = fck_types_assembly(desc.type.types);
-	fck_serialise_interfaces_add(&assembly->serialisers, desc);
+	fck_marshal_add(&assembly->marshal, desc);
 }
 
-fck_serialise_func *fck_serialise_interfaces_get_api(fck_type type)
+fck_marshal_func *fck_marshal_get_api(fck_type type)
 {
 	fck_assembly *assembly = fck_types_assembly(type.types);
-	return fck_serialise_interfaces_get(&assembly->serialisers, type);
+	return fck_marshal_get(&assembly->marshal, type);
 }
 
 int fck_members_is_stretchy(struct fck_member_info *info)
@@ -256,7 +256,7 @@ fck_type_system *fck_load_type_system(struct fck_apis *apis)
 	blob->type_system.identifier = &blob->identifier_api;
 	blob->type_system.type = &blob->type_api;
 	blob->type_system.member = &blob->member_api;
-	blob->type_system.serialise = &blob->serialise_api;
+	blob->type_system.marshal = &blob->marshal_api;
 	blob->type_system.assembly = &blob->assembly_api;
 	fck_type_system *ts = (fck_type_system *)blob;
 
@@ -298,8 +298,8 @@ fck_type_system *fck_load_type_system(struct fck_apis *apis)
 
 	ts->member->add = fck_members_add_api;
 	// Serialiser public API
-	ts->serialise->add = fck_serialise_interfaces_add_api;
-	ts->serialise->get = fck_serialise_interfaces_get_api;
+	ts->marshal->add = fck_marshal_add_api;
+	ts->marshal->get = fck_marshal_get_api;
 
 	ts->assembly->alloc = fck_assembly_alloc;
 	ts->assembly->free = fck_assembly_free;

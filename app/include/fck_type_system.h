@@ -10,7 +10,7 @@
 struct fck_identifiers;
 struct fck_types;
 struct fck_members;
-struct fck_serialise_interfaces;
+struct fck_marshal;
 
 struct fck_type_info;
 struct fck_member_info;
@@ -40,7 +40,7 @@ typedef struct fck_member
 	fckc_u64 hash;
 } fck_member;
 
-typedef void(fck_serialise_func)(struct fck_serialiser *s, struct fck_serialiser_params *p, void *self, fckc_size_t c);
+typedef void(fck_marshal_func)(struct fck_serialiser *s, struct fck_serialiser_params *p, void *self, fckc_size_t c);
 
 #define fck_
 
@@ -97,12 +97,12 @@ inline fck_member_desc fck_member_desc_array(fck_type type, const char *name, fc
 	return (fck_member_desc){.type = type, .name = name, .stride = stride, .extra_count = count - 1};
 }
 
-typedef struct fck_serialise_desc
+typedef struct fck_marshal_desc
 {
 	// They just happen to be the same...
 	fck_type type;
-	fck_serialise_func *func;
-} fck_serialise_desc;
+	fck_marshal_func *func;
+} fck_marshal_desc;
 
 typedef struct fck_identifier_api
 {
@@ -154,13 +154,13 @@ typedef struct fck_member_api
 	fck_member (*add)(fck_type owner, fck_member_desc desc);
 } fck_member_api;
 
-typedef struct fck_serialise_interface_api
+typedef struct fck_marshal_api
 {
-	void (*add)(fck_serialise_desc desc);
+	void (*add)(fck_marshal_desc desc);
 	// TODO: Maybe batched invoke? Let's do it later
-	fck_serialise_func *(*get)(fck_type type);
+	fck_marshal_func*(*get)(fck_type type);
 
-} fck_serialise_interface_api;
+} fck_marshal_api;
 
 typedef struct fck_assembly_api
 {
@@ -174,7 +174,7 @@ typedef struct fck_type_system
 	fck_identifier_api *identifier;
 	fck_type_api *type;
 	fck_member_api *member;
-	fck_serialise_interface_api *serialise;
+	fck_marshal_api *marshal;
 	fck_assembly_api *assembly;
 } fck_type_system;
 

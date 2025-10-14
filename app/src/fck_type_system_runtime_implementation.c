@@ -10,8 +10,7 @@
 // TODO: SERIOUSLY, FUCK THIS FILE. THIS FILE IS THE FUCKING WORST
 
 #define fck_setup_base_primitive(types, serialisers, type, serialise)                                                                      \
-	fck_serialise_interfaces_add(                                                                                                          \
-		serialisers, (fck_serialise_desc){fck_types_add(types, (fck_type_desc){fck_id(type)}), (fck_serialise_func *)(serialise)})
+	fck_marshal_add(serialisers, (fck_marshal_desc){fck_types_add(types, (fck_type_desc){fck_id(type)}), (fck_marshal_func *)(serialise)})
 
 void fck_serialise_f32(fck_serialiser *serialiser, fck_serialiser_params *params, fckc_f32 *value, fckc_size_t count)
 {
@@ -126,11 +125,11 @@ static fck_type fck_declare(struct fck_types *types, const char *name)
 	return fck_types_add(types, (fck_type_desc){.name = name});
 }
 
-void fck_type_system_setup_core(struct fck_types *types, struct fck_members *members, struct fck_serialise_interfaces *serialisers)
+void fck_type_system_setup_core(struct fck_types *types, struct fck_members *members, struct fck_marshal *serialisers)
 {
 	struct fck_types *t = types;
 	struct fck_members *m = members;
-	struct fck_serialise_interfaces *s = serialisers;
+	struct fck_marshal *s = serialisers;
 
 	// The backbone :frown:
 	fck_setup_base_primitive(t, s, fckc_f32, fck_serialise_f32);

@@ -6,10 +6,10 @@
 typedef struct fck_serialiser_info
 {
 	fck_type type;
-	fck_serialise_func *serialise;
+	fck_marshal_func *serialise;
 } fck_serialiser_info;
 
-typedef struct fck_serialiser_registry
+typedef struct fck_marshal_registry
 {
 	struct fck_assembly *assembly;
 
@@ -17,9 +17,9 @@ typedef struct fck_serialiser_registry
 	fckc_size_t capacity;
 
 	fck_serialiser_info info[1];
-} fck_serialiser_registry;
+} fck_marshal_registry;
 
-static fckc_u64 fck_serialiser_registry_add_next_capacity(fckc_u64 n)
+static fckc_u64 fck_marshal_registry_add_next_capacity(fckc_u64 n)
 {
 	if (n == 0)
 		return 1;
@@ -36,10 +36,10 @@ static fckc_u64 fck_serialiser_registry_add_next_capacity(fckc_u64 n)
 	return n;
 }
 
-fck_serialiser_registry *fck_serialiser_registry_alloc(struct fck_assembly *assembly, fckc_size_t capacity)
+fck_marshal_registry *fck_marshal_registry_alloc(struct fck_assembly *assembly, fckc_size_t capacity)
 {
-	fckc_size_t size = offsetof(fck_serialiser_registry, info[capacity]);
-	fck_serialiser_registry *registry = (fck_serialiser_registry *)SDL_malloc(size);
+	fckc_size_t size = offsetof(fck_marshal_registry, info[capacity]);
+	fck_marshal_registry *registry = (fck_marshal_registry *)SDL_malloc(size);
 
 	for (fckc_size_t index = 0; index < capacity; index++)
 	{
@@ -53,20 +53,20 @@ fck_serialiser_registry *fck_serialiser_registry_alloc(struct fck_assembly *asse
 	return registry;
 }
 
-void fck_serialiser_registry_free(fck_serialiser_registry *registry)
+void fck_marshal_registry_free(fck_marshal_registry *registry)
 {
 	SDL_assert(registry);
 	SDL_free(registry);
 }
 
-void fck_serialise_interfaces_free(struct fck_serialise_interfaces *interfaces)
+void fck_marshal_free(struct fck_marshal*interfaces)
 {
 	SDL_assert(interfaces->value);
-	fck_serialiser_registry_free(interfaces->value);
+	fck_marshal_registry_free(interfaces->value);
 	SDL_free(interfaces);
 }
 
-void fck_serialise_interfaces_add(struct fck_serialise_interfaces *interfaces, fck_serialise_desc desc)
+void fck_marshal_add(struct fck_marshal*interfaces, fck_marshal_desc desc)
 {
 	SDL_assert(interfaces);
 	SDL_assert(!fck_type_is_null(desc.type));
@@ -74,8 +74,8 @@ void fck_serialise_interfaces_add(struct fck_serialise_interfaces *interfaces, f
 	// Maybe resize
 	if (interfaces->value->count >= (interfaces->value->capacity >> 1))
 	{
-		fckc_size_t next = fck_serialiser_registry_add_next_capacity(interfaces->value->capacity + 1);
-		fck_serialiser_registry *result = fck_serialiser_registry_alloc(interfaces->value->assembly, next);
+		fckc_size_t next = fck_marshal_registry_add_next_capacity(interfaces->value->capacity + 1);
+		fck_marshal_registry *result = fck_marshal_registry_alloc(interfaces->value->assembly, next);
 
 		for (fckc_size_t index = 0; index < interfaces->value->capacity; index++)
 		{
@@ -101,7 +101,7 @@ void fck_serialise_interfaces_add(struct fck_serialise_interfaces *interfaces, f
 
 		result->count = interfaces->value->count;
 		result->capacity = next;
-		fck_serialiser_registry_free(interfaces->value);
+		fck_marshal_registry_free(interfaces->value);
 		interfaces->value = result;
 	}
 
@@ -123,7 +123,7 @@ void fck_serialise_interfaces_add(struct fck_serialise_interfaces *interfaces, f
 	interfaces->value->count = interfaces->value->count + 1;
 }
 
-fck_serialise_func *fck_serialise_interfaces_get(struct fck_serialise_interfaces *interfaces, fck_type type)
+fck_marshal_func * fck_marshal_get(struct fck_marshal*interfaces, fck_type type)
 {
 	SDL_assert(interfaces);
 	SDL_assert(!fck_type_is_null(type));

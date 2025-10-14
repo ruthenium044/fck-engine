@@ -92,4 +92,8 @@ typedef struct fck_lstring
 #define offsetof(st, m) ((fckc_uintptr) & (((st *)0)->m))
 #endif
 
+#ifndef alignof
+#define alignof(type) ((size_t)((char*)&((struct { char c; type t; }*)0)->t))
+#endif
+
 #endif // !FCKC_INTTYPES_H_INCLUDED

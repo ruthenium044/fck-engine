@@ -36,7 +36,7 @@ static fckc_u64 fck_member_registry_add_next_capacity(fckc_u64 n)
 	return n;
 }
 
-fck_member fck_member_null()
+fck_member fck_member_null(void)
 {
 	return (fck_member){NULL, 0};
 }

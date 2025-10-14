@@ -22,6 +22,7 @@
 #include "fck_apis.h"
 #include "fck_type_system.h"
 
+#include "fck_set.h"
 #include "fck_stretchy.h"
 
 typedef fckc_u32 fck_entity_index;
@@ -225,7 +226,6 @@ int fck_ui_window_entities(struct fck_ui *ui, fck_ui_window *window, void *userd
 	fck_type custom_type = ts->type->find(app->assembly, fck_name(example_type));
 	struct fck_type_info *type = ts->type->resolve(custom_type);
 
-	fck_nk_serialiser serialiser = {.ctx = ctx, .vt = fck_nk_read_vt};
 	// fck_json_serialiser json;
 	// fck_serialiser_json_writer_alloc(&json, kll_heap);
 
@@ -243,7 +243,10 @@ int fck_ui_window_entities(struct fck_ui *ui, fck_ui_window *window, void *userd
 	json_params.type_system = ts;
 	json_params.type = &assembly_type;
 	json_params.parent = NULL;
+
+	fck_nk_serialiser serialiser = {.ctx = ctx, .vt = fck_nk_read_vt};
 	fck_type_serialise((fck_serialiser *)&serialiser, &json_params, app->assembly, 1);
+
 	//    char *text = fck_serialiser_json_string_alloc(&json);
 	//    SDL_Log("%s", text);
 
@@ -360,6 +363,27 @@ fck_instance *fck_instance_alloc(const char *title, int with, int height, SDL_Wi
 	entities = SDL_malloc(offsetof(fck_entity_set, id[128]));
 	entities->capacity = 128;
 	entities->count = 2;
+
+//#define hash(x) x
+//
+//	float *set = fck_set_new(float, kll_heap, 0);
+//	fck_set_add(set, hash(0), 5.0f);
+//	fck_set_add(set, hash(1), 5.0f);
+//	fck_set_info *info = fck_set_inspect(set);
+//	fck_set_add(set, hash(2), 5.0f);
+//	fck_set_remove(set, 0);
+//	info = fck_set_inspect(set);
+//	fck_set_remove(set, 1);
+//	info = fck_set_inspect(set);
+//	fck_set_remove(set, 2);
+//	info = fck_set_inspect(set);
+//	fck_set_add(set, hash(0), 5.0f);
+//	info = fck_set_inspect(set);
+//	fck_set_add(set, hash(1), 5.0f);
+//	info = fck_set_inspect(set);
+//	fck_set_add(set, hash(2), 5.0f);
+//	info = fck_set_inspect(set);
+//	fck_set_destroy(set);
 
 	return app;
 }

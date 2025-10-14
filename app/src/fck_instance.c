@@ -364,26 +364,36 @@ fck_instance *fck_instance_alloc(const char *title, int with, int height, SDL_Wi
 	entities->capacity = 128;
 	entities->count = 2;
 
-//#define hash(x) x
-//
-//	float *set = fck_set_new(float, kll_heap, 0);
-//	fck_set_add(set, hash(0), 5.0f);
-//	fck_set_add(set, hash(1), 5.0f);
-//	fck_set_info *info = fck_set_inspect(set);
-//	fck_set_add(set, hash(2), 5.0f);
-//	fck_set_remove(set, 0);
-//	info = fck_set_inspect(set);
-//	fck_set_remove(set, 1);
-//	info = fck_set_inspect(set);
-//	fck_set_remove(set, 2);
-//	info = fck_set_inspect(set);
-//	fck_set_add(set, hash(0), 5.0f);
-//	info = fck_set_inspect(set);
-//	fck_set_add(set, hash(1), 5.0f);
-//	info = fck_set_inspect(set);
-//	fck_set_add(set, hash(2), 5.0f);
-//	info = fck_set_inspect(set);
-//	fck_set_destroy(set);
+#define hash(x) x
+
+	float *set = fck_set_new(float, kll_heap, 0);
+	fck_set_info *info = fck_set_inspect(set);
+	fck_set_add(set, hash(0), 5.0f);
+	fck_set_add(set, hash(1), 5.0f);
+	info = fck_set_inspect(set);
+	fck_set_add(set, hash(2), 5.0f);
+	info = fck_set_inspect(set);
+	fck_set_remove(set, 0);
+	info = fck_set_inspect(set);
+	fck_set_remove(set, 1);
+	info = fck_set_inspect(set);
+	fck_set_remove(set, 2);
+	info = fck_set_inspect(set);
+	fck_set_add(set, hash(0), 5.0f);
+	info = fck_set_inspect(set);
+	fck_set_add(set, hash(1), 5.0f);
+	info = fck_set_inspect(set);
+	fck_set_add(set, hash(2), 5.0f);
+	info = fck_set_inspect(set);
+
+	fckc_size_t at = fck_set_begin(set);
+	while (fck_set_next(set, at))
+	{
+		SDL_Log("%d", (int)(at));
+	}
+
+	fck_set_clear(set);
+	fck_set_destroy(set);
 
 	return app;
 }

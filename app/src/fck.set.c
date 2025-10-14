@@ -5,8 +5,7 @@
 
 #include <SDL3/SDL_assert.h>
 
-#define fck_set_alignof(x) alignof(x)
-#define fck_set_pointer_offset(type, ptr, offset) ((type *)(((fckc_u8 *)(ptr)) + (offset)));
+#define fck_set_pointer_offset(type, ptr, offset) ((type *)(((fckc_u8 *)(ptr)) + (offset)))
 
 typedef enum fck_set_key_state
 {
@@ -28,6 +27,19 @@ typedef struct fck_set_key
 static fckc_size_t fck_set_align(fckc_size_t offset, fckc_size_t align)
 {
 	return (offset + align - 1) & ~(align - 1);
+}
+
+fckc_size_t fck_set_suggested_align(fckc_size_t x)
+{
+	// TODO: Fix up for 32-bit... We only do 64-bit for now anyway
+	x |= x >> 1;
+	x |= x >> 2;
+	x |= x >> 4;
+	x |= x >> 8;
+	x |= x >> 16;
+	x |= x >> 32;
+	x = x - (x >> 1);
+	return x;
 }
 
 fck_set_info *fck_opaque_set_inspect(void *ptr, fckc_size_t align)
@@ -54,11 +66,7 @@ void *fck_opaque_set_alloc(fck_set_info info)
 	// NOTE: Not so pretty implementation detail
 	const fckc_size_t state_size = sizeof(*info_out->states) * ((info.capacity / 32) + 1);
 
-	fckc_size_t info_offset = fck_set_align(0, ((size_t)((char *)&((struct {
-															 char c;
-															 fck_set_info t;
-														 } *)0)
-	                                                         ->t)));
+	fckc_size_t info_offset = fck_set_align(0, fck_set_alignof(fck_set_info));
 	fckc_size_t data_offset = fck_set_align(info_offset + info_size, info.el_align);
 	fckc_size_t keys_offset = fck_set_align(data_offset + data_size, fck_set_alignof(fck_set_key));
 	fckc_size_t states_offset = fck_set_align(keys_offset + key_size, fck_set_alignof(fck_set_state));
@@ -74,30 +82,24 @@ void *fck_opaque_set_alloc(fck_set_info info)
 	return fck_set_pointer_offset(void, info_out, data_offset);
 }
 
-void fck_opaque_set_free(void *ptr, fckc_size_t align)
+void fck_opaque_set_free(void *ptr, fck_set_info *info)
 {
 	SDL_assert(ptr);
-
-	fck_set_info *info;
-	const fckc_size_t info_size = sizeof(*info);
-	fckc_size_t info_offset = fck_set_align(0, fck_set_alignof(fck_set_info));
-	fckc_size_t data_offset = fck_set_align(info_offset + info_size, align);
-
-	info = fck_set_pointer_offset(fck_set_info, ptr, -data_offset) kll_free(info->allocator, info);
+	kll_free(info->allocator, info);
 }
 
-fckc_size_t fck_opaque_set_weak_add(void **ptr, fckc_u64 hash, fckc_size_t align)
+void fck_opaque_set_clear(void *ptr, fck_set_info *info)
 {
 	SDL_assert(ptr);
-	SDL_assert(*ptr);
+	const fckc_size_t state_size = sizeof(*info->states) * ((info->capacity / 32) + 1);
+	SDL_memset(info->states, 0, state_size);
+	info->size = 0;
+	info->stale = 0;
+}
 
-	fck_set_info *info;
-
-	const fckc_size_t info_size = sizeof(*info);
-	fckc_size_t info_offset = fck_set_align(0, fck_set_alignof(fck_set_info));
-	fckc_size_t data_offset = fck_set_align(info_offset + info_size, align);
-	info = fck_set_pointer_offset(fck_set_info, *ptr, -data_offset);
-
+static void fck_opaque_set_rehash(fck_set_info **info_ref, void **ptr)
+{
+	fck_set_info *info = *info_ref;
 	if (info->size + info->stale >= (info->capacity >> 1))
 	{
 		// Expand and rehash
@@ -116,9 +118,9 @@ fckc_size_t fck_opaque_set_weak_add(void **ptr, fckc_u64 hash, fckc_size_t align
 		input_info.capacity++;
 
 		fckc_u8 *old_mem = (fckc_u8 *)(*ptr);
-		fckc_u8 *new_mem = fck_opaque_set_alloc(input_info);
+		void *new_mem = fck_opaque_set_alloc(input_info);
 
-		fck_set_info *new_info = fck_set_pointer_offset(fck_set_info, new_mem, -data_offset);
+		fck_set_info *new_info = fck_opaque_set_inspect(new_mem, input_info.el_align);
 		fck_set_key *new_keys = new_info->keys;
 		// fck_set_state *new_states = new_info->states;
 
@@ -154,12 +156,20 @@ fckc_size_t fck_opaque_set_weak_add(void **ptr, fckc_u64 hash, fckc_size_t align
 		}
 
 		new_info->size = info->size;
-		fck_opaque_set_free(*ptr, info->el_align);
+		fck_opaque_set_free(*ptr, info);
 
 		// Refresh all pointers...
 		*ptr = (void *)new_mem;
-		info = fck_set_pointer_offset(fck_set_info, *ptr, -data_offset);
+		*info_ref = new_info;
 	}
+}
+
+fckc_size_t fck_opaque_set_weak_add(void **ptr, fckc_u64 hash, fck_set_info *info)
+{
+	SDL_assert(ptr);
+	SDL_assert(*ptr);
+
+	fck_opaque_set_rehash(&info, ptr);
 
 	fckc_size_t at = hash % info->capacity;
 	for (;;)
@@ -192,20 +202,25 @@ fckc_size_t fck_opaque_set_weak_add(void **ptr, fckc_u64 hash, fckc_size_t align
 	}
 }
 
-void fck_opaque_set_remove(void *ptr, fckc_u64 hash, fckc_size_t align)
+fckc_size_t fck_opaque_set_strong_add(void **ptr, fckc_u64 hash, fck_set_info *info)
+{
+	SDL_assert(ptr);
+	SDL_assert(*ptr);
+
+	fckc_size_t has = fck_opaque_set_probe(*ptr, hash, info);
+	SDL_assert(!has);
+	fckc_size_t at = fck_opaque_set_weak_add(ptr, hash, info);
+	return at;
+}
+
+void fck_opaque_set_remove(void *ptr, fckc_u64 hash, fck_set_info *info)
 {
 	SDL_assert(ptr);
 
-	fckc_size_t has = fck_opaque_set_probe(ptr, hash, align);
+	fckc_size_t has = fck_opaque_set_probe(ptr, hash, info);
 	if (has)
 	{
 		fckc_size_t at = has - 1;
-		fck_set_info *info;
-		const fckc_size_t info_size = sizeof(*info);
-		fckc_size_t info_offset = fck_set_align(0, fck_set_alignof(fck_set_info));
-		fckc_size_t data_offset = fck_set_align(info_offset + info_size, align);
-		info = fck_set_pointer_offset(fck_set_info, ptr, -data_offset);
-
 		fck_set_state *state = info->states + (at >> 4);
 		fck_set_key *key = info->keys + at;
 
@@ -218,15 +233,9 @@ void fck_opaque_set_remove(void *ptr, fckc_u64 hash, fckc_size_t align)
 	}
 }
 
-fckc_size_t fck_opaque_set_probe(void *ptr, fckc_u64 hash, fckc_size_t align)
+fckc_size_t fck_opaque_set_probe(void *ptr, fckc_u64 hash, fck_set_info *info)
 {
 	SDL_assert(ptr);
-
-	fck_set_info *info;
-	const fckc_size_t info_size = sizeof(*info);
-	fckc_size_t info_offset = fck_set_align(0, fck_set_alignof(fck_set_info));
-	fckc_size_t data_offset = fck_set_align(info_offset + info_size, align);
-	info = fck_set_pointer_offset(fck_set_info, ptr, -data_offset);
 
 	fckc_size_t at = hash % info->capacity;
 	for (;;)
@@ -251,7 +260,35 @@ fckc_size_t fck_opaque_set_probe(void *ptr, fckc_u64 hash, fckc_size_t align)
 				return at + 1;
 			}
 		}
-
 		at = (at + 1) % info->capacity;
+	}
+}
+
+fckc_size_t fck_opaque_set_begin(void const *ptr, fck_set_info const *info)
+{
+	SDL_assert(ptr);
+	SDL_assert(info);
+	return (fckc_size_t)(-1LLU);
+}
+
+int fck_opaque_set_next(fck_set_info const *info, fckc_size_t *index)
+{
+	SDL_assert(info);
+	*index = *index + 1;
+	for (;;)
+	{
+		if (*index >= info->capacity)
+		{
+			return 0;
+		}
+
+		fckc_u64 taken_mask = FCK_SET_KEY_TAKEN << ((*index % 32) * 2);
+		fck_set_state *state = info->states + (*index >> 4);
+		int has_value = (state->mask & taken_mask) == taken_mask;
+		if (has_value)
+		{
+			return 1;
+		}
+		*index = *index + 1;
 	}
 }

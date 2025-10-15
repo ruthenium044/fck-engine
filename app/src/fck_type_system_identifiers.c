@@ -3,47 +3,21 @@
 
 #include "fck_serialiser_vt.h"
 
+#include <SDL3/SDL_assert.h>
+#include <SDL3/SDL_stdinc.h>
+
 #include <kll.h>
 #include <kll_heap.h>
 #include <kll_malloc.h>
 
-#include <SDL3/SDL_assert.h>
-#include <SDL3/SDL_stdinc.h>
-
 #include <fck_hash.h>
 
-typedef struct fck_identifier_registry_entry
+#include "fck_set.h"
+
+typedef struct fck_identifier_info
 {
-	fck_hash_int hash;
 	char *str;
-} fck_identifier_registry_entry;
-
-typedef struct fck_identifier_registry
-{
-	struct fck_assembly *assembly;
-
-	fckc_size_t count;
-	fckc_size_t capacity;
-
-	fck_identifier_registry_entry identifiers[1];
-} fck_identifier_registry;
-
-static fckc_u64 fck_identifier_registry_add_next_capacity(fckc_u64 n)
-{
-	if (n == 0)
-		return 1;
-
-	n--;
-	n |= n >> 1;
-	n |= n >> 2;
-	n |= n >> 4;
-	n |= n >> 8;
-	n |= n >> 16;
-	n |= n >> 32;
-	n++;
-
-	return n;
-}
+} fck_identifier_info;
 
 fck_identifier fck_identifier_null(void)
 {
@@ -62,148 +36,61 @@ int fck_identifier_is_same(fck_identifier a, fck_identifier b)
 
 const char *fck_identifier_resolve(fck_identifier identifier)
 {
-	fckc_size_t index = identifier.hash % identifier.identifiers->value->capacity;
-	while (1)
+	fckc_size_t has = fck_set_find(identifier.identifiers->info, identifier.hash);
+	if (has)
 	{
-		fck_identifier_registry_entry *entry = &identifier.identifiers->value->identifiers[index];
-		const char *str = entry->str;
-
-		if (entry->hash == identifier.hash)
-		{
-			return str;
-		}
-		if (str == NULL)
-		{
-			return NULL;
-		}
-		index = (index + 1) % identifier.identifiers->value->capacity;
+		fck_identifier_info *entry = &identifier.identifiers->info[has - 1];
+		return entry->str;
 	}
+	return NULL;
 }
 
-fck_identifier_registry *fck_identifier_registry_alloc(struct fck_assembly *assembly, fckc_size_t capacity)
+void fck_identifiers_alloc(struct fck_identifiers* identifiers, struct fck_assembly* assembly, fckc_size_t capacity)
 {
 	// Do we need to guard for capacity == 0?
 	// SDL_assert(capacity > 0);
+	SDL_assert(identifiers);
+	SDL_assert(assembly);
 
-	const fckc_size_t size = offsetof(fck_identifier_registry, identifiers[capacity]);
-	fck_identifier_registry *registry = (fck_identifier_registry *)SDL_malloc(size);
-
-	for (fckc_size_t index = 0; index < capacity; index++)
-	{
-		fck_identifier_registry_entry *entry = &registry->identifiers[index];
-		entry->hash = 0;
-		entry->str = NULL;
-	}
-
-	registry->assembly = assembly;
-	registry->capacity = capacity;
-	registry->count = 0;
-	return registry;
-}
-
-void fck_identifier_registry_free(struct fck_identifier_registry *ptr)
-{
-	SDL_assert(ptr);
-
-	SDL_free(ptr);
+	identifiers->info = fck_set_new(fck_identifier_info, kll_heap, capacity);
+	identifiers->assembly = assembly;
 }
 
 void fck_identifiers_free(struct fck_identifiers *ptr)
 {
 	SDL_assert(ptr);
 
-	fck_identifier_registry_free(ptr->value);
-	SDL_free(ptr);
+	fck_set_destroy(ptr->info);
 }
 
 fck_identifier fck_identifiers_add(struct fck_identifiers *identifiers, fck_identifier_desc desc)
 {
 	SDL_assert(identifiers != NULL);
 
-	if (identifiers->value->count >= (identifiers->value->capacity >> 1))
+	fck_hash_int hash = fck_hash(desc.name, strlen(desc.name));
+	fckc_size_t has = fck_set_find(identifiers->info, hash);
+	if (has)
 	{
-		// Realloc if required
-		fckc_size_t next = (fckc_size_t)fck_identifier_registry_add_next_capacity(identifiers->value->capacity + 1); // + 1... I think
-		fck_identifier_registry *result = fck_identifier_registry_alloc(identifiers->value->assembly, next);
-
-		for (fckc_size_t index = 0; index < identifiers->value->capacity; index++)
-		{
-			fck_identifier_registry_entry *entry = &identifiers->value->identifiers[index];
-			if (entry->str == NULL)
-			{
-				continue;
-			}
-
-			fckc_size_t new_index = entry->hash % result->capacity;
-			for (;;)
-			{
-				fck_identifier_registry_entry *new_entry = &result->identifiers[new_index];
-				if (new_entry->str == NULL)
-				{
-					SDL_memcpy(new_entry, entry, sizeof(*entry));
-					break;
-				}
-				new_index = (new_index + 1) % result->capacity;
-			}
-		}
-
-		result->capacity = next;
-		result->count = identifiers->value->count;
-		fck_identifier_registry_free(identifiers->value);
-		identifiers->value = result;
+		fck_identifier_info *entry = &identifiers->info[has - 1];
+		SDL_assert(SDL_strcmp(desc.name, entry->str) == 0);
+		return (fck_identifier){identifiers, hash};
 	}
 
-	{
-		// Add or get...
-		fck_identifier_registry *registry = identifiers->value;
-
-		fck_hash_int hash = fck_hash(desc.name, strlen(desc.name));
-		fckc_size_t index = hash % registry->capacity;
-
-		// That this while loop breaks is enforced through the realloc and size check
-		for (;;)
-		{
-			fck_identifier_registry_entry *entry = &registry->identifiers[index];
-			const char *string = entry->str;
-			if (entry->hash == hash)
-			{
-				SDL_assert(SDL_strcmp(desc.name, entry->str) == 0);
-				return (fck_identifier){identifiers, hash};
-			}
-			if (string == NULL)
-			{
-				// Newly added
-				entry->hash = hash;
-				entry->str = SDL_strdup(desc.name);
-				identifiers->value->count = identifiers->value->count + 1;
-				return (fck_identifier){identifiers, hash};
-			}
-			index = (index + 1) % registry->capacity;
-		}
-	}
+	fck_identifier_info *entry = &fck_set_at(identifiers->info, hash);
+	entry->str = SDL_strdup(desc.name);
+	return (fck_identifier){identifiers, hash};
 }
 
 fck_identifier fck_identifiers_find_from_hash(struct fck_identifiers *identifiers, fckc_u64 hash)
 {
 	SDL_assert(identifiers != NULL);
 
-	fckc_size_t index = hash % identifiers->value->capacity;
-
-	// That this while loop breaks is enforced through the realloc and size check
-	while (1)
+	fckc_size_t has = fck_set_find(identifiers->info, hash);
+	if (has)
 	{
-		fck_identifier_registry_entry *entry = &identifiers->value->identifiers[index];
-		const char *string = entry->str;
-		if (entry->hash == hash)
-		{
-			return (fck_identifier){identifiers, hash};
-		}
-		if (string == NULL)
-		{
-			return (fck_identifier){NULL, 0};
-		}
-		index = index + 1;
+		return (fck_identifier){identifiers, hash};
 	}
+	return fck_identifier_null();
 }
 
 fck_identifier fck_identifiers_find_from_string(struct fck_identifiers *identifiers, const char *str)
@@ -224,29 +111,30 @@ void fck_serialise_identifiers(struct fck_serialiser *serialiser, struct fck_ser
 	for (fckc_size_t i = 0; i < c; i++)
 	{
 		fck_identifiers *identifiers = v + i;
-		for (fckc_size_t index = 0; index < identifiers->value->capacity; index++)
+
+		fckc_size_t at = fck_set_begin(identifiers->info);
+		while (fck_set_next(identifiers->info, at))
 		{
-			fck_identifier_registry_entry *entry = identifiers->value->identifiers + index;
-			if (entry->str != NULL)
+			fck_identifier_info* entry = identifiers->info + at;
+			struct fck_set_key* key = fck_set_keys_at(identifiers->info, at);
+			fckc_u64 hash = fck_set_key_resolve(key);
+
+			params->name = "hash";
+			serialiser->vt->u64(serialiser, params, &hash, 1);
+
+			// No clue if that will work lol
+			fckc_size_t len = SDL_strlen(entry->str);
+			fckc_u64 change = (fckc_u64)len;
+			params->name = "strlen";
+			serialiser->vt->u64(serialiser, params, &change, 1);
+
+			if (change > len)
 			{
-				params->name = "hash";
-				serialiser->vt->u64(serialiser, params, &entry->hash, 1);
-
-				// No clue if that will work lol
-				fckc_size_t len = SDL_strlen(entry->str);
-				fckc_u64 change = (fckc_u64)len;
-				params->name = "strlen";
-				serialiser->vt->u64(serialiser, params, &change, 1);
-
-				if (change > len)
-				{
-					kll_free(kll_heap, entry->str);
-					entry->str = kll_malloc(kll_heap, change);
-				}
-				params->name = "str";
-				serialiser->vt->string(serialiser, params, &entry->str, 1);
-				// fck_serialise_type_info(serialiser, params, entry, 1);
+				kll_free(kll_heap, entry->str);
+				entry->str = kll_malloc(kll_heap, change);
 			}
+			params->name = "str";
+			serialiser->vt->string(serialiser, params, &entry->str, 1);
 		}
 	}
 }

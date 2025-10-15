@@ -79,8 +79,8 @@ void fck_serialise_type_info(fck_serialiser *serialiser, fck_serialiser_params *
 	for (fckc_size_t index = 0; index < count; index++)
 	{
 		fck_type_info *info = value + index;
-		params->name = "hash";
-		fck_serialise_u64(serialiser, params, &info->hash, 1);
+		//params->name = "hash";
+		//fck_serialise_u64(serialiser, params, &info->hash, 1);
 		params->name = "identifier";
 		fck_serialise_identifier(serialiser, params, &info->identifier, 1);
 		params->name = "first";
@@ -96,8 +96,8 @@ void fck_serialise_member_info(fck_serialiser *serialiser, fck_serialiser_params
 	for (fckc_size_t index = 0; index < count; index++)
 	{
 		fck_member_info *info = value + index;
-		params->name = "hash";
-		fck_serialise_u64(serialiser, params, &info->hash, 1);
+		//params->name = "hash";
+		//fck_serialise_u64(serialiser, params, &info->hash, 1);
 		params->name = "owner";
 		fck_serialise_type(serialiser, params, &info->owner, 1);
 		params->name = "type";

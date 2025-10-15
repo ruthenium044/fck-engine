@@ -32,12 +32,16 @@ void fck_opaque_set_clear(void *ptr, fck_set_info *info);
 
 fckc_size_t fck_opaque_set_strong_add(void **ptr, fckc_u64 hash, fck_set_info *info);
 fckc_size_t fck_opaque_set_weak_add(void **ptr, fckc_u64 hash, fck_set_info *info);
-fckc_size_t fck_opaque_set_probe(void *ptr, fckc_u64 hash, fck_set_info *info);
-
+fckc_size_t fck_opaque_set_find(void *ptr, fckc_u64 hash, fck_set_info *info);
 void fck_opaque_set_remove(void *ptr, fckc_u64 hash, fck_set_info *info);
 
 fckc_size_t fck_opaque_set_begin(void const *ptr, fck_set_info const *info);
 int fck_opaque_set_next(fck_set_info const *info, fckc_size_t *index);
+
+int fck_opaque_set_valid_at(void const* ptr, fck_set_info const* info, fckc_size_t at);
+struct fck_set_key* fck_opaque_set_keys_at(void const* ptr, fck_set_info const* info, fckc_size_t at);
+
+fckc_u64 fck_set_key_resolve(struct fck_set_key* key);
 
 // Let's see if ptr to ptr makes sense
 #define fck_set_inspect(ptr) fck_opaque_set_inspect((void *)(ptr), (fck_set_alignof(*(ptr))))
@@ -45,6 +49,7 @@ int fck_opaque_set_next(fck_set_info const *info, fckc_size_t *index);
 	(type *)fck_opaque_set_alloc(                                                                                                          \
 		(fck_set_info){.allocator = (alloc), .el_align = fck_set_alignof(type), .el_size = sizeof(type), .capacity = (cap)})
 #define fck_set_destroy(ptr) fck_opaque_set_free((void *)(ptr), fck_set_inspect((ptr)))
+#define fck_set_clear(ptr) fck_opaque_set_clear(ptr, (fck_set_inspect((ptr))))
 
 // TODO: A bit stronger type for index/iterator
 #define fck_set_begin(ptr) fck_opaque_set_begin(ptr, fck_set_inspect((ptr)))
@@ -61,8 +66,9 @@ int fck_opaque_set_next(fck_set_info const *info, fckc_size_t *index);
 //	if(has) {
 //		set[has - 1] = value;
 //	}
-#define fck_set_probe(ptr, hash) fck_opaque_set_probe((void *)(ptr), hash, (fck_set_inspect((ptr))))
+#define fck_set_find(ptr, hash) fck_opaque_set_find((void *)(ptr), hash, (fck_set_inspect((ptr))))
 
-#define fck_set_clear(ptr) fck_opaque_set_clear(ptr, (fck_set_inspect((ptr))))
-
+#define fck_set_valid_at(ptr, at) fck_opaque_set_valid_at((ptr), fck_set_inspect((ptr)), (at))
+#define fck_set_keys_at(ptr, at) fck_opaque_set_keys_at((ptr), fck_set_inspect((ptr)), (at))
+#define fck_set_index_of(ptr, entry) (fckc_size_t)((entry)- (ptr))
 #endif // FCK_SET_H_INCLUDED

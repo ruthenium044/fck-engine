@@ -107,10 +107,11 @@ fck_assembly *fck_assembly_alloc(void)
 	// TODO: Make sub-modules aware of the assembly. This way it may or may not be possible to
 	// traverse upward? Idk.
 	fck_assembly *assembly = (fck_assembly *)SDL_malloc(sizeof(*assembly));
-	assembly->identifiers.value = fck_identifier_registry_alloc(assembly, 1);
-	assembly->types.value = fck_type_registry_alloc(assembly, &assembly->identifiers, 1);
-	assembly->members.value = fck_member_registry_alloc(assembly, &assembly->identifiers, 1);
-	assembly->marshal.value = fck_marshal_registry_alloc(assembly, 1);
+	fck_identifiers_alloc(&assembly->identifiers, assembly, 1);
+	fck_types_alloc(&assembly->types, assembly, &assembly->identifiers, 1);
+	fck_members_alloc(&assembly->members, assembly, &assembly->identifiers, 1);
+	fck_marshal_alloc(&assembly->marshal, assembly, 1);
+
 	fck_type_system_setup_core(&assembly->types, &assembly->members, &assembly->marshal);
 
 	return assembly;

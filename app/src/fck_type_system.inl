@@ -9,7 +9,7 @@ int fck_identifier_is_null(fck_identifier identifier);
 int fck_identifier_is_same(fck_identifier a, fck_identifier b);
 const char *fck_identifier_resolve(fck_identifier identifier);
 
-struct fck_identifier_registry *fck_identifier_registry_alloc(struct fck_assembly *assembly, fckc_size_t capacity);
+void fck_identifiers_alloc(struct fck_identifiers *identifiers, struct fck_assembly *assembly, fckc_size_t capacity);
 void fck_identifiers_free(struct fck_identifiers *ptr);
 
 fck_identifier fck_identifiers_add(struct fck_identifiers *identifiers, fck_identifier_desc desc);
@@ -26,7 +26,7 @@ struct fck_type_info *fck_type_resolve(fck_type type);
 fck_identifier fck_type_info_identify(struct fck_type_info *info);
 fck_member fck_type_info_first_member(struct fck_type_info *info);
 
-struct fck_type_registry *fck_type_registry_alloc(struct fck_assembly *assembly, struct fck_identifiers *identifiers, fckc_size_t capacity);
+void fck_types_alloc(struct fck_types *types, struct fck_assembly *assembly, struct fck_identifiers *identifiers, fckc_size_t capacity);
 void fck_types_free(struct fck_types *types);
 
 struct fck_assembly *fck_types_assembly(struct fck_types *types);
@@ -50,23 +50,20 @@ fck_member fck_member_info_next(struct fck_member_info *info);
 fckc_size_t fck_member_info_stride(struct fck_member_info *info);
 fckc_size_t fck_member_info_count(struct fck_member_info *info);
 
-struct fck_member_registry *fck_member_registry_alloc(struct fck_assembly *assembly, struct fck_identifiers *identifiers,
-                                                      fckc_size_t capacity);
+void fck_members_alloc(struct fck_members *members, struct fck_assembly *assembly, struct fck_identifiers *identifiers, fckc_size_t capacity);
 void fck_members_free(struct fck_members *members);
 
 fck_member fck_members_add(struct fck_members *members, fck_type owner, fck_member_desc desc);
 
 // Marshal
-struct fck_marshal_registry *fck_marshal_registry_alloc(struct fck_assembly *assembly, fckc_size_t capacity);
+void fck_marshal_alloc(struct fck_marshal* marshal, struct fck_assembly* assembly, fckc_size_t capacity);
 void fck_marshal_free(struct fck_marshal *interfaces);
 
 void fck_marshal_add(struct fck_marshal *interfaces, fck_marshal_desc desc);
-fck_marshal_func * fck_marshal_get(struct fck_marshal *interfaces, fck_type type);
+fck_marshal_func *fck_marshal_get(struct fck_marshal *interfaces, fck_type type);
 
 typedef struct fck_member_info
 {
-	// Key ;)
-	fck_hash_int hash;
 	// Who owns it?
 	fck_type owner;
 	// The identifier (var name) of member
@@ -91,7 +88,7 @@ typedef struct fck_member_info
 
 typedef struct fck_type_info
 {
-	fck_hash_int hash;
+	// fck_hash_int hash;
 	fck_identifier identifier;
 
 	// Here comes the killer thing... They are NOT ordered by stride. Oh fuck me...
@@ -101,26 +98,39 @@ typedef struct fck_type_info
 
 typedef struct fck_identifiers
 {
-	struct fck_identifier_registry *value;
+	struct fck_assembly *assembly;
+
+	/* set */ struct fck_identifier_info *info;
 } fck_identifiers;
 
 typedef struct fck_types
 {
-	struct fck_type_registry *value;
+	struct fck_assembly *assembly;
+	struct fck_identifiers *identifiers;
+
+	/* set */ struct fck_type_info *info;
 } fck_types;
 
 typedef struct fck_members
 {
-	struct fck_member_registry *value;
+	struct fck_assembly *assembly;
+	struct fck_identifiers *identifiers;
+
+	/* set */ struct fck_member_info *info;
 } fck_members;
 
 typedef struct fck_marshal
 {
-	struct fck_marshal_registry *value;
+	struct fck_assembly* assembly;
+
+	/* set */ struct fck_marshal_info* infoo;
 } fck_marshal;
+
+struct kll_allocator;
 
 typedef struct fck_assembly
 {
+	struct kll_allocator* allocator;
 	fck_identifiers identifiers;
 	fck_types types;
 	fck_members members;

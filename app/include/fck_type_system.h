@@ -54,7 +54,7 @@ typedef struct fck_type_desc
 	const char *name;
 	// We do not want to impose a size, but it is just too convenient...
 	// This simply represents the layout size in C...
-	fckc_size_t size;
+	// fckc_size_t size;
 } fck_type_desc;
 
 typedef struct fck_member_desc
@@ -158,7 +158,7 @@ typedef struct fck_marshal_api
 {
 	void (*add)(fck_marshal_desc desc);
 	// TODO: Maybe batched invoke? Let's do it later
-	fck_marshal_func*(*get)(fck_type type);
+	fck_marshal_func *(*get)(fck_type type);
 
 } fck_marshal_api;
 

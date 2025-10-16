@@ -4,7 +4,9 @@
 #include <fckc_inttypes.h>
 
 #define fck_set_alignof(x) fck_set_suggested_align(sizeof(x))
-#define fck_set_defer(ptr) ((ptr) = (ptr), (ptr))
+
+// TODO: Can also do a deferred subscript instead...
+#define fck_set_defer_eval(ptr) ((ptr) = (ptr), (ptr))
 
 struct fck_set_key;
 struct fck_set_state;
@@ -57,11 +59,12 @@ fckc_u64 fck_set_key_resolve(struct fck_set_key *key);
 #define fck_set_next(ptr, iterator) fck_opaque_set_next(fck_set_inspect((ptr)), &(iterator))
 
 // TODO: Maybe making this a strong_add might be more appropiate
-#define fck_set_add(ptr, hash, value) fck_opaque_set_weak_add((void **)&(ptr), hash, (fck_set_inspect((ptr))))[(fck_set_defer(ptr))] = value
+#define fck_set_add(ptr, hash, value)                                                                                                      \
+	fck_opaque_set_weak_add((void **)&(ptr), hash, (fck_set_inspect((ptr))))[(fck_set_defer_eval(ptr))] = value
 #define fck_set_remove(ptr, hash) fck_opaque_set_remove((void *)(ptr), hash, (fck_set_inspect((ptr))))
 
 // fck_set_at(set, hash(key)) = value;
-#define fck_set_at(ptr, hash) fck_opaque_set_weak_add((void **)&(ptr), hash, (fck_set_inspect((ptr))))[(fck_set_defer(ptr))]
+#define fck_set_at(ptr, hash) fck_opaque_set_weak_add((void **)&(ptr), hash, (fck_set_inspect((ptr))))[(fck_set_defer_eval(ptr))]
 
 //	fckc_size_t has = fck_set_probe(set, hash(k));
 //	if(has) {

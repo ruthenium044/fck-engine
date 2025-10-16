@@ -4,6 +4,7 @@
 #include <fckc_inttypes.h>
 
 #define fck_set_alignof(x) fck_set_suggested_align(sizeof(x))
+#define fck_set_defer(ptr) ((ptr) = (ptr), (ptr))
 
 struct fck_set_key;
 struct fck_set_state;
@@ -38,10 +39,10 @@ void fck_opaque_set_remove(void *ptr, fckc_u64 hash, fck_set_info *info);
 fckc_size_t fck_opaque_set_begin(void const *ptr, fck_set_info const *info);
 int fck_opaque_set_next(fck_set_info const *info, fckc_size_t *index);
 
-int fck_opaque_set_valid_at(void const* ptr, fck_set_info const* info, fckc_size_t at);
-struct fck_set_key* fck_opaque_set_keys_at(void const* ptr, fck_set_info const* info, fckc_size_t at);
+int fck_opaque_set_valid_at(void const *ptr, fck_set_info const *info, fckc_size_t at);
+struct fck_set_key *fck_opaque_set_keys_at(void const *ptr, fck_set_info const *info, fckc_size_t at);
 
-fckc_u64 fck_set_key_resolve(struct fck_set_key* key);
+fckc_u64 fck_set_key_resolve(struct fck_set_key *key);
 
 // Let's see if ptr to ptr makes sense
 #define fck_set_inspect(ptr) fck_opaque_set_inspect((void *)(ptr), (fck_set_alignof(*(ptr))))
@@ -56,11 +57,11 @@ fckc_u64 fck_set_key_resolve(struct fck_set_key* key);
 #define fck_set_next(ptr, iterator) fck_opaque_set_next(fck_set_inspect((ptr)), &(iterator))
 
 // TODO: Maybe making this a strong_add might be more appropiate
-#define fck_set_add(ptr, hash, value) ptr[fck_opaque_set_weak_add((void **)&(ptr), hash, (fck_set_inspect((ptr))))] = value
+#define fck_set_add(ptr, hash, value) fck_opaque_set_weak_add((void **)&(ptr), hash, (fck_set_inspect((ptr))))[(fck_set_defer(ptr))] = value
 #define fck_set_remove(ptr, hash) fck_opaque_set_remove((void *)(ptr), hash, (fck_set_inspect((ptr))))
 
 // fck_set_at(set, hash(key)) = value;
-#define fck_set_at(ptr, hash) ptr[fck_opaque_set_weak_add((void **)&(ptr), hash, (fck_set_inspect((ptr))))]
+#define fck_set_at(ptr, hash) fck_opaque_set_weak_add((void **)&(ptr), hash, (fck_set_inspect((ptr))))[(fck_set_defer(ptr))]
 
 //	fckc_size_t has = fck_set_probe(set, hash(k));
 //	if(has) {
@@ -70,5 +71,5 @@ fckc_u64 fck_set_key_resolve(struct fck_set_key* key);
 
 #define fck_set_valid_at(ptr, at) fck_opaque_set_valid_at((ptr), fck_set_inspect((ptr)), (at))
 #define fck_set_keys_at(ptr, at) fck_opaque_set_keys_at((ptr), fck_set_inspect((ptr)), (at))
-#define fck_set_index_of(ptr, entry) (fckc_size_t)((entry)- (ptr))
+#define fck_set_index_of(ptr, entry) (fckc_size_t)((entry) - (ptr))
 #endif // FCK_SET_H_INCLUDED

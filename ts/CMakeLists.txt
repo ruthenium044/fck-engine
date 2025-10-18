@@ -1,7 +1,6 @@
-# KiLLer Allocators
 cmake_minimum_required(VERSION 3.20)
 
-project(fck-kll)
+project(fck-ts)
 
 include_guard(GLOBAL)
 
@@ -13,7 +12,7 @@ file(GLOB_RECURSE FOUND_C_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/**.c")
 list(APPEND SOURCES ${FOUND_C_SOURCES})
 
 add_library(${PROJECT_NAME} ${SOURCES})
-add_library(fck::kll ALIAS ${PROJECT_NAME})
+add_library(fck::ts ALIAS ${PROJECT_NAME})
 
 target_sources(${PROJECT_NAME}
     PRIVATE ${FOUND_C_SOURCES}
@@ -36,7 +35,8 @@ install(
 )
 
 find_package(fckc CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-target_link_libraries(${PROJECT_NAME} fck::fckc)
+find_package(kll CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
+target_link_libraries(${PROJECT_NAME} fck::fckc fck::kll)
 set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "fck-lib")
 
 add_executable(${PROJECT_NAME}-test test/main.c)

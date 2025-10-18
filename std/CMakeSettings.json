@@ -15,39 +15,13 @@
       "addressSanitizerEnabled": true
     },
     {
-      "name": "x64-msvc-debug",
-      "generator": "Ninja",
-      "configurationType": "Debug",
-      "inheritEnvironments": [ "msvc_x64_x64" ],
-      "buildRoot": "${projectDir}\\build\\msvc\\${name}",
-      "installRoot": "${projectDir}\\install\\msvc\\${name}",
-      "cmakeCommandArgs": "",
-      "buildCommandArgs": "",
-      "ctestCommandArgs": "",
-      "enableClangTidyCodeAnalysis": true,
-      "enableMicrosoftCodeAnalysis": false,
-      "addressSanitizerEnabled": false
-    },
-    {
-      "name": "x64-msvc-release",
-      "generator": "Ninja",
-      "configurationType": "RelWithDebInfo",
-      "inheritEnvironments": [ "msvc_x64_x64" ],
-      "buildRoot": "${projectDir}\\build\\msvc\\${name}",
-      "installRoot": "${projectDir}\\install\\msvc\\${name}",
-      "cmakeCommandArgs": "",
-      "buildCommandArgs": "",
-      "ctestCommandArgs": "",
-      "enableClangTidyCodeAnalysis": true,
-      "enableMicrosoftCodeAnalysis": false,
-      "addressSanitizerEnabled": false
-    },
-    {
       "name": "x64-clang-debug",
       "generator": "Ninja",
       "configurationType": "Debug",
       "buildRoot": "${projectDir}\\build\\clang\\${name}",
       "installRoot": "${projectDir}\\install\\clang\\${name}",
+      "cmakeCommandArgs": "",
+      "buildCommandArgs": "",
       "ctestCommandArgs": "",
       "inheritEnvironments": [ "clang_cl_x64_x64" ],
       "enableClangTidyCodeAnalysis": true,
@@ -66,17 +40,12 @@
       "configurationType": "Release",
       "buildRoot": "${projectDir}\\build\\clang\\${name}",
       "installRoot": "${projectDir}\\install\\clang\\${name}",
+      "cmakeCommandArgs": "",
+      "buildCommandArgs": "",
       "ctestCommandArgs": "",
       "inheritEnvironments": [ "clang_cl_x64_x64" ],
       "enableClangTidyCodeAnalysis": true,
-      "enableMicrosoftCodeAnalysis": false,
-      "variables": [
-        {
-          "name": "VCPKG_SETUP_CMAKE_PROGRAM_PATH",
-          "value": "False",
-          "type": "BOOL"
-        }
-      ]
+      "enableMicrosoftCodeAnalysis": false
     }
   ]
 }

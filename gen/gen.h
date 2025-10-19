@@ -1,4 +1,0 @@
-﻿#ifndef FCK_GEN_INCLUDED
-#define FCK_GEN_INCLUDED
-
-#endif // !FCK_GEN_INCLUDED

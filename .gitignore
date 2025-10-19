@@ -3,3 +3,4 @@ build/
 .DS_Store
 .vs/
 include/gen/
+*.sublime-workspace

@@ -11,7 +11,6 @@
 #include "fck_nuklear_demos.h"
 #include "fck_ui_window_manager.h"
 
-#include "fck_serialiser_json_vt.h"
 #include "fck_serialiser_nk_edit_vt.h"
 #include "fck_serialiser_vt.h"
 
@@ -19,11 +18,10 @@
 #include <kll.h>
 #include <kll_malloc.h>
 
-#include "fck_apis.h"
 #include "fck_type_system.h"
+#include <fck_apis.h>
 
 #include "fck_set.h"
-#include "fck_stretchy.h"
 
 typedef fckc_u32 fck_entity_index;
 typedef struct fck_entity
@@ -231,21 +229,23 @@ int fck_ui_window_entities(struct fck_ui *ui, fck_ui_window *window, void *userd
 
 	static fckc_u8 opaque[1024];
 
-	fck_serialiser_params params;
+	fck_marshal_params params;
 	params.name = "dummy";
-	params.type_system = ts;
 	params.type = &custom_type;
 
 	// fck_type_serialise((fck_serialiser *)&serialiser, &params, opaque, 1);
 	fck_type assembly_type = ts->type->find(app->assembly, fck_name(fck_assembly));
-	fck_serialiser_params json_params;
+	fck_marshal_params json_params;
 	json_params.name = "Assembly";
-	json_params.type_system = ts;
 	json_params.type = &assembly_type;
-	json_params.parent = NULL;
+	// json_params.parent = NULL;
 
 	fck_nk_serialiser serialiser = {.ctx = ctx, .vt = fck_nk_read_vt};
-	fck_type_serialise((fck_serialiser *)&serialiser, &json_params, app->assembly, 1);
+
+	fck_marshaller marshaller;
+	marshaller.serialiser = (fck_serialiser *)&serialiser;
+	marshaller.type_system = ts;
+	fck_type_serialise(&marshaller, &json_params, app->assembly, 1);
 
 	//    char *text = fck_serialiser_json_string_alloc(&json);
 	//    SDL_Log("%s", text);
@@ -352,7 +352,7 @@ fck_instance *fck_instance_alloc(const char *title, int with, int height, SDL_Wi
 
 	app->apis = fck_apis_load();
 	fck_type_system *ts = fck_load_type_system(app->apis);
-	app->assembly = ts->assembly->alloc();
+	app->assembly = ts->assembly->alloc(kll_heap);
 
 	fck_ui_window_manager_create(app->window_manager, "Entities", app, fck_ui_window_entities);
 	fck_ui_window_manager_create(app->window_manager, "Nk Overview", NULL, fck_ui_window_overview);

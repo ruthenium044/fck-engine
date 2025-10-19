@@ -3,6 +3,7 @@
 
 struct fck_serialiser_vt;
 typedef struct nk_context fck_ui_ctx;
+struct fck_type_system;
 
 typedef struct fck_nk_serialiser
 {

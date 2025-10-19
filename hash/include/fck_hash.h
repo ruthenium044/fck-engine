@@ -14,22 +14,6 @@
 // I do not know if I still approve hash_int... hash_type, maybe?
 typedef unsigned long long fck_hash_int;
 
-static fck_hash_int fck_hash_unsafe(const char *str)
-{
-	unsigned long long hash = 5381;
-
-	for (int index = 0; ; index++)
-	{
-		char c = str[index];
-		if (c == 0)
-		{
-			break;
-		}
-		hash = ((hash << 5) + hash) + (unsigned char)c;
-	}
-	return hash;
-}
-
 static fck_hash_int fck_hash(const char *str, int length)
 {
 	unsigned long long hash = 5381;
@@ -47,5 +31,5 @@ static fck_hash_int fck_hash(const char *str, int length)
 }
 
 #endif // !FCK_HASH_H_INCLUDED
-	   // example:
+       // example:
        // unsigned long long id = STATIC_HASH("Teeest", 0x00000652D32D23AF)

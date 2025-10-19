@@ -7,7 +7,9 @@ set(FCK_WORKSPACE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/.." CACHE PATH "Workspace Pa
 find_package(hash CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH})
 find_package(fckc CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH})
 find_package(kll CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH})
+find_package(std CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH})
 find_package(ts CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH})
+find_package(api CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH})
 #find_package(cnt CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH})
 
 add_custom_target(fck-lib-hash-output
@@ -21,7 +23,7 @@ add_custom_target(fck-lib-hash-output
 
 # Setup test
 add_executable(${PROJECT_NAME}-test test/main.c)
-target_link_libraries(${PROJECT_NAME}-test fck::fckc fck::kll fck::hash)
+target_link_libraries(${PROJECT_NAME}-test fck::fckc fck::kll fck::std fck::hash)
 
 add_dependencies(${PROJECT_NAME}-test fck-lib-hash-output)
 

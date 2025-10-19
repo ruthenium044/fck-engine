@@ -3,6 +3,7 @@
 
 #include <fckc_inttypes.h>
 
+// TODO: Forward declartions HAVE and SHALL always be used as "struct X ..."
 typedef struct SDL_Window SDL_Window;
 typedef struct SDL_Renderer SDL_Renderer;
 typedef struct fck_ui fck_ui;

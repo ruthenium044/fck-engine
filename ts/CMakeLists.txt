@@ -4,19 +4,17 @@ project(fck-ts)
 
 include_guard(GLOBAL)
 
-file(GLOB_RECURSE FOUND_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/include/**.h")
-list(APPEND HEADERS ${FOUND_HEADERS})
+file(GLOB_RECURSE FOUND_TS_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/include/**.h")
+file(GLOB_RECURSE FOUND_TS_INL_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/src/**.inl")
+file(GLOB_RECURSE FOUND_TS_C_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/**.c")
 
-file(GLOB_RECURSE FOUND_C_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/**.c")
-
-list(APPEND SOURCES ${FOUND_C_SOURCES})
-
-add_library(${PROJECT_NAME} ${SOURCES})
+add_library(${PROJECT_NAME} ${FOUND_TS_C_SOURCES})
 add_library(fck::ts ALIAS ${PROJECT_NAME})
 
 target_sources(${PROJECT_NAME}
     PRIVATE ${FOUND_C_SOURCES}
     PRIVATE ${FOUND_HEADERS} 
+    PRIVATE ${FOUND_INL_HEADERS} 
 )
 
 target_include_directories(${PROJECT_NAME}
@@ -34,9 +32,13 @@ install(
     INCLUDES DESTINATION include
 )
 
+find_package(hash CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
+find_package(std CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
 find_package(fckc CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
 find_package(kll CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-target_link_libraries(${PROJECT_NAME} fck::fckc fck::kll)
+find_package(api CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
+find_package(ser CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
+target_link_libraries(${PROJECT_NAME} PUBLIC fck::fckc fck::ser PRIVATE fck::kll fck::std fck::api fck::hash)
 set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "fck-lib")
 
 add_executable(${PROJECT_NAME}-test test/main.c)

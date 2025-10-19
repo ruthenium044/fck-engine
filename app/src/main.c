@@ -26,7 +26,6 @@ SDL_AppResult fck_instance_result_to_sdl_app_result(fck_instance_result result)
 
 SDLMAIN_DECLSPEC SDL_AppResult SDLCALL SDL_AppInit(void **appstate, int argc, char *argv[])
 {
-
 	fck_instance *instance = *appstate = (fck_instance *)fck_instance_alloc("Window", 640, 640, 0, NULL);
 	if (instance == NULL)
 	{

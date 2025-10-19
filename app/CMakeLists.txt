@@ -11,9 +11,6 @@ if (NOT DEFINED FCK_WORKSPACE_PATH)
 endif()
 find_package(fck-lib CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH})
 
-set(BUILD_SHARED_LIBS OFF)
-set(SDL_SHARED FALSE)
-set(SDL_STATIC TRUE)
 FetchContent_Declare(
     SDL
     GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
@@ -23,26 +20,25 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(SDL)
 
-file(GLOB_RECURSE FOUND_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/include/**.h")
-list(APPEND HEADERS ${FOUND_HEADERS})
-
-file(GLOB_RECURSE FOUND_INL_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/src/**.inl")
-list(APPEND HEADERS ${FOUND_HEADERS})
-
-file(GLOB_RECURSE FOUND_C_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/**.c")
+file(GLOB_RECURSE FOUND_APP_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/include/**.h")
+file(GLOB_RECURSE FOUND_APP_C_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/**.c")
 
 include_directories(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/include)
-add_executable(${PROJECT_NAME} ${SOURCES})
+add_executable(${PROJECT_NAME} ${FOUND_APP_C_SOURCES})
 
 target_sources(${PROJECT_NAME}
-    PRIVATE ${FOUND_C_SOURCES}
-    PRIVATE ${FOUND_INL_HEADERS}
-    PRIVATE ${FOUND_HEADERS} 
+    PRIVATE ${FOUND_APP_C_SOURCES}
+    PRIVATE ${FOUND_APP_HEADERS} 
 )
 
 find_package(fckc CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-target_link_libraries(${PROJECT_NAME} PUBLIC fck::fckc fck::kll fck::hash PRIVATE SDL3::SDL3)
+find_package(ser-ext CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
+find_package(ser-json CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
 
-set_target_properties(SDL3-static PROPERTIES FOLDER "SDL3")
+# Fix up truely shared libraries!
+#target_link_options(${PROJECT_NAME} PRIVATE LINKER:-no_warn_duplicate_libraries)
+target_link_libraries(${PROJECT_NAME} PUBLIC fck::fckc fck::hash PRIVATE fck::ser-ext fck::ser-json fck::std fck::kll fck::ts fck::api SDL3::SDL3)
+
+#set_target_properties(SDL3 PROPERTIES FOLDER "SDL3")
 set_target_properties(SDL_uclibc PROPERTIES FOLDER "SDL3")
 set_target_properties(SDL3_test PROPERTIES FOLDER "SDL3")

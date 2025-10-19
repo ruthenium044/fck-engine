@@ -4,19 +4,21 @@ project(fck-std)
 
 include_guard(GLOBAL)
 
-file(GLOB_RECURSE FOUND_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/include/**.h")
-list(APPEND HEADERS ${FOUND_HEADERS})
+FetchContent_Declare(
+    SDL
+    GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+    GIT_TAG release-3.2.0
+    GIT_PROGRESS TRUE
+    GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(SDL)
 
-file(GLOB_RECURSE FOUND_C_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/**.c")
-
-list(APPEND SOURCES ${FOUND_C_SOURCES})
-
-add_library(${PROJECT_NAME} ${SOURCES})
+add_library(${PROJECT_NAME} SHARED ${CMAKE_CURRENT_SOURCE_DIR}/src/fck_os.c)
 add_library(fck::std ALIAS ${PROJECT_NAME})
 
 target_sources(${PROJECT_NAME}
-    PRIVATE ${FOUND_C_SOURCES}
-    PRIVATE ${FOUND_HEADERS} 
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include/fck_os.h
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/fck_os.c
 )
 
 target_include_directories(${PROJECT_NAME}
@@ -35,8 +37,7 @@ install(
 )
 
 find_package(fckc CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-find_package(kll CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-target_link_libraries(${PROJECT_NAME} fck::fckc fck::kll)
+target_link_libraries(${PROJECT_NAME} PUBLIC fck::fckc SDL3::SDL3)
 set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "fck-lib")
 
 add_executable(${PROJECT_NAME}-test test/main.c)

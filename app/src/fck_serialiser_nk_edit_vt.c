@@ -566,7 +566,7 @@ void fck_nk_read_string(fck_serialiser *s, fck_serialiser_params *p, fck_lstring
 	}
 }
 
-int fck_nk_edit_prettify_label(char *buffer, fckc_size_t size, struct fck_serialiser_params *p, const char *name, fckc_size_t number)
+int fck_nk_edit_prettify_label(char *buffer, fckc_size_t size, struct fck_marshal_params *p, const char *name, fckc_size_t number)
 {
 	switch (number)
 	{
@@ -579,27 +579,27 @@ int fck_nk_edit_prettify_label(char *buffer, fckc_size_t size, struct fck_serial
 	}
 }
 
-int fck_nk_edit_prettify_tree_push(struct fck_serialiser *s, struct fck_serialiser_params *p, void *data, fckc_size_t count)
+int fck_nk_edit_prettify_tree_push(struct fck_marshaller *m, struct fck_marshal_params *p, void *data, fckc_size_t count)
 {
 	fck_type type = *p->type;
-	fck_type_system *ts = p->type_system;
+	fck_type_system *ts = m->type_system;
 	struct fck_type_info *info = ts->type->resolve(type);
 	fck_identifier owner_identifier = ts->type->identify(info);
-	fck_ui_ctx *ctx = (fck_ui_ctx *)((fck_nk_serialiser *)s)->ctx;
+	fck_ui_ctx *ctx = (fck_ui_ctx *)((fck_nk_serialiser *)m->serialiser)->ctx;
 
 	const char *owner_name = ts->identifier->resolve(owner_identifier);
 	char buffer[512];
 	int result = fck_nk_edit_prettify_label(buffer, sizeof(buffer), p, owner_name, count);
 	return nk_tree_push_hashed(ctx, NK_TREE_NODE, buffer, NK_MINIMIZED, buffer, result, __LINE__);
 }
-void fck_nk_edit_prettify_tree_pop(struct fck_serialiser *s, struct fck_serialiser_params *p, void *data, fckc_size_t count)
+void fck_nk_edit_prettify_tree_pop(struct fck_marshaller *m, struct fck_marshal_params *p, void *data, fckc_size_t count)
 {
-	fck_ui_ctx *ctx = (fck_ui_ctx *)((fck_nk_serialiser *)s)->ctx;
+	fck_ui_ctx *ctx = (fck_ui_ctx *)((fck_nk_serialiser *)m->serialiser)->ctx;
 	nk_tree_pop(ctx);
 }
 
-static fck_serialiser_prettify_vt fck_serialiser_nk_edit_pretty_vt = {
-	.tree_push = fck_nk_edit_prettify_tree_push, .tree_pop = fck_nk_edit_prettify_tree_pop, .label = fck_nk_edit_prettify_label};
+static fck_serialiser_prettify_vt fck_serialiser_nk_edit_pretty_vt = {.tree_push = fck_nk_edit_prettify_tree_push,
+                                                                      .tree_pop = fck_nk_edit_prettify_tree_pop};
 
 static fck_serialiser_vt fck_serialiser_nk_edit_vt = //
 	{

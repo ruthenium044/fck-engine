@@ -21,6 +21,4 @@ typedef struct kll_allocator
 	kll_vt vt;
 } kll_allocator;
 
-extern kll_allocator *kll_heap;
-
 #endif // !FCK_KLL_H_INCLUDED

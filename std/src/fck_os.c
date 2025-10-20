@@ -7,12 +7,6 @@ static fck_char_api char_api = {
 	.isspace = SDL_isspace,
 };
 
-static fck_string_conversion_api string_conversion_api = {
-	.ll = SDL_strtoll,
-	.ull = SDL_strtoull,
-	.d = SDL_strtod,
-};
-
 static fck_unsafe_string_api unsafe_string_api = {
 	.cmp = SDL_strcmp,
 	.dup = SDL_strdup,
@@ -21,10 +15,12 @@ static fck_unsafe_string_api unsafe_string_api = {
 
 static fck_string_api string_api = {
 	.unsafe = &unsafe_string_api, //
-	.to = &string_conversion_api, //
 	.cmp = SDL_strncmp,           //
 	.dup = SDL_strndup,           //
 	.len = SDL_strnlen,           //
+	.toll = SDL_strtoll,          //
+	.toull = SDL_strtoull,        //
+	.tod = SDL_strtod,            //
 };
 
 static fck_memory_api memory_api = {

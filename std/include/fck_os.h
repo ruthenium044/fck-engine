@@ -16,22 +16,15 @@ typedef struct fck_unsafe_string_api
 	fckc_size_t (*len)(const char *str);
 } fck_unsafe_string_api;
 
-typedef struct fck_string_conversion_api
-{
-	// Maybe the names and the architecture of this will feel a bit... lazy
-	long long (*ll)(const char *restrict str, char **restrict end, int base);
-	unsigned long long (*ull)(const char *restrict str, char **restrict end, int base);
-	double (*d)(const char *restrict str, char **restrict end);
-} fck_string_conversion_api;
-
 typedef struct fck_string_api
 {
 	fck_unsafe_string_api *unsafe;
-	fck_string_conversion_api *to;
-
 	int (*cmp)(const char *lhs, const char *rhs, fckc_size_t maxlen);
 	char *(*dup)(const char *str, fckc_size_t maxlen);
 	fckc_size_t (*len)(const char *str, fckc_size_t maxlen);
+	long long (*toll)(const char *restrict str, char **restrict end, int base);
+	unsigned long long (*toull)(const char *restrict str, char **restrict end, int base);
+	double (*tod)(const char *restrict str, char **restrict end);
 } fck_string_api;
 
 typedef struct fck_memory_api

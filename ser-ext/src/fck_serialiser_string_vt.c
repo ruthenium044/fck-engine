@@ -178,7 +178,7 @@ void fck_read_string_i8(fck_serialiser *s, fck_serialiser_params *p, fckc_i8 *v,
 		std->mem->cpy(buffer, at, len);
 		buffer[len] = '\0';
 
-		long long value = std->str->to->ll(buffer, NULL, 10);
+		long long value = std->str->toll(buffer, NULL, 10);
 		*v = (fckc_i8)value;
 		((fck_memory_serialiser *)s)->at = ((fck_memory_serialiser *)s)->at + len + 1;
 	}
@@ -197,7 +197,7 @@ void fck_read_string_i16(fck_serialiser *s, fck_serialiser_params *p, fckc_i16 *
 		std->mem->cpy(buffer, at, len);
 		buffer[len] = '\0';
 
-		long long value = std->str->to->ll(buffer, NULL, 10);
+		long long value = std->str->toll(buffer, NULL, 10);
 		*v = (fckc_i16)value;
 		((fck_memory_serialiser *)s)->at = ((fck_memory_serialiser *)s)->at + len + 1;
 	}
@@ -216,7 +216,7 @@ void fck_read_string_i32(fck_serialiser *s, fck_serialiser_params *p, fckc_i32 *
 		std->mem->cpy(buffer, at, len);
 		buffer[len] = '\0';
 
-		long long value = std->str->to->ll(buffer, NULL, 10);
+		long long value = std->str->toll(buffer, NULL, 10);
 		*v = (fckc_i32)value;
 		((fck_memory_serialiser *)s)->at = ((fck_memory_serialiser *)s)->at + len + 1;
 	}
@@ -235,7 +235,7 @@ void fck_read_string_i64(fck_serialiser *s, fck_serialiser_params *p, fckc_i64 *
 		std->mem->cpy(buffer, at, len);
 		buffer[len] = '\0';
 
-		long long value = std->str->to->ll(buffer, NULL, 10);
+		long long value = std->str->toll(buffer, NULL, 10);
 		*v = (fckc_i64)value;
 		((fck_memory_serialiser *)s)->at = ((fck_memory_serialiser *)s)->at + len + 1;
 	}
@@ -254,7 +254,7 @@ void fck_read_string_u8(fck_serialiser *s, fck_serialiser_params *p, fckc_u8 *v,
 		std->mem->cpy(buffer, at, len);
 		buffer[len] = '\0';
 
-		unsigned long long value = std->str->to->ull(buffer, NULL, 10);
+		unsigned long long value = std->str->toull(buffer, NULL, 10);
 		*v = (fckc_u8)value;
 		((fck_memory_serialiser *)s)->at = ((fck_memory_serialiser *)s)->at + len + 1;
 	}
@@ -273,7 +273,7 @@ void fck_read_string_u16(fck_serialiser *s, fck_serialiser_params *p, fckc_u16 *
 		std->mem->cpy(buffer, at, len);
 		buffer[len] = '\0';
 
-		unsigned long long value = std->str->to->ull(buffer, NULL, 10);
+		unsigned long long value = std->str->toull(buffer, NULL, 10);
 		*v = (fckc_u16)value;
 		((fck_memory_serialiser *)s)->at = ((fck_memory_serialiser *)s)->at + len + 1;
 	}
@@ -292,7 +292,7 @@ void fck_read_string_u32(fck_serialiser *s, fck_serialiser_params *p, fckc_u32 *
 		std->mem->cpy(buffer, at, len);
 		buffer[len] = '\0';
 
-		unsigned long long value = std->str->to->ull(buffer, NULL, 10);
+		unsigned long long value = std->str->toull(buffer, NULL, 10);
 		*v = (fckc_u32)value;
 		((fck_memory_serialiser *)s)->at = ((fck_memory_serialiser *)s)->at + len + 1;
 	}
@@ -311,7 +311,7 @@ void fck_read_string_u64(fck_serialiser *s, fck_serialiser_params *p, fckc_u64 *
 		std->mem->cpy(buffer, at, len);
 		buffer[len] = '\0';
 
-		unsigned long long value = std->str->to->ull(buffer, NULL, 10);
+		unsigned long long value = std->str->toull(buffer, NULL, 10);
 		*v = (fckc_u64)value;
 		((fck_memory_serialiser *)s)->at = ((fck_memory_serialiser *)s)->at + len + 1;
 	}
@@ -330,7 +330,7 @@ void fck_read_string_f32(fck_serialiser *s, fck_serialiser_params *p, float *v, 
 		std->mem->cpy(buffer, at, len);
 		buffer[len] = '\0';
 
-		double value = std->str->to->d(buffer, NULL);
+		double value = std->str->tod(buffer, NULL);
 		*v = (float)value;
 		((fck_memory_serialiser *)s)->at = ((fck_memory_serialiser *)s)->at + len + 1;
 	}
@@ -349,7 +349,7 @@ void fck_read_string_f64(fck_serialiser *s, fck_serialiser_params *p, double *v,
 		std->mem->cpy(buffer, at, len);
 		buffer[len] = '\0';
 
-		double value = std->str->to->d(buffer, NULL);
+		double value = std->str->tod(buffer, NULL);
 		*v = (double)value;
 		((fck_memory_serialiser *)s)->at = ((fck_memory_serialiser *)s)->at + len + 1;
 	}

@@ -2,7 +2,7 @@
 #include "fck_type_system.h"
 
 #include "fck_serialiser_vt.h"
-#include "fck_stretchy.h"
+#include "fck_dynarr.h"
 
 #include <fck_os.h>
 #include <kll_heap.h>
@@ -15,10 +15,10 @@ static inline fck_marshal_params fck_serialiser_params_next(fck_marshal_params *
 	return p;
 }
 
-int fck_stretchy_serialise(fck_marshaller *marshaller, fck_marshal_params *p, void **self, fckc_size_t *out_count)
+int fck_dynarr_serialise(fck_marshaller *marshaller, fck_marshal_params *p, void **self, fckc_size_t *out_count)
 {
-	// c has to be -1 cause stretchy...
-	// TODO: Make stretchy flag for count
+	// c has to be -1 cause dynarr...
+	// TODO: Make dynarr flag for count
 	fck_type_system *ts = marshaller->type_system;
 
 	fck_type type = *p->type;
@@ -26,7 +26,7 @@ int fck_stretchy_serialise(fck_marshaller *marshaller, fck_marshal_params *p, vo
 	fck_serialiser_params params;
 	params.name = "count";
 
-	fck_stretchy_info *info = fck_stretchy_get_info(*self);
+	fck_dynarr_info *info = fck_dynarr_get_info(*self);
 	fckc_u64 count = *self == NULL ? 0 : (fckc_u64)info->size;
 
 	marshaller->serialiser->vt->u64(marshaller->serialiser, &params, &count, 1);
@@ -38,19 +38,19 @@ int fck_stretchy_serialise(fck_marshaller *marshaller, fck_marshal_params *p, vo
 			return 0;
 		}
 		fckc_size_t size = ts->type->size_of(type);
-		*self = fck_stretchy_alloc(kll_heap, size, 0);
-		info = fck_stretchy_get_info(*self);
+		*self = fck_dynarr_alloc(kll_heap, size, 0);
+		info = fck_dynarr_get_info(*self);
 	}
 
 	for (fckc_size_t index = info->size; index < count; index++)
 	{
-		info = fck_stretchy_get_info(*self);
-		fck_stretchy_expand(self, info->element_size);
-		info = fck_stretchy_get_info(*self);
+		info = fck_dynarr_get_info(*self);
+		fck_dynarr_expand(self, info->element_size);
+		info = fck_dynarr_get_info(*self);
 		fckc_u8 *bytes = (fckc_u8 *)(*self);
 		std->mem->set(&bytes[index * info->element_size], 0, info->element_size);
 	}
-	info = fck_stretchy_get_info(*self);
+	info = fck_dynarr_get_info(*self);
 	info->size = count;
 
 	p->name = "data";
@@ -111,10 +111,10 @@ void fck_type_serialise_pretty(fck_marshaller *marshaller, fck_marshal_params *p
 			// We could make this an abstracted concept.
 			// template_serialiser serialise = ts->template->get(member)
 			// The template_serialiser or however we call it should rebind self/data and hand out a size
-			// like the stretchy one is doing it right now. Only requirement: linear memory(maybe?)
+			// like the dynarr one is doing it right now. Only requirement: linear memory(maybe?)
 			// otherwise we need a iteration abstraction which can be paaaainful :-D
 			// if(serialise != NULL && serialise(serialiser, params, (void **)(data), &count)) { ... }
-			if (fck_stretchy_serialise(marshaller, params, (void **)(data), &count))
+			if (fck_dynarr_serialise(marshaller, params, (void **)(data), &count))
 			{
 				// This cast to void** and then deref is ugly and shit
 				// It is more advisable to let let the xxx_serialise function provide us with a new
@@ -170,7 +170,7 @@ void fck_type_serialise_ugly(fck_marshaller *marshaller, fck_marshal_params *par
 
 	if (count == 0)
 	{
-		if (fck_stretchy_serialise(marshaller, params, (void **)(data), &count))
+		if (fck_dynarr_serialise(marshaller, params, (void **)(data), &count))
 		{
 			fck_type_serialise_ugly(marshaller, params, *(void **)data, count);
 		}

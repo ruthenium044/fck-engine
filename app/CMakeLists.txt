@@ -40,11 +40,10 @@ find_package(fckc CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
 find_package(ser-ext CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
 find_package(ser-json CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
 find_package(kll CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
+find_package(set CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
+find_package(dynarr CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
+target_link_libraries(${PROJECT_NAME} PUBLIC fck::fckc fck::hash fck::kll PRIVATE fck::ser-ext fck::set fck::dynarr fck::ser-json fck::std fck::ts fck::api SDL3::SDL3)
 
-# Fix up truely shared libraries!
-#target_link_options(${PROJECT_NAME} PRIVATE LINKER:-no_warn_duplicate_libraries)
-target_link_libraries(${PROJECT_NAME} PUBLIC fck::fckc fck::hash fck::kll PRIVATE fck::ser-ext fck::ser-json fck::std fck::ts fck::api SDL3::SDL3)
-
-#set_target_properties(SDL3 PROPERTIES FOLDER "SDL3")
+set_target_properties(SDL3-shared PROPERTIES FOLDER "SDL3")
 set_target_properties(SDL_uclibc PROPERTIES FOLDER "SDL3")
 set_target_properties(SDL3_test PROPERTIES FOLDER "SDL3")

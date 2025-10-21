@@ -183,7 +183,7 @@ void fck_type_size_of(fck_marshaller *m, struct fck_marshal_params *p, void *sel
 		// Do the counting...
 		fck_serialiser_type_size_of *size_of = (fck_serialiser_type_size_of *)m->serialiser;
 		fckc_size_t stride_size = ts->member->stride_of(current);
-		if (ts->member->is_stretchy(current))
+		if (ts->member->is_dynarr(current))
 		{
 			size_of->size = stride_size + (sizeof(fckc_size_t) * c);
 			return;
@@ -252,7 +252,7 @@ fck_marshal_func *fck_marshal_get_api(fck_type type)
 	return fck_marshal_get(&assembly->marshal, type);
 }
 
-int fck_members_is_stretchy(struct fck_member_info *info)
+int fck_members_is_dynarr(struct fck_member_info *info)
 {
 	return info->extra_count == (fckc_size_t)(~0LLU);
 }
@@ -303,7 +303,7 @@ fck_type_system *fck_load_type_system(struct fck_apis *apis)
 	ts->member->next_of = fck_member_info_next;
 	ts->member->stride_of = fck_member_info_stride;
 	ts->member->count_of = fck_member_info_count;
-	ts->member->is_stretchy = fck_members_is_stretchy;
+	ts->member->is_dynarr = fck_members_is_dynarr;
 
 	ts->member->add = fck_members_add_api;
 	// Serialiser public API

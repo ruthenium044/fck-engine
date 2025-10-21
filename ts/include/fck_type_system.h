@@ -100,7 +100,7 @@ typedef struct fck_member_desc
 	}
 
 // or list... idk yet
-#define fck_stretchy_decl(owner, type, member)                                                                                             \
+#define fck_dynarr_decl(owner, type, member)                                                                                             \
 	(fck_member_desc)                                                                                                                      \
 	{                                                                                                                                      \
 		type, fck_name(member), offsetof(owner, member), (~0llu)                                                                           \
@@ -175,7 +175,7 @@ typedef struct fck_member_api
 	fck_member (*next_of)(struct fck_member_info *info);
 	fckc_size_t (*stride_of)(struct fck_member_info *info);
 	fckc_size_t (*count_of)(struct fck_member_info *info);
-	int (*is_stretchy)(struct fck_member_info *info);
+	int (*is_dynarr)(struct fck_member_info *info);
 
 	fck_member (*add)(fck_type owner, fck_member_desc desc);
 } fck_member_api;

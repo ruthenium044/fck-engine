@@ -107,7 +107,7 @@ typedef struct example_type
 	fckc_i8 i8;
 	fckc_u8 u8;
 
-	some_type *stretchy;
+	some_type *dynarr;
 
 	some_type arr[5];
 
@@ -193,7 +193,7 @@ void setup_some_stuff(fck_instance *app)
 	ts->member->add(some_type_handle, fck_value_decl(some_type, f32, x));
 	ts->member->add(some_type_handle, fck_value_decl(some_type, f32, y));
 
-	ts->member->add(example_type_handle, fck_stretchy_decl(example_type, some_type_handle, stretchy));
+	ts->member->add(example_type_handle, fck_dynarr_decl(example_type, some_type_handle, dynarr));
 	ts->member->add(example_type_handle, fck_array_decl(example_type, f32, other, 2));
 	ts->member->add(example_type_handle, fck_value_decl(example_type, f32, cooldown));
 	ts->member->add(example_type_handle, fck_array_decl(example_type, f32, position, 2));

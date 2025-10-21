@@ -39,6 +39,7 @@ fck_member_info *fck_member_resolve(fck_member member)
 		fck_member_info *entry = &member.members->info[has - 1];
 		return entry;
 	}
+	return NULL;
 }
 
 fck_identifier fck_member_info_identify(struct fck_member_info *info)

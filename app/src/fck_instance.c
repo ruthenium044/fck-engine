@@ -14,14 +14,14 @@
 #include "fck_serialiser_nk_edit_vt.h"
 #include "fck_serialiser_vt.h"
 
-#include "kll_heap.h"
 #include <kll.h>
+#include <kll_heap.h>
 #include <kll_malloc.h>
 
 #include "fck_type_system.h"
 #include <fck_apis.h>
 
-#include "fck_set.h"
+#include <fck_set.h>
 
 typedef fckc_u32 fck_entity_index;
 typedef struct fck_entity

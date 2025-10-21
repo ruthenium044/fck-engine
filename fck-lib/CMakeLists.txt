@@ -13,7 +13,7 @@ find_package(api CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH})
 #find_package(cnt CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH})
 
 add_custom_target(fck-lib-hash-output
-     COMMAND "${CMAKE_CURRENT_BINARY_DIR}/hash/fck-hash" 
+     COMMAND "${CMAKE_BINARY_DIR}/fck-hash" 
      "path=${CMAKE_CURRENT_SOURCE_DIR}/test/" 
      "output=${CMAKE_CURRENT_SOURCE_DIR}/hash.txt"
      DEPENDS fck-hash

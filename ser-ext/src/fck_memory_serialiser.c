@@ -1,4 +1,4 @@
-
+#define FCK_SER_EXT_MEM_EXPORT
 #include "fck_memory_serialiser.h"
 
 #include <kll.h>
@@ -87,3 +87,14 @@ void fck_memory_serialiser_free(fck_memory_serialiser *serialiser)
 	serialiser->bytes = NULL;
 	serialiser->at = serialiser->capacity = 0;
 };
+
+static fck_memory_serialiser_api fck_ser_mem_api = {
+	.alloc = fck_memory_serialiser_alloc,
+	.create = fck_memory_serialiser_create,
+	.free = fck_memory_serialiser_free,
+	.maybe_realloc = fck_memory_serialiser_maybe_realloc,
+	.realloc = fck_memory_serialiser_realloc
+};
+
+fck_memory_serialiser_api* fck_ser_mem = &fck_ser_mem_api;
+

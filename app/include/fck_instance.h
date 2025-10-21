@@ -28,7 +28,6 @@ typedef struct fck_instance
 	SDL_Window *window;     // This one could stay public - Makes sense for multi-instance stuff
 	SDL_Renderer *renderer; // User
 	fck_ui_window_manager *window_manager;
-	fck_apis *apis;
 	fck_assembly *assembly;
 } fck_instance;
 

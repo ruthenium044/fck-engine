@@ -173,7 +173,7 @@ void setup_some_stuff(fck_instance *app)
 	// fck_type_memory mem = fck_type_memory_create(kll_heap);
 	// fck_type_memory_alloc(&mem, sizeof(example_type));
 
-	fck_type_system *ts = fck_get_type_system(app->apis);
+	fck_type_system *ts = fck_get_type_system(apis);
 
 	// fck_type example_type_handle = fck_types_add(ts->get_types(), (fck_type_desc){fck_name(example_type)});
 	fck_type example_type_handle = ts->type->add(app->assembly, (fck_type_desc){fck_name(example_type)});
@@ -219,7 +219,7 @@ int fck_ui_window_entities(struct fck_ui *ui, fck_ui_window *window, void *userd
 
 	nk_layout_row_dynamic(ctx, 25, 1);
 
-	fck_type_system *ts = fck_get_type_system(app->apis);
+	fck_type_system *ts = fck_get_type_system(apis);
 
 	fck_type custom_type = ts->type->find(app->assembly, fck_name(example_type));
 	struct fck_type_info *type = ts->type->resolve(custom_type);
@@ -345,13 +345,12 @@ fck_instance_result fck_instance_overlay(fck_instance *instance)
 fck_instance *fck_instance_alloc(const char *title, int with, int height, SDL_WindowFlags window_flags, const char *renderer_name)
 {
 	fck_instance *app = (fck_instance *)SDL_malloc(sizeof(fck_instance));
-	app->window = SDL_CreateWindow(title, 1280, 720, SDL_WINDOW_RESIZABLE);
+	app->window = SDL_CreateWindow(title, 1280, 720, 0);
 	app->renderer = SDL_CreateRenderer(app->window, renderer_name);
 	app->ui = fck_ui_alloc(app->renderer);
 	app->window_manager = fck_ui_window_manager_alloc(16);
 
-	app->apis = fck_apis_load();
-	fck_type_system *ts = fck_load_type_system(app->apis);
+	fck_type_system *ts = fck_load_type_system(apis);
 	app->assembly = ts->assembly->alloc(kll_heap);
 
 	fck_ui_window_manager_create(app->window_manager, "Entities", app, fck_ui_window_entities);
@@ -359,7 +358,7 @@ fck_instance *fck_instance_alloc(const char *title, int with, int height, SDL_Wi
 	fck_ui_set_style(fck_ui_context(app->ui), THEME_DRACULA);
 
 	setup_some_stuff(app);
-
+	
 	entities = SDL_malloc(offsetof(fck_entity_set, id[128]));
 	entities->capacity = 128;
 	entities->count = 2;

@@ -1,3 +1,4 @@
+#define FCK_TYPE_SYSTEM_EXPORT
 #include "fck_type_system.h"
 
 #include "fck_serialiser_vt.h"

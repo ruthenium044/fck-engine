@@ -1,3 +1,5 @@
+
+#define FCK_STD_EXPORT
 #include "fck_os.h"
 
 #include <SDL3/SDL_stdinc.h>
@@ -33,6 +35,7 @@ static fck_io_api io_api = {
 };
 
 static fck_std_api std_api = {
+	.character = &char_api,
 	.str = &string_api,
 	.mem = &memory_api,
 	.io = &io_api,

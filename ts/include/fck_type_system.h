@@ -2,7 +2,13 @@
 #define FCK_TYPE_SYSTEM_H_INCLUDED
 
 #include <fckc_inttypes.h>
+#include <fckc_apidef.h>
 
+#if defined(FCK_TYPE_SYSTEM_EXPORT)
+#define FCK_TYPE_SYSTEM_API FCK_EXPORT_API
+#else
+#define FCK_TYPE_SYSTEM_API FCK_IMPORT_API
+#endif
 #define fck_name(s) #s
 
 #define fck_id(s) sizeof(s) ? #s : NULL
@@ -63,8 +69,6 @@ typedef struct fck_marshal_params
 } fck_marshal_params;
 
 typedef void(fck_marshal_func)(struct fck_serialiser *s, fck_marshal_params *p, void *self, fckc_size_t c);
-
-#define fck_
 
 typedef struct fck_identifier_desc
 {
@@ -207,12 +211,12 @@ typedef struct fck_marshaller
 
 struct fck_serialiser;
 // struct fck_serialiser_params;
-void fck_type_serialise(fck_marshaller *serialiser, fck_marshal_params *params, void *data, fckc_size_t count);
+FCK_TYPE_SYSTEM_API void fck_type_serialise(fck_marshaller *serialiser, fck_marshal_params *params, void *data, fckc_size_t count);
 
 struct fck_apis;
 
-fck_type_system *fck_load_type_system(struct fck_apis *apis);
-void fck_unload_type_system(struct fck_apis *apis);
-fck_type_system *fck_get_type_system(struct fck_apis *apis);
+FCK_TYPE_SYSTEM_API fck_type_system *fck_load_type_system(struct fck_apis *apis);
+FCK_TYPE_SYSTEM_API void fck_unload_type_system(struct fck_apis *apis);
+FCK_TYPE_SYSTEM_API fck_type_system *fck_get_type_system(struct fck_apis *apis);
 
 #endif // !FCK_TYPE_SYSTEM_H_INCLUDED

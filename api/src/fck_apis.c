@@ -1,4 +1,5 @@
 
+#define FCK_APIS_EXPORT
 #include "fck_apis.h"
 
 #include <fck_hash.h>
@@ -49,7 +50,7 @@ static void fck_apis_add(const char *name, void *api)
 	fck_apis_storage.tails[slot] = current;
 }
 
-static fck_api_bool fck_apis_remove(const char *name)
+static int fck_apis_remove(const char *name)
 {
 	fck_hash_int hash = fck_hash(name, std->str->unsafe->len(name));
 	fck_hash_int slot = hash % fck_apis_hash_map_capacity;
@@ -121,19 +122,21 @@ fck_apis fck_apis_runtime_state = {
 	.next = fck_apis_next,
 };
 
-// TODO: DLL
-fck_apis *fck_apis_load(void)
-{
-	//// Setup linkedlist buckets...
-	// for(fckc_size_t index = 0; index < fck_apis_hash_map_capacity; index++)
-	//{
-	//	fck_apis_storage.nodes[index].tail = &fck_apis_storage.nodes[index];
-	// }
+fck_apis* apis = &fck_apis_runtime_state;
 
-	return &fck_apis_runtime_state;
-}
-
-void fck_apis_unload(fck_apis *api)
-{
-	// lol
-}
+//// TODO: DLL
+//fck_apis *fck_apis_load(void)
+//{
+//	//// Setup linkedlist buckets...
+//	// for(fckc_size_t index = 0; index < fck_apis_hash_map_capacity; index++)
+//	//{
+//	//	fck_apis_storage.nodes[index].tail = &fck_apis_storage.nodes[index];
+//	// }
+//
+//	return &fck_apis_runtime_state;
+//}
+//
+//void fck_apis_unload(fck_apis *api)
+//{
+//	// lol
+//}

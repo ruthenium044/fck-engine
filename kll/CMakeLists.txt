@@ -33,6 +33,8 @@ install(
 
 find_package(fckc CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::fckc)
+#target_compile_definitions(${PROJECT_NAME} PRIVATE FCK_BUILD_DLL)
+
 set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "fck-lib")
 
 add_executable(${PROJECT_NAME}-test test/main.c)

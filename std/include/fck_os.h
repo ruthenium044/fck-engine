@@ -2,6 +2,13 @@
 #define FCK_OS_H
 
 #include <fckc_inttypes.h>
+#include <fckc_apidef.h>
+
+#if defined(FCK_STD_EXPORT)
+#define FCK_STD_API FCK_EXPORT_API
+#else
+#define FCK_STD_API FCK_IMPORT_API
+#endif
 
 typedef struct fck_char_api
 {
@@ -22,9 +29,9 @@ typedef struct fck_string_api
 	int (*cmp)(const char *lhs, const char *rhs, fckc_size_t maxlen);
 	char *(*dup)(const char *str, fckc_size_t maxlen);
 	fckc_size_t (*len)(const char *str, fckc_size_t maxlen);
-	long long (*toll)(const char *restrict str, char **restrict end, int base);
-	unsigned long long (*toull)(const char *restrict str, char **restrict end, int base);
-	double (*tod)(const char *restrict str, char **restrict end);
+	long long (*toll)(const char *str, char **end, int base);
+	unsigned long long (*toull)(const char *str, char **end, int base);
+	double (*tod)(const char *str, char **end);
 } fck_string_api;
 
 typedef struct fck_memory_api
@@ -36,7 +43,7 @@ typedef struct fck_memory_api
 
 typedef struct fck_io_api
 {
-	int (*snprintf)(char *restrict s, size_t n, const char *restrict format, ...);
+	int (*snprintf)(char *s, size_t n, const char *format, ...);
 } fck_io_api;
 
 typedef struct fck_std_api
@@ -53,7 +60,7 @@ typedef struct fck_std_api
 
 // Gotta see if this name clashes hehe
 // Maybe just putting everything into OS and calling it os is nicer?
-extern fck_std_api *std;
+FCK_STD_API extern fck_std_api *std;
 
 // extern fck_os_api *os;
 

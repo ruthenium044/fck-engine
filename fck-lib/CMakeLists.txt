@@ -23,7 +23,7 @@ add_custom_target(fck-lib-hash-output
 
 # Setup test
 add_executable(${PROJECT_NAME}-test test/main.c)
-target_link_libraries(${PROJECT_NAME}-test fck::fckc fck::kll fck::std fck::hash)
+target_link_libraries(${PROJECT_NAME}-test fck::fckc fck::kll fck::std fck::hash fck::api)
 
 add_dependencies(${PROJECT_NAME}-test fck-lib-hash-output)
 

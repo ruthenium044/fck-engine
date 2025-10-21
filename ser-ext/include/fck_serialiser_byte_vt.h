@@ -1,7 +1,15 @@
 #ifndef FCK_SERIALISER_BYTE_VT_H_INCLUDED
 #define FCK_SERIALISER_BYTE_VT_H_INCLUDED
 
-extern struct fck_serialiser_vt *fck_byte_writer_vt;
-extern struct fck_serialiser_vt *fck_byte_reader_vt;
+#include <fckc_apidef.h>
+
+#if defined(FCK_SER_EXT_BYTE_EXPORT)
+#define FCK_SER_EXT_BYTE_API FCK_EXPORT_API
+#else
+#define FCK_SER_EXT_BYTE_API FCK_IMPORT_API
+#endif
+
+FCK_SER_EXT_BYTE_API extern struct fck_serialiser_vt *fck_byte_writer_vt;
+FCK_SER_EXT_BYTE_API extern struct fck_serialiser_vt *fck_byte_reader_vt;
 
 #endif // FCK_SERIALISER_BYTE_VT_H_INCLUDED

@@ -1,3 +1,4 @@
+#define FCK_TS_SET_EXPORT
 #include "fck_set.h"
 
 #include <kll.h>

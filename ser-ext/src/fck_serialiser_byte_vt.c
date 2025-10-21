@@ -1,4 +1,4 @@
-
+#define FCK_SER_EXT_BYTE_EXPORT
 #include "fck_serialiser_byte_vt.h"
 #include "fck_serialiser_vt.h"
 
@@ -190,7 +190,7 @@ void fck_write_byte_i8(fck_serialiser *s, fck_serialiser_params *p, fckc_i8 *v, 
 {
 	fck_byte_serialiser_precondition(s);
 
-	fck_memory_serialiser_maybe_realloc(((fck_memory_serialiser *)s), sizeof(*v) * c);
+	fck_ser_mem->maybe_realloc(((fck_memory_serialiser *)s), sizeof(*v) * c);
 
 	std->mem->cpy(((fck_memory_serialiser *)s)->bytes + ((fck_memory_serialiser *)s)->at, v, c);
 	((fck_memory_serialiser *)s)->at = ((fck_memory_serialiser *)s)->at + sizeof(*v);
@@ -200,7 +200,7 @@ void fck_write_byte_i16(fck_serialiser *s, fck_serialiser_params *p, fckc_i16 *v
 {
 	fck_byte_serialiser_precondition(s);
 
-	fck_memory_serialiser_maybe_realloc(((fck_memory_serialiser *)s), sizeof(*v) * c);
+	fck_ser_mem->maybe_realloc(((fck_memory_serialiser *)s), sizeof(*v) * c);
 
 	for (fckc_i16 *end = v + c; v != end; v++)
 	{
@@ -215,7 +215,7 @@ void fck_write_byte_i32(fck_serialiser *s, fck_serialiser_params *p, fckc_i32 *v
 {
 	fck_byte_serialiser_precondition(s);
 
-	fck_memory_serialiser_maybe_realloc(((fck_memory_serialiser *)s), sizeof(*v) * c);
+	fck_ser_mem->maybe_realloc(((fck_memory_serialiser *)s), sizeof(*v) * c);
 
 	for (fckc_i32 *end = v + c; v != end; v++)
 	{
@@ -232,7 +232,7 @@ void fck_write_byte_i64(fck_serialiser *s, fck_serialiser_params *p, fckc_i64 *v
 {
 	fck_byte_serialiser_precondition(s);
 
-	fck_memory_serialiser_maybe_realloc(((fck_memory_serialiser *)s), sizeof(*v) * c);
+	fck_ser_mem->maybe_realloc(((fck_memory_serialiser *)s), sizeof(*v) * c);
 
 	for (fckc_i64 *end = v + c; v != end; v++)
 	{
@@ -253,7 +253,7 @@ void fck_write_byte_u8(fck_serialiser *s, fck_serialiser_params *p, fckc_u8 *v, 
 {
 	fck_byte_serialiser_precondition(s);
 
-	fck_memory_serialiser_maybe_realloc(((fck_memory_serialiser *)s), sizeof(*v) * c);
+	fck_ser_mem->maybe_realloc(((fck_memory_serialiser *)s), sizeof(*v) * c);
 
 	std->mem->cpy(((fck_memory_serialiser *)s)->bytes + ((fck_memory_serialiser *)s)->at, v, c);
 	((fck_memory_serialiser *)s)->at = ((fck_memory_serialiser *)s)->at + sizeof(*v);
@@ -263,7 +263,7 @@ void fck_write_byte_u16(fck_serialiser *s, fck_serialiser_params *p, fckc_u16 *v
 {
 	fck_byte_serialiser_precondition(s);
 
-	fck_memory_serialiser_maybe_realloc(((fck_memory_serialiser *)s), sizeof(*v) * c);
+	fck_ser_mem->maybe_realloc(((fck_memory_serialiser *)s), sizeof(*v) * c);
 
 	for (fckc_u16 *end = v + c; v != end; v++)
 	{
@@ -278,7 +278,7 @@ void fck_write_byte_u32(fck_serialiser *s, fck_serialiser_params *p, fckc_u32 *v
 {
 	fck_byte_serialiser_precondition(s);
 
-	fck_memory_serialiser_maybe_realloc(((fck_memory_serialiser *)s), sizeof(*v) * c);
+	fck_ser_mem->maybe_realloc(((fck_memory_serialiser *)s), sizeof(*v) * c);
 
 	for (fckc_u32 *end = v + c; v != end; v++)
 	{
@@ -295,7 +295,7 @@ void fck_write_byte_u64(fck_serialiser *s, fck_serialiser_params *p, fckc_u64 *v
 {
 	fck_byte_serialiser_precondition(s);
 
-	fck_memory_serialiser_maybe_realloc(((fck_memory_serialiser *)s), sizeof(*v) * c);
+	fck_ser_mem->maybe_realloc(((fck_memory_serialiser *)s), sizeof(*v) * c);
 
 	for (fckc_u64 *end = v + c; v != end; v++)
 	{
@@ -316,7 +316,7 @@ void fck_write_byte_f32(fck_serialiser *s, fck_serialiser_params *p, float *v, f
 {
 	fck_byte_serialiser_precondition(s);
 
-	fck_memory_serialiser_maybe_realloc(((fck_memory_serialiser *)s), sizeof(*v) * c);
+	fck_ser_mem->maybe_realloc(((fck_memory_serialiser *)s), sizeof(*v) * c);
 
 	for (float *end = v + c; v != end; v++)
 	{
@@ -336,7 +336,7 @@ void fck_write_byte_f64(fck_serialiser *s, fck_serialiser_params *p, double *v, 
 {
 	fck_byte_serialiser_precondition(s);
 
-	fck_memory_serialiser_maybe_realloc(((fck_memory_serialiser *)s), sizeof(*v) * c);
+	fck_ser_mem->maybe_realloc(((fck_memory_serialiser *)s), sizeof(*v) * c);
 
 	for (double *end = v + c; v != end; v++)
 	{

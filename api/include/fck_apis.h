@@ -2,19 +2,23 @@
 #define FCK_APIS_H_IMPLEMENTED
 
 #include <fckc_inttypes.h>
+#include <fckc_apidef.h>
 
-typedef fckc_u32 fck_api_bool;
+#if defined(FCK_APIS_EXPORT)
+#define FCK_APIS_API FCK_EXPORT_API
+#else
+#define FCK_APIS_API FCK_IMPORT_API
+#endif
 
 typedef struct fck_apis
 {
 	void (*add)(const char *name, void *api);
 	void *(*get)(fckc_u64 hash);
 	void *(*find)(const char *name);
-	fck_api_bool (*remove)(const char *name);
+	int (*remove)(const char *name);
 	void *(*next)(void *prev);
 } fck_apis;
 
-fck_apis *fck_apis_load(void);
-void fck_apis_unload(fck_apis *apis);
+FCK_APIS_API extern fck_apis* apis;
 
 #endif // !FCK_APIS_H_IMPLEMENTED

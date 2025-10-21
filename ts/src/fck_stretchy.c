@@ -1,3 +1,4 @@
+#define FCK_TS_STRETCHY_EXPORT
 #include "fck_stretchy.h"
 
 #include <kll.h>

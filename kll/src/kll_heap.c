@@ -1,5 +1,6 @@
 // kll_heap.c
 
+#define FCK_KLL_EXPORT
 #include "kll_heap.h"
 
 #include "kll.h"

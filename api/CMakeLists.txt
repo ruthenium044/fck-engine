@@ -4,7 +4,7 @@ project(fck-api)
 
 include_guard(GLOBAL)
 
-add_library(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/src/fck_apis.c)
+add_library(${PROJECT_NAME} SHARED ${CMAKE_CURRENT_SOURCE_DIR}/src/fck_apis.c)
 add_library(fck::api ALIAS ${PROJECT_NAME})
 
 target_sources(${PROJECT_NAME}
@@ -33,6 +33,7 @@ find_package(kll CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
 find_package(std CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::fckc fck::kll fck::hash fck::std)
 set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "fck-lib")
+
 
 add_executable(${PROJECT_NAME}-test test/main.c)
 target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})

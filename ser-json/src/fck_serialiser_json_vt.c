@@ -1,3 +1,4 @@
+#define FCK_SER_JSON_EXPORT
 #include "fck_serialiser_json_vt.h"
 #include "fck_serialiser_vt.h"
 
@@ -305,3 +306,12 @@ void fck_serialiser_json_writer_free(struct fck_json_serialiser *s)
 {
 	yyjson_doc_free(s->doc);
 }
+
+static fck_json_serialiser_api fck_json_ser_api = {
+	.writer_alloc = fck_serialiser_json_writer_alloc,
+	.writer_free = fck_serialiser_json_writer_free,
+	.string_alloc = fck_serialiser_json_string_alloc,
+	.string_free = fck_serialiser_json_string_free,
+};
+
+fck_json_serialiser_api* fck_ser_json = &fck_json_ser_api;

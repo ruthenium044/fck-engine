@@ -2,6 +2,13 @@
 #define FCK_SET_H_INCLUDED
 
 #include <fckc_inttypes.h>
+#include <fckc_apidef.h>
+
+#if defined(FCK_TS_SET_EXPORT)
+#define FCK_TS_SET_API FCK_EXPORT_API
+#else
+#define FCK_TS_SET_API FCK_IMPORT_API
+#endif
 
 // #define fck_set_alignof(x) fck_set_suggested_align(sizeof(x))
 
@@ -26,26 +33,26 @@ typedef struct fck_set_info
 	struct fck_set_state *states;
 } fck_set_info;
 
-fckc_size_t fck_set_suggested_align(fckc_size_t x);
+FCK_TS_SET_API fckc_size_t fck_set_suggested_align(fckc_size_t x);
 
-fck_set_info *fck_opaque_set_inspect(void const *ptr);
+FCK_TS_SET_API fck_set_info *fck_opaque_set_inspect(void const *ptr);
 
-void *fck_opaque_set_alloc(fck_set_info info);
-void fck_opaque_set_free(void *ptr);
-void fck_opaque_set_clear(void *ptr);
+FCK_TS_SET_API void *fck_opaque_set_alloc(fck_set_info info);
+FCK_TS_SET_API void fck_opaque_set_free(void *ptr);
+FCK_TS_SET_API void fck_opaque_set_clear(void *ptr);
 
-fckc_size_t fck_opaque_set_strong_add(void **ptr, fckc_u64 hash);
-fckc_size_t fck_opaque_set_weak_add(void **ptr, fckc_u64 hash);
-fckc_size_t fck_opaque_set_find(void *ptr, fckc_u64 hash);
-void fck_opaque_set_remove(void *ptr, fckc_u64 hash);
+FCK_TS_SET_API fckc_size_t fck_opaque_set_strong_add(void** ptr, fckc_u64 hash);
+FCK_TS_SET_API fckc_size_t fck_opaque_set_weak_add(void** ptr, fckc_u64 hash);
+FCK_TS_SET_API fckc_size_t fck_opaque_set_find(void *ptr, fckc_u64 hash);
+FCK_TS_SET_API void fck_opaque_set_remove(void *ptr, fckc_u64 hash);
 
-fckc_size_t fck_opaque_set_begin(void const *ptr);
-int fck_opaque_set_next(void const *ptr, fckc_size_t *index);
+FCK_TS_SET_API fckc_size_t fck_opaque_set_begin(void const *ptr);
+FCK_TS_SET_API int fck_opaque_set_next(void const *ptr, fckc_size_t *index);
 
-int fck_opaque_set_valid_at(void const *ptr, fckc_size_t at);
-struct fck_set_key *fck_opaque_set_keys_at(void const *ptr, fckc_size_t at);
+FCK_TS_SET_API int fck_opaque_set_valid_at(void const *ptr, fckc_size_t at);
+FCK_TS_SET_API struct fck_set_key *fck_opaque_set_keys_at(void const *ptr, fckc_size_t at);
 
-fckc_u64 fck_set_key_resolve(struct fck_set_key *key);
+FCK_TS_SET_API fckc_u64 fck_set_key_resolve(struct fck_set_key *key);
 
 // Let's see if ptr to ptr makes sense
 #define fck_set_inspect(ptr) fck_opaque_set_inspect((void *)(ptr))

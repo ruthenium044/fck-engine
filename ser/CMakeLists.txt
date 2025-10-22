@@ -1,20 +1,20 @@
 # fckc
 cmake_minimum_required(VERSION 3.20)
 
-project(ser)
+project(fck-ser)
 
 include_guard(GLOBAL)
 
 
 add_library(${PROJECT_NAME} INTERFACE)
-add_library(fck::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
+add_library(fck::ser ALIAS ${PROJECT_NAME})
 
 file(GLOB_RECURSE FCKC_HEADERS CONFIGURE_DEPENDS
 "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h"
 )
 
 add_custom_target(${PROJECT_NAME}-headers SOURCES ${FCKC_HEADERS})
-add_dependencies(${PROJECT_NAME}-headers fck::${PROJECT_NAME})
+add_dependencies(${PROJECT_NAME}-headers fck::ser)
 
 target_include_directories(${PROJECT_NAME} INTERFACE
 "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"

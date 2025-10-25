@@ -1,6 +1,5 @@
 #include "fck_instance.h"
 
-#include <SDL3/SDL_assert.h>
 #include <SDL3/SDL_log.h>
 #include <SDL3/SDL_render.h>
 
@@ -21,6 +20,9 @@
 #include "fck_type_system.h"
 #include <fck_apis.h>
 
+#include <SDL3/SDL_filesystem.h>
+
+#include <fck_os.h>
 #include <fck_set.h>
 
 typedef fckc_u32 fck_entity_index;
@@ -245,7 +247,8 @@ int fck_ui_window_entities(struct fck_ui *ui, fck_ui_window *window, void *userd
 	fck_marshaller marshaller;
 	marshaller.serialiser = (fck_serialiser *)&serialiser;
 	marshaller.type_system = ts;
-	fck_type_serialise(&marshaller, &json_params, app->assembly, 1);
+	ts->marshal->invoke((fck_serialiser *)&serialiser, &assembly_type, "Assembly", app->assembly, 1);
+	// fck_type_serialise(&marshaller, &json_params, app->assembly, 1);
 
 	//    char *text = fck_serialiser_json_string_alloc(&json);
 	//    SDL_Log("%s", text);
@@ -342,11 +345,25 @@ fck_instance_result fck_instance_overlay(fck_instance *instance)
 	return FCK_INSTANCE_CONTINUE;
 }
 
-fck_instance *fck_instance_alloc(const char *title, int with, int height, SDL_WindowFlags window_flags, const char *renderer_name)
+fck_instance *fck_instance_alloc(int argc, char *argv[])
 {
+	fck_shared_object api_so = os->so->load("fck-api.dll");
+	int (*load)() = *(int (*)())os->so->symbol(api_so, "fck_main");
+	load();
+
+	// SDL_EnumerateDirectory(SDL_GetCurrentDirectory(), iterate_files, NULL);
+	int file_count = 0;
+	char **files = SDL_GlobDirectory(SDL_GetCurrentDirectory(), "*.dll", SDL_GLOB_CASEINSENSITIVE, &file_count);
+	if (files != NULL)
+	{
+		for (fckc_size_t index = 0; index < file_count; index++)
+		{
+			SDL_Log("%s", files[index]);
+		}
+	}
 	fck_instance *app = (fck_instance *)SDL_malloc(sizeof(fck_instance));
-	app->window = SDL_CreateWindow(title, 1280, 720, 0);
-	app->renderer = SDL_CreateRenderer(app->window, renderer_name);
+	app->window = SDL_CreateWindow("Widnow", 1280, 720, 0);
+	app->renderer = SDL_CreateRenderer(app->window, NULL);
 	app->ui = fck_ui_alloc(app->renderer);
 	app->window_manager = fck_ui_window_manager_alloc(16);
 
@@ -358,41 +375,10 @@ fck_instance *fck_instance_alloc(const char *title, int with, int height, SDL_Wi
 	fck_ui_set_style(fck_ui_context(app->ui), THEME_DRACULA);
 
 	setup_some_stuff(app);
-	
+
 	entities = SDL_malloc(offsetof(fck_entity_set, id[128]));
 	entities->capacity = 128;
 	entities->count = 2;
-
-#define hash(x) x
-
-	float *set = fck_set_new(float, kll_heap, 0);
-	fck_set_info *info = fck_set_inspect(set);
-	fck_set_add(set, hash(0), 5.0f);
-	fck_set_add(set, hash(1), 5.0f);
-	info = fck_set_inspect(set);
-	fck_set_add(set, hash(2), 5.0f);
-	info = fck_set_inspect(set);
-	fck_set_remove(set, 0);
-	info = fck_set_inspect(set);
-	fck_set_remove(set, 1);
-	info = fck_set_inspect(set);
-	fck_set_remove(set, 2);
-	info = fck_set_inspect(set);
-	fck_set_add(set, hash(0), 5.0f);
-	info = fck_set_inspect(set);
-	fck_set_add(set, hash(1), 5.0f);
-	info = fck_set_inspect(set);
-	fck_set_add(set, hash(2), 5.0f);
-	info = fck_set_inspect(set);
-
-	fckc_size_t at = fck_set_begin(set);
-	while (fck_set_next(set, at))
-	{
-		SDL_Log("%d", (int)(at));
-	}
-
-	fck_set_clear(set);
-	fck_set_destroy(set);
 
 	return app;
 }

@@ -185,6 +185,7 @@ typedef struct fck_marshal_api
 	void (*add)(fck_marshal_desc desc);
 	// TODO: Maybe batched invoke? Let's do it later
 	fck_marshal_func *(*get)(fck_type type);
+	void (*invoke)(struct fck_serialiser* serialiser, fck_type* type, const char* name, void* data, fckc_size_t count);
 } fck_marshal_api;
 
 typedef struct fck_assembly_api
@@ -209,12 +210,8 @@ typedef struct fck_marshaller
 	struct fck_type_system *type_system;
 } fck_marshaller;
 
-struct fck_serialiser;
-// struct fck_serialiser_params;
-FCK_TYPE_SYSTEM_API void fck_type_serialise(fck_marshaller *serialiser, fck_marshal_params *params, void *data, fckc_size_t count);
 
 struct fck_apis;
-
 FCK_TYPE_SYSTEM_API fck_type_system *fck_load_type_system(struct fck_apis *apis);
 FCK_TYPE_SYSTEM_API void fck_unload_type_system(struct fck_apis *apis);
 FCK_TYPE_SYSTEM_API fck_type_system *fck_get_type_system(struct fck_apis *apis);

@@ -55,7 +55,7 @@ void fck_memory_serialiser_realloc(fck_memory_serialiser *serialiser, fckc_size_
 	assert(serialiser->allocator);
 
 	fckc_u8 *bytes = (fckc_u8 *)kll_malloc(serialiser->allocator, capacity);
-	std->mem->cpy(bytes, serialiser->allocator, fck_min(capacity, serialiser->capacity));
+	os->mem->cpy(bytes, serialiser->allocator, fck_min(capacity, serialiser->capacity));
 
 	kll_free(serialiser->allocator, serialiser->bytes);
 	serialiser->capacity = capacity;

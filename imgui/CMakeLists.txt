@@ -1,24 +1,28 @@
 # fckc
 cmake_minimum_required(VERSION 3.20)
 
-project(fckc)
+project(fck-imgui)
 
 include_guard(GLOBAL)
 
 add_library(${PROJECT_NAME} INTERFACE)
-add_library(fck::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
+add_library(fck::imgui ALIAS ${PROJECT_NAME})
 
 file(GLOB_RECURSE FCKC_HEADERS CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h"
 )
 
-add_custom_target(${PROJECT_NAME}-headers SOURCES ${FCKC_HEADERS} "include/fckc_assert.h")
-add_dependencies(${PROJECT_NAME}-headers fck::${PROJECT_NAME})
+add_custom_target(${PROJECT_NAME}-headers SOURCES ${FCKC_HEADERS})
+add_dependencies(${PROJECT_NAME}-headers fck::imgui)
 
 target_include_directories(${PROJECT_NAME} INTERFACE
     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
     "$<INSTALL_INTERFACE:include>"
 )
+
+find_package(fckc CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
+target_link_libraries(${PROJECT_NAME} INTERFACE fck::fckc)
+
 
 set_target_properties(${PROJECT_NAME}-headers PROPERTIES FOLDER "fck-lib")
 

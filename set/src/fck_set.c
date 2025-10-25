@@ -83,7 +83,7 @@ void *fck_opaque_set_alloc(fck_set_info input)
 	info->states = fck_set_pointer_offset(fck_set_state, info, states_offset);
 	info->stale = 0;
 
-	std->mem->set(info->states, 0, state_size);
+	os->mem->set(info->states, 0, state_size);
 
 	info->cookie = FCK_SET_KEY_COOKIE;
 
@@ -102,7 +102,7 @@ void fck_opaque_set_clear(void *ptr)
 	assert(ptr);
 	fck_set_info *info = fck_opaque_set_inspect(ptr);
 	const fckc_size_t state_size = sizeof(*info->states) * ((info->capacity / 32) + 1);
-	std->mem->set(info->states, 0, state_size);
+	os->mem->set(info->states, 0, state_size);
 	info->size = 0;
 	info->stale = 0;
 }
@@ -148,7 +148,7 @@ static void fck_opaque_set_rehash(fck_set_info **info_ref, void **ptr)
 			new_info = fck_opaque_set_inspect(new);
 			fckc_u8 *dst = fck_set_pointer_offset(fckc_u8, new, info->el_size * at);
 			fckc_u8 *src = fck_set_pointer_offset(fckc_u8, old, info->el_size * index);
-			std->mem->cpy(dst, src, info->el_size);
+			os->mem->cpy(dst, src, info->el_size);
 		}
 
 		new_info->size = info->size;

@@ -19,7 +19,7 @@ void fck_read_byte_i8(fck_serialiser *s, fck_serialiser_params *p, fckc_i8 *v, f
 
 	assert((((fck_memory_serialiser *)s)->at + sizeof(*v) * c) <= ((fck_memory_serialiser *)s)->capacity && "Out of bounds read");
 
-	std->mem->cpy(v, ((fck_memory_serialiser *)s)->bytes + ((fck_memory_serialiser *)s)->at, c);
+	os->mem->cpy(v, ((fck_memory_serialiser *)s)->bytes + ((fck_memory_serialiser *)s)->at, c);
 	((fck_memory_serialiser *)s)->at = ((fck_memory_serialiser *)s)->at + sizeof(*v);
 }
 
@@ -82,7 +82,7 @@ void fck_read_byte_u8(fck_serialiser *s, fck_serialiser_params *p, fckc_u8 *v, f
 
 	assert((((fck_memory_serialiser *)s)->at + sizeof(*v) * c) <= ((fck_memory_serialiser *)s)->capacity && "Out of bounds read");
 
-	std->mem->cpy(v, ((fck_memory_serialiser *)s)->bytes + ((fck_memory_serialiser *)s)->at, c);
+	os->mem->cpy(v, ((fck_memory_serialiser *)s)->bytes + ((fck_memory_serialiser *)s)->at, c);
 	((fck_memory_serialiser *)s)->at = ((fck_memory_serialiser *)s)->at + sizeof(*v);
 }
 
@@ -152,7 +152,7 @@ void fck_read_byte_f32(fck_serialiser *s, fck_serialiser_params *p, float *v, fc
 		                  | ((fckc_u32)at[1] << 8ull)   // 0x00FF000000000000
 		                  | ((fckc_u32)at[2] << 16ull)  // 0x0000FF0000000000
 		                  | ((fckc_u32)at[3] << 24ull); // 0x000000FF00000000
-		std->mem->cpy(v, &as_int, fck_min(sizeof(as_int), sizeof(*v)));
+		os->mem->cpy(v, &as_int, fck_min(sizeof(as_int), sizeof(*v)));
 		((fck_memory_serialiser *)s)->at = ((fck_memory_serialiser *)s)->at + sizeof(*v);
 	}
 }
@@ -174,12 +174,12 @@ void fck_read_byte_f64(fck_serialiser *s, fck_serialiser_params *p, double *v, f
 		                  | ((fckc_u64)at[5] << 40ull)  // 0x0000000000FF0000
 		                  | ((fckc_u64)at[6] << 48ull)  // 0x000000000000FF00
 		                  | ((fckc_u64)at[7] << 56ull); // 0x00000000000000FF
-		std->mem->cpy(v, &as_int, fck_min(sizeof(as_int), sizeof(*v)));
+		os->mem->cpy(v, &as_int, fck_min(sizeof(as_int), sizeof(*v)));
 		((fck_memory_serialiser *)s)->at = ((fck_memory_serialiser *)s)->at + sizeof(*v);
 	}
 }
 
-void fck_read_byte_string(fck_serialiser *s, fck_serialiser_params *p, fck_lstring *v, fckc_size_t c)
+void fck_read_byte_string(fck_serialiser *s, fck_serialiser_params *p, char **v, fckc_size_t c)
 {
 	fck_byte_serialiser_precondition(s);
 
@@ -192,7 +192,7 @@ void fck_write_byte_i8(fck_serialiser *s, fck_serialiser_params *p, fckc_i8 *v, 
 
 	fck_ser_mem->maybe_realloc(((fck_memory_serialiser *)s), sizeof(*v) * c);
 
-	std->mem->cpy(((fck_memory_serialiser *)s)->bytes + ((fck_memory_serialiser *)s)->at, v, c);
+	os->mem->cpy(((fck_memory_serialiser *)s)->bytes + ((fck_memory_serialiser *)s)->at, v, c);
 	((fck_memory_serialiser *)s)->at = ((fck_memory_serialiser *)s)->at + sizeof(*v);
 }
 
@@ -255,7 +255,7 @@ void fck_write_byte_u8(fck_serialiser *s, fck_serialiser_params *p, fckc_u8 *v, 
 
 	fck_ser_mem->maybe_realloc(((fck_memory_serialiser *)s), sizeof(*v) * c);
 
-	std->mem->cpy(((fck_memory_serialiser *)s)->bytes + ((fck_memory_serialiser *)s)->at, v, c);
+	os->mem->cpy(((fck_memory_serialiser *)s)->bytes + ((fck_memory_serialiser *)s)->at, v, c);
 	((fck_memory_serialiser *)s)->at = ((fck_memory_serialiser *)s)->at + sizeof(*v);
 }
 
@@ -322,7 +322,7 @@ void fck_write_byte_f32(fck_serialiser *s, fck_serialiser_params *p, float *v, f
 	{
 		fckc_u8 *at = ((fck_memory_serialiser *)s)->bytes + ((fck_memory_serialiser *)s)->at;
 		fckc_u32 as_int;
-		std->mem->cpy(&as_int, v, fck_min(sizeof(as_int), sizeof(*v)));
+		os->mem->cpy(&as_int, v, fck_min(sizeof(as_int), sizeof(*v)));
 
 		at[0] = (uint8_t)((as_int >> 0) & 0xFF);
 		at[1] = (uint8_t)((as_int >> 8) & 0xFF);
@@ -342,7 +342,7 @@ void fck_write_byte_f64(fck_serialiser *s, fck_serialiser_params *p, double *v, 
 	{
 		fckc_u8 *at = ((fck_memory_serialiser *)s)->bytes + ((fck_memory_serialiser *)s)->at;
 		fckc_u64 as_int;
-		std->mem->cpy(&as_int, v, fck_min(sizeof(as_int), sizeof(*v)));
+		os->mem->cpy(&as_int, v, fck_min(sizeof(as_int), sizeof(*v)));
 
 		at[0] = (uint8_t)((as_int >> 0) & 0xFF);
 		at[1] = (uint8_t)((as_int >> 8) & 0xFF);
@@ -356,7 +356,7 @@ void fck_write_byte_f64(fck_serialiser *s, fck_serialiser_params *p, double *v, 
 	}
 }
 
-void fck_write_byte_string(fck_serialiser *s, fck_serialiser_params *p, fck_lstring *v, fckc_size_t c)
+void fck_write_byte_string(fck_serialiser *s, fck_serialiser_params *p, char **v, fckc_size_t c)
 {
 	fck_byte_serialiser_precondition(s);
 

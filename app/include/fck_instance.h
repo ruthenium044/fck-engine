@@ -4,14 +4,12 @@
 #include <fckc_inttypes.h>
 
 // TODO: Forward declartions HAVE and SHALL always be used as "struct X ..."
-typedef struct SDL_Window SDL_Window;
-typedef struct SDL_Renderer SDL_Renderer;
-typedef struct fck_ui fck_ui;
-typedef fckc_u64 SDL_WindowFlags;
-typedef union SDL_Event SDL_Event;
-typedef struct fck_ui_window_manager fck_ui_window_manager;
-typedef struct fck_apis fck_apis;
-typedef struct fck_assembly fck_assembly;
+struct SDL_Window;
+struct SDL_Renderer;
+struct fck_ui;
+struct fck_ui_window_manager;
+struct fck_assembly;
+union SDL_Event;
 
 typedef enum fck_instance_result
 {
@@ -24,16 +22,16 @@ typedef enum fck_instance_result
 // This struct is good enough for now
 typedef struct fck_instance
 {
-	fck_ui *ui;             // User
-	SDL_Window *window;     // This one could stay public - Makes sense for multi-instance stuff
-	SDL_Renderer *renderer; // User
-	fck_ui_window_manager *window_manager;
-	fck_assembly *assembly;
+	struct fck_ui *ui;             // User
+	struct SDL_Window *window;     // This one could stay public - Makes sense for multi-instance stuff
+	struct SDL_Renderer *renderer; // User
+	struct fck_ui_window_manager *window_manager;
+	struct fck_assembly *assembly;
 } fck_instance;
 
-fck_instance *fck_instance_alloc(const char *title, int with, int height, SDL_WindowFlags window_flags, const char *renderer_name);
+fck_instance *fck_instance_alloc(int argc, char* argv[]);
 void fck_instance_free(fck_instance *instance);
-fck_instance_result fck_instance_event(fck_instance *instance, SDL_Event const *event);
+fck_instance_result fck_instance_event(fck_instance *instance, union SDL_Event const *event);
 fck_instance_result fck_instance_tick(fck_instance *instance);
 
 #endif // !FCK_INSTANCE_H_IMPLEMENTED

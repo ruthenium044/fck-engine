@@ -68,7 +68,7 @@ void fck_dynarr_realloc(void **ref_ptr, fckc_size_t extra)
 	fck_dynarr_info *result_info = fck_dynarr_get_info(result);
 
 	result_info->size = info->size;
-	std->mem->cpy(result, *ref_ptr, info->size * info->element_size);
+	os->mem->cpy(result, *ref_ptr, info->size * info->element_size);
 	fck_dynarr_free(*ref_ptr);
 	*ref_ptr = result;
 }

@@ -48,7 +48,7 @@ int fck_dynarr_serialise(fck_marshaller *marshaller, fck_marshal_params *p, void
 		fck_dynarr_expand(self, info->element_size);
 		info = fck_dynarr_get_info(*self);
 		fckc_u8 *bytes = (fckc_u8 *)(*self);
-		std->mem->set(&bytes[index * info->element_size], 0, info->element_size);
+		os->mem->set(&bytes[index * info->element_size], 0, info->element_size);
 	}
 	info = fck_dynarr_get_info(*self);
 	info->size = count;
@@ -132,7 +132,7 @@ void fck_type_serialise_pretty(fck_marshaller *marshaller, fck_marshal_params *p
 			{
 				fck_marshal_params parameters = *params;
 				char buffer[32];
-				int result = std->io->snprintf(buffer, sizeof(buffer), "[%llu]", (fckc_u64)index);
+				int result = os->io->snprintf(buffer, sizeof(buffer), "[%llu]", (fckc_u64)index);
 				parameters.name = buffer;
 				fckc_u8 *offset_ptr = ((fckc_u8 *)(data)) + (size * index);
 

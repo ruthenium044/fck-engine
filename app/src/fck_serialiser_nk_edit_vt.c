@@ -338,7 +338,7 @@ void fck_nk_edit_f64(fck_serialiser *s, fck_serialiser_params *p, double *v, fck
 	}
 }
 
-void fck_nk_edit_string(fck_serialiser *s, fck_serialiser_params *p, fck_lstring *v, fckc_size_t c)
+void fck_nk_edit_string(fck_serialiser *s, fck_serialiser_params *p, char **v, fckc_size_t c)
 {
 	fck_nk_edit_precondition(s);
 
@@ -546,7 +546,7 @@ void fck_nk_read_f64(fck_serialiser *s, fck_serialiser_params *p, fckc_f64 *v, f
 	}
 }
 
-void fck_nk_read_string(fck_serialiser *s, fck_serialiser_params *p, fck_lstring *v, fckc_size_t c)
+void fck_nk_read_string(fck_serialiser *s, fck_serialiser_params *p, char **v, fckc_size_t c)
 {
 	fck_nk_edit_precondition(s);
 

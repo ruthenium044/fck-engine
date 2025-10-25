@@ -67,17 +67,17 @@ fck_identifier fck_identifiers_add(struct fck_identifiers *identifiers, fck_iden
 {
 	assert(identifiers != NULL);
 
-	fck_hash_int hash = fck_hash(desc.name, std->str->unsafe->len(desc.name));
+	fck_hash_int hash = fck_hash(desc.name, os->str->unsafe->len(desc.name));
 	fckc_size_t has = fck_set_find(identifiers->info, hash);
 	if (has)
 	{
 		fck_identifier_info *entry = &identifiers->info[has - 1];
-		assert(std->str->unsafe->cmp(desc.name, entry->str) == 0);
+		assert(os->str->unsafe->cmp(desc.name, entry->str) == 0);
 		return (fck_identifier){identifiers, hash};
 	}
 
 	fck_identifier_info *entry = &fck_set_at(identifiers->info, hash);
-	entry->str = std->str->unsafe->dup(desc.name);
+	entry->str = os->str->unsafe->dup(desc.name);
 	return (fck_identifier){identifiers, hash};
 }
 
@@ -97,7 +97,7 @@ fck_identifier fck_identifiers_find_from_string(struct fck_identifiers *identifi
 {
 	assert(identifiers != NULL);
 
-	fck_hash_int hash = fck_hash(str, std->str->unsafe->len(str));
+	fck_hash_int hash = fck_hash(str, os->str->unsafe->len(str));
 	return fck_identifiers_find_from_hash(identifiers, hash);
 }
 
@@ -125,7 +125,7 @@ void fck_serialise_identifiers(struct fck_serialiser *serialiser, struct fck_mar
 			serialiser->vt->u64(serialiser, &p, &hash, 1);
 
 			// No clue if that will work lol
-			fckc_size_t len = std->str->unsafe->len(entry->str);
+			fckc_size_t len = os->str->unsafe->len(entry->str);
 			fckc_u64 change = (fckc_u64)len;
 			p.name = "strlen";
 			serialiser->vt->u64(serialiser, &p, &change, 1);
@@ -133,7 +133,7 @@ void fck_serialise_identifiers(struct fck_serialiser *serialiser, struct fck_mar
 			if (change > len)
 			{
 				kll_free(kll_heap, entry->str);
-				entry->str = kll_malloc(kll_heap, change);
+				entry->str = (char*)kll_malloc(kll_heap, change);
 			}
 			p.name = "str";
 			serialiser->vt->string(serialiser, &p, &entry->str, 1);

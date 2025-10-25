@@ -171,8 +171,8 @@ void fck_ui_window_manager_header(fck_ui* ui, fck_ui_window_manager* manager, st
 		}
 
 		nk_menubar_end(ctx);
-	}
 	nk_end(ctx);
+	}
 }
 
 void fck_ui_window_manager_footer(fck_ui* ui, fck_ui_window_manager* manager, struct nk_rect* canvas_rect)

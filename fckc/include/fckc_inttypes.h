@@ -75,13 +75,6 @@ FCK_NAMED_VECTOR_TYPE(u16, fckc_u16);
 FCK_NAMED_VECTOR_TYPE(u32, fckc_u32);
 FCK_NAMED_VECTOR_TYPE(u64, fckc_u64);
 
-typedef struct fck_lstring
-{
-	char *str; // Should this actually be char*? Urgh
-	fckc_size_t capacity;
-	fckc_size_t size;
-} fck_lstring;
-
 #define fck_scope_str_concat(lhs, rhs) lhs##rhs
 #define fck_scope_unique(lhs, rhs) fck_scope_str_concat(lhs, rhs)
 #define fck_scope(ctor, dtor)                                                                                                              \

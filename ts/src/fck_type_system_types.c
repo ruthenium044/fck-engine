@@ -23,7 +23,7 @@ int fck_type_is_null(fck_type type)
 
 int fck_type_is(fck_type a, const char *str)
 {
-	return a.types != NULL && (a.hash == fck_hash(str, std->str->unsafe->len(str)));
+	return a.types != NULL && (a.hash == fck_hash(str, os->str->unsafe->len(str)));
 }
 
 int fck_type_is_same(fck_type a, fck_type b)
@@ -86,7 +86,7 @@ fck_type fck_types_add(struct fck_types *types, fck_type_desc desc)
 	fck_identifier identifier = fck_identifiers_add(types->identifiers, identifier_desc);
 
 	const char *str = fck_identifier_resolve(identifier);
-	const fck_hash_int hash = fck_hash(str, std->str->unsafe->len(str));
+	const fck_hash_int hash = fck_hash(str, os->str->unsafe->len(str));
 	fckc_size_t has = fck_set_find(types->info, hash);
 	if (has)
 	{
@@ -114,7 +114,7 @@ fck_type fck_types_find_from_hash(struct fck_types *types, fckc_u64 hash)
 
 fck_type fck_types_find_from_string(struct fck_types *types, const char *name)
 {
-	const fck_hash_int hash = fck_hash(name, std->str->unsafe->len(name));
+	const fck_hash_int hash = fck_hash(name, os->str->unsafe->len(name));
 	return fck_types_find_from_hash(types, hash);
 }
 

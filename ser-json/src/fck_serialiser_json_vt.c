@@ -233,7 +233,7 @@ void fck_write_json_f64(fck_serialiser *s, fck_serialiser_params *p, double *v, 
 	}
 }
 
-void fck_write_json_string(fck_serialiser *s, fck_serialiser_params *p, fck_lstring *v, fckc_size_t c)
+void fck_write_json_string(fck_serialiser *s, fck_serialiser_params *p, char * *v, fckc_size_t c)
 {
 	assert(0 && "NOT SUPPORTED FOR NOW");
 }

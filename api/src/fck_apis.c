@@ -1,5 +1,3 @@
-
-#define FCK_APIS_EXPORT
 #include "fck_apis.h"
 
 #include <fck_hash.h>
@@ -32,7 +30,7 @@ static fck_apis_hash_map fck_apis_storage;
 
 static void fck_apis_add(const char *name, void *api)
 {
-	fck_hash_int hash = fck_hash(name, std->str->unsafe->len(name));
+	fck_hash_int hash = fck_hash(name, os->str->unsafe->len(name));
 	fck_hash_int slot = hash % fck_apis_hash_map_capacity;
 
 	fck_apis_node *current = &fck_apis_storage.heads[slot];
@@ -52,7 +50,7 @@ static void fck_apis_add(const char *name, void *api)
 
 static int fck_apis_remove(const char *name)
 {
-	fck_hash_int hash = fck_hash(name, std->str->unsafe->len(name));
+	fck_hash_int hash = fck_hash(name, os->str->unsafe->len(name));
 	fck_hash_int slot = hash % fck_apis_hash_map_capacity;
 
 	fck_apis_node *current = &fck_apis_storage.heads[slot];
@@ -71,7 +69,7 @@ static int fck_apis_remove(const char *name)
 
 	if (next != NULL)
 	{
-		std->mem->cpy(current, next, sizeof(*current));
+		os->mem->cpy(current, next, sizeof(*current));
 		kll_free(kll_heap, next);
 	}
 
@@ -102,7 +100,7 @@ static void *fck_apis_find_from_hash(fckc_u64 hash)
 
 static void *fck_apis_find_from_string(const char *name)
 {
-	fck_hash_int hash = fck_hash(name, std->str->unsafe->len(name));
+	fck_hash_int hash = fck_hash(name, os->str->unsafe->len(name));
 	void *api = fck_apis_find_from_hash(hash);
 	return api;
 }
@@ -122,10 +120,16 @@ fck_apis fck_apis_runtime_state = {
 	.next = fck_apis_next,
 };
 
-fck_apis* apis = &fck_apis_runtime_state;
+//fck_apis *apis = &fck_apis_runtime_state;
+
+FCK_EXPORT_API int fck_main()
+{
+	apis = &fck_apis_runtime_state;
+	return 0;
+}
 
 //// TODO: DLL
-//fck_apis *fck_apis_load(void)
+// fck_apis *fck_apis_load(void)
 //{
 //	//// Setup linkedlist buckets...
 //	// for(fckc_size_t index = 0; index < fck_apis_hash_map_capacity; index++)
@@ -134,9 +138,9 @@ fck_apis* apis = &fck_apis_runtime_state;
 //	// }
 //
 //	return &fck_apis_runtime_state;
-//}
+// }
 //
-//void fck_apis_unload(fck_apis *api)
+// void fck_apis_unload(fck_apis *api)
 //{
 //	// lol
-//}
+// }

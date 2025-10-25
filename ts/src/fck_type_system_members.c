@@ -119,7 +119,7 @@ fck_member fck_members_add(fck_members *members, fck_type owner, fck_member_desc
 	fck_identifier identifier = fck_identifiers_add(members->identifiers, identifier_desc);
 
 	const char *str = fck_identifier_resolve(identifier);
-	const fck_hash_int hash = fck_hash(str, std->str->unsafe->len(str));
+	const fck_hash_int hash = fck_hash(str, os->str->unsafe->len(str));
 	fckc_size_t has = fck_set_find(members->info, hash);
 	if (has)
 	{

@@ -79,7 +79,7 @@ void fck_size_of_f64(fck_serialiser *s, fck_serialiser_params *p, double *v, fck
 	size_of->size = size_of->size + (sizeof(*v) * c);
 }
 
-void fck_size_of_string(fck_serialiser *s, fck_serialiser_params *p, fck_lstring *v, fckc_size_t c)
+void fck_size_of_string(fck_serialiser *s, fck_serialiser_params *p, char **v, fckc_size_t c)
 {
 	assert(0 && "Not implemented");
 }
@@ -110,7 +110,7 @@ fck_assembly *fck_assembly_alloc(kll_allocator *allocator)
 	// -- Serialisers
 	// TODO: Make sub-modules aware of the assembly. This way it may or may not be possible to
 	// traverse upward? Idk.
-	fck_assembly *assembly = kll_malloc(allocator, sizeof(*assembly));
+	fck_assembly *assembly = (fck_assembly*)kll_malloc(allocator, sizeof(*assembly));
 	fck_identifiers_alloc(&assembly->identifiers, assembly, 1);
 	fck_types_alloc(&assembly->types, assembly, &assembly->identifiers, 1);
 	fck_members_alloc(&assembly->members, assembly, &assembly->identifiers, 1);
@@ -257,6 +257,18 @@ int fck_members_is_dynarr(struct fck_member_info *info)
 	return info->extra_count == (fckc_size_t)(~0LLU);
 }
 
+void fck_marshal_invoke_api(fck_serialiser* serialiser, fck_type* type, const char* name, void* data, fckc_size_t count) 
+{
+	fck_marshaller marshaller;
+	marshaller.serialiser = serialiser;
+	marshaller.type_system = &fck_type_system_api_blob_private.type_system;
+
+	fck_marshal_params params;
+	params.name = name;
+	params.type = type;
+	fck_type_serialise(&marshaller, &params, data, count);
+}
+
 fck_type_system *fck_load_type_system(struct fck_apis *apis)
 {
 	// fck_type_system_api_blob *api = (fck_type_system_api_blob *)SDL_malloc(sizeof(*api));
@@ -267,7 +279,7 @@ fck_type_system *fck_load_type_system(struct fck_apis *apis)
 	blob->type_system.member = &blob->member_api;
 	blob->type_system.marshal = &blob->marshal_api;
 	blob->type_system.assembly = &blob->assembly_api;
-	fck_type_system *ts = (fck_type_system *)blob;
+	fck_type_system *ts = &blob->type_system;
 
 	// Identifiers public API
 	ts->identifier->null = fck_identifier_null;
@@ -309,6 +321,7 @@ fck_type_system *fck_load_type_system(struct fck_apis *apis)
 	// Serialiser public API
 	ts->marshal->add = fck_marshal_add_api;
 	ts->marshal->get = fck_marshal_get_api;
+	ts->marshal->invoke = fck_marshal_invoke_api;
 
 	ts->assembly->alloc = fck_assembly_alloc;
 	ts->assembly->free = fck_assembly_free;
@@ -325,5 +338,5 @@ void fck_unload_type_system(struct fck_apis *apis)
 fck_type_system *fck_get_type_system(struct fck_apis *apis)
 {
 	// TODO: Should be get
-	return apis->find(fck_type_system_api_name);
+	return (fck_type_system*)apis->find(fck_type_system_api_name);
 }

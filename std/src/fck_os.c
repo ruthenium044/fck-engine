@@ -2,6 +2,7 @@
 #define FCK_STD_EXPORT
 #include "fck_os.h"
 
+#include <SDL3/SDL_loadso.h>
 #include <SDL3/SDL_stdinc.h>
 
 static fck_char_api char_api = {
@@ -34,11 +35,41 @@ static fck_io_api io_api = {
 	.snprintf = SDL_snprintf,
 };
 
-static fck_std_api std_api = {
-	.character = &char_api,
+static int fck_shared_object_is_valid(fck_shared_object so)
+{
+	return so.handle != NULL;
+}
+
+static fck_shared_object fck_shared_object_load(const char *path)
+{
+	SDL_SharedObject *so = SDL_LoadObject(path);
+	return (fck_shared_object){.handle = (void*)so};
+}
+
+static void fck_shared_object_unload(fck_shared_object so)
+{
+	SDL_SharedObject *sdl_so = NULL;
+	SDL_UnloadObject((SDL_SharedObject*)so.handle);
+}
+
+static void *fck_shared_object_symbol(fck_shared_object so, const char *name)
+{
+	return (void*)SDL_LoadFunction((SDL_SharedObject*)so.handle, name);
+}
+
+static fck_shared_object_api so_api = {
+	.load = fck_shared_object_load,
+	.symbol = fck_shared_object_symbol,
+	.unload = fck_shared_object_unload,
+	.is_valid = fck_shared_object_is_valid,
+};
+
+static fck_os_api std_api = {
+	.chr = &char_api,
 	.str = &string_api,
 	.mem = &memory_api,
 	.io = &io_api,
+	.so = &so_api,
 };
 
-fck_std_api *std = &std_api;
+fck_os_api *os = &std_api;

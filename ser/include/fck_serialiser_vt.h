@@ -70,11 +70,11 @@ typedef struct fck_serialiser_vt
 	void (*u16)(struct fck_serialiser *s, struct fck_serialiser_params *p, fckc_u16 *v, fckc_size_t c);
 	void (*u32)(struct fck_serialiser *s, struct fck_serialiser_params *p, fckc_u32 *v, fckc_size_t c);
 	void (*u64)(struct fck_serialiser *s, struct fck_serialiser_params *p, fckc_u64 *v, fckc_size_t c);
-	void (*f32)(struct fck_serialiser *s, struct fck_serialiser_params *p, float *v, fckc_size_t c);
-	void (*f64)(struct fck_serialiser *s, struct fck_serialiser_params *p, double *v, fckc_size_t c);
+	void (*f32)(struct fck_serialiser *s, struct fck_serialiser_params *p, fckc_f32*v, fckc_size_t c);
+	void (*f64)(struct fck_serialiser *s, struct fck_serialiser_params *p, fckc_f64*v, fckc_size_t c);
 
 	// TODO: REMOVE THIS, REPLACE IT BEFORE IT IS TOO LATE!! FFS!!!
-	void (*string)(struct fck_serialiser *s, struct fck_serialiser_params *p, fck_lstring *v, fckc_size_t c);
+	void (*string)(struct fck_serialiser *s, struct fck_serialiser_params *p, char **v, fckc_size_t c);
 
 	fck_serialiser_prettify_vt *pretty;
 } fck_serialiser_vt;

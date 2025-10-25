@@ -1,8 +1,8 @@
 #ifndef FCK_OS_H
 #define FCK_OS_H
 
-#include <fckc_inttypes.h>
 #include <fckc_apidef.h>
+#include <fckc_inttypes.h>
 
 #if defined(FCK_STD_EXPORT)
 #define FCK_STD_API FCK_EXPORT_API
@@ -46,13 +46,32 @@ typedef struct fck_io_api
 	int (*snprintf)(char *s, size_t n, const char *format, ...);
 } fck_io_api;
 
-typedef struct fck_std_api
+typedef struct fck_window_api
 {
-	fck_char_api *character;
+	void *(*create)(int x, int y, int width, int height);
+} fck_window_api;
+
+typedef struct fck_shared_object
+{
+	void* handle;
+}fck_shared_object;
+
+typedef struct fck_shared_object_api
+{
+	fck_shared_object (*load)(const char* path);
+	void (*unload)(fck_shared_object so);
+	int (*is_valid)(fck_shared_object so);
+	void*(*symbol)(fck_shared_object so, const char* name);
+} fck_shared_object_api;
+
+typedef struct fck_os_api
+{
+	fck_char_api *chr;
 	fck_string_api *str;
 	fck_memory_api *mem;
 	fck_io_api *io;
-} fck_std_api;
+	fck_shared_object_api *so;
+} fck_os_api;
 
 // typedef struct fck_os_api
 //{
@@ -60,7 +79,7 @@ typedef struct fck_std_api
 
 // Gotta see if this name clashes hehe
 // Maybe just putting everything into OS and calling it os is nicer?
-FCK_STD_API extern fck_std_api *std;
+FCK_STD_API extern fck_os_api *os;
 
 // extern fck_os_api *os;
 

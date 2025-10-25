@@ -43,18 +43,18 @@ static int fck_shared_object_is_valid(fck_shared_object so)
 static fck_shared_object fck_shared_object_load(const char *path)
 {
 	SDL_SharedObject *so = SDL_LoadObject(path);
-	return (fck_shared_object){.handle = (void*)so};
+	return (fck_shared_object){.handle = (void *)so};
 }
 
 static void fck_shared_object_unload(fck_shared_object so)
 {
 	SDL_SharedObject *sdl_so = NULL;
-	SDL_UnloadObject((SDL_SharedObject*)so.handle);
+	SDL_UnloadObject((SDL_SharedObject *)so.handle);
 }
 
 static void *fck_shared_object_symbol(fck_shared_object so, const char *name)
 {
-	return (void*)SDL_LoadFunction((SDL_SharedObject*)so.handle, name);
+	return (void *)SDL_LoadFunction((SDL_SharedObject *)so.handle, name);
 }
 
 static fck_shared_object_api so_api = {
@@ -73,3 +73,12 @@ static fck_os_api std_api = {
 };
 
 fck_os_api *os = &std_api;
+
+#include <fckc_apidef.h>
+#include <stdio.h>
+
+FCK_EXPORT_API int fck_main()
+{
+	printf("%s loaded and initialised\n", __FILE_NAME__);
+	return 0;
+}

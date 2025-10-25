@@ -120,11 +120,11 @@ fck_apis fck_apis_runtime_state = {
 	.next = fck_apis_next,
 };
 
-//fck_apis *apis = &fck_apis_runtime_state;
-
+// fck_apis *apis = &fck_apis_runtime_state;
+#include <stdio.h>
 FCK_EXPORT_API int fck_main()
 {
-	apis = &fck_apis_runtime_state;
+	printf("%s loaded and initialised\n", __FILE_NAME__);
 	return 0;
 }
 

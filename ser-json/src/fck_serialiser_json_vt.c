@@ -233,7 +233,7 @@ void fck_write_json_f64(fck_serialiser *s, fck_serialiser_params *p, double *v, 
 	}
 }
 
-void fck_write_json_string(fck_serialiser *s, fck_serialiser_params *p, char * *v, fckc_size_t c)
+void fck_write_json_string(fck_serialiser *s, fck_serialiser_params *p, char **v, fckc_size_t c)
 {
 	assert(0 && "NOT SUPPORTED FOR NOW");
 }
@@ -314,4 +314,13 @@ static fck_json_serialiser_api fck_json_ser_api = {
 	.string_free = fck_serialiser_json_string_free,
 };
 
-fck_json_serialiser_api* fck_ser_json = &fck_json_ser_api;
+fck_json_serialiser_api *fck_ser_json = &fck_json_ser_api;
+
+#include <fckc_apidef.h>
+#include <stdio.h>
+
+FCK_EXPORT_API int fck_main()
+{
+	printf("%s loaded and initialised\n", __FILE_NAME__);
+	return 0;
+}

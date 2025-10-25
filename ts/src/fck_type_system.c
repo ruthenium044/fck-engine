@@ -110,7 +110,7 @@ fck_assembly *fck_assembly_alloc(kll_allocator *allocator)
 	// -- Serialisers
 	// TODO: Make sub-modules aware of the assembly. This way it may or may not be possible to
 	// traverse upward? Idk.
-	fck_assembly *assembly = (fck_assembly*)kll_malloc(allocator, sizeof(*assembly));
+	fck_assembly *assembly = (fck_assembly *)kll_malloc(allocator, sizeof(*assembly));
 	fck_identifiers_alloc(&assembly->identifiers, assembly, 1);
 	fck_types_alloc(&assembly->types, assembly, &assembly->identifiers, 1);
 	fck_members_alloc(&assembly->members, assembly, &assembly->identifiers, 1);
@@ -257,7 +257,7 @@ int fck_members_is_dynarr(struct fck_member_info *info)
 	return info->extra_count == (fckc_size_t)(~0LLU);
 }
 
-void fck_marshal_invoke_api(fck_serialiser* serialiser, fck_type* type, const char* name, void* data, fckc_size_t count) 
+void fck_marshal_invoke_api(fck_serialiser *serialiser, fck_type *type, const char *name, void *data, fckc_size_t count)
 {
 	fck_marshaller marshaller;
 	marshaller.serialiser = serialiser;
@@ -338,5 +338,14 @@ void fck_unload_type_system(struct fck_apis *apis)
 fck_type_system *fck_get_type_system(struct fck_apis *apis)
 {
 	// TODO: Should be get
-	return (fck_type_system*)apis->find(fck_type_system_api_name);
+	return (fck_type_system *)apis->find(fck_type_system_api_name);
+}
+
+#include <fckc_apidef.h>
+#include <stdio.h>
+
+FCK_EXPORT_API int fck_main()
+{
+	printf("%s loaded and initialised\n", __FILE_NAME__);
+	return 0;
 }

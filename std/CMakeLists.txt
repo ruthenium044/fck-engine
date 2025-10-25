@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.20)
 project(fck-std)
 
 include_guard(GLOBAL)
+include(FetchContent)
 
 FetchContent_Declare(
     SDL
@@ -15,6 +16,13 @@ FetchContent_MakeAvailable(SDL)
 
 add_library(${PROJECT_NAME} SHARED "src/fck_os.c")
 add_library(fck::std ALIAS ${PROJECT_NAME})
+
+# because... mac? 
+# set_target_properties(${PROJECT_NAME}  PROPERTIES
+#   FRAMEWORK TRUE
+#   FRAMEWORK_VERSION A
+#   MACOSX_FRAMEWORK_IDENTIFIER org.cmake.fck.os
+# )
 
 target_sources(${PROJECT_NAME}
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include/fck_os.h
@@ -34,6 +42,7 @@ install(
     LIBRARY DESTINATION lib
     RUNTIME DESTINATION bin
     INCLUDES DESTINATION include
+    #FRAMEWORK DESTINATION framework
 )
 
 find_package(fckc CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
@@ -41,5 +50,5 @@ target_link_libraries(${PROJECT_NAME} PUBLIC fck::fckc SDL3::SDL3)
 set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "fck-lib")
 
 add_executable(${PROJECT_NAME}-test test/main.c)
-target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
+target_link_libraries(${PROJECT_NAME}-test INTERFACE ${PROJECT_NAME})
 set_target_properties(${PROJECT_NAME}-test PROPERTIES FOLDER "fck-tests")

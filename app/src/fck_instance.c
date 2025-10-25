@@ -347,18 +347,23 @@ fck_instance_result fck_instance_overlay(fck_instance *instance)
 
 fck_instance *fck_instance_alloc(int argc, char *argv[])
 {
-	fck_shared_object api_so = os->so->load("fck-api.dll");
+	fck_shared_object api_so = os->so->load("fck-api.dylib");
 	int (*load)() = *(int (*)())os->so->symbol(api_so, "fck_main");
 	load();
 
 	// SDL_EnumerateDirectory(SDL_GetCurrentDirectory(), iterate_files, NULL);
 	int file_count = 0;
-	char **files = SDL_GlobDirectory(SDL_GetCurrentDirectory(), "*.dll", SDL_GLOB_CASEINSENSITIVE, &file_count);
+	char **files = SDL_GlobDirectory(SDL_GetBasePath(), "*.dylib", SDL_GLOB_CASEINSENSITIVE, &file_count);
 	if (files != NULL)
 	{
 		for (fckc_size_t index = 0; index < file_count; index++)
 		{
-			SDL_Log("%s", files[index]);
+			fck_shared_object api_so = os->so->load(files[index]);
+			int (*load)() = *(int (*)())os->so->symbol(api_so, "fck_main");
+			if (load)
+			{
+				load();
+			}
 		}
 	}
 	fck_instance *app = (fck_instance *)SDL_malloc(sizeof(fck_instance));

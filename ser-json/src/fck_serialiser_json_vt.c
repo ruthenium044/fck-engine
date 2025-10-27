@@ -316,11 +316,3 @@ static fck_json_serialiser_api fck_json_ser_api = {
 
 fck_json_serialiser_api *fck_ser_json = &fck_json_ser_api;
 
-#include <fckc_apidef.h>
-#include <stdio.h>
-
-FCK_EXPORT_API int fck_main()
-{
-	printf("%s loaded and initialised\n", __FILE_NAME__);
-	return 0;
-}

@@ -8,7 +8,7 @@ include(FetchContent)
 FetchContent_Declare(
     SDL
     GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
-    GIT_TAG release-3.2.0
+    GIT_TAG release-3.2.24
     GIT_PROGRESS TRUE
     GIT_SHALLOW TRUE
 )
@@ -52,3 +52,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "fck-lib")
 add_executable(${PROJECT_NAME}-test test/main.c)
 target_link_libraries(${PROJECT_NAME}-test INTERFACE ${PROJECT_NAME})
 set_target_properties(${PROJECT_NAME}-test PROPERTIES FOLDER "fck-tests")
+
+set_target_properties(SDL3-shared PROPERTIES FOLDER "SDL3")
+set_target_properties(SDL_uclibc PROPERTIES FOLDER "SDL3")
+set_target_properties(SDL3_test PROPERTIES FOLDER "SDL3")

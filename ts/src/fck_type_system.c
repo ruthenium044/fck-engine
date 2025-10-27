@@ -344,8 +344,9 @@ fck_type_system *fck_get_type_system(struct fck_apis *apis)
 #include <fckc_apidef.h>
 #include <stdio.h>
 
-FCK_EXPORT_API int fck_main()
+FCK_EXPORT_API fck_type_system* fck_main(struct fck_apis* apis, void* params)
 {
+	fck_type_system* ts = fck_load_type_system(apis);
 	printf("%s loaded and initialised\n", __FILE_NAME__);
-	return 0;
+	return ts;
 }

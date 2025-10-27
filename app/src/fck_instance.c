@@ -20,71 +20,22 @@
 #include "fck_type_system.h"
 #include <fck_apis.h>
 
-#include <SDL3/SDL_filesystem.h>
-
 #include <fck_os.h>
 #include <fck_set.h>
 
-typedef fckc_u32 fck_entity_index;
-typedef struct fck_entity
+
+// This struct is good enough for now
+typedef struct fck_instance
 {
-	fck_entity_index id;
-} fck_entity;
+	struct fck_ui* ui;             // User
+	struct SDL_Window* window;     // This one could stay public - Makes sense for multi-instance stuff
+	struct SDL_Renderer* renderer; // User
+	struct fck_ui_window_manager* window_manager;
+	struct fck_assembly* assembly;
+} fck_instance;
 
-typedef fckc_u32 fck_entity_index;
-typedef struct fck_entity_set
-{
-	fckc_size_t count;
-	fckc_size_t capacity;
-
-	fck_entity_index id[1];
-} fck_entity_set;
-
-static fck_entity_set *entities;
-
-typedef struct fck_component_info
-{
-	struct fck_type_info *type;
-} fck_component_info;
-
-typedef fckc_u16 fck_component_id;
-
-typedef struct fck_component_set
-{
-	fck_component_info info;
-
-	fckc_u8 *memory;
-
-	fck_component_id *lookup;
-	fck_component_id *owners;
-	fckc_u8 *data;
-
-	fckc_size_t count;
-	fckc_size_t capacity;
-} fck_component_set;
-
-typedef struct fckc_components
-{
-	fckc_size_t count;
-	fckc_size_t capacity;
-
-	fck_component_set sets[1];
-} fckc_components;
-
-typedef struct fck_ecs
-{
-	fck_entity_set *entities;
-	fckc_components *components;
-} fck_ecs;
-
-fckc_components *fck_components_alloc(fckc_size_t capacity)
-{
-	const fckc_size_t size = offsetof(fckc_components, sets[capacity]);
-	fckc_components *components = (fckc_components *)SDL_malloc(size);
-	components->capacity = capacity;
-	components->count = 0;
-	return components;
-}
+fck_apis *api;
+fck_type_system *ts;
 
 typedef struct some_type
 {
@@ -116,66 +67,10 @@ typedef struct example_type
 	fckc_i32 some_int;
 } example_type;
 
-typedef struct fck_type_memory
-{
-	kll_allocator *alloctor;
-	fckc_size_t size;
-	fckc_u8 *buffer;
-} fck_type_memory;
-
-fck_type_memory fck_type_memory_create(kll_allocator *alloctor)
-{
-	return (fck_type_memory){alloctor, 0, NULL};
-}
-
-void fck_type_memory_zero(fck_type_memory *memory)
-{
-	SDL_memset(memory->buffer, 0, memory->size);
-}
-
-void fck_type_memory_alloc(fck_type_memory *memory, fckc_size_t size)
-{
-	memory->buffer = (fckc_u8 *)kll_malloc(memory->alloctor, size);
-	memory->size = size;
-	fck_type_memory_zero(memory);
-}
-
-void fck_type_memory_free(fck_type_memory *memory)
-{
-	kll_free(memory->alloctor, memory->buffer);
-	memory->size = 0;
-	memory->buffer = NULL;
-}
-
-typedef struct fck_memory_squeeze_params
-{
-	fckc_size_t stride;
-	fckc_size_t size;
-} fck_memory_squeeze_params;
-
-fckc_u8 *fck_type_memory_squeeze(fck_type_memory *memory, fck_memory_squeeze_params p)
-{
-	fck_type_memory result = fck_type_memory_create(memory->alloctor);
-	fck_type_memory_alloc(&result, memory->size + p.size);
-
-	SDL_memcpy(result.buffer, memory->buffer, memory->size);
-	fckc_u8 *src = memory->buffer + p.stride;
-	fckc_u8 *dst = memory->buffer + p.size;
-	SDL_memmove(dst, src, p.size);
-
-	fck_type_memory_free(memory);
-	*memory = result;
-
-	// Return start of added memory for convenience
-	return memory->buffer + p.stride;
-}
-
 void setup_some_stuff(fck_instance *app)
 {
 	// fck_type_memory mem = fck_type_memory_create(kll_heap);
 	// fck_type_memory_alloc(&mem, sizeof(example_type));
-
-	fck_type_system *ts = fck_get_type_system(apis);
 
 	// fck_type example_type_handle = fck_types_add(ts->get_types(), (fck_type_desc){fck_name(example_type)});
 	fck_type example_type_handle = ts->type->add(app->assembly, (fck_type_desc){fck_name(example_type)});
@@ -220,8 +115,6 @@ int fck_ui_window_entities(struct fck_ui *ui, fck_ui_window *window, void *userd
 	fck_ui_ctx *ctx = fck_ui_context(ui);
 
 	nk_layout_row_dynamic(ctx, 25, 1);
-
-	fck_type_system *ts = fck_get_type_system(apis);
 
 	fck_type custom_type = ts->type->find(app->assembly, fck_name(example_type));
 	struct fck_type_info *type = ts->type->resolve(custom_type);
@@ -347,32 +240,27 @@ fck_instance_result fck_instance_overlay(fck_instance *instance)
 
 fck_instance *fck_instance_alloc(int argc, char *argv[])
 {
-	fck_shared_object api_so = os->so->load("fck-api.dylib");
-	int (*load)() = *(int (*)())os->so->symbol(api_so, "fck_main");
-	load();
+	fck_apis_manifest manifest[1] = {
+		{.api = &ts, .name = "fck-ts.dll", NULL},
+	};
 
-	// SDL_EnumerateDirectory(SDL_GetCurrentDirectory(), iterate_files, NULL);
-	int file_count = 0;
-	char **files = SDL_GlobDirectory(SDL_GetBasePath(), "*.dylib", SDL_GLOB_CASEINSENSITIVE, &file_count);
-	if (files != NULL)
-	{
-		for (fckc_size_t index = 0; index < file_count; index++)
-		{
-			fck_shared_object api_so = os->so->load(files[index]);
-			int (*load)() = *(int (*)())os->so->symbol(api_so, "fck_main");
-			if (load)
-			{
-				load();
-			}
-		}
-	}
+	fck_apis_init init = (fck_apis_init){
+		.manifest = manifest,
+		.count = fck_arraysize(manifest),
+	};
+	fck_shared_object api_so = os->so->load("fck-api.dll");
+	fck_main_func *main_so = (fck_main_func *)os->so->symbol(api_so, FCK_ENTRY_POINT);
+	api = (fck_apis *)main_so(api, &init);
+
+
+
 	fck_instance *app = (fck_instance *)SDL_malloc(sizeof(fck_instance));
 	app->window = SDL_CreateWindow("Widnow", 1280, 720, 0);
 	app->renderer = SDL_CreateRenderer(app->window, NULL);
 	app->ui = fck_ui_alloc(app->renderer);
 	app->window_manager = fck_ui_window_manager_alloc(16);
-
-	fck_type_system *ts = fck_load_type_system(apis);
+	
+	// fck_type_system *ts = fck_load_type_system(apis);
 	app->assembly = ts->assembly->alloc(kll_heap);
 
 	fck_ui_window_manager_create(app->window_manager, "Entities", app, fck_ui_window_entities);
@@ -380,10 +268,6 @@ fck_instance *fck_instance_alloc(int argc, char *argv[])
 	fck_ui_set_style(fck_ui_context(app->ui), THEME_DRACULA);
 
 	setup_some_stuff(app);
-
-	entities = SDL_malloc(offsetof(fck_entity_set, id[128]));
-	entities->capacity = 128;
-	entities->count = 2;
 
 	return app;
 }

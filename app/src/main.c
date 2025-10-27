@@ -26,7 +26,8 @@ SDL_AppResult fck_instance_result_to_sdl_app_result(fck_instance_result result)
 
 SDLMAIN_DECLSPEC SDL_AppResult SDLCALL SDL_AppInit(void **appstate, int argc, char *argv[])
 {
-	fck_instance *instance = *appstate = (fck_instance *)fck_instance_alloc(argc, argv);
+	struct fck_instance *instance = (struct fck_instance *)fck_instance_alloc(argc, argv);
+	*appstate = instance;
 	if (instance == NULL)
 	{
 		return SDL_APP_FAILURE;
@@ -36,7 +37,7 @@ SDLMAIN_DECLSPEC SDL_AppResult SDLCALL SDL_AppInit(void **appstate, int argc, ch
 
 SDLMAIN_DECLSPEC SDL_AppResult SDLCALL SDL_AppIterate(void *appstate)
 {
-	fck_instance_result result = fck_instance_tick((fck_instance *)appstate);
+	fck_instance_result result = fck_instance_tick((struct fck_instance *)appstate);
 	return fck_instance_result_to_sdl_app_result(result);
 }
 
@@ -47,14 +48,14 @@ SDLMAIN_DECLSPEC SDL_AppResult SDLCALL SDL_AppEvent(void *appstate, SDL_Event *e
 		return SDL_APP_SUCCESS;
 	}
 
-	fck_instance_result result = fck_instance_event((fck_instance *)appstate, event);
+	fck_instance_result result = fck_instance_event((struct fck_instance *)appstate, event);
 
 	return fck_instance_result_to_sdl_app_result(result);
 }
 
 SDLMAIN_DECLSPEC void SDLCALL SDL_AppQuit(void *appstate, SDL_AppResult result)
 {
-	fck_instance_free((fck_instance *)appstate);
+	fck_instance_free((struct fck_instance *)appstate);
 }
 
 #ifndef SDL_MAIN_USE_CALLBACKS
@@ -62,7 +63,7 @@ int main(int argc, char *argv[])
 {
 	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
 
-	fck_instance *app;
+	struct fck_instance *app;
 	SDL_AppInit((void **)&app, argc, argv);
 	// Make this work without touching the core loop!
 	while (SDL_AppIterate(app) == SDL_APP_CONTINUE)

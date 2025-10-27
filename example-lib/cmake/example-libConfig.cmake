@@ -1,2 +1,2 @@
 
-add_subdirectory(../example-lib example-lib)
+add_subdirectory(../tud tud)

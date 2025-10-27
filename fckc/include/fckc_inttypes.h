@@ -6,6 +6,8 @@
 #include <inttypes.h>
 #include <stddef.h>
 
+#define fck_arraysize(array) (sizeof(array) / sizeof((array)[0]))
+
 // Semantics types...
 typedef float fckc_f32;
 typedef double fckc_f64;

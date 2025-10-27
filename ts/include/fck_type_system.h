@@ -211,9 +211,9 @@ typedef struct fck_marshaller
 } fck_marshaller;
 
 
-struct fck_apis;
-FCK_TYPE_SYSTEM_API fck_type_system *fck_load_type_system(struct fck_apis *apis);
-FCK_TYPE_SYSTEM_API void fck_unload_type_system(struct fck_apis *apis);
-FCK_TYPE_SYSTEM_API fck_type_system *fck_get_type_system(struct fck_apis *apis);
+//struct fck_apis;
+//FCK_TYPE_SYSTEM_API fck_type_system *fck_load_type_system(struct fck_apis *apis);
+//FCK_TYPE_SYSTEM_API void fck_unload_type_system(struct fck_apis *apis);
+//FCK_TYPE_SYSTEM_API fck_type_system *fck_get_type_system(struct fck_apis *apis);
 
 #endif // !FCK_TYPE_SYSTEM_H_INCLUDED

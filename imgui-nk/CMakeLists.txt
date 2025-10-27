@@ -1,19 +1,19 @@
 # KiLLer Allocators
 cmake_minimum_required(VERSION 3.20)
 
-project(fck-example-lib)
+project(fck-tud)
 
 include_guard(GLOBAL)
 
-file(GLOB_RECURSE FOUND_EXAMPLE_LIB_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/include/**.h")
-file(GLOB_RECURSE FOUND_EXAMPLE_LIB_C_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/**.c")
+file(GLOB_RECURSE FOUND_TUD_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/include/**.h")
+file(GLOB_RECURSE FOUND_TUD_C_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/**.c")
 
-add_library(${PROJECT_NAME} SHARED ${FOUND_EXAMPLE_LIB_C_SOURCES})
-add_library(fck::example-lib ALIAS ${PROJECT_NAME})
+add_library(${PROJECT_NAME} SHARED ${FOUND_TUD_C_SOURCES})
+add_library(fck::tud ALIAS ${PROJECT_NAME})
 
 target_sources(${PROJECT_NAME}
-    PRIVATE ${FOUND_EXAMPLE_LIB_C_SOURCES}
-    PRIVATE ${FOUND_EXAMPLE_LIB_HEADERS} 
+    PRIVATE ${FOUND_TUD_C_SOURCES}
+    PRIVATE ${FOUND_TUD_HEADERS} 
 )
 
 target_include_directories(${PROJECT_NAME}

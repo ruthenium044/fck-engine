@@ -4,6 +4,7 @@
 
 #include <SDL3/SDL_loadso.h>
 #include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_video.h>
 
 static fck_char_api char_api = {
 	.isdigit = SDL_isdigit,
@@ -64,21 +65,30 @@ static fck_shared_object_api so_api = {
 	.is_valid = fck_shared_object_is_valid,
 };
 
+static fck_window_handle fck_window_api_create(const char *name, int w, int h)
+{
+	SDL_Window* window = SDL_CreateWindow(name, w, h, 0);
+	return (fck_window_handle){.handle = window};
+}
+
+void fck_window_api_destroy(fck_window_handle window)
+{
+	SDL_DestroyWindow((SDL_Window*)window.handle);
+}
+
+static fck_window_api window_api = {
+	.create = fck_window_api_create,
+	.destroy = fck_window_api_destroy,
+};
+
 static fck_os_api std_api = {
 	.chr = &char_api,
 	.str = &string_api,
 	.mem = &memory_api,
 	.io = &io_api,
 	.so = &so_api,
+	.win = &window_api,
+
 };
 
 fck_os_api *os = &std_api;
-
-#include <fckc_apidef.h>
-#include <stdio.h>
-
-FCK_EXPORT_API int fck_main()
-{
-	printf("%s loaded and initialised\n", __FILE_NAME__);
-	return 0;
-}

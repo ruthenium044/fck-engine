@@ -122,25 +122,21 @@ fck_apis fck_apis_runtime_state = {
 
 // fck_apis *apis = &fck_apis_runtime_state;
 #include <stdio.h>
-FCK_EXPORT_API int fck_main()
+FCK_EXPORT_API fck_apis* fck_main(fck_apis* api, fck_apis_init* init)
 {
 	printf("%s loaded and initialised\n", __FILE_NAME__);
-	return 0;
-}
+	
+	api = &fck_apis_runtime_state;
 
-//// TODO: DLL
-// fck_apis *fck_apis_load(void)
-//{
-//	//// Setup linkedlist buckets...
-//	// for(fckc_size_t index = 0; index < fck_apis_hash_map_capacity; index++)
-//	//{
-//	//	fck_apis_storage.nodes[index].tail = &fck_apis_storage.nodes[index];
-//	// }
-//
-//	return &fck_apis_runtime_state;
-// }
-//
-// void fck_apis_unload(fck_apis *api)
-//{
-//	// lol
-// }
+	fck_apis_manifest* manifest = init->manifest;
+	fckc_size_t count = init->count;
+	for (fckc_size_t index = 0; index < count; index++)
+	{
+		fck_apis_manifest* current = &manifest[index];
+		fck_shared_object api_so = os->so->load(current->name);
+		fck_main_func* main_so = (fck_main_func*)os->so->symbol(api_so, FCK_ENTRY_POINT);
+		*current->api = main_so(api, current->params);
+	}
+
+	return api;
+}

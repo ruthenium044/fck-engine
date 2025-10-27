@@ -59,16 +59,45 @@ typedef struct fck_shared_object_api
 	void *(*symbol)(fck_shared_object so, const char *name);
 } fck_shared_object_api;
 
-typedef struct fck_window_handle
+typedef struct fck_window
 {
-	void* handle;
-} fck_window_handle;
+	void *handle;
+} fck_window;
 
 typedef struct fck_window_api
 {
-	fck_window_handle (*create)(const char* name, int w, int h);
-	void (*destroy)(fck_window_handle handle);
+	fck_window (*create)(const char *name, int w, int h);
+	int (*is_valid)(fck_window);
+	int (*text_input_start)(fck_window);
+	int (*text_input_stop)(fck_window);
+	int (*size_get)(fck_window, int *width, int *height);
+	void (*destroy)(fck_window handle);
 } fck_window_api;
+
+typedef struct fck_clipboard
+{
+	char *text;
+} fck_clipboard;
+
+typedef struct fck_clipboard_api
+{
+	int (*set)(const char *text);
+	int (*has)(void);
+
+	fck_clipboard (*receive)(void);
+	int (*is_valid)(fck_clipboard);
+	void (*close)(fck_clipboard);
+} fck_clipboard_api;
+
+typedef struct fck_chrono_api
+{
+	fckc_u64 (*ms)(void);
+} fck_chrono_api;
+
+typedef struct fck_filesystem_api
+{
+	void (*glob)(void);
+} fck_filesystem_api;
 
 typedef struct fck_os_api
 {
@@ -78,14 +107,10 @@ typedef struct fck_os_api
 	fck_io_api *io;
 	fck_shared_object_api *so;
 	fck_window_api *win;
+	fck_clipboard_api *clipboard;
+	fck_chrono_api *chrono;
 } fck_os_api;
 
-// typedef struct fck_os_api
-//{
-// } fck_os_api;
-
-// Gotta see if this name clashes hehe
-// Maybe just putting everything into OS and calling it os is nicer?
 FCK_STD_API extern fck_os_api *os;
 
 // extern fck_os_api *os;

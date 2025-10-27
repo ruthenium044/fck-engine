@@ -2,8 +2,11 @@
 #define FCK_STD_EXPORT
 #include "fck_os.h"
 
+#include <SDL3/SDL_clipboard.h>
+#include <SDL3/SDL_keyboard.h>
 #include <SDL3/SDL_loadso.h>
 #include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_timer.h>
 #include <SDL3/SDL_video.h>
 
 static fck_char_api char_api = {
@@ -65,20 +68,85 @@ static fck_shared_object_api so_api = {
 	.is_valid = fck_shared_object_is_valid,
 };
 
-static fck_window_handle fck_window_api_create(const char *name, int w, int h)
+static fck_window fck_window_api_create(const char *name, int w, int h)
 {
-	SDL_Window* window = SDL_CreateWindow(name, w, h, 0);
-	return (fck_window_handle){.handle = window};
+	SDL_Window *window = SDL_CreateWindow(name, w, h, 0);
+	return (fck_window){.handle = window};
 }
 
-void fck_window_api_destroy(fck_window_handle window)
+void fck_window_api_destroy(fck_window window)
 {
-	SDL_DestroyWindow((SDL_Window*)window.handle);
+	SDL_DestroyWindow((SDL_Window *)window.handle);
 }
+
+int fck_window_api_is_valid(fck_window window)
+{
+	return window.handle != NULL;
+}
+
+int fck_window_api_text_input_start(fck_window window)
+{
+	return (int)SDL_StartTextInput((SDL_Window *)window.handle);
+}
+
+int fck_window_api_text_input_stop(fck_window window)
+{
+	return (int)SDL_StopTextInput((SDL_Window *)window.handle);
+}
+
+int fck_window_api_text_size_get(fck_window window, int *width, int *height)
+{
+	return (int)SDL_GetWindowSize((SDL_Window *)window.handle, width, height);
+}
+
+int fck_clipboard_api_set(const char *text)
+{
+	return (int)SDL_SetClipboardText(text);
+}
+
+int fck_clipboard_api_has(void)
+{
+	return (int)SDL_HasClipboardText();
+}
+
+fck_clipboard fck_clipboard_api_receive(void)
+{
+	return (fck_clipboard){.text = SDL_GetClipboardText()};
+}
+
+void fck_clipboard_api_close(fck_clipboard clipboard)
+{
+	SDL_free(clipboard.text);
+}
+
+int fck_clipboard_api_is_valid(fck_clipboard clipboard)
+{
+	if (clipboard.text == NULL)
+	{
+		return 0;
+	}
+	return SDL_strcmp("", clipboard.text);
+}
+
+static fck_clipboard_api clipboard_api = {
+	.set = fck_clipboard_api_set,
+	.has = fck_clipboard_api_has,
+	.receive = fck_clipboard_api_receive,
+	.close = fck_clipboard_api_close,
+	.is_valid = fck_clipboard_api_is_valid,
+};
 
 static fck_window_api window_api = {
 	.create = fck_window_api_create,
 	.destroy = fck_window_api_destroy,
+	.is_valid = fck_window_api_is_valid,
+	.text_input_start = fck_window_api_text_input_start,
+	.text_input_stop = fck_window_api_text_input_stop,
+	.size_get = fck_window_api_text_size_get,
+};
+
+static fck_chrono_api chrono_api = {
+	.ms = SDL_GetTicks,
 };
 
 static fck_os_api std_api = {
@@ -88,7 +156,7 @@ static fck_os_api std_api = {
 	.io = &io_api,
 	.so = &so_api,
 	.win = &window_api,
-
+	.chrono = &chrono_api,
 };
 
 fck_os_api *os = &std_api;

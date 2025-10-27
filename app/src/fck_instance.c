@@ -1,7 +1,6 @@
 #include "fck_instance.h"
 
-#include <SDL3/SDL_log.h>
-#include <SDL3/SDL_render.h>
+#include <SDL3/SDL_events.h>
 
 #include <fck_hash.h>
 
@@ -23,19 +22,23 @@
 #include <fck_os.h>
 #include <fck_set.h>
 
+#include <fck_canvas.h>
 
 // This struct is good enough for now
 typedef struct fck_instance
 {
-	struct fck_ui* ui;             // User
-	struct SDL_Window* window;     // This one could stay public - Makes sense for multi-instance stuff
-	struct SDL_Renderer* renderer; // User
-	struct fck_ui_window_manager* window_manager;
-	struct fck_assembly* assembly;
+	fck_ui *ui; // User
+	// struct SDL_Window *window;     // This one could stay public - Makes sense for multi-instance stuff
+	// struct SDL_Renderer *renderer; // User
+	fck_window wind;
+	fck_canvas canvas;
+	fck_ui_window_manager *window_manager;
+	struct fck_assembly *assembly;
 } fck_instance;
 
-fck_apis *api;
+fck_api_registry *api;
 fck_type_system *ts;
+fck_canvas_api *canvas;
 
 typedef struct some_type
 {
@@ -215,7 +218,7 @@ fck_instance_result fck_instance_overlay(fck_instance *instance)
 {
 	int width;
 	int height;
-	if (!SDL_GetWindowSize(instance->window, &width, &height))
+	if (!os->win->size_get(instance->wind, &width, &height))
 	{
 		return FCK_INSTANCE_FAILURE;
 	}
@@ -226,10 +229,10 @@ fck_instance_result fck_instance_overlay(fck_instance *instance)
 	switch (fck_ui_window_manager_query_text_input_signal(instance->ui, instance->window_manager))
 	{
 	case FCK_UI_WINDOW_MANAGER_TEXT_INPUT_SIGNAL_START:
-		SDL_StartTextInput(instance->window);
+		os->win->text_input_start(instance->wind);
 		break;
 	case FCK_UI_WINDOW_MANAGER_TEXT_INPUT_SIGNAL_STOP:
-		SDL_StopTextInput(instance->window);
+		os->win->text_input_stop(instance->wind);
 		break;
 	default:
 		// Shut up compiler
@@ -240,26 +243,27 @@ fck_instance_result fck_instance_overlay(fck_instance *instance)
 
 fck_instance *fck_instance_alloc(int argc, char *argv[])
 {
-	fck_apis_manifest manifest[1] = {
-		{.api = &ts, .name = "fck-ts.dll", NULL},
+	fck_apis_manifest manifest[2] = {
+		{.api = &ts, .name = "fck-ts.dylib", NULL},
+		{.api = &canvas, .name = "fck-canvas.dylib", NULL},
 	};
 
 	fck_apis_init init = (fck_apis_init){
 		.manifest = manifest,
 		.count = fck_arraysize(manifest),
 	};
-	fck_shared_object api_so = os->so->load("fck-api.dll");
+	fck_shared_object api_so = os->so->load("fck-api.dylib");
 	fck_main_func *main_so = (fck_main_func *)os->so->symbol(api_so, FCK_ENTRY_POINT);
-	api = (fck_apis *)main_so(api, &init);
-
-
+	api = (fck_api_registry *)main_so(api, &init);
 
 	fck_instance *app = (fck_instance *)SDL_malloc(sizeof(fck_instance));
-	app->window = SDL_CreateWindow("Widnow", 1280, 720, 0);
-	app->renderer = SDL_CreateRenderer(app->window, NULL);
-	app->ui = fck_ui_alloc(app->renderer);
+
+	app->wind = os->win->create("Widnow", 1280, 720);
+	app->canvas = canvas->create(app->wind.handle);
+
+	app->ui = fck_ui_alloc(&app->canvas);
 	app->window_manager = fck_ui_window_manager_alloc(16);
-	
+
 	// fck_type_system *ts = fck_load_type_system(apis);
 	app->assembly = ts->assembly->alloc(kll_heap);
 
@@ -277,8 +281,8 @@ void fck_instance_free(fck_instance *instance)
 	fck_ui_window_manager_free(instance->window_manager);
 
 	fck_ui_free(instance->ui);
-	SDL_DestroyRenderer(instance->renderer);
-	SDL_DestroyWindow(instance->window);
+	canvas->destroy(instance->canvas);
+	os->win->destroy(instance->wind);
 	SDL_free(instance);
 }
 
@@ -292,12 +296,12 @@ fck_instance_result fck_instance_tick(fck_instance *instance)
 {
 	fck_instance_overlay(instance);
 
-	SDL_SetRenderDrawColor(instance->renderer, 0, 0, 0, 0);
-	SDL_RenderClear(instance->renderer);
+	canvas->set_color(instance->canvas, 0, 0, 0, 0);
+	canvas->clear(instance->canvas);
 
-	fck_ui_render(instance->ui, instance->renderer);
+	fck_ui_render(instance->ui, &instance->canvas);
 
-	SDL_RenderPresent(instance->renderer);
+	canvas->present(instance->canvas);
 
 	return FCK_INSTANCE_CONTINUE;
 }

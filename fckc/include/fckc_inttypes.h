@@ -8,6 +8,8 @@
 
 #define fck_arraysize(array) (sizeof(array) / sizeof((array)[0]))
 
+#define fck_alias(original, alias) alias
+
 // Semantics types...
 typedef float fckc_f32;
 typedef double fckc_f64;
@@ -88,7 +90,12 @@ FCK_NAMED_VECTOR_TYPE(u64, fckc_u64);
 #endif
 
 #ifndef alignof
-#define alignof(type) ((size_t)((char*)&((struct { char c; type t; }*)0)->t))
+#define alignof(type)                                                                                                                      \
+	((size_t)((char *)&((struct {                                                                                                          \
+				  char c;                                                                                                                  \
+				  type t;                                                                                                                  \
+			  } *)0)                                                                                                                       \
+	              ->t))
 #endif
 
 #endif // !FCKC_INTTYPES_H_INCLUDED

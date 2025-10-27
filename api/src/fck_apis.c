@@ -112,7 +112,7 @@ static void *fck_apis_next(void *prev)
 	return NULL;
 }
 
-fck_apis fck_apis_runtime_state = {
+fck_api_registry fck_apis_runtime_state = {
 	.add = fck_apis_add,
 	.get = fck_apis_find_from_hash,
 	.find = fck_apis_find_from_string,
@@ -122,19 +122,19 @@ fck_apis fck_apis_runtime_state = {
 
 // fck_apis *apis = &fck_apis_runtime_state;
 #include <stdio.h>
-FCK_EXPORT_API fck_apis* fck_main(fck_apis* api, fck_apis_init* init)
+FCK_EXPORT_API fck_api_registry *fck_main(fck_api_registry *api, fck_apis_init *init)
 {
 	printf("%s loaded and initialised\n", __FILE_NAME__);
-	
+
 	api = &fck_apis_runtime_state;
 
-	fck_apis_manifest* manifest = init->manifest;
+	fck_apis_manifest *manifest = init->manifest;
 	fckc_size_t count = init->count;
 	for (fckc_size_t index = 0; index < count; index++)
 	{
-		fck_apis_manifest* current = &manifest[index];
+		fck_apis_manifest *current = &manifest[index];
 		fck_shared_object api_so = os->so->load(current->name);
-		fck_main_func* main_so = (fck_main_func*)os->so->symbol(api_so, FCK_ENTRY_POINT);
+		fck_main_func *main_so = (fck_main_func *)os->so->symbol(api_so, FCK_ENTRY_POINT);
 		*current->api = main_so(api, current->params);
 	}
 

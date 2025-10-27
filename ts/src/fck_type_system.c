@@ -269,7 +269,7 @@ void fck_marshal_invoke_api(fck_serialiser *serialiser, fck_type *type, const ch
 	fck_type_serialise(&marshaller, &params, data, count);
 }
 
-fck_type_system *fck_load_type_system(struct fck_apis *apis)
+fck_type_system *fck_load_type_system(fck_api_registry *apis)
 {
 	// fck_type_system_api_blob *api = (fck_type_system_api_blob *)SDL_malloc(sizeof(*api));
 	fck_type_system_api_blob *blob = &fck_type_system_api_blob_private;
@@ -330,12 +330,12 @@ fck_type_system *fck_load_type_system(struct fck_apis *apis)
 	return ts;
 }
 
-void fck_unload_type_system(struct fck_apis *apis)
+void fck_unload_type_system(fck_api_registry *apis)
 {
 	apis->remove(fck_type_system_api_name);
 }
 
-fck_type_system *fck_get_type_system(struct fck_apis *apis)
+fck_type_system *fck_get_type_system(fck_api_registry *apis)
 {
 	// TODO: Should be get
 	return (fck_type_system *)apis->find(fck_type_system_api_name);
@@ -344,9 +344,9 @@ fck_type_system *fck_get_type_system(struct fck_apis *apis)
 #include <fckc_apidef.h>
 #include <stdio.h>
 
-FCK_EXPORT_API fck_type_system* fck_main(struct fck_apis* apis, void* params)
+FCK_EXPORT_API fck_type_system *fck_main(fck_api_registry *apis, void *params)
 {
-	fck_type_system* ts = fck_load_type_system(apis);
+	fck_type_system *ts = fck_load_type_system(apis);
 	printf("%s loaded and initialised\n", __FILE_NAME__);
 	return ts;
 }

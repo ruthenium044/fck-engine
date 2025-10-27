@@ -32,8 +32,9 @@ install(
 )
 
 find_package(std CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
+find_package(api CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
 find_package(fckc CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-target_link_libraries(${PROJECT_NAME} PRIVATE fck::fckc fck::std)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::fckc fck::std fck::api)
 set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "fck-lib")
 
 add_executable(${PROJECT_NAME}-test test/main.c)

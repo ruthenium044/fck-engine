@@ -5,9 +5,9 @@
 
 #include "fck_ui.h"
 
-#include <SDL3/SDL_assert.h>
 #include <fck_type_system.h>
 
+#include <fckc_assert.h>
 #include <limits.h>
 
 #define FCK_WRITE_BUFFER_STRING_SIZE 256
@@ -15,7 +15,7 @@
 
 static void fck_nk_edit_precondition(fck_serialiser *s)
 {
-	SDL_assert(s->vt == fck_nk_edit_vt || s->vt == fck_nk_read_vt);
+	fck_assert(s->vt == fck_nk_edit_vt || s->vt == fck_nk_read_vt);
 }
 
 static float fck_nk_edit_value_label(const char *type, fck_ui_ctx *ctx, const char *name, fckc_size_t c)
@@ -342,7 +342,7 @@ void fck_nk_edit_string(fck_serialiser *s, fck_serialiser_params *p, char **v, f
 {
 	fck_nk_edit_precondition(s);
 
-	SDL_assert(false && "NOT SUPPORTED FOR NOW");
+	fck_assert(false && "NOT SUPPORTED FOR NOW");
 }
 
 void fck_nk_read_i8(fck_serialiser *s, fck_serialiser_params *p, fckc_i8 *v, fckc_size_t c)

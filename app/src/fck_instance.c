@@ -243,9 +243,9 @@ fck_instance_result fck_instance_overlay(fck_instance *instance)
 
 fck_instance *fck_instance_alloc(int argc, char *argv[])
 {
-	fck_apis_manifest manifest[2] = {
-		{.api = &ts, .name = "fck-ts.dylib", NULL},
-		{.api = &canvas, .name = "fck-canvas.dylib", NULL},
+	fck_apis_manifest manifest[] = {
+		{.api = (void **)&ts, .name = "fck-ts.dylib", NULL},
+		{.api = (void **)&canvas, .name = "fck-canvas.dylib", NULL},
 	};
 
 	fck_apis_init init = (fck_apis_init){

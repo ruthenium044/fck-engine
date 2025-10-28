@@ -13,6 +13,7 @@ struct fck_serialiser_params;
 typedef struct fck_serialiser
 {
 	struct fck_serialiser_vt *vt;
+	// Maybe we should have fck_serialiser_o so we can always pass the serialiser around with type safety?
 } fck_serialiser;
 
 struct fck_type;

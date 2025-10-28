@@ -121,7 +121,6 @@ static fck_canvas_api canvas_api = {
 
 FCK_EXPORT_API fck_canvas_api *fck_main(fck_api_registry *apis, void *params)
 {
-	printf("%s loaded and initialised\n", __FILE_NAME__);
 	apis->add("FCK_CANVAS", &canvas_api);
 	return &canvas_api;
 }

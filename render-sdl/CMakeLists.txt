@@ -1,19 +1,27 @@
 # KiLLer Allocators
 cmake_minimum_required(VERSION 3.20)
 
-project(fck-example-lib)
+project(fck-render-sdl)
 
 include_guard(GLOBAL)
+include(FetchContent)
 
-file(GLOB_RECURSE FOUND_EXAMPLE_LIB_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/include/**.h")
-file(GLOB_RECURSE FOUND_EXAMPLE_LIB_C_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/**.c")
+FetchContent_Declare(
+    SDL
+    GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+    GIT_TAG release-3.2.24
+    GIT_PROGRESS TRUE
+    GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(SDL)
 
-add_library(${PROJECT_NAME} SHARED ${FOUND_EXAMPLE_LIB_C_SOURCES})
-add_library(fck::tud ALIAS ${PROJECT_NAME})
+file(GLOB_RECURSE FOUND_RENDER_SDL_C_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/**.c")
+
+add_library(${PROJECT_NAME} SHARED ${FOUND_RENDER_SDL_C_SOURCES})
+add_library(fck::render-sdl ALIAS ${PROJECT_NAME})
 
 target_sources(${PROJECT_NAME}
-    PRIVATE ${FOUND_EXAMPLE_LIB_C_SOURCES}
-    PRIVATE ${FOUND_EXAMPLE_LIB_HEADERS} 
+    PRIVATE ${FOUND_RENDER_SDL_C_SOURCES}
 )
 
 target_include_directories(${PROJECT_NAME}
@@ -32,7 +40,10 @@ install(
 )
 
 find_package(fckc CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-target_link_libraries(${PROJECT_NAME} PRIVATE fck::fckc)
+find_package(render CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
+find_package(std CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
+find_package(api CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::fckc fck::render fck::std fck::api SDL3::SDL3)
 set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "fck-lib")
 
 add_executable(${PROJECT_NAME}-test test/main.c)

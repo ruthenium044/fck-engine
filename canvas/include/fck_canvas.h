@@ -51,29 +51,6 @@ typedef struct fck_image_api
 	void (*destroy)(fck_image image);
 } fck_image_api;
 
-// typedef struct fck_geometry_raw_indices
-//{
-//	const void *data; // data
-//	fckc_u32 size;    // element count
-//	fckc_u32 el_size; // sizeof(element)
-// } fck_geometry_raw_indices;
-
-typedef struct fck_geometry_raw
-{
-	/* dynarr */
-	/* dynarr */
-	/* dynarr */
-	/* dynarr */ fckc_u16 *indices;
-} fck_geometry_raw;
-
-// typedef struct fck_geometry_raw
-//{
-//	fckc_f32 *xy;
-//	fck_colour *colours;
-//	fckc_f32 uv;
-//
-// } fck_geometry_raw;
-
 typedef struct fck_canvas_vertex
 {
 	float position[2];

@@ -23,6 +23,7 @@
 #include <fck_set.h>
 
 #include <fck_canvas.h>
+#include <fck_render.h>
 
 // This struct is good enough for now
 typedef struct fck_instance
@@ -39,6 +40,8 @@ typedef struct fck_instance
 fck_api_registry *api;
 fck_type_system *ts;
 fck_canvas_api *canvas;
+fck_render_api *render;
+
 
 typedef struct some_type
 {
@@ -244,15 +247,16 @@ fck_instance_result fck_instance_overlay(fck_instance *instance)
 fck_instance *fck_instance_alloc(int argc, char *argv[])
 {
 	fck_apis_manifest manifest[] = {
-		{.api = (void **)&ts, .name = "fck-ts.dylib", NULL},
-		{.api = (void **)&canvas, .name = "fck-canvas.dylib", NULL},
+		{.api = (void **)&ts, .name = "fck-ts.dll", NULL},
+		{.api = (void **)&canvas, .name = "fck-canvas.dll", NULL},
+		{.api = (void**)&render, .name = "fck-canvas.dll", NULL},
 	};
 
 	fck_apis_init init = (fck_apis_init){
 		.manifest = manifest,
 		.count = fck_arraysize(manifest),
 	};
-	fck_shared_object api_so = os->so->load("fck-api.dylib");
+	fck_shared_object api_so = os->so->load("fck-api.dll");
 	fck_main_func *main_so = (fck_main_func *)os->so->symbol(api_so, FCK_ENTRY_POINT);
 	api = (fck_api_registry *)main_so(api, &init);
 

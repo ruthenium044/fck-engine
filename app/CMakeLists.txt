@@ -26,7 +26,6 @@ target_sources(${PROJECT_NAME}
 )
 
 find_package(fck-lib CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH})
-
 find_package(fckc CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
 find_package(ser-ext CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
 find_package(ser-json CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
@@ -37,7 +36,8 @@ find_package(canvas CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
 find_package(imgui CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
 find_package(render CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
 find_package(render-sdl CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-target_link_libraries(${PROJECT_NAME} PUBLIC fck::fckc fck::hash fck::kll PRIVATE fck::render fck::render-sdl fck::imgui fck::canvas fck::ser-ext fck::set fck::dynarr fck::ser-json fck::std fck::ts fck::api)
+find_package(img CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
+target_link_libraries(${PROJECT_NAME} PUBLIC fck::fckc fck::hash fck::kll PRIVATE fck::img fck::render fck::render-sdl fck::imgui fck::canvas fck::ser-ext fck::set fck::dynarr fck::ser-json fck::std fck::ts fck::api)
 
 #set_target_properties(SDL3-shared PROPERTIES FOLDER "SDL3")
 #set_target_properties(SDL_uclibc PROPERTIES FOLDER "SDL3")

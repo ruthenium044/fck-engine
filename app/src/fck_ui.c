@@ -2,7 +2,6 @@
 #define NK_IMPLEMENTATION
 #include "fck_ui.h"
 
-#include <fck_canvas.h>
 #include <fck_os.h>
 #include <fckc_assert.h>
 #include <fckc_inttypes.h>
@@ -23,7 +22,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-extern fck_canvas_api *canvas;
+#include <fck_render.h>
 
 typedef union nk_sdl_input_event {
 	SDL_EventType type;
@@ -44,15 +43,15 @@ typedef struct nk_sdl_device
 {
 	struct nk_buffer cmds;
 	struct nk_draw_null_texture tex_null;
-	fck_image font_tex;
+	fck_texture font_tex;
 } nk_sdl_device;
 
-// typedef struct fck_canvas_vertex
+// typedef struct fck_renderer_vertex
 //{
 //	float position[2];
 //	float col[4];
 //	float uv[2];
-// } fck_canvas_vertex;
+// } fck_renderer_vertex;
 
 typedef struct nk_sdl
 {
@@ -101,16 +100,18 @@ static void nk_sdl_input_event_queue_convert_and_maybe_push(nk_sdl_input_event_q
 	}
 }
 
-static void nk_sdl_device_upload_atlas(struct fck_ui *ui, struct fck_canvas *renderer, const void *pixels, int width, int height)
+static void nk_sdl_device_upload_atlas(struct fck_ui *ui, struct fck_renderer *renderer, const void *pixels, int width, int height)
 {
 	struct nk_sdl_device *dev = &ui->sdl.ogl;
-	fck_image image = canvas->image->create(*renderer, FCK_IMAGE_ACCESS_STATIC, FCK_IMAGE_BLEND_MODE_BLEND, width, height);
-	if (!canvas->image->is_valid(image))
+	fck_texture image =
+		renderer->vt->texture->create(renderer->obj, FCK_TEXTURE_ACCESS_STATIC, FCK_TEXTURE_BLEND_MODE_BLEND, width, height);
+
+	if (!renderer->vt->texture->is_valid(renderer->obj, image))
 	{
 		return;
 	}
 
-	canvas->image->upload(image, pixels, 4LLU * width);
+	renderer->vt->texture->upload(image, pixels, 4LLU * width);
 	dev->font_tex = image;
 }
 
@@ -152,7 +153,7 @@ static void nk_sdl_font_stash_begin(struct fck_ui *ui, struct nk_font_atlas **at
 	*atlas = &ui->sdl.atlas;
 }
 
-static void nk_sdl_font_stash_end(struct fck_ui *ui, struct fck_canvas *renderer)
+static void nk_sdl_font_stash_end(struct fck_ui *ui, struct fck_renderer *renderer)
 {
 	const void *image;
 	int w, h;
@@ -177,12 +178,12 @@ struct fck_ui *fck_ui_init_internal()
 	return ui;
 }
 
-void fck_ui_free(fck_ui *ui)
+void fck_ui_free(fck_ui *ui, struct fck_renderer *renderer)
 {
 	struct nk_sdl_device *dev = &ui->sdl.ogl;
 	nk_font_atlas_clear(&ui->sdl.atlas);
 	nk_free(&ui->sdl.ctx);
-	canvas->image->destroy(dev->font_tex);
+	renderer->vt->texture->destroy(dev->font_tex);
 	/* glDeleteTextures(1, &dev->font_tex); */
 	nk_buffer_free(&dev->cmds);
 	memset(ui, 0, sizeof(*ui));
@@ -346,7 +347,7 @@ static int fck_ui_handle_event(struct fck_ui *ui, nk_sdl_input_event const *evt)
 	}
 }
 
-struct fck_ui *fck_ui_alloc(struct fck_canvas *renderer)
+struct fck_ui *fck_ui_alloc(struct fck_renderer *renderer)
 {
 	float font_scale = 1;
 
@@ -390,7 +391,7 @@ struct nk_context *fck_ui_context(struct fck_ui *ui)
 	return &ui->sdl.ctx;
 }
 
-void fck_ui_render(struct fck_ui *ui, struct fck_canvas *renderer)
+void fck_ui_render(struct fck_ui *ui, struct fck_renderer *renderer)
 {
 	// Apply enqueued events
 	{
@@ -409,8 +410,8 @@ void fck_ui_render(struct fck_ui *ui, struct fck_canvas *renderer)
 		SDL_Rect saved_clip;
 
 		bool clipping_enabled;
-		int vs = sizeof(struct fck_canvas_vertex);
-		fckc_size_t vp = offsetof(struct fck_canvas_vertex, position);
+		int vs = sizeof(struct fck_vertex_2d);
+		fckc_size_t vp = offsetof(struct fck_vertex_2d, position);
 		/* convert from command queue into draw list and draw to screen */
 		const struct nk_draw_command *cmd;
 		const nk_draw_index *offset = NULL;
@@ -419,9 +420,9 @@ void fck_ui_render(struct fck_ui *ui, struct fck_canvas *renderer)
 		/* fill converting configuration */
 		struct nk_convert_config config;
 		static const struct nk_draw_vertex_layout_element vertex_layout[] = {
-			{NK_VERTEX_POSITION, NK_FORMAT_FLOAT, NK_OFFSETOF(struct fck_canvas_vertex, position)},
-			{NK_VERTEX_TEXCOORD, NK_FORMAT_FLOAT, NK_OFFSETOF(struct fck_canvas_vertex, uv)},
-			{NK_VERTEX_COLOR, NK_FORMAT_R32G32B32A32_FLOAT, NK_OFFSETOF(struct fck_canvas_vertex, col)},
+			{NK_VERTEX_POSITION, NK_FORMAT_FLOAT, NK_OFFSETOF(struct fck_vertex_2d, position)},
+			{NK_VERTEX_TEXCOORD, NK_FORMAT_FLOAT, NK_OFFSETOF(struct fck_vertex_2d, uv)},
+			{NK_VERTEX_COLOR, NK_FORMAT_R32G32B32A32_FLOAT, NK_OFFSETOF(struct fck_vertex_2d, col)},
 			{NK_VERTEX_LAYOUT_END}};
 
 		Uint64 now = os->chrono->ms();
@@ -430,8 +431,8 @@ void fck_ui_render(struct fck_ui *ui, struct fck_canvas *renderer)
 
 		NK_MEMSET(&config, 0, sizeof(config));
 		config.vertex_layout = vertex_layout;
-		config.vertex_size = sizeof(struct fck_canvas_vertex);
-		config.vertex_alignment = NK_ALIGNOF(struct fck_canvas_vertex);
+		config.vertex_size = sizeof(struct fck_vertex_2d);
+		config.vertex_alignment = NK_ALIGNOF(struct fck_vertex_2d);
 		config.tex_null = dev->tex_null;
 		config.circle_segment_count = 22;
 		config.curve_segment_count = 22;
@@ -467,9 +468,8 @@ void fck_ui_render(struct fck_ui *ui, struct fck_canvas *renderer)
 
 			{
 				const void *vertices = nk_buffer_memory_const(&vbuf);
-
-				canvas->geometry(*renderer, *(fck_image *)cmd->texture.ptr, (fck_canvas_vertex *)vertices, (vbuf.needed / vs),
-				                 (void *)offset, cmd->elem_count, sizeof(nk_draw_index));
+				renderer->vt->raw(renderer->obj, *(fck_texture *)cmd->texture.ptr, (fck_vertex_2d *)vertices, (vbuf.needed / vs),
+				                  (void *)offset, cmd->elem_count);
 				offset += cmd->elem_count;
 			}
 		}

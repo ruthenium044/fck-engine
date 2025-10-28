@@ -3,6 +3,7 @@
 #include "fck_os.h"
 
 #include <SDL3/SDL_clipboard.h>
+#include <SDL3/SDL_iostream.h>
 #include <SDL3/SDL_keyboard.h>
 #include <SDL3/SDL_loadso.h>
 #include <SDL3/SDL_stdinc.h>
@@ -128,6 +129,73 @@ int fck_clipboard_api_is_valid(fck_clipboard clipboard)
 	return SDL_strcmp("", clipboard.text);
 }
 
+fck_file fck_filesystem_open(const char *path, const char *mode)
+{
+	SDL_IOStream *stream = SDL_IOFromFile(path, mode);
+	return (fck_file){.handle = (void *)stream};
+}
+
+void fck_filesystem_close(fck_file file)
+{
+	SDL_CloseIO((SDL_IOStream *)file.handle);
+}
+
+int fck_filesystem_is_valid(fck_file file)
+{
+	return file.handle != NULL;
+}
+
+fckc_i64 fck_filesystem_size(fck_file file)
+{
+	SDL_GetIOSize((SDL_IOStream *)file.handle);
+}
+
+fckc_i64 fck_filesystem_seek(fck_file file, fckc_i64 offset, fckc_u32 seek_mode)
+{
+	SDL_IOWhence whence;
+	switch ((fck_stream_seek_mode)seek_mode)
+	{
+	case FCK_STREAM_CUR:
+		whence = SDL_IO_SEEK_CUR;
+		break;
+	case FCK_STREAM_END:
+		whence = SDL_IO_SEEK_END;
+		break;
+	case FCK_STREAM_SET:
+		whence = SDL_IO_SEEK_SET;
+		break;
+	default:
+		return -1;
+	}
+	return (fckc_i64)SDL_SeekIO((SDL_IOStream *)file.handle, offset, whence);
+}
+
+fckc_size_t fck_filesystem_read(fck_file file, void *ptr, fckc_size_t size)
+{
+	SDL_ReadIO((SDL_IOStream *)file.handle, ptr, size);
+}
+
+fckc_size_t fck_filesystem_write(fck_file file, const void *ptr, fckc_size_t size)
+{
+	SDL_WriteIO((SDL_IOStream *)file.handle, ptr, size);
+}
+
+fckc_u32 fck_filesystem_flush(fck_file file)
+{
+	SDL_FlushIO((SDL_IOStream *)file.handle);
+}
+
+static fck_filesystem_api file_system_api = {
+	.open = fck_filesystem_open,
+	.close = fck_filesystem_close,
+	.is_valid = fck_filesystem_is_valid,
+	.size = fck_filesystem_size,
+	.seek = fck_filesystem_seek,
+	.read = fck_filesystem_read,
+	.write = fck_filesystem_write,
+	.flush = fck_filesystem_flush,
+};
+
 static fck_clipboard_api clipboard_api = {
 	.set = fck_clipboard_api_set,
 	.has = fck_clipboard_api_has,
@@ -157,6 +225,7 @@ static fck_os_api std_api = {
 	.so = &so_api,
 	.win = &window_api,
 	.chrono = &chrono_api,
+	.fs = &file_system_api,
 };
 
 fck_os_api *os = &std_api;

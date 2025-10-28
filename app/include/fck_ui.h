@@ -6,7 +6,7 @@ struct nk_context;
 struct SDL_Window;
 struct SDL_Renderer;
 union SDL_Event;
-struct fck_canvas;
+struct fck_renderer;
 
 enum fck_theme
 {
@@ -27,10 +27,10 @@ typedef struct nk_context fck_ui_ctx;
 
 typedef struct fck_ui fck_ui;
 
-fck_ui *fck_ui_alloc(struct fck_canvas *canvas);
-void fck_ui_free(fck_ui *ui);
+fck_ui *fck_ui_alloc(struct fck_renderer *renderer);
+void fck_ui_free(fck_ui *ui, struct fck_renderer *renderer);
 
-void fck_ui_render(fck_ui *ui, struct fck_canvas *canvas);
+void fck_ui_render(fck_ui *ui, struct fck_renderer *renderer);
 void fck_ui_enqueue_event(fck_ui *ui, union SDL_Event const *event);
 
 fck_ui_ctx *fck_ui_context(fck_ui *ui);

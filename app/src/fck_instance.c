@@ -25,6 +25,9 @@
 #include <fck_canvas.h>
 #include <fck_render.h>
 
+// We need log plugin...
+#include <SDL3/SDL_log.h>
+
 // This struct is good enough for now
 typedef struct fck_instance
 {
@@ -32,7 +35,8 @@ typedef struct fck_instance
 	// struct SDL_Window *window;     // This one could stay public - Makes sense for multi-instance stuff
 	// struct SDL_Renderer *renderer; // User
 	fck_window wind;
-	fck_canvas canvas;
+	fck_renderer renderer;
+
 	fck_ui_window_manager *window_manager;
 	struct fck_assembly *assembly;
 } fck_instance;
@@ -40,8 +44,7 @@ typedef struct fck_instance
 fck_api_registry *api;
 fck_type_system *ts;
 fck_canvas_api *canvas;
-fck_render_api *render;
-
+fck_render_api *render_api;
 
 typedef struct some_type
 {
@@ -247,25 +250,25 @@ fck_instance_result fck_instance_overlay(fck_instance *instance)
 fck_instance *fck_instance_alloc(int argc, char *argv[])
 {
 	fck_apis_manifest manifest[] = {
-		{.api = (void **)&ts, .name = "fck-ts.dll", NULL},
-		{.api = (void **)&canvas, .name = "fck-canvas.dll", NULL},
-		{.api = (void**)&render, .name = "fck-canvas.dll", NULL},
+		{.api = (void **)&ts, .name = "fck-ts.dylib", NULL},
+		{.api = (void **)&canvas, .name = "fck-canvas.dylib", NULL},
+		{.api = (void **)&render_api, .name = "fck-render-sdl.dylib", NULL},
 	};
 
 	fck_apis_init init = (fck_apis_init){
 		.manifest = manifest,
 		.count = fck_arraysize(manifest),
 	};
-	fck_shared_object api_so = os->so->load("fck-api.dll");
+	fck_shared_object api_so = os->so->load("fck-api.dylib");
 	fck_main_func *main_so = (fck_main_func *)os->so->symbol(api_so, FCK_ENTRY_POINT);
 	api = (fck_api_registry *)main_so(api, &init);
 
 	fck_instance *app = (fck_instance *)SDL_malloc(sizeof(fck_instance));
 
 	app->wind = os->win->create("Widnow", 1280, 720);
-	app->canvas = canvas->create(app->wind.handle);
+	app->renderer = render_api->new(&app->wind);
 
-	app->ui = fck_ui_alloc(&app->canvas);
+	app->ui = fck_ui_alloc(&app->renderer);
 	app->window_manager = fck_ui_window_manager_alloc(16);
 
 	// fck_type_system *ts = fck_load_type_system(apis);
@@ -284,8 +287,8 @@ void fck_instance_free(fck_instance *instance)
 {
 	fck_ui_window_manager_free(instance->window_manager);
 
-	fck_ui_free(instance->ui);
-	canvas->destroy(instance->canvas);
+	fck_ui_free(instance->ui, &instance->renderer);
+	render_api->delete(instance->renderer);
 	os->win->destroy(instance->wind);
 	SDL_free(instance);
 }
@@ -300,12 +303,13 @@ fck_instance_result fck_instance_tick(fck_instance *instance)
 {
 	fck_instance_overlay(instance);
 
-	canvas->set_color(instance->canvas, 0, 0, 0, 0);
-	canvas->clear(instance->canvas);
+	instance->renderer.vt->clear(instance->renderer.obj);
 
-	fck_ui_render(instance->ui, &instance->canvas);
+	fck_ui_render(instance->ui, &instance->renderer);
 
-	canvas->present(instance->canvas);
+	fck_rect_dst dst = {200.0f, 200.0f, 200.0f, 200.0f};
+	canvas->rect(&instance->renderer, &dst);
 
+	instance->renderer.vt->present(instance->renderer.obj);
 	return FCK_INSTANCE_CONTINUE;
 }

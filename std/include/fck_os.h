@@ -94,9 +94,30 @@ typedef struct fck_chrono_api
 	fckc_u64 (*ms)(void);
 } fck_chrono_api;
 
+typedef struct fck_file
+{
+	void *handle;
+} fck_file;
+
+typedef enum fck_stream_seek_mode
+{
+	FCK_STREAM_SET,
+	FCK_STREAM_CUR,
+	FCK_STREAM_END,
+} fck_stream_seek_mode;
+
 typedef struct fck_filesystem_api
 {
-	void (*glob)(void);
+	fck_file (*open)(const char *path, const char *mode);
+	void (*close)(fck_file);
+
+	int (*is_valid)(fck_file);
+
+	fckc_i64 (*size)(fck_file);
+	fckc_i64 (*seek)(fck_file, fckc_i64 offset, fck_alias(fck_stream_seek_mode, fckc_u32) seek_mode);
+	fckc_size_t (*read)(fck_file, void *ptr, fckc_size_t size);
+	fckc_size_t (*write)(fck_file, const void *ptr, fckc_size_t size);
+	fckc_u32 (*flush)(fck_file);
 } fck_filesystem_api;
 
 typedef struct fck_os_api
@@ -109,6 +130,7 @@ typedef struct fck_os_api
 	fck_window_api *win;
 	fck_clipboard_api *clipboard;
 	fck_chrono_api *chrono;
+	fck_filesystem_api *fs;
 } fck_os_api;
 
 FCK_STD_API extern fck_os_api *os;

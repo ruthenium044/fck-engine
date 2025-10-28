@@ -46,6 +46,7 @@ typedef enum fck_texture_blend_mode
 
 typedef struct fck_render_o
 {
+	const char *name; // Maybe always having that is ok?
 	void *handle;
 } fck_render_o;
 
@@ -53,15 +54,19 @@ typedef struct fck_texture_api
 {
 	fck_texture (*create)(fck_render_o renderer, fck_alias(fck_texture_access, fckc_u32), fck_alias(fck_texture_blend_mode, fckc_u32),
 	                      fckc_u32 width, fckc_u32 height);
+	fck_texture (*null)(void);
 	int (*upload)(fck_texture texture, void const *pixel, fckc_size_t pitch);
-	int (*is_valid)(fck_texture texture);
+	int (*dimensions)(fck_texture texture, fckc_u32 *width, fckc_u32 *height);
+	int (*is_valid)(fck_render_o renderer, fck_texture texture);
 	void (*destroy)(fck_texture texture);
 } fck_texture_api;
 
 typedef struct fck_render_vt
 {
-	fck_texture_api* texture;
+	fck_texture_api *texture;
 	int (*raw)(fck_render_o, fck_texture, fck_vertex_2d *vertices, fckc_u32 vertex_count, fck_index *indices, fckc_u32 index_count);
+	int (*clear)(fck_render_o);
+	int (*present)(fck_render_o);
 } fck_render_vt;
 
 typedef struct fck_renderer
@@ -72,9 +77,10 @@ typedef struct fck_renderer
 
 typedef struct fck_render_api
 {
-	const char* name;
-	fck_renderer (*create)(struct fck_window *window);
-	void (*destroy)(fck_renderer renderer);
+	const char *name;
+	fck_renderer (*new)(struct fck_window *window);
+	void (*delete)(fck_renderer renderer);
+	int (*is_valid)(fck_renderer renderer);
 } fck_render_api;
 
 #endif // !FCK_RENDER_H_INCLUDED

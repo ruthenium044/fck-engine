@@ -1,8 +1,5 @@
-#define FCK_SER_EXT_STRING_API
-#include "fck_serialiser_string_vt.h"
-
-#include "fck_memory_serialiser.h"
 #include "fck_serialiser_vt.h"
+#include "fck_serialiser_ext.h"
 
 #include <fck_os.h>
 
@@ -11,9 +8,11 @@
 #define FCK_WRITE_BUFFER_STRING_SIZE 32
 #define FCK_READ_BUFFER_STRING_SIZE 32
 
+void fck_memory_serialiser_maybe_realloc(fck_memory_serialiser* serialiser, fckc_size_t extra);
+
 void fck_write_string_i8(fck_serialiser *s, fck_serialiser_params *p, fckc_i8 *v, fckc_size_t c)
 {
-	fck_ser_mem->maybe_realloc(((fck_memory_serialiser *)s), FCK_WRITE_BUFFER_STRING_SIZE); // Should be enough
+	fck_memory_serialiser_maybe_realloc(((fck_memory_serialiser *)s), FCK_WRITE_BUFFER_STRING_SIZE); // Should be enough
 
 	for (fckc_i8 *end = v + c; v != end; v++)
 	{
@@ -26,7 +25,7 @@ void fck_write_string_i8(fck_serialiser *s, fck_serialiser_params *p, fckc_i8 *v
 
 void fck_write_string_i16(fck_serialiser *s, fck_serialiser_params *p, fckc_i16 *v, fckc_size_t c)
 {
-	fck_ser_mem->maybe_realloc(((fck_memory_serialiser *)s), FCK_WRITE_BUFFER_STRING_SIZE); // Should be enough
+	fck_memory_serialiser_maybe_realloc(((fck_memory_serialiser *)s), FCK_WRITE_BUFFER_STRING_SIZE); // Should be enough
 
 	for (fckc_i16 *end = v + c; v != end; v++)
 	{
@@ -39,7 +38,7 @@ void fck_write_string_i16(fck_serialiser *s, fck_serialiser_params *p, fckc_i16 
 
 void fck_write_string_i32(fck_serialiser *s, fck_serialiser_params *p, fckc_i32 *v, fckc_size_t c)
 {
-	fck_ser_mem->maybe_realloc(((fck_memory_serialiser *)s), FCK_WRITE_BUFFER_STRING_SIZE); // Should be enough
+	fck_memory_serialiser_maybe_realloc(((fck_memory_serialiser *)s), FCK_WRITE_BUFFER_STRING_SIZE); // Should be enough
 
 	for (fckc_i32 *end = v + c; v != end; v++)
 	{
@@ -52,7 +51,7 @@ void fck_write_string_i32(fck_serialiser *s, fck_serialiser_params *p, fckc_i32 
 
 void fck_write_string_i64(fck_serialiser *s, fck_serialiser_params *p, fckc_i64 *v, fckc_size_t c)
 {
-	fck_ser_mem->maybe_realloc(((fck_memory_serialiser *)s), FCK_WRITE_BUFFER_STRING_SIZE); // Should be enough
+	fck_memory_serialiser_maybe_realloc(((fck_memory_serialiser *)s), FCK_WRITE_BUFFER_STRING_SIZE); // Should be enough
 
 	for (fckc_i64 *end = v + c; v != end; v++)
 	{
@@ -65,7 +64,7 @@ void fck_write_string_i64(fck_serialiser *s, fck_serialiser_params *p, fckc_i64 
 
 void fck_write_string_u8(fck_serialiser *s, fck_serialiser_params *p, fckc_u8 *v, fckc_size_t c)
 {
-	fck_ser_mem->maybe_realloc(((fck_memory_serialiser *)s), FCK_WRITE_BUFFER_STRING_SIZE); // Should be enough
+	fck_memory_serialiser_maybe_realloc(((fck_memory_serialiser *)s), FCK_WRITE_BUFFER_STRING_SIZE); // Should be enough
 
 	for (fckc_u8 *end = v + c; v != end; v++)
 	{
@@ -78,7 +77,7 @@ void fck_write_string_u8(fck_serialiser *s, fck_serialiser_params *p, fckc_u8 *v
 
 void fck_write_string_u16(fck_serialiser *s, fck_serialiser_params *p, fckc_u16 *v, fckc_size_t c)
 {
-	fck_ser_mem->maybe_realloc(((fck_memory_serialiser *)s), FCK_WRITE_BUFFER_STRING_SIZE); // Should be enough
+	fck_memory_serialiser_maybe_realloc(((fck_memory_serialiser *)s), FCK_WRITE_BUFFER_STRING_SIZE); // Should be enough
 
 	for (fckc_u16 *end = v + c; v != end; v++)
 	{
@@ -91,7 +90,7 @@ void fck_write_string_u16(fck_serialiser *s, fck_serialiser_params *p, fckc_u16 
 
 void fck_write_string_u32(fck_serialiser *s, fck_serialiser_params *p, fckc_u32 *v, fckc_size_t c)
 {
-	fck_ser_mem->maybe_realloc(((fck_memory_serialiser *)s), FCK_WRITE_BUFFER_STRING_SIZE); // Should be enough
+	fck_memory_serialiser_maybe_realloc(((fck_memory_serialiser *)s), FCK_WRITE_BUFFER_STRING_SIZE); // Should be enough
 
 	for (fckc_u32 *end = v + c; v != end; v++)
 	{
@@ -104,7 +103,7 @@ void fck_write_string_u32(fck_serialiser *s, fck_serialiser_params *p, fckc_u32 
 
 void fck_write_string_u64(fck_serialiser *s, fck_serialiser_params *p, fckc_u64 *v, fckc_size_t c)
 {
-	fck_ser_mem->maybe_realloc(((fck_memory_serialiser *)s), FCK_WRITE_BUFFER_STRING_SIZE); // Should be enough
+	fck_memory_serialiser_maybe_realloc(((fck_memory_serialiser *)s), FCK_WRITE_BUFFER_STRING_SIZE); // Should be enough
 
 	for (fckc_u64 *end = v + c; v != end; v++)
 	{
@@ -117,7 +116,7 @@ void fck_write_string_u64(fck_serialiser *s, fck_serialiser_params *p, fckc_u64 
 
 void fck_write_string_f32(fck_serialiser *s, fck_serialiser_params *p, float *v, fckc_size_t c)
 {
-	fck_ser_mem->maybe_realloc(((fck_memory_serialiser *)s), FCK_WRITE_BUFFER_STRING_SIZE); // Should be enough
+	fck_memory_serialiser_maybe_realloc(((fck_memory_serialiser *)s), FCK_WRITE_BUFFER_STRING_SIZE); // Should be enough
 
 	for (float *end = v + c; v != end; v++)
 	{
@@ -130,7 +129,7 @@ void fck_write_string_f32(fck_serialiser *s, fck_serialiser_params *p, float *v,
 
 void fck_write_string_f64(fck_serialiser *s, fck_serialiser_params *p, double *v, fckc_size_t c)
 {
-	fck_ser_mem->maybe_realloc(((fck_memory_serialiser *)s), FCK_WRITE_BUFFER_STRING_SIZE); // Should be enough
+	fck_memory_serialiser_maybe_realloc(((fck_memory_serialiser *)s), FCK_WRITE_BUFFER_STRING_SIZE); // Should be enough
 
 	for (double *end = v + c; v != end; v++)
 	{

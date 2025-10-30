@@ -2,18 +2,17 @@
 cmake_minimum_required(VERSION 3.20)
 
 project(fck-ser-ext)
-
 include_guard(GLOBAL)
 
-file(GLOB_RECURSE FOUND_BLB_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/include/**.h")
-file(GLOB_RECURSE FOUND_BLB_C_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/**.c")
+file(GLOB_RECURSE FOUND_SER_EXT_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/include/**.h")
+file(GLOB_RECURSE FOUND_SER_EXT_C_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/**.c")
 
-add_library(${PROJECT_NAME} SHARED ${FOUND_BLB_C_SOURCES})
+add_library(${PROJECT_NAME} SHARED ${FOUND_SER_EXT_C_SOURCES})
 add_library(fck::ser-ext ALIAS ${PROJECT_NAME})
 
 target_sources(${PROJECT_NAME}
-    PRIVATE ${FOUND_BLB_C_SOURCES}
-    PRIVATE ${FOUND_BLB_HEADERS} 
+    PRIVATE ${FOUND_SER_EXT_C_SOURCES}
+    PRIVATE ${FOUND_SER_EXT_HEADERS} 
 )
 
 target_include_directories(${PROJECT_NAME}
@@ -34,8 +33,9 @@ install(
 find_package(fckc CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
 find_package(ser CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
 find_package(std CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
+find_package(api CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
 find_package(kll CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-target_link_libraries(${PROJECT_NAME} PRIVATE fck::fckc fck::ser fck::kll fck::std)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::fckc fck::api  fck::ser fck::kll fck::std fck::dynarr)
 set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "fck-lib")
 
 add_executable(${PROJECT_NAME}-test test/main.c)

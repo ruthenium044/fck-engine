@@ -1,4 +1,3 @@
-#define FCK_TYPE_SYSTEM_EXPORT
 #include "fck_type_system.h"
 
 #include "fck_apis.h"
@@ -6,6 +5,7 @@
 
 #include "fck_serialiser_vt.h"
 
+#include <fckc_apidef.h>
 #include <kll.h>
 #include <kll_malloc.h>
 
@@ -341,12 +341,8 @@ fck_type_system *fck_get_type_system(fck_api_registry *apis)
 	return (fck_type_system *)apis->find(fck_type_system_api_name);
 }
 
-#include <fckc_apidef.h>
-#include <stdio.h>
-
 FCK_EXPORT_API fck_type_system *fck_main(fck_api_registry *apis, void *params)
 {
 	fck_type_system *ts = fck_load_type_system(apis);
-	printf("%s loaded and initialised\n", __FILE_NAME__);
 	return ts;
 }

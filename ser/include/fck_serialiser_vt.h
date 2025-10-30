@@ -21,33 +21,9 @@ struct fck_type_system;
 
 typedef struct fck_serialiser_params
 {
-	// The previous params if recursive
-	// struct fck_serialiser_params *parent;
-
 	// Variable name - Makes sense
 	const char *name;
-
-	// Reference to the fck type... sure, can get used for tagging
-	// struct fck_type *type;
-
-	// The type system iteself, else the type is useless - works...
-	// Maybe it makes more sense to just hand around the type info itself?
-	// struct fck_type_system *type_system;
-
-	// TODO: Propagate parameters for special serialisers might be nice
-	// We can also easily bind them...
-	// void *user;
-	//   ...
-
 } fck_serialiser_params;
-
-// static inline fck_serialiser_params fck_serialiser_params_next(fck_serialiser_params *prev, const char *name, struct fck_type *type)
-//{
-//	fck_serialiser_params p = *prev;
-//	p.type = type;
-//	p.name = name;
-//	return p;
-// }
 
 // Prettifying as object or composed structure requires marshal param
 struct fck_marshaller;
@@ -71,13 +47,18 @@ typedef struct fck_serialiser_vt
 	void (*u16)(struct fck_serialiser *s, struct fck_serialiser_params *p, fckc_u16 *v, fckc_size_t c);
 	void (*u32)(struct fck_serialiser *s, struct fck_serialiser_params *p, fckc_u32 *v, fckc_size_t c);
 	void (*u64)(struct fck_serialiser *s, struct fck_serialiser_params *p, fckc_u64 *v, fckc_size_t c);
-	void (*f32)(struct fck_serialiser *s, struct fck_serialiser_params *p, fckc_f32*v, fckc_size_t c);
-	void (*f64)(struct fck_serialiser *s, struct fck_serialiser_params *p, fckc_f64*v, fckc_size_t c);
+	void (*f32)(struct fck_serialiser *s, struct fck_serialiser_params *p, fckc_f32 *v, fckc_size_t c);
+	void (*f64)(struct fck_serialiser *s, struct fck_serialiser_params *p, fckc_f64 *v, fckc_size_t c);
 
 	// TODO: REMOVE THIS, REPLACE IT BEFORE IT IS TOO LATE!! FFS!!!
 	void (*string)(struct fck_serialiser *s, struct fck_serialiser_params *p, char **v, fckc_size_t c);
 
 	fck_serialiser_prettify_vt *pretty;
 } fck_serialiser_vt;
+
+//typedef struct fck_serialiser_api
+//{
+//	
+//}fck_serialiser_api;
 
 #endif // FCK_SERIALISER_VT_H_INCLUDED

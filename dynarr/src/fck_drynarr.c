@@ -90,9 +90,7 @@ void fck_dynarr_expand(void **ref_ptr, fckc_size_t element_size)
 	info->size = info->size + 1;
 }
 
-#include <stdio.h>
 FCK_EXPORT_API int fck_main()
 {
-	printf("%s loaded and initialised\n", __FILE_NAME__);
 	return 0;
 }

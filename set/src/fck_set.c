@@ -328,6 +328,5 @@ int fck_opaque_set_next(void const *ptr, fckc_size_t *index)
 
 FCK_EXPORT_API int fck_main()
 {
-	printf("%s loaded and initialised\n", __FILE_NAME__);
 	return 0;
 }

@@ -16,9 +16,9 @@ endif()
 file(GLOB_RECURSE FOUND_APP_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/include/**.h")
 file(GLOB_RECURSE FOUND_APP_C_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/**.c")
 
-include_directories(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/include)
-
 add_executable(${PROJECT_NAME} ${FOUND_APP_C_SOURCES})
+
+target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 target_sources(${PROJECT_NAME}
     PRIVATE ${FOUND_APP_C_SOURCES}
@@ -37,7 +37,7 @@ find_package(imgui CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
 find_package(render CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
 find_package(render-sdl CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
 find_package(img CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-target_link_libraries(${PROJECT_NAME} PUBLIC fck::fckc fck::hash fck::kll PRIVATE fck::img fck::render fck::render-sdl fck::imgui fck::canvas fck::ser-ext fck::set fck::dynarr fck::ser-json fck::std fck::ts fck::api)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::fckc fck::hash fck::kll PRIVATE fck::img fck::render fck::render-sdl fck::imgui fck::canvas fck::ser-ext fck::set fck::dynarr fck::ser-json fck::std fck::ts fck::api)
 
 #set_target_properties(SDL3-shared PROPERTIES FOLDER "SDL3")
 #set_target_properties(SDL_uclibc PROPERTIES FOLDER "SDL3")

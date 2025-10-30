@@ -1,5 +1,7 @@
-#define FCK_SER_EXT_MEM_EXPORT
-#include "fck_memory_serialiser.h"
+#include "fck_serialiser_ext.h"
+
+#include <fck_apis.h>
+#include <fckc_apidef.h>
 
 #include <kll.h>
 #include <kll_heap.h>
@@ -8,7 +10,7 @@
 #include <fck_os.h>
 #include <fckc_math.h>
 
-#include <assert.h>
+#include <fckc_assert.h>
 
 static fckc_u64 fck_serialiser_buffer_next_capacity(fckc_u64 n)
 {
@@ -45,7 +47,7 @@ fck_memory_serialiser fck_memory_serialiser_alloc(struct kll_allocator *allocato
 	serialiser.allocator = allocator;
 	serialiser.capacity = capacity;
 	serialiser.at = 0;
-	serialiser.bytes = kll_malloc(allocator, capacity);
+	serialiser.bytes = (fckc_u8 *)kll_malloc(allocator, capacity);
 	return serialiser;
 };
 
@@ -88,13 +90,30 @@ void fck_memory_serialiser_free(fck_memory_serialiser *serialiser)
 	serialiser->at = serialiser->capacity = 0;
 };
 
-static fck_memory_serialiser_api fck_ser_mem_api = {
+
+extern struct fck_serialiser_vt* fck_byte_writer_vt;
+extern struct fck_serialiser_vt* fck_byte_reader_vt;
+
+extern struct fck_serialiser_vt* fck_string_writer_vt;
+extern struct fck_serialiser_vt* fck_string_reader_vt;
+
+static fck_serialiser_ext_api fck_ser_mem_api = {
 	.alloc = fck_memory_serialiser_alloc,
 	.create = fck_memory_serialiser_create,
 	.free = fck_memory_serialiser_free,
 	.maybe_realloc = fck_memory_serialiser_maybe_realloc,
-	.realloc = fck_memory_serialiser_realloc
+	.realloc = fck_memory_serialiser_realloc,
 };
 
-fck_memory_serialiser_api* fck_ser_mem = &fck_ser_mem_api;
+fck_serialiser_ext_api *fck_ser_mem = &fck_ser_mem_api;
 
+FCK_EXPORT_API fck_serialiser_ext_api *fck_main(fck_api_registry *apis, void *params)
+{
+	fck_ser_mem_api.vts.byte.reader = fck_byte_reader_vt;
+	fck_ser_mem_api.vts.byte.writer = fck_byte_writer_vt;
+	fck_ser_mem_api.vts.string.reader = fck_string_reader_vt;
+	fck_ser_mem_api.vts.string.writer = fck_string_writer_vt;
+
+	apis->add("FCK_SERIALISER_EXT", &fck_ser_mem_api);
+	return &fck_ser_mem_api;
+}

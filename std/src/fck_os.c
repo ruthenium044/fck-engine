@@ -45,12 +45,29 @@ static int fck_shared_object_is_valid(fck_shared_object so)
 	return so.handle != NULL;
 }
 
-static fck_shared_object fck_shared_object_load(const char *path)
-{
-	SDL_SharedObject *so = SDL_LoadObject(path);
-	return (fck_shared_object){.handle = (void *)so};
-}
+#if defined(_WIN32) || defined(_WIN64)
+// Technically windows does not care if we provide an extension or not
+// It is quite forgiving in that sense. We leave it for completeness 
+#define FCK_SHARED_OBJECT_EXTENSION ".dll"
+#elif defined(__APPLE__) && defined(__MACH__)
+#define FCK_SHARED_OBJECT_EXTENSION ".dylib"
+#elif defined(__unix__) || defined(__unix) || defined(__linux__)
+#define FCK_SHARED_OBJECT_EXTENSION ".so"
+#else
+#error "Unsupported platform: unknown shared object extension"
+#endif
 
+static fck_shared_object fck_shared_object_load(const char* path)
+{
+	char real_path[256];
+	int result = SDL_snprintf(real_path, sizeof(real_path), "%s%s", path, FCK_SHARED_OBJECT_EXTENSION);
+	if (result < 0)
+	{
+		return (fck_shared_object) { .handle = NULL };
+	}
+	SDL_SharedObject* so = SDL_LoadObject(real_path);
+	return (fck_shared_object) { .handle = (void*)so };
+}
 static void fck_shared_object_unload(fck_shared_object so)
 {
 	SDL_SharedObject *sdl_so = NULL;
@@ -147,7 +164,8 @@ int fck_filesystem_is_valid(fck_file file)
 
 fckc_i64 fck_filesystem_size(fck_file file)
 {
-	SDL_GetIOSize((SDL_IOStream *)file.handle);
+	return SDL_GetIOSize((SDL_IOStream *)file.handle);
+
 }
 
 fckc_i64 fck_filesystem_seek(fck_file file, fckc_i64 offset, fckc_u32 seek_mode)
@@ -172,17 +190,17 @@ fckc_i64 fck_filesystem_seek(fck_file file, fckc_i64 offset, fckc_u32 seek_mode)
 
 fckc_size_t fck_filesystem_read(fck_file file, void *ptr, fckc_size_t size)
 {
-	SDL_ReadIO((SDL_IOStream *)file.handle, ptr, size);
+	return SDL_ReadIO((SDL_IOStream *)file.handle, ptr, size);
 }
 
 fckc_size_t fck_filesystem_write(fck_file file, const void *ptr, fckc_size_t size)
 {
-	SDL_WriteIO((SDL_IOStream *)file.handle, ptr, size);
+	return SDL_WriteIO((SDL_IOStream *)file.handle, ptr, size);
 }
 
 fckc_u32 fck_filesystem_flush(fck_file file)
 {
-	SDL_FlushIO((SDL_IOStream *)file.handle);
+	return SDL_FlushIO((SDL_IOStream *)file.handle);
 }
 
 static fck_filesystem_api file_system_api = {

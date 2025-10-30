@@ -10,6 +10,7 @@
 #include "fck_ui_window_manager.h"
 
 #include "fck_serialiser_nk_edit_vt.h"
+#include "fck_serialiser_ext.h"
 #include "fck_serialiser_vt.h"
 
 #include <kll.h>
@@ -45,6 +46,7 @@ fck_api_registry *api;
 fck_type_system *ts;
 fck_canvas_api *canvas;
 fck_render_api *render_api;
+fck_serialiser_ext_api *ser_api;
 
 typedef struct some_type
 {
@@ -250,16 +252,17 @@ fck_instance_result fck_instance_overlay(fck_instance *instance)
 fck_instance *fck_instance_alloc(int argc, char *argv[])
 {
 	fck_apis_manifest manifest[] = {
-		{.api = (void **)&ts, .name = "fck-ts.dylib", NULL},
-		{.api = (void **)&canvas, .name = "fck-canvas.dylib", NULL},
-		{.api = (void **)&render_api, .name = "fck-render-sdl.dylib", NULL},
+		{.api = (void **)&ts, .name = "fck-ts", NULL},
+		{.api = (void **)&canvas, .name = "fck-canvas", NULL},
+		{.api = (void **)&render_api, .name = "fck-render-sdl", NULL},
+		{.api = (void**)&ser_api, .name = "fck-ser-ext"}
 	};
 
 	fck_apis_init init = (fck_apis_init){
 		.manifest = manifest,
 		.count = fck_arraysize(manifest),
 	};
-	fck_shared_object api_so = os->so->load("fck-api.dylib");
+	fck_shared_object api_so = os->so->load("fck-api");
 	fck_main_func *main_so = (fck_main_func *)os->so->symbol(api_so, FCK_ENTRY_POINT);
 	api = (fck_api_registry *)main_so(api, &init);
 

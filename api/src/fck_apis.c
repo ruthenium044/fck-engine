@@ -120,12 +120,8 @@ fck_api_registry fck_apis_runtime_state = {
 	.next = fck_apis_next,
 };
 
-// fck_apis *apis = &fck_apis_runtime_state;
-#include <stdio.h>
 FCK_EXPORT_API fck_api_registry *fck_main(fck_api_registry *api, fck_apis_init *init)
 {
-	printf("%s loaded and initialised\n", __FILE_NAME__);
-
 	api = &fck_apis_runtime_state;
 
 	fck_apis_manifest *manifest = init->manifest;

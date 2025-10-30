@@ -41,9 +41,10 @@ typedef struct fck_memory_api
 	void *(*set)(void *bytes, int value, fckc_size_t size);
 } fck_memory_api;
 
+// Should be fck_format_api...
 typedef struct fck_io_api
 {
-	int (*snprintf)(char *s, size_t n, const char *format, ...);
+	int (*format)(char *s, size_t n, const char *format, ...);
 } fck_io_api;
 
 typedef struct fck_shared_object

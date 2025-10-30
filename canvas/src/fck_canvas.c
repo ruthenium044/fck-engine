@@ -10,9 +10,19 @@ int fck_canvas_draw_sprite(fck_renderer *renderer, fck_texture const *texture, f
 	fckc_u32 width;
 	fckc_u32 height;
 	int result = renderer->vt->texture->dimensions(*texture, &width, &height);
+	fck_rect_src null_src;
 	if (!result)
 	{
 		return 0;
+	}
+
+	if (!src)
+	{
+		null_src.min_x = 0;
+		null_src.min_y = 0;
+		null_src.max_x = width;
+		null_src.max_y = height;
+		src = &null_src;
 	}
 
 	fckc_f32 uv_min_x = (src->min_x / width);
@@ -32,34 +42,34 @@ int fck_canvas_draw_sprite(fck_renderer *renderer, fck_texture const *texture, f
 	                    .position[1] = dst_min_y,
 	                    .uv[0] = uv_min_x,
 	                    .uv[1] = uv_min_y,
-	                    .col[0] = 255,
-	                    .col[1] = 255,
-	                    .col[2] = 255,
-	                    .col[3] = 255},
+	                    .col[0] = 1.0f,
+	                    .col[1] = 1.0f,
+	                    .col[2] = 1.0f,
+	                    .col[3] = 1.0f},
 		(fck_vertex_2d){.position[0] = dst_min_x,
 	                    .position[1] = dst_max_y,
 	                    .uv[0] = uv_min_x,
 	                    .uv[1] = uv_max_y,
-	                    .col[0] = 255,
-	                    .col[1] = 255,
-	                    .col[2] = 255,
-	                    .col[3] = 255},
+	                    .col[0] = 1.0f,
+	                    .col[1] = 1.0f,
+	                    .col[2] = 1.0f,
+	                    .col[3] = 1.0f},
 		(fck_vertex_2d){.position[0] = dst_max_x,
 	                    .position[1] = dst_max_y,
 	                    .uv[0] = uv_max_x,
 	                    .uv[1] = uv_max_y,
-	                    .col[0] = 255,
-	                    .col[1] = 255,
-	                    .col[2] = 255,
-	                    .col[3] = 255},
+	                    .col[0] = 1.0f,
+	                    .col[1] = 1.0f,
+	                    .col[2] = 1.0f,
+	                    .col[3] = 1.0f},
 		(fck_vertex_2d){.position[0] = dst_max_x,
 	                    .position[1] = dst_min_y,
 	                    .uv[0] = uv_max_x,
 	                    .uv[1] = uv_min_y,
-	                    .col[0] = 255,
-	                    .col[1] = 255,
-	                    .col[2] = 255,
-	                    .col[3] = 255},
+	                    .col[0] = 1.0f,
+	                    .col[1] = 1.0f,
+	                    .col[2] = 1.0f,
+	                    .col[3] = 1.0f},
 	};
 	fck_index indices[6] = {0, 1, 2, 2, 3, 0};
 

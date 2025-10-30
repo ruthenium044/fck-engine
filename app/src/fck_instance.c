@@ -4,13 +4,14 @@
 
 #include <fck_hash.h>
 
+#include "SDL3/SDL_filesystem.h"
 #include "fck_ui.h"
 
 #include "fck_nuklear_demos.h"
 #include "fck_ui_window_manager.h"
 
-#include "fck_serialiser_nk_edit_vt.h"
 #include "fck_serialiser_ext.h"
+#include "fck_serialiser_nk_edit_vt.h"
 #include "fck_serialiser_vt.h"
 
 #include <kll.h>
@@ -24,6 +25,7 @@
 #include <fck_set.h>
 
 #include <fck_canvas.h>
+#include <fck_img.h>
 #include <fck_render.h>
 
 // We need log plugin...
@@ -40,6 +42,10 @@ typedef struct fck_instance
 
 	fck_ui_window_manager *window_manager;
 	struct fck_assembly *assembly;
+
+	char *filepath;
+	char *dirpath;
+	char *assetpath;
 } fck_instance;
 
 fck_api_registry *api;
@@ -47,6 +53,7 @@ fck_type_system *ts;
 fck_canvas_api *canvas;
 fck_render_api *render_api;
 fck_serialiser_ext_api *ser_api;
+fck_img_api *img;
 
 typedef struct some_type
 {
@@ -249,13 +256,16 @@ fck_instance_result fck_instance_overlay(fck_instance *instance)
 	return FCK_INSTANCE_CONTINUE;
 }
 
+static fck_texture texture;
+
 fck_instance *fck_instance_alloc(int argc, char *argv[])
 {
 	fck_apis_manifest manifest[] = {
 		{.api = (void **)&ts, .name = "fck-ts", NULL},
 		{.api = (void **)&canvas, .name = "fck-canvas", NULL},
 		{.api = (void **)&render_api, .name = "fck-render-sdl", NULL},
-		{.api = (void**)&ser_api, .name = "fck-ser-ext"}
+		{.api = (void **)&ser_api, .name = "fck-ser-ext"},
+		{.api = (void **)&img, .name = "fck-img"},
 	};
 
 	fck_apis_init init = (fck_apis_init){
@@ -274,6 +284,26 @@ fck_instance *fck_instance_alloc(int argc, char *argv[])
 	app->ui = fck_ui_alloc(&app->renderer);
 	app->window_manager = fck_ui_window_manager_alloc(16);
 
+	char *path = strrchr(argv[0], '/');
+	fckc_size_t at = (fckc_size_t)((void *)path - (void *)argv[0]);
+	int path_len = strlen(argv[0]);
+	char *parent = strndup(argv[0], at);
+
+	app->filepath = os->str->unsafe->dup(argv[0]);
+	app->dirpath = os->str->unsafe->dup(parent);
+
+	char buffer[255];
+	os->io->format((char *)buffer, sizeof(buffer), "%s/..", parent);
+	app->assetpath = os->str->unsafe->dup(buffer);
+
+	os->io->format((char *)buffer, sizeof(buffer), "%s/snow.png", app->assetpath);
+	const char *img_path = buffer;
+	fck_img image = img->load(kll_heap, buffer);
+
+	texture = app->renderer.vt->texture->create(app->renderer.obj, FCK_TEXTURE_ACCESS_STATIC, FCK_TEXTURE_BLEND_MODE_BLEND, image.width,
+	                                            image.height);
+	app->renderer.vt->texture->upload(texture, image.pixels, image.pitch);
+	img->free(image);
 	// fck_type_system *ts = fck_load_type_system(apis);
 	app->assembly = ts->assembly->alloc(kll_heap);
 
@@ -308,10 +338,12 @@ fck_instance_result fck_instance_tick(fck_instance *instance)
 
 	instance->renderer.vt->clear(instance->renderer.obj);
 
+	fck_rect_dst dst = {400.0f, 400.0f, 667.0f / 2, 883.0f / 2};
+	canvas->sprite(&instance->renderer, &texture, NULL, &dst);
+
 	fck_ui_render(instance->ui, &instance->renderer);
 
-	fck_rect_dst dst = {200.0f, 200.0f, 200.0f, 200.0f};
-	canvas->rect(&instance->renderer, &dst);
+	// canvas->rect(&instance->renderer, &dst);
 
 	instance->renderer.vt->present(instance->renderer.obj);
 	return FCK_INSTANCE_CONTINUE;

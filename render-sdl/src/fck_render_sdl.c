@@ -17,6 +17,19 @@ int fck_texture_is_valid(fck_render_o obj, fck_texture image)
 	return obj.handle == renderer;
 }
 
+int fck_texture_sdl_dimensions(fck_texture texture, fckc_u32 *width, fckc_u32 *height)
+{
+	float w, h;
+	if (!SDL_GetTextureSize((SDL_Texture *)texture.handle, &w, &h))
+	{
+		return 0;
+	}
+
+	*width = (fckc_u32)w;
+	*height = (fckc_u32)h;
+	return 1;
+};
+
 int fck_texture_blend_mode_set(fck_texture image, fck_alias(fck_texture_blend_mode, fckc_u32) blend_mode)
 {
 	return (int)SDL_SetTextureBlendMode((SDL_Texture *)image.handle, blend_mode);
@@ -89,6 +102,7 @@ static fck_texture_api texture_api = {
 	.is_valid = fck_texture_is_valid,
 	.upload = fck_texture_upload,
 	.null = fck_texture_null,
+	.dimensions = fck_texture_sdl_dimensions,
 };
 
 static fck_render_vt render_sdl_vt = {

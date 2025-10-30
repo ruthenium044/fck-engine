@@ -9,6 +9,8 @@
 #include <kll_heap.h>
 #include <kll_malloc.h>
 
+#include <SDL3/SDL_log.h>
+
 typedef struct fck_apis_node
 {
 	fckc_u64 hash;
@@ -132,6 +134,7 @@ FCK_EXPORT_API fck_api_registry *fck_main(fck_api_registry *api, fck_apis_init *
 		fck_shared_object api_so = os->so->load(current->name);
 		fck_main_func *main_so = (fck_main_func *)os->so->symbol(api_so, FCK_ENTRY_POINT);
 		*current->api = main_so(api, current->params);
+		SDL_Log("Library Loaded: %s", current->name);
 	}
 
 	return api;

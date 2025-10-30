@@ -37,7 +37,7 @@ static fck_memory_api memory_api = {
 };
 
 static fck_io_api io_api = {
-	.snprintf = SDL_snprintf,
+	.format = SDL_snprintf,
 };
 
 static int fck_shared_object_is_valid(fck_shared_object so)
@@ -47,7 +47,7 @@ static int fck_shared_object_is_valid(fck_shared_object so)
 
 #if defined(_WIN32) || defined(_WIN64)
 // Technically windows does not care if we provide an extension or not
-// It is quite forgiving in that sense. We leave it for completeness 
+// It is quite forgiving in that sense. We leave it for completeness
 #define FCK_SHARED_OBJECT_EXTENSION ".dll"
 #elif defined(__APPLE__) && defined(__MACH__)
 #define FCK_SHARED_OBJECT_EXTENSION ".dylib"
@@ -57,16 +57,16 @@ static int fck_shared_object_is_valid(fck_shared_object so)
 #error "Unsupported platform: unknown shared object extension"
 #endif
 
-static fck_shared_object fck_shared_object_load(const char* path)
+static fck_shared_object fck_shared_object_load(const char *path)
 {
 	char real_path[256];
 	int result = SDL_snprintf(real_path, sizeof(real_path), "%s%s", path, FCK_SHARED_OBJECT_EXTENSION);
 	if (result < 0)
 	{
-		return (fck_shared_object) { .handle = NULL };
+		return (fck_shared_object){.handle = NULL};
 	}
-	SDL_SharedObject* so = SDL_LoadObject(real_path);
-	return (fck_shared_object) { .handle = (void*)so };
+	SDL_SharedObject *so = SDL_LoadObject(real_path);
+	return (fck_shared_object){.handle = (void *)so};
 }
 static void fck_shared_object_unload(fck_shared_object so)
 {
@@ -165,7 +165,6 @@ int fck_filesystem_is_valid(fck_file file)
 fckc_i64 fck_filesystem_size(fck_file file)
 {
 	return SDL_GetIOSize((SDL_IOStream *)file.handle);
-
 }
 
 fckc_i64 fck_filesystem_seek(fck_file file, fckc_i64 offset, fckc_u32 seek_mode)

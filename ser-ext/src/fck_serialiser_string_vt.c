@@ -1,5 +1,5 @@
-#include "fck_serialiser_vt.h"
 #include "fck_serialiser_ext.h"
+#include "fck_serialiser_vt.h"
 
 #include <fck_os.h>
 
@@ -8,7 +8,7 @@
 #define FCK_WRITE_BUFFER_STRING_SIZE 32
 #define FCK_READ_BUFFER_STRING_SIZE 32
 
-void fck_memory_serialiser_maybe_realloc(fck_memory_serialiser* serialiser, fckc_size_t extra);
+void fck_memory_serialiser_maybe_realloc(fck_memory_serialiser *serialiser, fckc_size_t extra);
 
 void fck_write_string_i8(fck_serialiser *s, fck_serialiser_params *p, fckc_i8 *v, fckc_size_t c)
 {
@@ -17,8 +17,8 @@ void fck_write_string_i8(fck_serialiser *s, fck_serialiser_params *p, fckc_i8 *v
 	for (fckc_i8 *end = v + c; v != end; v++)
 	{
 		fckc_u8 *at = ((fck_memory_serialiser *)s)->bytes + ((fck_memory_serialiser *)s)->at;
-		int result = os->io->snprintf((char *)at, ((fck_memory_serialiser *)s)->capacity - ((fck_memory_serialiser *)s)->at, "%llu\n",
-		                               (fckc_u64)*v);
+		int result =
+			os->io->format((char *)at, ((fck_memory_serialiser *)s)->capacity - ((fck_memory_serialiser *)s)->at, "%llu\n", (fckc_u64)*v);
 		((fck_memory_serialiser *)s)->at = ((fck_memory_serialiser *)s)->at + result;
 	}
 }
@@ -30,8 +30,8 @@ void fck_write_string_i16(fck_serialiser *s, fck_serialiser_params *p, fckc_i16 
 	for (fckc_i16 *end = v + c; v != end; v++)
 	{
 		fckc_u8 *at = ((fck_memory_serialiser *)s)->bytes + ((fck_memory_serialiser *)s)->at;
-		int result = os->io->snprintf((char *)at, ((fck_memory_serialiser *)s)->capacity - ((fck_memory_serialiser *)s)->at, "%llu\n",
-		                               (fckc_u64)*v);
+		int result =
+			os->io->format((char *)at, ((fck_memory_serialiser *)s)->capacity - ((fck_memory_serialiser *)s)->at, "%llu\n", (fckc_u64)*v);
 		((fck_memory_serialiser *)s)->at = ((fck_memory_serialiser *)s)->at + result;
 	}
 }
@@ -43,8 +43,8 @@ void fck_write_string_i32(fck_serialiser *s, fck_serialiser_params *p, fckc_i32 
 	for (fckc_i32 *end = v + c; v != end; v++)
 	{
 		fckc_u8 *at = ((fck_memory_serialiser *)s)->bytes + ((fck_memory_serialiser *)s)->at;
-		int result = os->io->snprintf((char *)at, ((fck_memory_serialiser *)s)->capacity - ((fck_memory_serialiser *)s)->at, "%llu\n",
-		                               (fckc_u64)*v);
+		int result =
+			os->io->format((char *)at, ((fck_memory_serialiser *)s)->capacity - ((fck_memory_serialiser *)s)->at, "%llu\n", (fckc_u64)*v);
 		((fck_memory_serialiser *)s)->at = ((fck_memory_serialiser *)s)->at + result;
 	}
 }
@@ -56,8 +56,8 @@ void fck_write_string_i64(fck_serialiser *s, fck_serialiser_params *p, fckc_i64 
 	for (fckc_i64 *end = v + c; v != end; v++)
 	{
 		fckc_u8 *at = ((fck_memory_serialiser *)s)->bytes + ((fck_memory_serialiser *)s)->at;
-		int result = os->io->snprintf((char *)at, ((fck_memory_serialiser *)s)->capacity - ((fck_memory_serialiser *)s)->at, "%llu\n",
-		                               (fckc_u64)*v);
+		int result =
+			os->io->format((char *)at, ((fck_memory_serialiser *)s)->capacity - ((fck_memory_serialiser *)s)->at, "%llu\n", (fckc_u64)*v);
 		((fck_memory_serialiser *)s)->at = ((fck_memory_serialiser *)s)->at + result;
 	}
 }
@@ -69,8 +69,8 @@ void fck_write_string_u8(fck_serialiser *s, fck_serialiser_params *p, fckc_u8 *v
 	for (fckc_u8 *end = v + c; v != end; v++)
 	{
 		fckc_u8 *at = ((fck_memory_serialiser *)s)->bytes + ((fck_memory_serialiser *)s)->at;
-		int result = os->io->snprintf((char *)at, ((fck_memory_serialiser *)s)->capacity - ((fck_memory_serialiser *)s)->at, "%llu\n",
-		                               (fckc_u64)*v);
+		int result =
+			os->io->format((char *)at, ((fck_memory_serialiser *)s)->capacity - ((fck_memory_serialiser *)s)->at, "%llu\n", (fckc_u64)*v);
 		((fck_memory_serialiser *)s)->at = ((fck_memory_serialiser *)s)->at + result;
 	}
 }
@@ -82,8 +82,8 @@ void fck_write_string_u16(fck_serialiser *s, fck_serialiser_params *p, fckc_u16 
 	for (fckc_u16 *end = v + c; v != end; v++)
 	{
 		fckc_u8 *at = ((fck_memory_serialiser *)s)->bytes + ((fck_memory_serialiser *)s)->at;
-		int result = os->io->snprintf((char *)at, ((fck_memory_serialiser *)s)->capacity - ((fck_memory_serialiser *)s)->at, "%llu\n",
-		                               (fckc_u64)*v);
+		int result =
+			os->io->format((char *)at, ((fck_memory_serialiser *)s)->capacity - ((fck_memory_serialiser *)s)->at, "%llu\n", (fckc_u64)*v);
 		((fck_memory_serialiser *)s)->at = ((fck_memory_serialiser *)s)->at + result;
 	}
 }
@@ -95,8 +95,8 @@ void fck_write_string_u32(fck_serialiser *s, fck_serialiser_params *p, fckc_u32 
 	for (fckc_u32 *end = v + c; v != end; v++)
 	{
 		fckc_u8 *at = ((fck_memory_serialiser *)s)->bytes + ((fck_memory_serialiser *)s)->at;
-		int result = os->io->snprintf((char *)at, ((fck_memory_serialiser *)s)->capacity - ((fck_memory_serialiser *)s)->at, "%llu\n",
-		                               (fckc_u64)*v);
+		int result =
+			os->io->format((char *)at, ((fck_memory_serialiser *)s)->capacity - ((fck_memory_serialiser *)s)->at, "%llu\n", (fckc_u64)*v);
 		((fck_memory_serialiser *)s)->at = ((fck_memory_serialiser *)s)->at + result;
 	}
 }
@@ -108,8 +108,8 @@ void fck_write_string_u64(fck_serialiser *s, fck_serialiser_params *p, fckc_u64 
 	for (fckc_u64 *end = v + c; v != end; v++)
 	{
 		fckc_u8 *at = ((fck_memory_serialiser *)s)->bytes + ((fck_memory_serialiser *)s)->at;
-		int result = os->io->snprintf((char *)at, ((fck_memory_serialiser *)s)->capacity - ((fck_memory_serialiser *)s)->at, "%llu\n",
-		                               (fckc_u64)*v);
+		int result =
+			os->io->format((char *)at, ((fck_memory_serialiser *)s)->capacity - ((fck_memory_serialiser *)s)->at, "%llu\n", (fckc_u64)*v);
 		((fck_memory_serialiser *)s)->at = ((fck_memory_serialiser *)s)->at + result;
 	}
 }
@@ -121,7 +121,7 @@ void fck_write_string_f32(fck_serialiser *s, fck_serialiser_params *p, float *v,
 	for (float *end = v + c; v != end; v++)
 	{
 		fckc_u8 *at = ((fck_memory_serialiser *)s)->bytes + ((fck_memory_serialiser *)s)->at;
-		int result = os->io->snprintf((char *)at, ((fck_memory_serialiser *)s)->capacity - ((fck_memory_serialiser *)s)->at, "%f\n", *v);
+		int result = os->io->format((char *)at, ((fck_memory_serialiser *)s)->capacity - ((fck_memory_serialiser *)s)->at, "%f\n", *v);
 		assert(result >= 0);
 		((fck_memory_serialiser *)s)->at = ((fck_memory_serialiser *)s)->at + result; // Consider null-terminator
 	}
@@ -134,12 +134,12 @@ void fck_write_string_f64(fck_serialiser *s, fck_serialiser_params *p, double *v
 	for (double *end = v + c; v != end; v++)
 	{
 		fckc_u8 *at = ((fck_memory_serialiser *)s)->bytes + ((fck_memory_serialiser *)s)->at;
-		int result = os->io->snprintf((char *)at, ((fck_memory_serialiser *)s)->capacity - ((fck_memory_serialiser *)s)->at, "%f\n", *v);
+		int result = os->io->format((char *)at, ((fck_memory_serialiser *)s)->capacity - ((fck_memory_serialiser *)s)->at, "%f\n", *v);
 		((fck_memory_serialiser *)s)->at = ((fck_memory_serialiser *)s)->at + result;
 	}
 }
 
-void fck_write_string_string(fck_serialiser *s, fck_serialiser_params *p, char * *v, fckc_size_t c)
+void fck_write_string_string(fck_serialiser *s, fck_serialiser_params *p, char **v, fckc_size_t c)
 {
 	assert(0 && "NOT SUPPORTED FOR NOW");
 }
@@ -354,7 +354,7 @@ void fck_read_string_f64(fck_serialiser *s, fck_serialiser_params *p, double *v,
 	}
 }
 
-void fck_read_string_string(fck_serialiser *s, fck_serialiser_params *p, char * *v, fckc_size_t c)
+void fck_read_string_string(fck_serialiser *s, fck_serialiser_params *p, char **v, fckc_size_t c)
 {
 	assert(0 && "NOT SUPPORTED FOR NOW");
 }

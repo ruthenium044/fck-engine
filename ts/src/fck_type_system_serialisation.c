@@ -1,8 +1,8 @@
 #define FCK_TYPE_SYSTEM_EXPORT
 #include "fck_type_system.h"
 
-#include "fck_serialiser_vt.h"
 #include "fck_dynarr.h"
+#include "fck_serialiser_vt.h"
 
 #include <fck_os.h>
 #include <kll_heap.h>
@@ -132,7 +132,7 @@ void fck_type_serialise_pretty(fck_marshaller *marshaller, fck_marshal_params *p
 			{
 				fck_marshal_params parameters = *params;
 				char buffer[32];
-				int result = os->io->snprintf(buffer, sizeof(buffer), "[%llu]", (fckc_u64)index);
+				int result = os->io->format(buffer, sizeof(buffer), "[%llu]", (fckc_u64)index);
 				parameters.name = buffer;
 				fckc_u8 *offset_ptr = ((fckc_u8 *)(data)) + (size * index);
 

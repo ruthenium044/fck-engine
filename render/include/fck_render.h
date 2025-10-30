@@ -56,6 +56,7 @@ typedef struct fck_texture_api
 	                      fckc_u32 width, fckc_u32 height);
 	fck_texture (*null)(void);
 	int (*upload)(fck_texture texture, void const *pixel, fckc_size_t pitch);
+	// Should be floats instead of u32?
 	int (*dimensions)(fck_texture texture, fckc_u32 *width, fckc_u32 *height);
 	int (*is_valid)(fck_render_o renderer, fck_texture texture);
 	void (*destroy)(fck_texture texture);

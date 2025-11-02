@@ -16,6 +16,7 @@
 #include <kll.h>
 #include <kll_heap.h>
 #include <kll_malloc.h>
+#include <kll_temp.h>
 
 #include "fck_type_system.h"
 #include <fck_apis.h>
@@ -33,9 +34,21 @@
 // This struct is good enough for now
 typedef struct fck_asset_database
 {
-	char *root;
 
+	char *root;
 } fck_asset_database;
+
+char *fck_asset_database_make_path(fck_asset_database *db, kll_temp_allocator *alloactor, const char *path)
+{
+	return kll_temp_format(alloactor, "%s/%s", db->root, path);
+}
+
+typedef struct fck_asset_database_api
+{
+	fck_asset_database (*create)(char *root);
+	void (*destroy)(fck_asset_database db);
+	char *(*make_path)(fck_asset_database *db, kll_temp_allocator *alloactor, const char *path);
+} fck_asset_database_api;
 
 fck_asset_database fck_asset_database_create(char *root)
 {
@@ -47,6 +60,12 @@ fck_asset_database fck_asset_database_create(char *root)
 void fck_asset_database_destroy(fck_asset_database db)
 {
 }
+
+static fck_asset_database_api asset_database_api = {
+	.create = fck_asset_database_create,
+	.destroy = fck_asset_database_destroy,
+	.make_path = fck_asset_database_make_path,
+};
 
 // typedef struct fck_asset_database_api
 //{
@@ -73,6 +92,7 @@ fck_canvas_api *canvas;
 fck_render_api *render_api;
 fck_serialiser_ext_api *ser_api;
 fck_img_api *img;
+fck_asset_database_api *asset_db = &asset_database_api;
 
 typedef struct some_type
 {
@@ -342,7 +362,7 @@ fck_instance *fck_instance_alloc(int argc, char *argv[])
 
 	fck_instance *app = (fck_instance *)SDL_malloc(sizeof(fck_instance));
 	char *asset_root = fck_instance_resolve_asset_path(argc, argv);
-	app->assets = fck_asset_database_create(asset_root);
+	app->assets = asset_db->create(asset_root);
 
 	app->wind = os->win->create("Widnow", 1280, 720);
 	app->renderer = render_api->new(&app->wind);
@@ -350,11 +370,10 @@ fck_instance *fck_instance_alloc(int argc, char *argv[])
 	app->ui = fck_ui_alloc(&app->renderer);
 	app->window_manager = fck_ui_window_manager_alloc(16);
 
-	char buffer[255];
-	// app->assetpath = os->str->unsafe->dup(buffer);
-	os->io->format((char *)buffer, sizeof(buffer), "%s%s", app->assetpath, "snow.png");
-	const char *img_path = buffer;
-	fck_img image = img->load(kll_heap, buffer);
+	kll_temp_allocator *temp = kll_temp_new(kll_heap, 256);
+	char *image_path = asset_db->make_path(&app->assets, temp, "snow.png");
+	fck_img image = img->load(kll_heap, image_path);
+	kll_temp_delete(temp);
 
 	texture = app->renderer.vt->texture->create(app->renderer.obj, FCK_TEXTURE_ACCESS_STATIC, FCK_TEXTURE_BLEND_MODE_BLEND, image.width,
 	                                            image.height);

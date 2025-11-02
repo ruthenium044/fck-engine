@@ -3,7 +3,7 @@
 
 #include <fckc_inttypes.h>
 
-// TODO: Forward declartions HAVE and SHALL always be used as "struct X ..."
+// TODO: Need to somehow get rid of SDL_Event... SOMEHOOOOW
 union SDL_Event;
 
 typedef enum fck_instance_result
@@ -14,10 +14,9 @@ typedef enum fck_instance_result
 
 } fck_instance_result;
 
-// This struct is good enough for now
 struct fck_instance;
 
-struct fck_instance *fck_instance_alloc(int argc, char* argv[]);
+struct fck_instance *fck_instance_alloc(int argc, char *argv[]);
 void fck_instance_free(struct fck_instance *instance);
 fck_instance_result fck_instance_event(struct fck_instance *instance, union SDL_Event const *event);
 fck_instance_result fck_instance_tick(struct fck_instance *instance);

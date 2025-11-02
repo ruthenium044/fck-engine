@@ -134,6 +134,7 @@ typedef struct fck_filesystem_api
 	fckc_size_t (*read)(fck_file, void *ptr, fckc_size_t size);
 	fckc_size_t (*write)(fck_file, const void *ptr, fckc_size_t size);
 	fckc_u32 (*flush)(fck_file);
+
 } fck_filesystem_api;
 
 typedef struct fck_os_api

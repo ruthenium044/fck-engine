@@ -11,6 +11,6 @@
 #endif
 
 typedef struct kll_allocator kll_allocator;
-FCK_KLL_API extern kll_allocator* kll_heap;
+FCK_KLL_API extern kll_allocator *kll_heap;
 
 #endif // !FCK_KLL_HEAP_H_INCLUDED

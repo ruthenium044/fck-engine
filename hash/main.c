@@ -446,7 +446,8 @@ int main(int argc, char **argv)
 	char *path = from_args("path", argc, argv);
 	if (path == NULL)
 	{
-		path = "C:\\Users\\jukai\\Documents\\Engine\\";
+		// TODO: Is there a reasonable default? argv[0] maybe?
+		return 1;
 	}
 
 	printf("%s%s\n", "Running static hash pre build step in directory: ", path);

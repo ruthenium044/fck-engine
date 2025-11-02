@@ -1,5 +1,5 @@
 # Super Async Development
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.28)
 
 project(fck-app)
 
@@ -24,6 +24,9 @@ target_sources(${PROJECT_NAME}
     PRIVATE ${FOUND_APP_C_SOURCES}
     PRIVATE ${FOUND_APP_HEADERS} 
 )
+
+# TODO: We should not spill this bad boy out
+target_compile_definitions(${PROJECT_NAME} PRIVATE FCK_APP_ASSET_PATH="${CMAKE_CURRENT_SOURCE_DIR}/assets/")
 
 find_package(fck-lib CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH})
 find_package(fckc CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)

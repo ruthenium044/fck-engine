@@ -23,14 +23,7 @@ target_include_directories(${PROJECT_NAME}
 
 )
 
-install(
-    TARGETS ${PROJECT_NAME}
-    EXPORT ${PROJECT_NAME}-exports
-    ARCHIVE DESTINATION lib
-    LIBRARY DESTINATION lib
-    RUNTIME DESTINATION bin
-    INCLUDES DESTINATION include
-)
+
 
 find_package(fckc CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
 find_package(ser CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)

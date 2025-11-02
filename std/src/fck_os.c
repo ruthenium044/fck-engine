@@ -13,6 +13,9 @@
 static fck_char_api char_api = {
 	.isdigit = SDL_isdigit,
 	.isspace = SDL_isspace,
+	.isgraph = SDL_isgraph,
+	.isprint = SDL_isprint,
+	.iscntrl = SDL_iscntrl,
 };
 
 static fck_unsafe_string_api unsafe_string_api = {
@@ -21,8 +24,81 @@ static fck_unsafe_string_api unsafe_string_api = {
 	.len = SDL_strlen,
 };
 
+char *fck_string_find_graphical(char *str)
+{
+	if (str == NULL || *str == '\0')
+	{
+		return NULL;
+	}
+	while (*str != '\0')
+	{
+		if (!SDL_isgraph(*str))
+		{
+			str = str + 1;
+			continue;
+		}
+		return str;
+	}
+	return NULL;
+}
+
+char *fck_string_find_printable(char *str)
+{
+	if (str == NULL || *str == '\0')
+	{
+		return NULL;
+	}
+	while (*str != '\0')
+	{
+		if (!SDL_isprint(*str))
+		{
+			str = str + 1;
+			continue;
+		}
+		return str;
+	}
+	return NULL;
+}
+
+char *fck_string_find_control(char *str)
+{
+	if (str == NULL || *str == '\0')
+	{
+		return NULL;
+	}
+	while (*str != '\0')
+	{
+		if (!SDL_iscntrl(*str))
+		{
+			str = str + 1;
+			continue;
+		}
+		return str;
+	}
+	return NULL;
+}
+
+char *fck_string_find_string(char *str, const char *other)
+{
+	return SDL_strstr(str, other);
+}
+
+char *fck_string_find_char(char *str, int ch)
+{
+	return SDL_strchr(str, ch);
+}
+
+static fck_string_find_api string_find_api = {
+	.string = fck_string_find_string,
+	.graphical = fck_string_find_graphical,
+	.printable = fck_string_find_printable,
+	.chr = fck_string_find_char,
+	.control = fck_string_find_control,
+};
+
 static fck_string_api string_api = {
 	.unsafe = &unsafe_string_api, //
+	.find = &string_find_api,     //
 	.cmp = SDL_strncmp,           //
 	.dup = SDL_strndup,           //
 	.len = SDL_strnlen,           //

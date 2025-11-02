@@ -4,7 +4,6 @@
 
 #include <fck_hash.h>
 
-#include "SDL3/SDL_filesystem.h"
 #include "fck_ui.h"
 
 #include "fck_nuklear_demos.h"
@@ -32,6 +31,28 @@
 #include <SDL3/SDL_log.h>
 
 // This struct is good enough for now
+typedef struct fck_asset_database
+{
+	char *root;
+
+} fck_asset_database;
+
+fck_asset_database fck_asset_database_create(char *root)
+{
+	fck_asset_database db; // = (fck_asset_database *)kll_malloc(allocator, sizeof(*db));
+	db.root = root;
+	return db;
+}
+
+void fck_asset_database_destroy(fck_asset_database db)
+{
+}
+
+// typedef struct fck_asset_database_api
+//{
+//
+// };
+
 typedef struct fck_instance
 {
 	fck_ui *ui; // User
@@ -43,9 +64,7 @@ typedef struct fck_instance
 	fck_ui_window_manager *window_manager;
 	struct fck_assembly *assembly;
 
-	char *filepath;
-	char *dirpath;
-	char *assetpath;
+	fck_asset_database assets;
 } fck_instance;
 
 fck_api_registry *api;
@@ -258,6 +277,51 @@ fck_instance_result fck_instance_overlay(fck_instance *instance)
 
 static fck_texture texture;
 
+char *fck_instance_parse_runtime_asset_path(int argc, char *argv[])
+{
+	for (int i = 0; i < argc; i++)
+	{
+		char *current = argv[i];
+		// int asset_len = os->str->len("-assets", 16);
+		char *entry = os->str->find->string(current, "-assets");
+		if (entry)
+		{
+			char *cntrl = os->str->find->chr(entry, '=');
+			if (cntrl)
+			{
+				char *begin = os->str->find->chr(cntrl + 1, '"');
+				if (begin)
+				{
+					begin = begin + 1;
+					char *end = os->str->find->chr(begin, '"');
+					if (end)
+					{
+						fckc_size_t len = (fckc_size_t)end - (fckc_size_t)begin;
+						return os->str->dup(begin, len);
+					}
+				}
+			}
+		}
+	}
+
+	return NULL;
+}
+
+char *fck_instance_resolve_asset_path(int argc, char *argv[])
+{
+	char *arg_asset_path = fck_instance_parse_runtime_asset_path(argc, argv);
+	if (arg_asset_path)
+	{
+		return arg_asset_path;
+	}
+	// Weird and small dups for consistency...
+	// Free it, or don't lol
+#if defined(FCK_APP_ASSET_PATH)
+	return os->str->dup(FCK_APP_ASSET_PATH, sizeof(FCK_APP_ASSET_PATH));
+#endif
+	return os->str->unsafe->dup("/");
+}
+
 fck_instance *fck_instance_alloc(int argc, char *argv[])
 {
 	fck_apis_manifest manifest[] = {
@@ -277,6 +341,8 @@ fck_instance *fck_instance_alloc(int argc, char *argv[])
 	api = (fck_api_registry *)main_so(api, &init);
 
 	fck_instance *app = (fck_instance *)SDL_malloc(sizeof(fck_instance));
+	char *asset_root = fck_instance_resolve_asset_path(argc, argv);
+	app->assets = fck_asset_database_create(asset_root);
 
 	app->wind = os->win->create("Widnow", 1280, 720);
 	app->renderer = render_api->new(&app->wind);
@@ -284,19 +350,9 @@ fck_instance *fck_instance_alloc(int argc, char *argv[])
 	app->ui = fck_ui_alloc(&app->renderer);
 	app->window_manager = fck_ui_window_manager_alloc(16);
 
-	char *path = strrchr(argv[0], '/');
-	fckc_size_t at = (fckc_size_t)((void *)path - (void *)argv[0]);
-	int path_len = strlen(argv[0]);
-	char *parent = strndup(argv[0], at);
-
-	app->filepath = os->str->unsafe->dup(argv[0]);
-	app->dirpath = os->str->unsafe->dup(parent);
-
 	char buffer[255];
-	os->io->format((char *)buffer, sizeof(buffer), "%s/..", parent);
-	app->assetpath = os->str->unsafe->dup(buffer);
-
-	os->io->format((char *)buffer, sizeof(buffer), "%s/snow.png", app->assetpath);
+	// app->assetpath = os->str->unsafe->dup(buffer);
+	os->io->format((char *)buffer, sizeof(buffer), "%s%s", app->assetpath, "snow.png");
 	const char *img_path = buffer;
 	fck_img image = img->load(kll_heap, buffer);
 

@@ -30,20 +30,13 @@ target_include_directories(${PROJECT_NAME}
         "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
 )
 
-install(
-    TARGETS ${PROJECT_NAME}
-    EXPORT ${PROJECT_NAME}-exports
-    ARCHIVE DESTINATION lib
-    LIBRARY DESTINATION lib
-    RUNTIME DESTINATION bin
-    INCLUDES DESTINATION include
-)
+
 
 find_package(fckc CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
 find_package(render CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
 find_package(std CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
 find_package(api CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-target_link_libraries(${PROJECT_NAME} PRIVATE fck::fckc fck::render fck::std fck::api SDL3::SDL3)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::fckc fck::render fck::hash fck::set fck::kll fck::std fck::api SDL3::SDL3)
 set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "fck-lib")
 
 add_executable(${PROJECT_NAME}-test test/main.c)

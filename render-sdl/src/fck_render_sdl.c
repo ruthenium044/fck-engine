@@ -5,6 +5,7 @@
 
 #include <fck_apis.h>
 #include <fck_os.h>
+#include <fck_set.h>
 
 int fck_texture_is_valid(fck_render_o obj, fck_texture image)
 {
@@ -118,6 +119,7 @@ fck_renderer fck_render_sdl_new(struct fck_window *window)
 	renderer.vt = &render_sdl_vt;
 	renderer.obj.handle = SDL_CreateRenderer((SDL_Window *)window->handle, NULL);
 	renderer.obj.name = "SDL";
+
 	return renderer;
 }
 

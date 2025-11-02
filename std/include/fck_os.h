@@ -14,6 +14,9 @@ typedef struct fck_char_api
 {
 	int (*isspace)(int ch);
 	int (*isdigit)(int ch);
+	int (*isgraph)(int ch);
+	int (*isprint)(int ch);
+	int (*iscntrl)(int ch);
 } fck_char_api;
 
 typedef struct fck_unsafe_string_api
@@ -23,9 +26,21 @@ typedef struct fck_unsafe_string_api
 	fckc_size_t (*len)(const char *str);
 } fck_unsafe_string_api;
 
+typedef struct fck_string_find_api
+{
+	// char *next_
+	char *(*graphical)(char *str);
+	char *(*printable)(char *str);
+	char *(*control)(char *str);
+	char *(*string)(char *str, const char *other);
+	char *(*chr)(char *str, int ch);
+} fck_string_find_api;
+
 typedef struct fck_string_api
 {
 	fck_unsafe_string_api *unsafe;
+	fck_string_find_api *find;
+
 	int (*cmp)(const char *lhs, const char *rhs, fckc_size_t maxlen);
 	char *(*dup)(const char *str, fckc_size_t maxlen);
 	fckc_size_t (*len)(const char *str, fckc_size_t maxlen);

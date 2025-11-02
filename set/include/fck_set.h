@@ -1,8 +1,8 @@
 #ifndef FCK_SET_H_INCLUDED
 #define FCK_SET_H_INCLUDED
 
-#include <fckc_inttypes.h>
 #include <fckc_apidef.h>
+#include <fckc_inttypes.h>
 
 #if defined(FCK_TS_SET_EXPORT)
 #define FCK_TS_SET_API FCK_EXPORT_API
@@ -13,12 +13,12 @@
 // #define fck_set_alignof(x) fck_set_suggested_align(sizeof(x))
 
 // TODO: Can also do a deferred subscript instead...
-#define fck_set_defer_eval(ptr) ((ptr) = (ptr), (ptr))
-
 struct fck_set_key;
 struct fck_set_state;
 
 // Not a fan of making this public, but whatever
+// We can put this shit AT THE END of the block and pad the front,
+// this way we can always step back from the pointer, I think!! :)
 typedef struct fck_set_info
 {
 	fckc_size_t cookie;
@@ -41,8 +41,8 @@ FCK_TS_SET_API void *fck_opaque_set_alloc(fck_set_info info);
 FCK_TS_SET_API void fck_opaque_set_free(void *ptr);
 FCK_TS_SET_API void fck_opaque_set_clear(void *ptr);
 
-FCK_TS_SET_API fckc_size_t fck_opaque_set_strong_add(void** ptr, fckc_u64 hash);
-FCK_TS_SET_API fckc_size_t fck_opaque_set_weak_add(void** ptr, fckc_u64 hash);
+FCK_TS_SET_API fckc_size_t fck_opaque_set_strong_add(void **ptr, fckc_u64 hash);
+FCK_TS_SET_API fckc_size_t fck_opaque_set_weak_add(void **ptr, fckc_u64 hash);
 FCK_TS_SET_API fckc_size_t fck_opaque_set_find(void *ptr, fckc_u64 hash);
 FCK_TS_SET_API void fck_opaque_set_remove(void *ptr, fckc_u64 hash);
 

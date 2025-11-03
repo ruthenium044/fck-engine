@@ -194,11 +194,11 @@ void fck_ui_free(fck_ui *ui, struct fck_renderer *renderer)
 
 static void fck_ui_handle_event_device(struct fck_ui *ui, fck_event const *evt)
 {
-	fck_event_input_device device;
-	fck_event_input_device_keyboard keyboard;
-	fck_event_input_device_mouse mouse;
-
-	memcpy(&device, evt, sizeof(device));
+	// This might fuck with C89, but let's stick with C99 for declarations initialisation
+	// until I am actually forced to move to C89 for that - which will realistically never happen
+	fck_event_as(fck_event_input_device_keyboard, keyboard, evt);
+	fck_event_as(fck_event_input_device_mouse, mouse, evt);
+	fck_event_as(fck_event_input_device, device, evt);
 
 	struct nk_context *ctx = &ui->sdl.ctx;
 
@@ -236,6 +236,10 @@ static void fck_ui_handle_event_device(struct fck_ui *ui, fck_event const *evt)
 				nk_input_motion(ctx, mouse.x, mouse.y);
 			}
 			break;
+		case FCK_MOUSE_EVENT_TYPE_BUTTON_NONE:
+		case FCK_MOUSE_EVENT_TYPE_BUTTON_4:
+		case FCK_MOUSE_EVENT_TYPE_BUTTON_5:
+			break;
 		}
 		break;
 	case FCK_INPUT_DEVICE_TYPE_KEYBOARD:
@@ -244,6 +248,8 @@ static void fck_ui_handle_event_device(struct fck_ui *ui, fck_event const *evt)
 		int down = keyboard.type == FCK_KEYBOARD_EVENT_TYPE_DOWN;
 		switch (keyboard.vkey)
 		{
+		default:
+			break;
 		case FCK_VKEY_RSHIFT: /* RSHIFT & LSHIFT share same routine */
 		case FCK_VKEY_LSHIFT:
 			nk_input_key(ctx, NK_KEY_SHIFT, down);
@@ -314,16 +320,18 @@ static void fck_ui_handle_event_device(struct fck_ui *ui, fck_event const *evt)
 			nk_input_key(ctx, NK_KEY_TEXT_LINE_END, down && (keyboard.mod | FCK_VKEY_MOD_LCTRL) == FCK_VKEY_MOD_LCTRL);
 		}
 		break;
+	case FCK_INPUT_DEVICE_TYPE_NONE:
+		// TODO: NONE IS ERROR
+		break;
 	}
 }
 
 static void fck_ui_handle_event(struct fck_ui *ui, fck_event const *evt)
 {
 	struct nk_context *ctx = &ui->sdl.ctx;
-	fck_event_input_device device;
-	fck_event_input_text text;
-	nk_glyph glyph;
-	size_t size;
+	fck_event_as(fck_event_input_device, device, evt);
+	fck_event_as(fck_event_input_text, text, evt);
+
 	switch (evt->common.type)
 	{
 	case FCK_EVENT_INPUT_TYPE_DEVICE: {
@@ -334,11 +342,16 @@ static void fck_ui_handle_event(struct fck_ui *ui, fck_event const *evt)
 	case FCK_EVENT_INPUT_TYPE_TEXT: {
 		fck_assert(sizeof(text) == evt->common.size);
 		memcpy(&text, evt, evt->common.size);
+		nk_glyph glyph;
+		size_t size;
 		size = os->str->unsafe->len(text.text);
 		memcpy(glyph, text.text, size);
 		nk_input_glyph(ctx, glyph);
 	}
 	break;
+	case FCK_EVENT_INPUT_TYPE_NONE:
+		// TODO: NONE IS ERROR
+		break;
 	}
 }
 
@@ -402,7 +415,7 @@ void fck_ui_render(struct fck_ui *ui, struct fck_renderer *renderer)
 
 	struct nk_sdl_device *dev = &ui->sdl.ogl;
 	{
-		//SDL_Rect saved_clip;
+		// SDL_Rect saved_clip;
 
 		//	int clipping_enabled;
 		int vs = sizeof(struct fck_vertex_2d);

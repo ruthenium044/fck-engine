@@ -19,17 +19,6 @@
             "MIMode": "lldb"
         },
         {
-            "name": "(lldb) Launch Debug",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/build/fck-app",
-            "stopAtEntry": false,
-            "cwd": "${fileDirname}",
-            "environment": [],
-            "externalConsole": false,
-            "MIMode": "lldb"
-        },
-        {
             "name": "cmake build project debug",
             "type": "cmake",
             "request": "launch",

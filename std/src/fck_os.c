@@ -6,10 +6,10 @@
 #include <SDL3/SDL_iostream.h>
 #include <SDL3/SDL_keyboard.h>
 #include <SDL3/SDL_loadso.h>
+#include <SDL3/SDL_log.h>
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_timer.h>
 #include <SDL3/SDL_video.h>
-#include <SDL3/SDL_log.h>
 
 static fck_char_api char_api = {
 	.isdigit = SDL_isdigit,

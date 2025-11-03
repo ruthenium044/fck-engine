@@ -27,6 +27,15 @@ set(SDLIMAGE_XV OFF)
 set(SDLIMAGE_PNG ON)
 
 FetchContent_Declare(
+    SDL
+    GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+    GIT_TAG release-3.2.24
+    GIT_PROGRESS TRUE
+    GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(SDL)
+
+FetchContent_Declare(
     SDL_image
     GIT_REPOSITORY https://github.com/libsdl-org/SDL_image.git
     GIT_TAG release-3.2.4
@@ -52,7 +61,7 @@ find_package(kll CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
 find_package(std CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
 find_package(api CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
 find_package(img CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-target_link_libraries(${PROJECT_NAME} PRIVATE fck::img fck::fckc fck::kll fck::std fck::api SDL3_image::SDL3_image)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::img fck::fckc fck::kll fck::std fck::api SDL3::SDL3 SDL3_image::SDL3_image)
 set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "fck-lib")
 
 add_executable(${PROJECT_NAME}-test test/main.c)

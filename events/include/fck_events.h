@@ -702,4 +702,22 @@ typedef struct fck_event
 	fckc_u8 opaque[48];
 } fck_event;
 
+#define fck_events_as_concat(lhs, rhs) lhs##rhs
+#define fck_events_as_unique(lhs, rhs) fck_events_as_concat(lhs, rhs)
+
+// This one breaks on MSVC... sad
+// #define fck_as(dst_type, ptr) \
+// 	({                                                                                                                                     \
+// 		(void)(ptr)->common;                                                                                                               \
+// 		dst_type fck_events_as_unique(tmp, __LINE__);                                                                                      \
+// 		memcpy(&fck_events_as_unique(tmp, __LINE__), (ptr), sizeof(fck_events_as_unique(tmp, __LINE__)));                                  \
+// 		fck_events_as_unique(tmp, __LINE__);                                                                                               \
+// 	})
+
+// Guess this one has to do
+#define fck_event_as(target_type, var, src)                                                                                                \
+	target_type var;                                                                                                                       \
+	(var) = ((void)(src)->common.type, *(target_type *)memcpy(&(var), (src), sizeof(var)))
+#define fck_event_make_generic(var, src) (var) = *(fck_event *)memcpy(&(var), &(src), sizeof(src))
+
 #endif // !FCK_EVENTS_H_INCLUDED

@@ -58,7 +58,7 @@ SDLMAIN_DECLSPEC SDL_AppResult SDLCALL SDL_AppEvent(void *appstate, SDL_Event *e
 		keyboard.vkey = event->key.key;
 		keyboard.type = FCK_KEYBOARD_EVENT_TYPE_DOWN;
 		keyboard.mod = event->key.mod;
-		memcpy(&e, &keyboard, sizeof(keyboard));
+		fck_event_make_generic(e, keyboard);
 	}
 	break;
 	case SDL_EVENT_KEY_UP: {
@@ -73,7 +73,7 @@ SDLMAIN_DECLSPEC SDL_AppResult SDLCALL SDL_AppEvent(void *appstate, SDL_Event *e
 		keyboard.vkey = event->key.key;
 		keyboard.type = FCK_KEYBOARD_EVENT_TYPE_UP;
 		keyboard.mod = event->key.mod;
-		memcpy(&e, &keyboard, sizeof(keyboard));
+		fck_event_make_generic(e, keyboard);
 	}
 	break;
 	// case SDL_EVENT_TEXT_EDITING:
@@ -84,7 +84,7 @@ SDLMAIN_DECLSPEC SDL_AppResult SDLCALL SDL_AppEvent(void *appstate, SDL_Event *e
 		input.common.timestamp = event->common.timestamp;
 		input.common.type = FCK_EVENT_INPUT_TYPE_TEXT;
 		input.text = event->text.text;
-		memcpy(&e, &input, sizeof(input));
+		fck_event_make_generic(e, input);
 	}
 	break;
 	case SDL_EVENT_MOUSE_MOTION: {
@@ -100,7 +100,7 @@ SDLMAIN_DECLSPEC SDL_AppResult SDLCALL SDL_AppEvent(void *appstate, SDL_Event *e
 		mouse.y = event->motion.y;
 		mouse.dx = event->motion.xrel;
 		mouse.dy = event->motion.yrel;
-		memcpy(&e, &mouse, sizeof(mouse));
+		fck_event_make_generic(e, mouse);
 	}
 	break;
 	case SDL_EVENT_MOUSE_BUTTON_DOWN: {
@@ -129,12 +129,15 @@ SDLMAIN_DECLSPEC SDL_AppResult SDLCALL SDL_AppEvent(void *appstate, SDL_Event *e
 		case SDL_BUTTON_X2:
 			mouse.type = FCK_MOUSE_EVENT_TYPE_BUTTON_5;
 			break;
+		default:
+			// TODO: Should not happen
+			break;
 		}
 		mouse.clicks = event->button.clicks;
 		mouse.is_down = 1;
 		mouse.x = event->button.x;
 		mouse.y = event->button.y;
-		memcpy(&e, &mouse, sizeof(mouse));
+		fck_event_make_generic(e, mouse);
 	}
 	break;
 	case SDL_EVENT_MOUSE_BUTTON_UP: {
@@ -163,12 +166,15 @@ SDLMAIN_DECLSPEC SDL_AppResult SDLCALL SDL_AppEvent(void *appstate, SDL_Event *e
 		case SDL_BUTTON_X2:
 			mouse.type = FCK_MOUSE_EVENT_TYPE_BUTTON_5;
 			break;
+		default:
+			// TODO: Should not happen
+			break;
 		}
 
 		mouse.is_down = 0;
 		mouse.x = event->button.x;
 		mouse.y = event->button.y;
-		memcpy(&e, &mouse, sizeof(mouse));
+		fck_event_make_generic(e, mouse);
 	}
 	break;
 	case SDL_EVENT_MOUSE_WHEEL: {
@@ -180,16 +186,16 @@ SDLMAIN_DECLSPEC SDL_AppResult SDLCALL SDL_AppEvent(void *appstate, SDL_Event *e
 
 		mouse.device_type = FCK_INPUT_DEVICE_TYPE_MOUSE;
 		mouse.type = FCK_MOUSE_EVENT_TYPE_WHEEL;
-		
+
 		mouse.is_down = 0;
 		mouse.x = event->wheel.x;
 		mouse.y = event->wheel.y;
-		memcpy(&e, &mouse, sizeof(mouse));
+		fck_event_make_generic(e, mouse);
 	}
 	break;
 	}
 
-	fck_app* app = (fck_app*)appstate;
+	fck_app *app = (fck_app *)appstate;
 	app->api->on_event(app, &e);
 
 	return SDL_APP_CONTINUE;

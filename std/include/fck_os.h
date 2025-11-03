@@ -28,7 +28,6 @@ typedef struct fck_unsafe_string_api
 
 typedef struct fck_string_find_api
 {
-	// char *next_
 	char *(*graphical)(char *str);
 	char *(*printable)(char *str);
 	char *(*control)(char *str);
@@ -60,6 +59,7 @@ typedef struct fck_memory_api
 typedef struct fck_io_api
 {
 	int (*format)(char *s, size_t n, const char *format, ...);
+	void (*log)(const char* format, ...);
 } fck_io_api;
 
 typedef struct fck_shared_object

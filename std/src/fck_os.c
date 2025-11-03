@@ -9,6 +9,7 @@
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_timer.h>
 #include <SDL3/SDL_video.h>
+#include <SDL3/SDL_log.h>
 
 static fck_char_api char_api = {
 	.isdigit = SDL_isdigit,
@@ -114,6 +115,7 @@ static fck_memory_api memory_api = {
 
 static fck_io_api io_api = {
 	.format = SDL_snprintf,
+	.log = SDL_Log,
 };
 
 static int fck_shared_object_is_valid(fck_shared_object so)

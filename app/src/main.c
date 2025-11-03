@@ -1,9 +1,7 @@
 
 #define SDL_MAIN_USE_CALLBACKS
-#include <SDL3/SDL_assert.h>
-#include <SDL3/SDL_log.h>
 #include <SDL3/SDL_main.h>
-#include <SDL3/SDL_render.h>
+//#include <SDL3/SDL_render.h>
 
 // TODO: Port over multi-instance utility from fck-v1
 // TODO: Port over fck-ui (Nk -- Nuklear) for editor

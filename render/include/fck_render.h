@@ -7,6 +7,7 @@
 
 struct fck_renderer;
 struct fck_window;
+struct fck_img;
 
 typedef struct fck_vertex_2d
 {
@@ -52,9 +53,12 @@ typedef struct fck_render_o
 
 typedef struct fck_texture_api
 {
+	// TODO: format is a bit opaque right now since it relies on... idk what it relies on, fix it up
 	fck_texture (*create)(fck_render_o renderer, fck_alias(fck_texture_access, fckc_u32), fck_alias(fck_texture_blend_mode, fckc_u32),
 	                      fckc_u32 width, fckc_u32 height);
 	fck_texture (*null)(void);
+	fck_texture (*from_img)(fck_render_o renderer, struct fck_img *img, fck_alias(fck_texture_access, fckc_u32),
+	                        fck_alias(fck_texture_blend_mode, fckc_u32));
 	int (*upload)(fck_texture texture, void const *pixel, fckc_size_t pitch);
 	// Should be floats instead of u32?
 	int (*dimensions)(fck_texture texture, fckc_u32 *width, fckc_u32 *height);
@@ -64,8 +68,10 @@ typedef struct fck_texture_api
 
 typedef struct fck_render_vt
 {
+	// We need a command model instead of these functions!!
 	fck_texture_api *texture;
 	int (*raw)(fck_render_o, fck_texture, fck_vertex_2d *vertices, fckc_u32 vertex_count, fck_index *indices, fckc_u32 index_count);
+	int (*clip)(fck_render_o, fckc_f32 x, fckc_f32 y, fckc_f32 w, fckc_f32 h);
 	int (*clear)(fck_render_o);
 	int (*present)(fck_render_o);
 } fck_render_vt;

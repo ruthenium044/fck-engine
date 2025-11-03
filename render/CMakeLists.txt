@@ -20,8 +20,9 @@ target_include_directories(${PROJECT_NAME} INTERFACE
     "$<INSTALL_INTERFACE:include>"
 )
 
+find_package(img CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
 find_package(fckc CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-target_link_libraries(${PROJECT_NAME} INTERFACE fck::fckc)
+target_link_libraries(${PROJECT_NAME} INTERFACE fck::fckc fck::img)
 
 set_target_properties(${PROJECT_NAME}-headers PROPERTIES FOLDER "fck-lib")
 

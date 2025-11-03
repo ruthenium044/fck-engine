@@ -13,6 +13,7 @@ typedef struct fck_img
 	fckc_size_t width;
 	fckc_size_t height;
 	fckc_size_t pitch;
+	fckc_size_t format;
 } fck_img;
 
 typedef struct fck_img_api

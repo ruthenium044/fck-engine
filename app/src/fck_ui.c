@@ -457,14 +457,7 @@ void fck_ui_render(struct fck_ui *ui, struct fck_renderer *renderer)
 			if (!cmd->elem_count)
 				continue;
 
-			{
-				SDL_Rect r;
-				r.x = cmd->clip_rect.x;
-				r.y = cmd->clip_rect.y;
-				r.w = cmd->clip_rect.w;
-				r.h = cmd->clip_rect.h;
-				// SDL_SetRenderClipRect(renderer, &r);
-			}
+			renderer->vt->clip(renderer->obj, cmd->clip_rect.x, cmd->clip_rect.y, cmd->clip_rect.w, cmd->clip_rect.h);
 
 			{
 				const void *vertices = nk_buffer_memory_const(&vbuf);

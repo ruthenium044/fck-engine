@@ -4,6 +4,7 @@
 #include <SDL3/SDL_video.h>
 
 #include <fck_apis.h>
+#include <fck_img.h>
 #include <fck_os.h>
 #include <fck_set.h>
 
@@ -42,7 +43,7 @@ fck_texture fck_texture_create(fck_render_o renderer, fckc_u32 access, fckc_u32 
 	                                         SDL_PIXELFORMAT_ARGB8888,        //
 	                                         (SDL_TextureAccess)access,       //
 	                                         (int)width,                      //
-	                                         (int)height);
+	                                         (int)height);                    //
 	fck_texture image = (fck_texture){.handle = (void *)texture};
 
 	if (!fck_texture_is_valid(renderer, image))
@@ -58,10 +59,27 @@ fck_texture fck_texture_null(void)
 	return (fck_texture){.handle = NULL};
 }
 
-int fck_texture_upload(fck_texture image, void const *pixels, fckc_size_t pitch)
+int fck_texture_upload(fck_texture texture, void const *pixels, fckc_size_t pitch)
 {
-	int result = SDL_UpdateTexture((SDL_Texture *)image.handle, NULL, pixels, pitch);
+	int result = SDL_UpdateTexture((SDL_Texture *)texture.handle, NULL, pixels, pitch);
 	return result;
+}
+
+fck_texture fck_texture_from_image(fck_render_o renderer, fck_img *img, fckc_u32 access, fckc_u32 blend_mode)
+{
+	SDL_Texture *texture = SDL_CreateTexture((SDL_Renderer *)renderer.handle, //
+	                                         (SDL_PixelFormat)img->format,    //
+	                                         (SDL_TextureAccess)access,       //
+	                                         (int)img->width,                 //
+	                                         (int)img->height);               //
+	fck_texture tex = (fck_texture){.handle = (void *)texture};
+	if (!fck_texture_is_valid(renderer, tex))
+	{
+		return tex;
+	}
+	fck_texture_blend_mode_set(tex, blend_mode);
+	fck_texture_upload(tex, img->pixels, img->pitch);
+	return tex;
 }
 
 void fck_texture_destroy(fck_texture image)
@@ -97,12 +115,19 @@ int fck_render_sdl_present(fck_render_o obj)
 	return (int)SDL_RenderPresent((SDL_Renderer *)obj.handle);
 }
 
+int fck_render_sdl_clip(fck_render_o obj, fckc_f32 x, fckc_f32 y, fckc_f32 w, fckc_f32 h)
+{
+	SDL_Rect rect = (SDL_Rect){.x = to_int(x), .y = to_int(y), .w = to_int(w), .h = to_int(h)};
+	return (int)SDL_SetRenderClipRect((SDL_Renderer *)obj.handle, &rect);
+}
+
 static fck_texture_api texture_api = {
 	.create = fck_texture_create,
 	.destroy = fck_texture_destroy,
 	.is_valid = fck_texture_is_valid,
 	.upload = fck_texture_upload,
 	.null = fck_texture_null,
+	.from_img = fck_texture_from_image,
 	.dimensions = fck_texture_sdl_dimensions,
 };
 
@@ -111,6 +136,7 @@ static fck_render_vt render_sdl_vt = {
 	.raw = fck_render_sdl_raw,
 	.clear = fck_render_sdl_clear,
 	.present = fck_render_sdl_present,
+	.clip = fck_render_sdl_clip,
 };
 
 fck_renderer fck_render_sdl_new(struct fck_window *window)

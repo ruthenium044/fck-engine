@@ -1,4 +1,4 @@
-#include "fck_img.h"
+#include <fck_img.h>
 #include <fck_apis.h>
 #include <fckc_apidef.h>
 
@@ -17,6 +17,8 @@ fck_img fck_img_load(struct kll_allocator *allocator, const char *path)
 	img.pitch = surface->pitch;
 	img.width = surface->w;
 	img.height = surface->h;
+	img.format = surface->format;
+
 	fckc_size_t channel_count = img.pitch / img.width;
 	fckc_size_t size = (fckc_size_t)(img.width * img.height * channel_count);
 	img.pixels = kll_malloc(allocator, size);

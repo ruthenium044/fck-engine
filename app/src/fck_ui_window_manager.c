@@ -185,7 +185,7 @@ void fck_ui_window_manager_footer(fck_ui *ui, fck_ui_window_manager *manager, st
 
 	const char footer_title[] = "fck_overlay_footer";
 
-	if (nk_begin(ctx, footer_title, nk_rect(0, canvas_rect->h, canvas_rect->w, 40), NK_WINDOW_BORDER))
+	if (nk_begin(ctx, footer_title, nk_rect(0, canvas_rect->h, canvas_rect->w, 40), NK_WINDOW_BORDER | NK_WINDOW_NO_SCROLLBAR))
 	{
 		nk_menubar_begin(ctx);
 

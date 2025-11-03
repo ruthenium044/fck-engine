@@ -8,6 +8,9 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stddef.h>
+
+#define kll_max_align_t 16
 
 #define kll_pointer_offset(type, ptr, offset) ((type *)(((fckc_u8 *)(ptr)) + (offset)))
 
@@ -48,12 +51,12 @@ static void *kll_temp_realloc(kll_temp_context *context, void *ptr, fckc_size_t 
 
 	// In any case we allocate new
 	// When we realloc, we could poison the old memory, but I cannot be arsed
-	size = fck_temp_allocator_align(size, sizeof(max_align_t));
-
+	size = fck_temp_allocator_align(size, kll_max_align_t);
+	
 	if (context->pages->size + size > context->pages->capacity)
 	{
 		fckc_size_t capacity = size * 8; // 8 i guess
-		const fckc_size_t page_size = fck_temp_allocator_align(sizeof(*context->pages), sizeof(max_align_t));
+		const fckc_size_t page_size = fck_temp_allocator_align(sizeof(*context->pages), kll_max_align_t);
 
 		kll_temp_page *page = (kll_temp_page *)kll_malloc(context->parent, page_size + capacity);
 		page->buffer = kll_pointer_offset(fckc_u8, context->pages, page_size);
@@ -94,7 +97,7 @@ void kll_temp_reset(kll_temp_context *context)
 	// Create a new page with the knowledge from before!
 	// Maybe we should not do that here, instead we do it on first allocation
 	// and remember the suggested size? Meh, this only happens when we go in page or slab realm
-	const fckc_size_t buffer_size = fck_temp_allocator_align(suggested_size, sizeof(max_align_t));
+	const fckc_size_t buffer_size = fck_temp_allocator_align(suggested_size, kll_max_align_t);
 	root->buffer = (fckc_u8 *)kll_malloc(context->parent, buffer_size);
 	page->capacity = buffer_size;
 	page->size = 0;
@@ -122,7 +125,7 @@ char *kll_temp_allocator_format(kll_temp_context *context, const char *format, .
 			vsnprintf(buffer, len + 1, format, args);
 		}
 	}
-
+	
 	va_end(args);
 	return buffer;
 }
@@ -132,10 +135,10 @@ FCK_EXPORT_API kll_temp_allocator *kll_temp_allocator_create(kll_allocator *pare
 	kll_temp_context *context;
 	kll_temp_allocator *temp;
 
-	capacity = fck_temp_allocator_align(capacity, sizeof(max_align_t));
+	capacity = fck_temp_allocator_align(capacity, kll_max_align_t);
 
-	const fckc_size_t context_size = fck_temp_allocator_align(sizeof(*context), sizeof(max_align_t));
-	const fckc_size_t allocator_size = fck_temp_allocator_align(sizeof(*temp), sizeof(max_align_t));
+	const fckc_size_t context_size = fck_temp_allocator_align(sizeof(*context), kll_max_align_t);
+	const fckc_size_t allocator_size = fck_temp_allocator_align(sizeof(*temp), kll_max_align_t);
 
 	fckc_u8 *allocator_memory = (fckc_u8 *)kll_malloc(parent, context_size + allocator_size);
 	temp = kll_pointer_offset(kll_temp_allocator, allocator_memory, 0);

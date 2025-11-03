@@ -28,13 +28,9 @@
 #include <fck_img.h>
 #include <fck_render.h>
 
-// We need log plugin...
-#include <SDL3/SDL_log.h>
-
 // This struct is good enough for now
 typedef struct fck_asset_database
 {
-
 	char *root;
 } fck_asset_database;
 
@@ -323,7 +319,6 @@ char *fck_instance_parse_runtime_asset_path(int argc, char *argv[])
 			}
 		}
 	}
-
 	return NULL;
 }
 
@@ -338,8 +333,9 @@ char *fck_instance_resolve_asset_path(int argc, char *argv[])
 	// Free it, or don't lol
 #if defined(FCK_APP_ASSET_PATH)
 	return os->str->dup(FCK_APP_ASSET_PATH, sizeof(FCK_APP_ASSET_PATH));
-#endif
+#else
 	return os->str->unsafe->dup("/");
+#endif
 }
 
 fck_instance *fck_instance_alloc(int argc, char *argv[])
@@ -375,11 +371,9 @@ fck_instance *fck_instance_alloc(int argc, char *argv[])
 	fck_img image = img->load(kll_heap, image_path);
 	kll_temp_delete(temp);
 
-	texture = app->renderer.vt->texture->create(app->renderer.obj, FCK_TEXTURE_ACCESS_STATIC, FCK_TEXTURE_BLEND_MODE_BLEND, image.width,
-	                                            image.height);
-	app->renderer.vt->texture->upload(texture, image.pixels, image.pitch);
+	texture = app->renderer.vt->texture->from_img(app->renderer.obj, &image, FCK_TEXTURE_ACCESS_STATIC, FCK_TEXTURE_BLEND_MODE_BLEND);
 	img->free(image);
-	// fck_type_system *ts = fck_load_type_system(apis);
+
 	app->assembly = ts->assembly->alloc(kll_heap);
 
 	fck_ui_window_manager_create(app->window_manager, "Entities", app, fck_ui_window_entities);

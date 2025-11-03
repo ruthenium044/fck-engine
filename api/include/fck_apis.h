@@ -17,6 +17,8 @@ typedef struct fck_api_registry
 
 typedef void *(fck_main_func)(fck_api_registry *, void *);
 
+#define fck_main_user(api_param, extra_param) fck_main(api_param, extra_param)
+
 typedef struct fck_apis_manifest
 {
 	void **api;

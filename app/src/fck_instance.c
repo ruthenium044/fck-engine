@@ -1,7 +1,3 @@
-#include "fck_instance.h"
-
-#include <SDL3/SDL_events.h>
-
 #include <fck_hash.h>
 
 #include "fck_ui.h"
@@ -18,6 +14,8 @@
 #include <kll_malloc.h>
 #include <kll_temp.h>
 
+#include <fckc_inttypes.h>
+
 #include "fck_type_system.h"
 #include <fck_apis.h>
 
@@ -27,6 +25,14 @@
 #include <fck_canvas.h>
 #include <fck_img.h>
 #include <fck_render.h>
+
+#include <fck_app_loadable.h>
+#include <fck_events.h>
+
+typedef struct fck_input_event
+{
+	fckc_u64 time_stamp;
+} fck_input_event;
 
 // This struct is good enough for now
 typedef struct fck_asset_database
@@ -70,6 +76,9 @@ static fck_asset_database_api asset_database_api = {
 
 typedef struct fck_instance
 {
+	// Polymnorphism hehe
+	fck_app app;
+
 	fck_ui *ui; // User
 	// struct SDL_Window *window;     // This one could stay public - Makes sense for multi-instance stuff
 	// struct SDL_Renderer *renderer; // User
@@ -264,13 +273,13 @@ int fck_ui_window_entities(struct fck_ui *ui, fck_ui_window *window, void *userd
 	return 1;
 }
 
-fck_instance_result fck_instance_overlay(fck_instance *instance)
+int fck_instance_overlay(fck_instance *instance)
 {
 	int width;
 	int height;
 	if (!os->win->size_get(instance->wind, &width, &height))
 	{
-		return FCK_INSTANCE_FAILURE;
+		return 1;
 	}
 
 	fck_ui_window_manager *window_manager = instance->window_manager;
@@ -288,7 +297,7 @@ fck_instance_result fck_instance_overlay(fck_instance *instance)
 		// Shut up compiler
 		break;
 	}
-	return FCK_INSTANCE_CONTINUE;
+	return 0;
 }
 
 static fck_texture texture;
@@ -345,7 +354,7 @@ fck_instance *fck_instance_alloc(int argc, char *argv[])
 		{.api = (void **)&canvas, .name = "fck-canvas", NULL},
 		{.api = (void **)&render_api, .name = "fck-render-sdl", NULL},
 		{.api = (void **)&ser_api, .name = "fck-ser-ext"},
-		{.api = (void **)&img, .name = "fck-img"},
+		{.api = (void **)&img, .name = "fck-img-sdl"},
 	};
 
 	fck_apis_init init = (fck_apis_init){
@@ -356,7 +365,7 @@ fck_instance *fck_instance_alloc(int argc, char *argv[])
 	fck_main_func *main_so = (fck_main_func *)os->so->symbol(api_so, FCK_ENTRY_POINT);
 	api = (fck_api_registry *)main_so(api, &init);
 
-	fck_instance *app = (fck_instance *)SDL_malloc(sizeof(fck_instance));
+	fck_instance *app = (fck_instance *)kll_malloc(kll_heap, sizeof(fck_instance));
 	char *asset_root = fck_instance_resolve_asset_path(argc, argv);
 	app->assets = asset_db->create(asset_root);
 
@@ -392,16 +401,16 @@ void fck_instance_free(fck_instance *instance)
 	fck_ui_free(instance->ui, &instance->renderer);
 	render_api->delete(instance->renderer);
 	os->win->destroy(instance->wind);
-	SDL_free(instance);
+	kll_free(kll_heap, instance);
 }
 
-fck_instance_result fck_instance_event(fck_instance *instance, SDL_Event const *event)
+int fck_instance_event(fck_instance *instance, fck_event const *event)
 {
 	fck_ui_enqueue_event(instance->ui, event);
-	return FCK_INSTANCE_CONTINUE;
+	return 0;
 }
 
-fck_instance_result fck_instance_tick(fck_instance *instance)
+int fck_instance_tick(fck_instance *instance)
 {
 	fck_instance_overlay(instance);
 
@@ -415,5 +424,44 @@ fck_instance_result fck_instance_tick(fck_instance *instance)
 	// canvas->rect(&instance->renderer, &dst);
 
 	instance->renderer.vt->present(instance->renderer.obj);
-	return FCK_INSTANCE_CONTINUE;
+	return 0;
+}
+
+struct fck_app *app_init(int argc, char *argv[])
+{
+	fck_instance *instance = fck_instance_alloc(argc, argv);
+	instance->app.name = "fck app";
+	return &instance->app;
+}
+
+void app_quit(struct fck_app *app)
+{
+	fck_instance *instance = (fck_instance *)app;
+	fck_instance_free(instance);
+}
+
+int app_tick(struct fck_app *app)
+{
+	fck_instance *instance = (fck_instance *)app;
+	return fck_instance_tick(instance);
+}
+
+int app_on_event(struct fck_app* app, struct fck_event const* event)
+{
+	fck_instance* instance = (fck_instance*)app;
+	fck_instance_event(instance, event);
+	return 0;
+}
+
+static fck_app_api app_api = {
+	.init = app_init,
+	.tick = app_tick,
+	.quit = app_quit,
+	.on_event = app_on_event,
+};
+
+FCK_EXPORT_API fck_app_api *fck_load(void)
+{
+	// api->add("FCK_APP", &app_api);
+	return &app_api;
 }

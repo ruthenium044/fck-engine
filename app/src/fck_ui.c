@@ -7,7 +7,7 @@
 #include <fckc_inttypes.h>
 
 // #include <SDL3/SDL_clipboard.h>
-#include <SDL3/SDL_events.h>
+// #include <SDL3/SDL_events.h>
 // #include <SDL3/SDL_log.h>
 //  #include <SDL3/SDL_timer.h>
 
@@ -24,19 +24,26 @@
 
 #include <fck_render.h>
 
-typedef union nk_sdl_input_event {
-	SDL_EventType type;
-	SDL_KeyboardEvent key;
-	SDL_MouseButtonEvent button;
-	SDL_MouseMotionEvent motion;
-	SDL_MouseWheelEvent wheel;
-	SDL_TextInputEvent text;
-} nk_sdl_input_event;
+#include <kll.h>
+#include <kll_heap.h>
+#include <kll_malloc.h>
+
+#include <fck_events.h>
+
+// typedef union nk_sdl_input_event {
+//	fck_event
+//	SDL_EventType type;
+//	SDL_KeyboardEvent key;
+//	SDL_MouseButtonEvent button;
+//	SDL_MouseMotionEvent motion;
+//	SDL_MouseWheelEvent wheel;
+//	SDL_TextInputEvent text;
+// } nk_sdl_input_event;
 
 typedef struct nk_sdl_input_event_queue
 {
 	fckc_size_t count;
-	nk_sdl_input_event events[64];
+	fck_event events[64];
 } nk_sdl_input_event_queue;
 
 typedef struct nk_sdl_device
@@ -58,7 +65,7 @@ typedef struct nk_sdl
 	struct nk_sdl_device ogl;
 	struct nk_font_atlas atlas;
 	struct nk_context ctx;
-	Uint64 time_of_last_frame;
+	fckc_u64 time_of_last_frame;
 
 	nk_sdl_input_event_queue input_queue;
 } nk_sdl;
@@ -68,17 +75,12 @@ typedef struct fck_ui
 	nk_sdl sdl;
 } fck_ui;
 
-static int nk_sdl_input_event_is_valid(SDL_Event const *event)
+static int nk_sdl_input_event_is_valid(fck_event const *event)
 {
-	switch (event->type)
+	switch (event->common.type)
 	{
-	case SDL_EVENT_KEY_UP:
-	case SDL_EVENT_KEY_DOWN:
-	case SDL_EVENT_MOUSE_BUTTON_UP:
-	case SDL_EVENT_MOUSE_BUTTON_DOWN:
-	case SDL_EVENT_MOUSE_MOTION:
-	case SDL_EVENT_MOUSE_WHEEL:
-	case SDL_EVENT_TEXT_INPUT:
+	case FCK_EVENT_INPUT_TYPE_DEVICE:
+	case FCK_EVENT_INPUT_TYPE_TEXT:
 		return 1;
 	default:
 		return 0;
@@ -90,12 +92,12 @@ static void nk_sdl_input_event_queue_reset(nk_sdl_input_event_queue *queue)
 	queue->count = 0;
 }
 
-static void nk_sdl_input_event_queue_convert_and_maybe_push(nk_sdl_input_event_queue *queue, SDL_Event const *event)
+static void nk_sdl_input_event_queue_convert_and_maybe_push(nk_sdl_input_event_queue *queue, fck_event const *event)
 {
 	if (nk_sdl_input_event_is_valid(event))
 	{
 		fck_assert(queue->count < 64);
-		SDL_memcpy(queue->events + queue->count, event, sizeof(*queue->events));
+		memcpy(queue->events + queue->count, event, sizeof(*queue->events));
 		queue->count = queue->count + 1;
 	}
 }
@@ -166,8 +168,7 @@ static void nk_sdl_font_stash_end(struct fck_ui *ui, struct fck_renderer *render
 
 struct fck_ui *fck_ui_init_internal()
 {
-	fck_ui *ui = (fck_ui *)SDL_malloc(sizeof(*ui));
-	SDL_zerop(ui);
+	fck_ui *ui = (fck_ui *)kll_malloc(kll_heap, sizeof(*ui));
 
 	ui->sdl.time_of_last_frame = os->chrono->ms();
 	nk_init_default(&ui->sdl.ctx, 0);
@@ -188,162 +189,156 @@ void fck_ui_free(fck_ui *ui, struct fck_renderer *renderer)
 	nk_buffer_free(&dev->cmds);
 	memset(ui, 0, sizeof(*ui));
 
-	SDL_free(ui);
+	kll_free(kll_heap, ui);
 }
 
-static void fck_ui_handle_grab(struct fck_ui *ui, struct SDL_Window *window)
+static void fck_ui_handle_event_device(struct fck_ui *ui, fck_event const *evt)
 {
-	// NOTE: Demo said I need that, but idk :D
-	// struct nk_context *ctx = &ui->sdl.ctx;
-	// if (ctx->input.mouse.grab)
-	//{
-	//	SDL_SetWindowRelativeMouseMode(window, true);
-	// }
-	// else if (ctx->input.mouse.ungrab)
-	//{
-	//	/* better support for older SDL by setting mode first; causes an extra mouse motion event */
-	//	SDL_SetWindowRelativeMouseMode(window, false);
-	//	SDL_WarpMouseInWindow(window, (int)ctx->input.mouse.prev.x, (int)ctx->input.mouse.prev.y);
-	// }
-	// else if (ctx->input.mouse.grabbed)
-	//{
-	//	ctx->input.mouse.pos.x = ctx->input.mouse.prev.x;
-	//	ctx->input.mouse.pos.y = ctx->input.mouse.prev.y;
-	// }
-}
+	fck_event_input_device device;
+	fck_event_input_device_keyboard keyboard;
+	fck_event_input_device_mouse mouse;
 
-static int fck_ui_handle_event(struct fck_ui *ui, nk_sdl_input_event const *evt)
-{
+	memcpy(&device, evt, sizeof(device));
+
 	struct nk_context *ctx = &ui->sdl.ctx;
 
-	switch (evt->type)
+	switch (device.device_type)
 	{
-	case SDL_EVENT_KEY_UP: /* KEYUP & KEYDOWN share same routine */
-	case SDL_EVENT_KEY_DOWN: {
-		int down = evt->type == SDL_EVENT_KEY_UP;
-		const bool *state = SDL_GetKeyboardState(0);
-		switch (evt->key.key)
+	case FCK_INPUT_DEVICE_TYPE_MOUSE:
+		fck_assert(sizeof(mouse) == evt->common.size);
+		memcpy(&mouse, evt, evt->common.size);
+		switch (mouse.type)
 		{
-		case SDLK_RSHIFT: /* RSHIFT & LSHIFT share same routine */
-		case SDLK_LSHIFT:
+		case FCK_MOUSE_EVENT_TYPE_BUTTON_LEFT:
+			if (mouse.clicks > 1)
+			{
+				nk_input_button(ctx, NK_BUTTON_DOUBLE, mouse.x, mouse.y, mouse.is_down);
+			}
+			nk_input_button(ctx, NK_BUTTON_LEFT, mouse.x, mouse.y, mouse.is_down);
+			break;
+		case FCK_MOUSE_EVENT_TYPE_BUTTON_RIGHT:
+			nk_input_button(ctx, NK_BUTTON_RIGHT, mouse.x, mouse.y, mouse.is_down);
+			break;
+		case FCK_MOUSE_EVENT_TYPE_BUTTON_MIDDLE:
+			nk_input_button(ctx, NK_BUTTON_MIDDLE, mouse.x, mouse.y, mouse.is_down);
+			break;
+		case FCK_MOUSE_EVENT_TYPE_WHEEL:
+			nk_input_scroll(ctx, nk_vec2((float)mouse.x, (float)mouse.y));
+			break;
+		case FCK_MOUSE_EVENT_TYPE_POSITION:
+			if (ctx->input.mouse.grabbed)
+			{
+				int x = (int)ctx->input.mouse.prev.x, y = (int)ctx->input.mouse.prev.y;
+				nk_input_motion(ctx, x + mouse.dx, y + mouse.dy);
+			}
+			else
+			{
+				nk_input_motion(ctx, mouse.x, mouse.y);
+			}
+			break;
+		}
+		break;
+	case FCK_INPUT_DEVICE_TYPE_KEYBOARD:
+		fck_assert(sizeof(keyboard) == evt->common.size);
+		memcpy(&keyboard, evt, evt->common.size);
+		int down = keyboard.type == FCK_KEYBOARD_EVENT_TYPE_DOWN;
+		switch (keyboard.vkey)
+		{
+		case FCK_VKEY_RSHIFT: /* RSHIFT & LSHIFT share same routine */
+		case FCK_VKEY_LSHIFT:
 			nk_input_key(ctx, NK_KEY_SHIFT, down);
 			break;
-		case SDLK_DELETE:
+		case FCK_VKEY_DELETE:
 			nk_input_key(ctx, NK_KEY_DEL, down);
 			break;
-		case SDLK_RETURN:
+		case FCK_VKEY_RETURN:
 			nk_input_key(ctx, NK_KEY_ENTER, down);
 			break;
-		case SDLK_TAB:
+		case FCK_VKEY_TAB:
 			nk_input_key(ctx, NK_KEY_TAB, down);
 			break;
-		case SDLK_BACKSPACE:
+		case FCK_VKEY_BACKSPACE:
 			nk_input_key(ctx, NK_KEY_BACKSPACE, down);
 			break;
-		case SDLK_HOME:
+		case FCK_VKEY_HOME:
 			nk_input_key(ctx, NK_KEY_TEXT_START, down);
 			nk_input_key(ctx, NK_KEY_SCROLL_START, down);
 			break;
-		case SDLK_END:
+		case FCK_VKEY_END:
 			nk_input_key(ctx, NK_KEY_TEXT_END, down);
 			nk_input_key(ctx, NK_KEY_SCROLL_END, down);
 			break;
-		case SDLK_PAGEDOWN:
+		case FCK_VKEY_PAGEDOWN:
 			nk_input_key(ctx, NK_KEY_SCROLL_DOWN, down);
 			break;
-		case SDLK_PAGEUP:
+		case FCK_VKEY_PAGEUP:
 			nk_input_key(ctx, NK_KEY_SCROLL_UP, down);
 			break;
-		case SDLK_Z:
-			nk_input_key(ctx, NK_KEY_TEXT_UNDO, down && state[SDL_SCANCODE_LCTRL]);
-			break;
-		case SDLK_R:
-			nk_input_key(ctx, NK_KEY_TEXT_REDO, down && state[SDL_SCANCODE_LCTRL]);
-			break;
-		case SDLK_C:
-			nk_input_key(ctx, NK_KEY_COPY, down && state[SDL_SCANCODE_LCTRL]);
-			break;
-		case SDLK_V:
-			nk_input_key(ctx, NK_KEY_PASTE, down && state[SDL_SCANCODE_LCTRL]);
-			break;
-		case SDLK_X:
-			nk_input_key(ctx, NK_KEY_CUT, down && state[SDL_SCANCODE_LCTRL]);
-			break;
-		case SDLK_B:
-			nk_input_key(ctx, NK_KEY_TEXT_LINE_START, down && state[SDL_SCANCODE_LCTRL]);
-			break;
-		case SDLK_E:
-			nk_input_key(ctx, NK_KEY_TEXT_LINE_END, down && state[SDL_SCANCODE_LCTRL]);
-			break;
-		case SDLK_UP:
+		case FCK_VKEY_UP:
 			nk_input_key(ctx, NK_KEY_UP, down);
 			break;
-		case SDLK_DOWN:
+		case FCK_VKEY_DOWN:
 			nk_input_key(ctx, NK_KEY_DOWN, down);
 			break;
-		case SDLK_LEFT:
-			if (state[SDL_SCANCODE_LCTRL])
+		case FCK_VKEY_LEFT:
+			if ((keyboard.mod | FCK_VKEY_MOD_LCTRL) == FCK_VKEY_MOD_LCTRL)
 				nk_input_key(ctx, NK_KEY_TEXT_WORD_LEFT, down);
 			else
 				nk_input_key(ctx, NK_KEY_LEFT, down);
 			break;
-		case SDLK_RIGHT:
-			if (state[SDL_SCANCODE_LCTRL])
+		case FCK_VKEY_RIGHT:
+			if ((keyboard.mod | FCK_VKEY_MOD_LCTRL) == FCK_VKEY_MOD_LCTRL)
 				nk_input_key(ctx, NK_KEY_TEXT_WORD_RIGHT, down);
 			else
 				nk_input_key(ctx, NK_KEY_RIGHT, down);
 			break;
+		case FCK_VKEY_Z:
+			nk_input_key(ctx, NK_KEY_TEXT_UNDO, down && (keyboard.mod | FCK_VKEY_MOD_LCTRL) == FCK_VKEY_MOD_LCTRL);
+			break;
+		case FCK_VKEY_R:
+			nk_input_key(ctx, NK_KEY_TEXT_REDO, down && (keyboard.mod | FCK_VKEY_MOD_LCTRL) == FCK_VKEY_MOD_LCTRL);
+			break;
+		case FCK_VKEY_C:
+			nk_input_key(ctx, NK_KEY_COPY, down && (keyboard.mod | FCK_VKEY_MOD_LCTRL) == FCK_VKEY_MOD_LCTRL);
+			break;
+		case FCK_VKEY_V:
+			nk_input_key(ctx, NK_KEY_PASTE, down && (keyboard.mod | FCK_VKEY_MOD_LCTRL) == FCK_VKEY_MOD_LCTRL);
+			break;
+		case FCK_VKEY_X:
+			nk_input_key(ctx, NK_KEY_CUT, down && (keyboard.mod | FCK_VKEY_MOD_LCTRL) == FCK_VKEY_MOD_LCTRL);
+			break;
+		case FCK_VKEY_B:
+			nk_input_key(ctx, NK_KEY_TEXT_LINE_START, down && (keyboard.mod | FCK_VKEY_MOD_LCTRL) == FCK_VKEY_MOD_LCTRL);
+			break;
+		case FCK_VKEY_E:
+			nk_input_key(ctx, NK_KEY_TEXT_LINE_END, down && (keyboard.mod | FCK_VKEY_MOD_LCTRL) == FCK_VKEY_MOD_LCTRL);
 		}
+		break;
 	}
-		return 1;
+}
 
-	case SDL_EVENT_MOUSE_BUTTON_UP: /* MOUSEBUTTONUP & MOUSEBUTTONDOWN share same routine */
-	case SDL_EVENT_MOUSE_BUTTON_DOWN: {
-		int down = evt->type == SDL_EVENT_MOUSE_BUTTON_DOWN;
-		const int x = evt->button.x, y = evt->button.y;
-		switch (evt->button.button)
-		{
-		case SDL_BUTTON_LEFT:
-			if (evt->button.clicks > 1)
-				nk_input_button(ctx, NK_BUTTON_DOUBLE, x, y, down);
-			nk_input_button(ctx, NK_BUTTON_LEFT, x, y, down);
-			break;
-		case SDL_BUTTON_MIDDLE:
-			nk_input_button(ctx, NK_BUTTON_MIDDLE, x, y, down);
-			break;
-		case SDL_BUTTON_RIGHT:
-			nk_input_button(ctx, NK_BUTTON_RIGHT, x, y, down);
-			break;
-		}
+static void fck_ui_handle_event(struct fck_ui *ui, fck_event const *evt)
+{
+	struct nk_context *ctx = &ui->sdl.ctx;
+	fck_event_input_device device;
+	fck_event_input_text text;
+	nk_glyph glyph;
+	size_t size;
+	switch (evt->common.type)
+	{
+	case FCK_EVENT_INPUT_TYPE_DEVICE: {
+		memcpy(&device, evt, sizeof(device));
+		fck_ui_handle_event_device(ui, evt);
 	}
-		return 1;
-
-	case SDL_EVENT_MOUSE_MOTION:
-		if (ctx->input.mouse.grabbed)
-		{
-			int x = (int)ctx->input.mouse.prev.x, y = (int)ctx->input.mouse.prev.y;
-			nk_input_motion(ctx, x + evt->motion.xrel, y + evt->motion.yrel);
-		}
-		else
-		{
-			nk_input_motion(ctx, evt->motion.x, evt->motion.y);
-		}
-		return 1;
-
-	case SDL_EVENT_TEXT_INPUT: {
-		nk_glyph glyph;
-		size_t size = SDL_strlen(evt->text.text);
-		memcpy(glyph, evt->text.text, size);
+	break;
+	case FCK_EVENT_INPUT_TYPE_TEXT: {
+		fck_assert(sizeof(text) == evt->common.size);
+		memcpy(&text, evt, evt->common.size);
+		size = os->str->unsafe->len(text.text);
+		memcpy(glyph, text.text, size);
 		nk_input_glyph(ctx, glyph);
 	}
-		return 1;
-
-	case SDL_EVENT_MOUSE_WHEEL:
-		nk_input_scroll(ctx, nk_vec2((float)evt->wheel.x, (float)evt->wheel.y));
-		return 1;
-
-	default:
-		return 0;
+	break;
 	}
 }
 
@@ -381,7 +376,7 @@ struct fck_ui *fck_ui_alloc(struct fck_renderer *renderer)
 	return ui;
 }
 
-void fck_ui_enqueue_event(struct fck_ui *ui, SDL_Event const *event)
+void fck_ui_enqueue_event(struct fck_ui *ui, fck_event const *event)
 {
 	nk_sdl_input_event_queue_convert_and_maybe_push(&ui->sdl.input_queue, event);
 }
@@ -407,9 +402,9 @@ void fck_ui_render(struct fck_ui *ui, struct fck_renderer *renderer)
 
 	struct nk_sdl_device *dev = &ui->sdl.ogl;
 	{
-		SDL_Rect saved_clip;
+		//SDL_Rect saved_clip;
 
-		bool clipping_enabled;
+		//	int clipping_enabled;
 		int vs = sizeof(struct fck_vertex_2d);
 		fckc_size_t vp = offsetof(struct fck_vertex_2d, position);
 		/* convert from command queue into draw list and draw to screen */
@@ -425,7 +420,7 @@ void fck_ui_render(struct fck_ui *ui, struct fck_renderer *renderer)
 			{NK_VERTEX_COLOR, NK_FORMAT_R32G32B32A32_FLOAT, NK_OFFSETOF(struct fck_vertex_2d, col)},
 			{NK_VERTEX_LAYOUT_END}};
 
-		Uint64 now = os->chrono->ms();
+		fckc_u64 now = os->chrono->ms();
 		ui->sdl.ctx.delta_time_seconds = (float)(now - ui->sdl.time_of_last_frame) / 1000;
 		ui->sdl.time_of_last_frame = now;
 

@@ -1,7 +1,6 @@
 
 #include "fck_ui_window_manager.h"
 
-// #include <SDL3/SDL_stdinc.h>
 #include <fckc_assert.h>
 #include <stdlib.h>
 #include <string.h>

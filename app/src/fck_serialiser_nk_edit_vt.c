@@ -1,12 +1,14 @@
 #include "fck_serialiser_nk_edit_vt.h"
 
 #include "fck_serialiser_vt.h"
-#include <SDL3/SDL_log.h>
 
 #include "fck_ui.h"
 
 #include <fck_type_system.h>
 
+#include <fck_os.h>
+
+#include <fckc_math.h>
 #include <fckc_assert.h>
 #include <limits.h>
 
@@ -51,7 +53,7 @@ static int fck_nk_edit_tree_push(fck_ui_ctx *ctx, float *out_content_ratio, cons
 	}
 
 	char buffer[FCK_READ_BUFFER_STRING_SIZE];
-	int result = SDL_snprintf(buffer, sizeof(buffer), "%s : %s[%llu]", name, type, (fckc_u64)count);
+	int result = os->io->format(buffer, sizeof(buffer), "%s : %s[%llu]", name, type, (fckc_u64)count);
 	if (nk_tree_push_hashed(ctx, NK_TREE_NODE, buffer, NK_MINIMIZED, buffer, result, __LINE__))
 	{
 		*out_content_ratio = fck_nk_edit_array_label(ctx);
@@ -95,7 +97,7 @@ void fck_nk_edit_i8(fck_serialiser *s, fck_serialiser_params *p, fckc_i8 *v, fck
 		for (fckc_size_t i = 0; i < c; i++)
 		{
 			int value = (int)v[i];
-			int result = SDL_snprintf(buffer, sizeof(buffer), "%s[%u] : %s", fck_nk_property_prefix(c), (unsigned int)i, type_name);
+			int result = os->io->format(buffer, sizeof(buffer), "%s[%u] : %s", fck_nk_property_prefix(c), (unsigned int)i, type_name);
 
 			nk_layout_row_push(ctx, content_ratio);
 			nk_property_int(ctx, buffer, min, &value, max, 1.0f, 1.0f);
@@ -121,7 +123,7 @@ void fck_nk_edit_i16(fck_serialiser *s, fck_serialiser_params *p, fckc_i16 *v, f
 		for (fckc_size_t i = 0; i < c; i++)
 		{
 			int value = (int)v[i];
-			int result = SDL_snprintf(buffer, sizeof(buffer), "%s[%u] : %s", fck_nk_property_prefix(c), (unsigned int)i, type_name);
+			int result = os->io->format(buffer, sizeof(buffer), "%s[%u] : %s", fck_nk_property_prefix(c), (unsigned int)i, type_name);
 
 			nk_layout_row_push(ctx, content_ratio);
 			nk_property_int(ctx, buffer, min, &value, max, 1.0f, 1.0f);
@@ -147,7 +149,7 @@ void fck_nk_edit_i32(fck_serialiser *s, fck_serialiser_params *p, fckc_i32 *v, f
 		for (fckc_size_t i = 0; i < c; i++)
 		{
 			int value = (int)v[i];
-			int result = SDL_snprintf(buffer, sizeof(buffer), "%s[%u] : %s", fck_nk_property_prefix(c), (unsigned int)i, type_name);
+			int result = os->io->format(buffer, sizeof(buffer), "%s[%u] : %s", fck_nk_property_prefix(c), (unsigned int)i, type_name);
 
 			nk_layout_row_push(ctx, content_ratio);
 			nk_property_int(ctx, buffer, min, &value, max, 1.0f, 1.0f);
@@ -173,7 +175,7 @@ void fck_nk_edit_i64(fck_serialiser *s, fck_serialiser_params *p, fckc_i64 *v, f
 		for (fckc_size_t i = 0; i < c; i++)
 		{
 			int value = (int)v[i];
-			int result = SDL_snprintf(buffer, sizeof(buffer), "%s[%u] : %s", fck_nk_property_prefix(c), (unsigned int)i, type_name);
+			int result = os->io->format(buffer, sizeof(buffer), "%s[%u] : %s", fck_nk_property_prefix(c), (unsigned int)i, type_name);
 
 			nk_layout_row_push(ctx, content_ratio);
 			nk_property_int(ctx, buffer, min, &value, max, 1.0f, 1.0f);
@@ -199,7 +201,7 @@ void fck_nk_edit_u8(fck_serialiser *s, fck_serialiser_params *p, fckc_u8 *v, fck
 		for (fckc_size_t i = 0; i < c; i++)
 		{
 			int value = (int)v[i];
-			int result = SDL_snprintf(buffer, sizeof(buffer), "%s[%u] : %s", fck_nk_property_prefix(c), (unsigned int)i, type_name);
+			int result = os->io->format(buffer, sizeof(buffer), "%s[%u] : %s", fck_nk_property_prefix(c), (unsigned int)i, type_name);
 
 			nk_layout_row_push(ctx, content_ratio);
 			nk_property_int(ctx, buffer, min, &value, max, 1.0f, 1.0f);
@@ -225,7 +227,7 @@ void fck_nk_edit_u16(fck_serialiser *s, fck_serialiser_params *p, fckc_u16 *v, f
 		for (fckc_size_t i = 0; i < c; i++)
 		{
 			int value = (int)v[i];
-			int result = SDL_snprintf(buffer, sizeof(buffer), "%s[%u] : %s", fck_nk_property_prefix(c), (unsigned int)i, type_name);
+			int result = os->io->format(buffer, sizeof(buffer), "%s[%u] : %s", fck_nk_property_prefix(c), (unsigned int)i, type_name);
 
 			nk_layout_row_push(ctx, content_ratio);
 			nk_property_int(ctx, buffer, min, &value, max, 1.0f, 1.0f);
@@ -251,7 +253,7 @@ void fck_nk_edit_u32(fck_serialiser *s, fck_serialiser_params *p, fckc_u32 *v, f
 		for (fckc_size_t i = 0; i < c; i++)
 		{
 			int value = (int)v[i];
-			int result = SDL_snprintf(buffer, sizeof(buffer), "%s[%u] : %s", fck_nk_property_prefix(c), (unsigned int)i, type_name);
+			int result = os->io->format(buffer, sizeof(buffer), "%s[%u] : %s", fck_nk_property_prefix(c), (unsigned int)i, type_name);
 
 			nk_layout_row_push(ctx, content_ratio);
 			nk_property_int(ctx, buffer, min, &value, max, 1.0f, 1.0f);
@@ -277,7 +279,7 @@ static void fck_nk_edit_u64(fck_serialiser *s, fck_serialiser_params *p, fckc_u6
 		for (fckc_size_t i = 0; i < c; i++)
 		{
 			int value = (int)v[i];
-			int result = SDL_snprintf(buffer, sizeof(buffer), "%s[%u] : %s", fck_nk_property_prefix(c), (unsigned int)i, type_name);
+			int result = os->io->format(buffer, sizeof(buffer), "%s[%u] : %s", fck_nk_property_prefix(c), (unsigned int)i, type_name);
 
 			nk_layout_row_push(ctx, content_ratio);
 			nk_property_int(ctx, buffer, min, &value, max, 1.0f, 1.0f);
@@ -303,11 +305,11 @@ void fck_nk_edit_f32(fck_serialiser *s, fck_serialiser_params *p, float *v, fckc
 		for (fckc_size_t i = 0; i < c; i++)
 		{
 			float *value = v + i;
-			int result = SDL_snprintf(buffer, sizeof(buffer), "%s[%u] : %s", fck_nk_property_prefix(c), (unsigned int)i, type_name);
+			int result = os->io->format(buffer, sizeof(buffer), "%s[%u] : %s", fck_nk_property_prefix(c), (unsigned int)i, type_name);
 
 			nk_layout_row_push(ctx, content_ratio);
 			nk_property_float(ctx, buffer, min, value, max, 1.0f, 1.0f);
-			*value = SDL_clamp(*value, min, max);
+			*value = fck_clamp(*value, min, max);
 		}
 	}
 }
@@ -329,11 +331,11 @@ void fck_nk_edit_f64(fck_serialiser *s, fck_serialiser_params *p, double *v, fck
 		for (fckc_size_t i = 0; i < c; i++)
 		{
 			double *value = v + i;
-			int result = SDL_snprintf(buffer, sizeof(buffer), "%s[%u] : %s", fck_nk_property_prefix(c), (unsigned int)i, type_name);
+			int result = os->io->format(buffer, sizeof(buffer), "%s[%u] : %s", fck_nk_property_prefix(c), (unsigned int)i, type_name);
 
 			nk_layout_row_push(ctx, content_ratio);
 			nk_property_double(ctx, buffer, min, value, max, 1.0f, 1.0f);
-			*value = SDL_clamp(*value, min, max);
+			*value = fck_clamp(*value, min, max);
 		}
 	}
 }
@@ -342,7 +344,7 @@ void fck_nk_edit_string(fck_serialiser *s, fck_serialiser_params *p, char **v, f
 {
 	fck_nk_edit_precondition(s);
 
-	fck_assert(false && "NOT SUPPORTED FOR NOW");
+	fck_assert(0 && "NOT SUPPORTED FOR NOW");
 }
 
 void fck_nk_read_i8(fck_serialiser *s, fck_serialiser_params *p, fckc_i8 *v, fckc_size_t c)
@@ -571,11 +573,11 @@ int fck_nk_edit_prettify_label(char *buffer, fckc_size_t size, struct fck_marsha
 	switch (number)
 	{
 	case 0:
-		return SDL_snprintf(buffer, size, "%s : %s[*]", p->name, name);
+		return os->io->format(buffer, size, "%s : %s[*]", p->name, name);
 	case 1:
-		return SDL_snprintf(buffer, size, "%s : %s", p->name, name);
+		return os->io->format(buffer, size, "%s : %s", p->name, name);
 	default:
-		return SDL_snprintf(buffer, size, "%s : %s[%llu]", p->name, name, (fckc_u64)number);
+		return os->io->format(buffer, size, "%s : %s[%llu]", p->name, name, (fckc_u64)number);
 	}
 }
 

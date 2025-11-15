@@ -22,8 +22,6 @@ target_include_directories(${PROJECT_NAME}
         "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
 )
 
-
-
 find_package(fckc CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::fckc)
 set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "fck-lib")

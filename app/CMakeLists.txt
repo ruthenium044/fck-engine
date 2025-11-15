@@ -40,6 +40,8 @@ find_package(canvas CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
 find_package(imgui CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
 find_package(render CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
 find_package(render-sdl CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
+find_package(render-vk CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
+
 find_package(events CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
 find_package(app-loadable CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
 find_package(main CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)

@@ -8,11 +8,11 @@ include_guard(GLOBAL)
 add_library(${PROJECT_NAME} INTERFACE)
 add_library(fck::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 
-file(GLOB_RECURSE FCKC_HEADERS CONFIGURE_DEPENDS
+file(GLOB_RECURSE EXAMPLE_HEADERS_HEADERS CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h"
 )
 
-add_custom_target(${PROJECT_NAME}-headers SOURCES ${FCKC_HEADERS})
+add_custom_target(${PROJECT_NAME}-headers SOURCES ${EXAMPLE_HEADERS})
 add_dependencies(${PROJECT_NAME}-headers fck::${PROJECT_NAME})
 
 target_include_directories(${PROJECT_NAME} INTERFACE

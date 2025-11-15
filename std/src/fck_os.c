@@ -138,12 +138,25 @@ static int fck_shared_object_is_valid(fck_shared_object so)
 static fck_shared_object fck_shared_object_load(const char *path)
 {
 	char real_path[256];
-	int result = SDL_snprintf(real_path, sizeof(real_path), "%s%s", path, FCK_SHARED_OBJECT_EXTENSION);
-	if (result < 0)
+
+	// Portable code stinks
+	// const char *path_delim_backslash = SDL_strrchr(path, '\\');
+	// const char *path_delim_slash = SDL_strrchr(path, '/');
+	// const char *path_delim = path_delim_backslash > path_delim_slash ? path_delim_backslash : path_delim_slash;
+	const char *extension_dot = SDL_strchr(path, '.');
+
+	int extension_found = extension_dot != NULL; //> path_delim;
+	if (!extension_found)
 	{
-		return (fck_shared_object){.handle = NULL};
+		int result = SDL_snprintf(real_path, sizeof(real_path), "%s", path);
+		if (result < 0)
+		{
+			return (fck_shared_object){.handle = NULL};
+		}
+		path = real_path;
 	}
-	SDL_SharedObject *so = SDL_LoadObject(real_path);
+
+	SDL_SharedObject *so = SDL_LoadObject(path);
 	return (fck_shared_object){.handle = (void *)so};
 }
 static void fck_shared_object_unload(fck_shared_object so)

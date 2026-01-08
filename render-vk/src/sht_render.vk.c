@@ -1,5 +1,5 @@
 
-#include "sht_loader.h"
+#include "sht_render.h"
 #include "fckc_math.h"
 #include "sht_vk.internal.h"
 
@@ -16,6 +16,10 @@
 #include <kll.h>
 #include <kll_heap.h>
 #include <kll_malloc.h>
+
+#include <fck_apis.h>
+
+#include <sht_render.h>
 
 #define sht_invalidate(pointer_to_value) memset((pointer_to_value), 0x00, sizeof(*(pointer_to_value)))
 
@@ -3387,9 +3391,11 @@ sht_bool32 sht_vk_is_ok(sht_instance instance)
 	return instance.handle != NULL;
 }
 
-sht_loader *sht_main(void)
+FCK_EXPORT_API sht_loader *fck_main(fck_api_registry *apis, sht_render_api_config *config)
 {
 	// Maybe here we load the shared object ;)
+	os->io->log("%s loaded", sht_render_api);
+	apis->add(sht_render_api, &sht_loader_api);
 	return &sht_loader_api;
 }
 

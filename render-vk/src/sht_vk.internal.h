@@ -4,7 +4,7 @@
 
 // TODO: Make inline!
 
-#include "sht_loader.h"
+#include "sht_render.h"
 
 #define VK_NO_PROTOTYPES
 #include <vulkan/vk_enum_string_helper.h>

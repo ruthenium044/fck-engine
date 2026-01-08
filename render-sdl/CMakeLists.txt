@@ -33,10 +33,10 @@ target_include_directories(${PROJECT_NAME}
 
 
 find_package(fckc)
-find_package(render)
+find_package(sht)
 find_package(std)
 find_package(api)
-target_link_libraries(${PROJECT_NAME} PRIVATE fck::fckc fck::render fck::hash fck::set fck::kll fck::std fck::api SDL3::SDL3)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::fckc fck::sht fck::hash fck::set fck::kll fck::std fck::api SDL3::SDL3)
 set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "fck-lib")
 
 add_executable(${PROJECT_NAME}-test test/main.c)

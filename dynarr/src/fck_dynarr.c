@@ -89,8 +89,3 @@ void fck_dynarr_expand(void **ref_ptr, fckc_size_t element_size)
 	fckc_u8 *dst = ((fckc_u8 *)*ref_ptr) + offset;
 	info->size = info->size + 1;
 }
-
-FCK_EXPORT_API int fck_main()
-{
-	return 0;
-}

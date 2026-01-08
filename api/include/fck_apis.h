@@ -15,6 +15,7 @@ typedef struct fck_api_registry
 	void *(*next)(void *prev);
 } fck_api_registry;
 
+// Both arguments are allowed to be NULL!
 typedef void *(fck_main_func)(fck_api_registry *, void *);
 
 #define fck_main_user(api_param, extra_param) fck_main(api_param, extra_param)

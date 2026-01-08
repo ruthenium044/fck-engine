@@ -13,14 +13,14 @@
 
 #include <memory.h>
 
-#include "sht_loader.h"
 #include <fck_shader.h>
+#include <sht_render.h>
 
-typedef enum fck_macos_result
+typedef enum fck_test_app_result
 {
-	FCK_MACOS_RESULT_CONTINUE,
-	FCK_MACOS_RESULT_DONE,
-} fck_macos_result;
+	FCK_TEST_APP_RESULT_CONTINUE,
+	FCK_TEST_APP_RESULT_DONE,
+} fck_test_app_result;
 
 typedef struct sht_mvp
 {
@@ -43,7 +43,7 @@ sht_vertex_binding vertex_bindings[] = {
 	{.format = SHT_FORMAT_R32G32B32_SFLOAT, .offset = offsetof(sht_standard_vertex, color), .location = 1},
 	{.format = SHT_FORMAT_R32G32_SFLOAT, .offset = offsetof(sht_standard_vertex, uv), .location = 2}};
 
-typedef struct fck_macos_application
+typedef struct fck_test_app_application
 {
 	fck_window window;
 	fck_event_channel event_channel;
@@ -65,19 +65,21 @@ typedef struct fck_macos_application
 
 	sht_instance instance;
 	sht_driver driver;
-} fck_macos_application;
+} fck_test_app_application;
 
-fck_macos_result fck_macos_app_init(void **app_state, int argc, char **argv)
+fck_test_app_result fck_test_app_app_init(void **app_state, int argc, char **argv)
 {
-	fck_macos_application *app = (fck_macos_application *)kll_malloc(kll_heap, sizeof(*app));
+	fck_test_app_application *app = (fck_test_app_application *)kll_malloc(kll_heap, sizeof(*app));
 	memset(app, 0, sizeof(*app));
 	*app_state = app;
 
 	app->event_channel = os->event_channel->create(kll_heap, 64);
 	app->window = os->win->create("fck-vk", 1400, 600);
 
-	sht_loader *loader = sht_main();
-	app->instance = loader->load(FCK_INSTANCE_VERSION);
+	fck_shared_object api_so = os->so->load("fck-api");
+	sht_loader *loader = ((void *(*)(void *, void *))os->so->symbol(api_so, "fck_main"))(NULL, NULL);
+
+	app->instance = loader->load(SHT_HEADER_VERSION);
 	fck_assert(loader->is_ok(app->instance));
 	app->driver = app->instance.vt->start(app->instance, &app->window);
 	fck_assert(app->instance.vt->is_ok(app->driver));
@@ -198,30 +200,25 @@ fck_macos_result fck_macos_app_init(void **app_state, int argc, char **argv)
 		compiler.shutdown(&compiler);
 	}
 
-	return FCK_MACOS_RESULT_CONTINUE;
+	return FCK_TEST_APP_RESULT_CONTINUE;
 }
 
-int fck_macos_app_tick(void *app_state)
+int fck_test_app_app_tick(void *app_state)
 {
-	fck_macos_application *app = (fck_macos_application *)app_state;
+	fck_test_app_application *app = (fck_test_app_application *)app_state;
 
 	os->event_channel->pump(app->event_channel);
 
-	for (;;)
+	fckc_size_t count;
+	fck_event events[12];
+	while (os->event_channel->poll(app->event_channel, events, fck_arraysize(events), &count))
 	{
-		fck_event events[12];
-		fckc_size_t count = os->event_channel->poll(app->event_channel, events, fck_arraysize(events));
-		if (count)
-		{
-			break;
-		}
-
 		for (fckc_size_t index = 0; index < count; index++)
 		{
 			fck_event *event = events + index;
 			if (event->key.pkey == FCK_PKEY_ESCAPE)
 			{
-				return FCK_MACOS_RESULT_DONE;
+				return FCK_TEST_APP_RESULT_DONE;
 			}
 		}
 	}
@@ -243,9 +240,9 @@ int fck_macos_app_tick(void *app_state)
 			// Take a leap!
 			sht_extent extent = swapchain.vt->extent(swapchain);
 			mem->image->recreate(mem->bump, &app->depth_image, extent, &app->depth_view, 1);
-			return FCK_MACOS_RESULT_CONTINUE;
+			return FCK_TEST_APP_RESULT_CONTINUE;
 		}
-		return FCK_MACOS_RESULT_DONE;
+		return FCK_TEST_APP_RESULT_DONE;
 	}
 	driver.vt->bss->upload(app->bss, frame_index, 0, sht_upload_params{.data = &app->mvp, .size = sizeof(app->mvp)});
 	driver.vt->bss->upload(app->bss, frame_index, 1, sht_upload_params{.view = app->texture_view, .sampler = app->sampler});
@@ -292,12 +289,12 @@ int fck_macos_app_tick(void *app_state)
 		command->submit(command_buffer, SHT_QUEUE_GRAPHIC);
 	}
 
-	return FCK_MACOS_RESULT_CONTINUE;
+	return FCK_TEST_APP_RESULT_CONTINUE;
 }
 
-void fck_macos_app_quit(void *app_state, fck_macos_result result)
+void fck_test_app_app_quit(void *app_state, fck_test_app_result result)
 {
-	fck_macos_application *app = (fck_macos_application *)app_state;
+	fck_test_app_application *app = (fck_test_app_application *)app_state;
 	sht_driver driver = app->driver;
 	sht_memory *mem = driver.vt->memory(driver);
 
@@ -320,15 +317,15 @@ void fck_macos_app_quit(void *app_state, fck_macos_result result)
 int main(int argc, char *argv[])
 {
 	struct fck_app_api *app = NULL;
-	fck_macos_result result = fck_macos_app_init((void **)&app, argc, argv);
+	fck_test_app_result result = fck_test_app_app_init((void **)&app, argc, argv);
 	for (;;)
 	{
-		result = fck_macos_app_tick(app);
-		if (result != FCK_MACOS_RESULT_CONTINUE)
+		result = fck_test_app_app_tick(app);
+		if (result != FCK_TEST_APP_RESULT_CONTINUE)
 		{
 			break;
 		}
 	}
-	fck_macos_app_quit(app, result);
+	fck_test_app_app_quit(app, result);
 	return 0;
 }

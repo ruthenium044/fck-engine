@@ -1363,10 +1363,10 @@ void fck_event_channel_api_pump(fck_event_channel channel)
 	fck_macos_poll_events(spsc);
 }
 
-fckc_size_t fck_event_channel_api_poll(fck_event_channel channel, fck_event *events, fckc_size_t capacity)
+fckc_size_t fck_event_channel_api_poll(fck_event_channel channel, fck_event *events, fckc_size_t capacity, fckc_size_t *count)
 {
 	fck_event_spsc *spsc = (fck_event_spsc *)channel.handle;
-	return fck_event_spsc_dequeue(spsc, events, capacity);
+	return (*count = fck_event_spsc_dequeue(spsc, events, capacity));
 }
 
 static fck_event_channel_api event_channel_api = {

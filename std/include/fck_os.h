@@ -161,7 +161,7 @@ typedef struct fck_event_channel_api
 	void (*pump)(fck_event_channel channel);
 
 	// Returns the actual count of events placed in provided buffer
-	fckc_size_t (*poll)(fck_event_channel channel, union fck_event *events, fckc_size_t capacity);
+	fckc_size_t (*poll)(fck_event_channel channel, union fck_event *events, fckc_size_t capacity, fckc_size_t *count);
 } fck_event_channel_api;
 
 typedef struct fck_os_api

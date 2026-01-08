@@ -5,7 +5,7 @@ project(fck-render)
 
 include_guard(GLOBAL)
 
-add_library(${PROJECT_NAME} INTERFACE "include/fck_render.h")
+add_library(${PROJECT_NAME} INTERFACE "include/fck_render.h" "include/sht_render.h")
 add_library(fck::render ALIAS ${PROJECT_NAME})
 target_include_directories(${PROJECT_NAME} INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/include

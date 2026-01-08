@@ -41,7 +41,6 @@ find_package(canvas)
 find_package(imgui)
 find_package(render)
 find_package(std)
-find_package(render-sdl)
 find_package(render-vk)
 
 find_package(app-loadable)
@@ -49,4 +48,4 @@ find_package(main)
 
 #find_package(img)
 find_package(img-sdl)
-target_link_libraries(${PROJECT_NAME} PRIVATE fck::fckc fck::hash fck::kll fck::events fck::app-loadable fck::img fck::img-sdl fck::render fck::render-sdl fck::imgui fck::canvas fck::ser-ext fck::set fck::dynarr fck::ser-json fck::std fck::ts fck::api)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::fckc fck::hash fck::kll fck::events fck::app-loadable fck::img fck::img-sdl fck::render fck::render-vk fck::imgui fck::canvas fck::ser-ext fck::set fck::dynarr fck::ser-json fck::std fck::ts fck::api)

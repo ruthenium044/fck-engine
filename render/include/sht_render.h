@@ -1,22 +1,28 @@
-#ifndef SHT_LOADER_H_INCLUDED
-#define SHT_LOADER_H_INCLUDED
+#ifndef SHT_RENDER_H_INCLUDED
+#define SHT_RENDER_H_INCLUDED
 
 #include <fckc_inttypes.h>
 
+#define sht_render_api "sht-render"
+
 // Not much here is widely ABI compatible yet!
 struct fck_shader_generic;
+struct fck_window;
 
 #define SHT_MAKE_VERSION(major, minor, patch) ((((fckc_u32)(major)) << 22U) | (((fckc_u32)(minor)) << 12U) | ((fckc_u32)(patch)))
 #define SHT_VERSION_MAJOR(version) ((fckc_u32)(version) >> 22U)
 #define SHT_VERSION_MINOR(version) (((fckc_u32)(version) >> 12U) & 0x3FFU)
 #define SHT_VERSION_PATCH(version) ((fckc_u32)(version) & 0xFFFU)
 
-#define FCK_INSTANCE_VERSION SHT_MAKE_VERSION(0, 0, 1)
+#define SHT_HEADER_VERSION SHT_MAKE_VERSION(0, 0, 1)
+
+typedef struct sht_render_api_config
+{
+	fckc_u32 version;
+} sht_render_api_config;
 
 // I do not fucking care if higher
 #define SHT_VK_IMAGE_COUNT 4
-
-struct fck_window;
 
 typedef fckc_u32 sht_bool32;
 #define sht_true 1
@@ -548,6 +554,4 @@ typedef struct sht_loader
 	sht_bool32 (*is_ok)(sht_instance instance);
 } sht_loader;
 
-sht_loader *sht_main(void);
-
-#endif // !SHT_LOADER_H_INCLUDED
+#endif // !SHT_RENDER_H_INCLUDED

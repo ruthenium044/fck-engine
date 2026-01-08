@@ -30,6 +30,11 @@ static fck_hash_int fck_hash(const char *str, int length)
 	return hash;
 }
 
+static fck_hash_int fck_hash_combine(fck_hash_int lhs, fck_hash_int rhs)
+{
+	return lhs ^ (rhs + 0x9e3779b9 + (lhs << 6) + (lhs >> 2));
+}
+
 #endif // !FCK_HASH_H_INCLUDED
        // example:
        // unsigned long long id = STATIC_HASH("Teeest", 0x00000652D32D23AF)

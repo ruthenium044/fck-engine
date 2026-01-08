@@ -24,7 +24,7 @@ target_include_directories(${PROJECT_NAME}
 
 
 
-find_package(fckc CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
+find_package(fckc)
 target_link_libraries(${PROJECT_NAME} PUBLIC fck::fckc)
 #target_compile_definitions(${PROJECT_NAME} PRIVATE FCK_BUILD_DLL)
 

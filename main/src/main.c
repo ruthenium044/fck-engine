@@ -47,150 +47,129 @@ SDLMAIN_DECLSPEC SDL_AppResult SDLCALL SDL_AppEvent(void *appstate, SDL_Event *e
 	switch (event->type)
 	{
 	case SDL_EVENT_KEY_DOWN: {
-		fck_event_input_device_keyboard keyboard;
-		SDL_zero(keyboard);
-		keyboard.common.size = sizeof(keyboard);
-		keyboard.common.timestamp = event->common.timestamp;
-		keyboard.common.type = FCK_EVENT_INPUT_TYPE_DEVICE;
+		e.key.common.size = sizeof(e.key);
+		e.key.common.timestamp = event->common.timestamp;
+		e.key.common.type = FCK_EVENT_TYPE_DEVICE;
 
-		keyboard.device_type = FCK_INPUT_DEVICE_TYPE_KEYBOARD;
-		keyboard.pkey = (fck_pkey)event->key.scancode;
-		keyboard.vkey = event->key.key;
-		keyboard.type = FCK_KEYBOARD_EVENT_TYPE_DOWN;
-		keyboard.mod = event->key.mod;
-		fck_event_make_generic(e, keyboard);
+		e.key.device_type = FCK_INPUT_DEVICE_TYPE_KEYBOARD;
+		e.key.pkey = (fck_pkey)event->key.scancode;
+		// e.key.vkey = event->key.key;
+		e.key.type = FCK_KEYBOARD_EVENT_TYPE_DOWN;
+		e.key.mod = event->key.mod;
 	}
 	break;
 	case SDL_EVENT_KEY_UP: {
-		fck_event_input_device_keyboard keyboard;
-		SDL_zero(keyboard);
-		keyboard.common.size = sizeof(keyboard);
-		keyboard.common.timestamp = event->common.timestamp;
-		keyboard.common.type = FCK_EVENT_INPUT_TYPE_DEVICE;
+		e.key.common.size = sizeof(e.key);
+		e.key.common.timestamp = event->common.timestamp;
+		e.key.common.type = FCK_EVENT_TYPE_DEVICE;
 
-		keyboard.device_type = FCK_INPUT_DEVICE_TYPE_KEYBOARD;
-		keyboard.pkey = (fck_pkey)event->key.scancode;
-		keyboard.vkey = event->key.key;
-		keyboard.type = FCK_KEYBOARD_EVENT_TYPE_UP;
-		keyboard.mod = event->key.mod;
-		fck_event_make_generic(e, keyboard);
+		e.key.device_type = FCK_INPUT_DEVICE_TYPE_KEYBOARD;
+		e.key.pkey = (fck_pkey)event->key.scancode;
+		// e.key.vkey = event->key.key;
+		e.key.type = FCK_KEYBOARD_EVENT_TYPE_UP;
+		e.key.mod = event->key.mod;
 	}
 	break;
 	// case SDL_EVENT_TEXT_EDITING:
 	case SDL_EVENT_TEXT_INPUT: {
-		fck_event_input_text input;
-		SDL_zero(input);
-		input.common.size = sizeof(input);
-		input.common.timestamp = event->common.timestamp;
-		input.common.type = FCK_EVENT_INPUT_TYPE_TEXT;
-		input.text = event->text.text;
-		fck_event_make_generic(e, input);
+		e.text.common.size = sizeof(e.text);
+		e.text.common.timestamp = event->common.timestamp;
+		e.text.common.type = FCK_EVENT_TYPE_TEXT;
+		e.text.text = event->text.text;
 	}
 	break;
 	case SDL_EVENT_MOUSE_MOTION: {
-		fck_event_input_device_mouse mouse;
-		SDL_zero(mouse);
-		mouse.common.size = sizeof(mouse);
-		mouse.common.timestamp = event->common.timestamp;
-		mouse.common.type = FCK_EVENT_INPUT_TYPE_DEVICE;
+		e.mouse.common.size = sizeof(e.mouse);
+		e.mouse.common.timestamp = event->common.timestamp;
+		e.mouse.common.type = FCK_EVENT_TYPE_DEVICE;
 
-		mouse.device_type = FCK_INPUT_DEVICE_TYPE_MOUSE;
-		mouse.type = FCK_MOUSE_EVENT_TYPE_POSITION;
-		mouse.x = event->motion.x;
-		mouse.y = event->motion.y;
-		mouse.dx = event->motion.xrel;
-		mouse.dy = event->motion.yrel;
-		fck_event_make_generic(e, mouse);
+		e.mouse.device_type = FCK_INPUT_DEVICE_TYPE_MOUSE;
+		e.mouse.type = FCK_MOUSE_EVENT_TYPE_POSITION;
+		e.mouse.x = event->motion.x;
+		e.mouse.y = event->motion.y;
+		e.mouse.dx = event->motion.xrel;
+		e.mouse.dy = event->motion.yrel;
 	}
 	break;
 	case SDL_EVENT_MOUSE_BUTTON_DOWN: {
-		fck_event_input_device_mouse mouse;
-		SDL_zero(mouse);
-		mouse.common.size = sizeof(mouse);
-		mouse.common.timestamp = event->common.timestamp;
-		mouse.common.type = FCK_EVENT_INPUT_TYPE_DEVICE;
+		e.mouse.common.size = sizeof(e.mouse);
+		e.mouse.common.timestamp = event->common.timestamp;
+		e.mouse.common.type = FCK_EVENT_TYPE_DEVICE;
 
-		mouse.device_type = FCK_INPUT_DEVICE_TYPE_MOUSE;
+		e.mouse.device_type = FCK_INPUT_DEVICE_TYPE_MOUSE;
 
 		switch (event->button.button)
 		{
 		case SDL_BUTTON_LEFT:
-			mouse.type = FCK_MOUSE_EVENT_TYPE_BUTTON_LEFT;
+			e.mouse.type = FCK_MOUSE_EVENT_TYPE_BUTTON_LEFT;
 			break;
 		case SDL_BUTTON_MIDDLE:
-			mouse.type = FCK_MOUSE_EVENT_TYPE_BUTTON_MIDDLE;
+			e.mouse.type = FCK_MOUSE_EVENT_TYPE_BUTTON_MIDDLE;
 			break;
 		case SDL_BUTTON_RIGHT:
-			mouse.type = FCK_MOUSE_EVENT_TYPE_BUTTON_RIGHT;
+			e.mouse.type = FCK_MOUSE_EVENT_TYPE_BUTTON_RIGHT;
 			break;
 		case SDL_BUTTON_X1:
-			mouse.type = FCK_MOUSE_EVENT_TYPE_BUTTON_4;
+			e.mouse.type = FCK_MOUSE_EVENT_TYPE_BUTTON_4;
 			break;
 		case SDL_BUTTON_X2:
-			mouse.type = FCK_MOUSE_EVENT_TYPE_BUTTON_5;
+			e.mouse.type = FCK_MOUSE_EVENT_TYPE_BUTTON_5;
 			break;
 		default:
 			// TODO: Should not happen
 			break;
 		}
-		mouse.clicks = event->button.clicks;
-		mouse.is_down = 1;
-		mouse.x = event->button.x;
-		mouse.y = event->button.y;
-		fck_event_make_generic(e, mouse);
+		e.mouse.clicks = event->button.clicks;
+		e.mouse.is_down = 1;
+		e.mouse.x = event->button.x;
+		e.mouse.y = event->button.y;
 	}
 	break;
 	case SDL_EVENT_MOUSE_BUTTON_UP: {
-		fck_event_input_device_mouse mouse;
-		SDL_zero(mouse);
-		mouse.common.size = sizeof(mouse);
-		mouse.common.timestamp = event->common.timestamp;
-		mouse.common.type = FCK_EVENT_INPUT_TYPE_DEVICE;
+		e.mouse.common.size = sizeof(e.mouse);
+		e.mouse.common.timestamp = event->common.timestamp;
+		e.mouse.common.type = FCK_EVENT_TYPE_DEVICE;
 
-		mouse.device_type = FCK_INPUT_DEVICE_TYPE_MOUSE;
+		e.mouse.device_type = FCK_INPUT_DEVICE_TYPE_MOUSE;
 
 		switch (event->button.button)
 		{
 		case SDL_BUTTON_LEFT:
-			mouse.type = FCK_MOUSE_EVENT_TYPE_BUTTON_LEFT;
+			e.mouse.type = FCK_MOUSE_EVENT_TYPE_BUTTON_LEFT;
 			break;
 		case SDL_BUTTON_MIDDLE:
-			mouse.type = FCK_MOUSE_EVENT_TYPE_BUTTON_MIDDLE;
+			e.mouse.type = FCK_MOUSE_EVENT_TYPE_BUTTON_MIDDLE;
 			break;
 		case SDL_BUTTON_RIGHT:
-			mouse.type = FCK_MOUSE_EVENT_TYPE_BUTTON_RIGHT;
+			e.mouse.type = FCK_MOUSE_EVENT_TYPE_BUTTON_RIGHT;
 			break;
 		case SDL_BUTTON_X1:
-			mouse.type = FCK_MOUSE_EVENT_TYPE_BUTTON_4;
+			e.mouse.type = FCK_MOUSE_EVENT_TYPE_BUTTON_4;
 			break;
 		case SDL_BUTTON_X2:
-			mouse.type = FCK_MOUSE_EVENT_TYPE_BUTTON_5;
+			e.mouse.type = FCK_MOUSE_EVENT_TYPE_BUTTON_5;
 			break;
 		default:
 			// TODO: Should not happen
 			break;
 		}
 
-		mouse.is_down = 0;
-		mouse.x = event->button.x;
-		mouse.y = event->button.y;
-		fck_event_make_generic(e, mouse);
+		e.mouse.is_down = 0;
+		e.mouse.x = event->button.x;
+		e.mouse.y = event->button.y;
 	}
 	break;
 	case SDL_EVENT_MOUSE_WHEEL: {
-		fck_event_input_device_mouse mouse;
-		SDL_zero(mouse);
-		mouse.common.size = sizeof(mouse);
-		mouse.common.timestamp = event->common.timestamp;
-		mouse.common.type = FCK_EVENT_INPUT_TYPE_DEVICE;
+		e.mouse.common.size = sizeof(e.mouse);
+		e.mouse.common.timestamp = event->common.timestamp;
+		e.mouse.common.type = FCK_EVENT_TYPE_DEVICE;
 
-		mouse.device_type = FCK_INPUT_DEVICE_TYPE_MOUSE;
-		mouse.type = FCK_MOUSE_EVENT_TYPE_WHEEL;
+		e.mouse.device_type = FCK_INPUT_DEVICE_TYPE_MOUSE;
+		e.mouse.type = FCK_MOUSE_EVENT_TYPE_WHEEL;
 
-		mouse.is_down = 0;
-		mouse.x = event->wheel.x;
-		mouse.y = event->wheel.y;
-		fck_event_make_generic(e, mouse);
+		e.mouse.is_down = 0;
+		e.mouse.x = event->wheel.x;
+		e.mouse.y = event->wheel.y;
 	}
 	break;
 	}

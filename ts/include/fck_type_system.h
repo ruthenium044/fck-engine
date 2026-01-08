@@ -1,8 +1,8 @@
 #ifndef FCK_TYPE_SYSTEM_H_INCLUDED
 #define FCK_TYPE_SYSTEM_H_INCLUDED
 
-#include <fckc_inttypes.h>
 #include <fckc_apidef.h>
+#include <fckc_inttypes.h>
 
 #if defined(FCK_TYPE_SYSTEM_EXPORT)
 #define FCK_TYPE_SYSTEM_API FCK_EXPORT_API
@@ -100,7 +100,7 @@ typedef struct fck_member_desc
 	}
 
 // or list... idk yet
-#define fck_dynarr_decl(owner, type, member)                                                                                             \
+#define fck_dynarr_decl(owner, type, member)                                                                                               \
 	(fck_member_desc)                                                                                                                      \
 	{                                                                                                                                      \
 		type, fck_name(member), offsetof(owner, member), (~0llu)                                                                           \
@@ -185,7 +185,7 @@ typedef struct fck_marshal_api
 	void (*add)(fck_marshal_desc desc);
 	// TODO: Maybe batched invoke? Let's do it later
 	fck_marshal_func *(*get)(fck_type type);
-	void (*invoke)(struct fck_serialiser* serialiser, fck_type* type, const char* name, void* data, fckc_size_t count);
+	void (*invoke)(struct fck_serialiser *serialiser, fck_type *type, const char *name, void *data, fckc_size_t count);
 } fck_marshal_api;
 
 typedef struct fck_assembly_api
@@ -210,10 +210,9 @@ typedef struct fck_marshaller
 	struct fck_type_system *type_system;
 } fck_marshaller;
 
-
-//struct fck_apis;
-//FCK_TYPE_SYSTEM_API fck_type_system *fck_load_type_system(struct fck_apis *apis);
-//FCK_TYPE_SYSTEM_API void fck_unload_type_system(struct fck_apis *apis);
-//FCK_TYPE_SYSTEM_API fck_type_system *fck_get_type_system(struct fck_apis *apis);
+// struct fck_apis;
+// FCK_TYPE_SYSTEM_API fck_type_system *fck_load_type_system(struct fck_apis *apis);
+// FCK_TYPE_SYSTEM_API void fck_unload_type_system(struct fck_apis *apis);
+// FCK_TYPE_SYSTEM_API fck_type_system *fck_get_type_system(struct fck_apis *apis);
 
 #endif // !FCK_TYPE_SYSTEM_H_INCLUDED

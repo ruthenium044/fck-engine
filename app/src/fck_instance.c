@@ -277,7 +277,7 @@ int fck_instance_overlay(fck_instance *instance)
 {
 	int width;
 	int height;
-	if (!os->win->size_get(instance->wind, &width, &height))
+	if (!os->win->size(instance->wind, &width, &height))
 	{
 		return 1;
 	}
@@ -446,9 +446,9 @@ int app_tick(struct fck_app *app)
 	return fck_instance_tick(instance);
 }
 
-int app_on_event(struct fck_app* app, struct fck_event const* event)
+int app_on_event(struct fck_app *app, union fck_event const *event)
 {
-	fck_instance* instance = (fck_instance*)app;
+	fck_instance *instance = (fck_instance *)app;
 	fck_instance_event(instance, event);
 	return 0;
 }

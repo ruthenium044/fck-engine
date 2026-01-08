@@ -4,11 +4,17 @@
 #include <fckc_apidef.h>
 #include <fckc_inttypes.h>
 
+// TODO: Still no clue how this shit behaves with multiple windows
+// well, well, well
+
 #if defined(FCK_STD_EXPORT)
 #define FCK_STD_API FCK_EXPORT_API
 #else
 #define FCK_STD_API FCK_IMPORT_API
 #endif
+
+struct kll_allocator;
+union fck_event;
 
 typedef struct fck_char_api
 {
@@ -59,7 +65,7 @@ typedef struct fck_memory_api
 typedef struct fck_io_api
 {
 	int (*format)(char *s, size_t n, const char *format, ...);
-	void (*log)(const char* format, ...);
+	int (*log)(const char *format, ...);
 } fck_io_api;
 
 typedef struct fck_shared_object
@@ -84,10 +90,13 @@ typedef struct fck_window_api
 {
 	fck_window (*create)(const char *name, int w, int h);
 	int (*is_valid)(fck_window);
+	int (*size)(fck_window, int *width, int *height);
+	int (*position)(fck_window, int *x, int *z);
+	int (*resize)(fck_window, int width, int height);
+	void (*destroy)(fck_window handle);
+
 	int (*text_input_start)(fck_window);
 	int (*text_input_stop)(fck_window);
-	int (*size_get)(fck_window, int *width, int *height);
-	void (*destroy)(fck_window handle);
 } fck_window_api;
 
 typedef struct fck_clipboard
@@ -133,9 +142,27 @@ typedef struct fck_filesystem_api
 	fckc_i64 (*seek)(fck_file, fckc_i64 offset, fck_alias(fck_stream_seek_mode, fckc_u32) seek_mode);
 	fckc_size_t (*read)(fck_file, void *ptr, fckc_size_t size);
 	fckc_size_t (*write)(fck_file, const void *ptr, fckc_size_t size);
-	fckc_u32 (*flush)(fck_file);
+	fckc_i64 (*flush)(fck_file);
 
 } fck_filesystem_api;
+
+typedef struct fck_event_channel
+{
+	void *handle;
+} fck_event_channel;
+
+typedef struct fck_event_channel_api
+{
+	// TODO: Make it possible so the user can not see the producing-side
+	fck_event_channel (*create)(struct kll_allocator *alloocator, fckc_size_t capacity);
+	void (*destroy)(fck_event_channel channel);
+
+	// Pumps events into channel
+	void (*pump)(fck_event_channel channel);
+
+	// Returns the actual count of events placed in provided buffer
+	fckc_size_t (*poll)(fck_event_channel channel, union fck_event *events, fckc_size_t capacity);
+} fck_event_channel_api;
 
 typedef struct fck_os_api
 {
@@ -148,6 +175,8 @@ typedef struct fck_os_api
 	fck_clipboard_api *clipboard;
 	fck_chrono_api *chrono;
 	fck_filesystem_api *fs;
+
+	fck_event_channel_api *event_channel;
 } fck_os_api;
 
 FCK_STD_API extern fck_os_api *os;

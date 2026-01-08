@@ -133,7 +133,7 @@ void fck_serialise_identifiers(struct fck_serialiser *serialiser, struct fck_mar
 			if (change > len)
 			{
 				kll_free(kll_heap, entry->str);
-				entry->str = (char*)kll_malloc(kll_heap, change);
+				entry->str = (char *)kll_malloc(kll_heap, change);
 			}
 			p.name = "str";
 			serialiser->vt->string(serialiser, &p, &entry->str, 1);

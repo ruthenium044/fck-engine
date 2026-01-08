@@ -5,24 +5,14 @@ project(fck-imgui)
 
 include_guard(GLOBAL)
 
-add_library(${PROJECT_NAME} INTERFACE)
+add_library(${PROJECT_NAME} INTERFACE "include/fck_imgui.h")
 add_library(fck::imgui ALIAS ${PROJECT_NAME})
-
-file(GLOB_RECURSE FCKC_HEADERS CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h"
-)
-
-add_custom_target(${PROJECT_NAME}-headers SOURCES ${FCKC_HEADERS})
-add_dependencies(${PROJECT_NAME}-headers fck::imgui)
-
 target_include_directories(${PROJECT_NAME} INTERFACE
-    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-    "$<INSTALL_INTERFACE:include>"
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-find_package(fckc CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
+find_package(fckc)
 target_link_libraries(${PROJECT_NAME} INTERFACE fck::fckc)
 
-
-set_target_properties(${PROJECT_NAME}-headers PROPERTIES FOLDER "fck-lib")
+set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "fck-headers")
 

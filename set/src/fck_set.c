@@ -1,11 +1,16 @@
-#define FCK_TS_SET_EXPORT
+#define FCK_SET_EXPORT
 #include "fck_set.h"
 
 #include <kll.h>
 #include <kll_malloc.h>
 
 #include <assert.h>
-#include <fck_os.h>
+
+#include <string.h>
+
+#ifdef FCK_SET_NO_KLL
+#include <stdlib.h>
+#endif
 
 #define fck_set_pointer_offset(type, ptr, offset) ((type *)(((fckc_u8 *)(ptr)) + (offset)))
 
@@ -60,8 +65,10 @@ fck_set_info *fck_opaque_set_inspect(void const *ptr)
 void *fck_opaque_set_alloc(fck_set_info input)
 {
 	assert(input.el_size);
-	// assert(info.el_align);
+// assert(info.el_align);
+#ifndef FCK_SET_NO_KLL
 	assert(input.allocator);
+#endif
 	// assert(data);
 
 	fck_set_info *info;
@@ -75,15 +82,18 @@ void *fck_opaque_set_alloc(fck_set_info input)
 	fckc_size_t data_offset = info_offset + info_size; // We piggyback on the alignment of info... somehow., idk
 	fckc_size_t keys_offset = fck_set_align(data_offset + data_size, sizeof(fck_set_key));
 	fckc_size_t states_offset = fck_set_align(keys_offset + key_size, sizeof(fck_set_state));
+#ifndef FCK_SET_NO_KLL
 	info = (fck_set_info *)kll_malloc(input.allocator, states_offset + state_size);
-
+#else
+	info = (fck_set_info *)malloc(states_offset + state_size);
+#endif
 	*info = input;
 	// We just remember it for debugging
 	info->keys = fck_set_pointer_offset(fck_set_key, info, keys_offset);
 	info->states = fck_set_pointer_offset(fck_set_state, info, states_offset);
 	info->stale = 0;
 
-	os->mem->set(info->states, 0, state_size);
+	memset(info->states, 0, state_size);
 
 	info->cookie = FCK_SET_KEY_COOKIE;
 
@@ -94,7 +104,11 @@ void fck_opaque_set_free(void *ptr)
 {
 	assert(ptr);
 	fck_set_info *info = fck_opaque_set_inspect(ptr);
+#ifndef FCK_SET_NO_KLL
 	kll_free(info->allocator, info);
+#else
+	free(info);
+#endif
 }
 
 void fck_opaque_set_clear(void *ptr)
@@ -102,7 +116,7 @@ void fck_opaque_set_clear(void *ptr)
 	assert(ptr);
 	fck_set_info *info = fck_opaque_set_inspect(ptr);
 	const fckc_size_t state_size = sizeof(*info->states) * ((info->capacity / 32) + 1);
-	os->mem->set(info->states, 0, state_size);
+	memset(info->states, 0, state_size);
 	info->size = 0;
 	info->stale = 0;
 }
@@ -148,7 +162,7 @@ static void fck_opaque_set_rehash(fck_set_info **info_ref, void **ptr)
 			new_info = fck_opaque_set_inspect(new);
 			fckc_u8 *dst = fck_set_pointer_offset(fckc_u8, new, info->el_size * at);
 			fckc_u8 *src = fck_set_pointer_offset(fckc_u8, old, info->el_size * index);
-			os->mem->cpy(dst, src, info->el_size);
+			memcpy(dst, src, info->el_size);
 		}
 
 		new_info->size = info->size;
@@ -311,7 +325,7 @@ int fck_opaque_set_next(void const *ptr, fckc_size_t *index)
 		{
 			return 0;
 		}
-
+		// 64 / 2 -> 32...
 		fckc_u64 taken_mask = FCK_SET_KEY_TAKEN << ((*index % 32) * 2);
 		fck_set_state *state = info->states + (*index / 32);
 		int has_value = (state->mask & taken_mask) == taken_mask;
@@ -321,12 +335,4 @@ int fck_opaque_set_next(void const *ptr, fckc_size_t *index)
 		}
 		*index = *index + 1;
 	}
-}
-
-#include <fckc_apidef.h>
-#include <stdio.h>
-
-FCK_EXPORT_API int fck_main()
-{
-	return 0;
 }

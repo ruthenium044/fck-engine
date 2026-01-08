@@ -1,0 +1,4 @@
+#ifndef PUBLIC_H_INCLUDED
+#define PUBLIC_H_INCLUDED
+
+#endif // PUBLIC_H_INCLUDED

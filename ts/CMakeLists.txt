@@ -23,19 +23,17 @@ target_include_directories(${PROJECT_NAME}
         "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
 )
 
-
-
-find_package(hash CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-find_package(std CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-find_package(fckc CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-find_package(kll CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-find_package(api CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-find_package(ser CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-find_package(set CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-find_package(dynarr CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
+find_package(hash)
+find_package(std)
+find_package(fckc)
+find_package(kll)
+find_package(api)
+find_package(ser)
+find_package(set)
+find_package(dynarr)
 target_link_libraries(${PROJECT_NAME} PUBLIC fck::fckc fck::ser PRIVATE fck::kll fck::set fck::dynarr fck::std fck::api fck::hash)
 set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "fck-lib")
 
 add_executable(${PROJECT_NAME}-test test/main.c)
-target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
+target_link_libraries(${PROJECT_NAME}-test PUBLIC ${PROJECT_NAME})
 set_target_properties(${PROJECT_NAME}-test PROPERTIES FOLDER "fck-tests")

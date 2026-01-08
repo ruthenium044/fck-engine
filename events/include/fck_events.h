@@ -3,12 +3,12 @@
 
 #include <fckc_inttypes.h>
 
-typedef enum fck_event_input_type
+typedef enum fck_event_type
 {
-	FCK_EVENT_INPUT_TYPE_NONE,
-	FCK_EVENT_INPUT_TYPE_DEVICE,
-	FCK_EVENT_INPUT_TYPE_TEXT,
-} fck_event_input_type;
+	FCK_EVENT_TYPE_NONE,
+	FCK_EVENT_TYPE_DEVICE,
+	FCK_EVENT_TYPE_TEXT,
+} fck_event_type;
 
 typedef enum fck_input_device_type
 {
@@ -41,6 +41,7 @@ typedef enum fck_pkey
 {
 	FCK_PKEY_UNKNOWN = 0,
 
+	// Maybe map these to chars?
 	FCK_PKEY_A = 4,
 	FCK_PKEY_B = 5,
 	FCK_PKEY_C = 6,
@@ -357,7 +358,328 @@ typedef enum fck_pkey
 
 } fck_pkey;
 
-typedef fckc_u32 fck_vkey;
+#define fck_enum_case_to_string(event_type)                                                                                                \
+	case event_type:                                                                                                                       \
+		return #event_type
+
+static inline const char *fck_event_type_to_string(fck_event_type event_type)
+{
+	switch (event_type)
+	{
+		fck_enum_case_to_string(FCK_EVENT_TYPE_NONE);
+		fck_enum_case_to_string(FCK_EVENT_TYPE_DEVICE);
+		fck_enum_case_to_string(FCK_EVENT_TYPE_TEXT);
+		break;
+	default:
+		return "UNKNOWN";
+	}
+}
+
+static inline const char *fck_input_device_type_to_string(fck_input_device_type device_type)
+{
+	switch (device_type)
+	{
+		fck_enum_case_to_string(FCK_INPUT_DEVICE_TYPE_NONE);
+		fck_enum_case_to_string(FCK_INPUT_DEVICE_TYPE_KEYBOARD);
+		fck_enum_case_to_string(FCK_INPUT_DEVICE_TYPE_MOUSE);
+		break;
+	default:
+		return "UNKNOWN";
+	}
+}
+
+static inline const char *fck_mouse_event_type_to_string(fck_mouse_event_type mouse_event)
+{
+	switch (mouse_event)
+	{
+
+		fck_enum_case_to_string(FCK_MOUSE_EVENT_TYPE_BUTTON_NONE);
+		fck_enum_case_to_string(FCK_MOUSE_EVENT_TYPE_BUTTON_LEFT);
+		fck_enum_case_to_string(FCK_MOUSE_EVENT_TYPE_BUTTON_RIGHT);
+		fck_enum_case_to_string(FCK_MOUSE_EVENT_TYPE_BUTTON_MIDDLE);
+		fck_enum_case_to_string(FCK_MOUSE_EVENT_TYPE_BUTTON_4);
+		fck_enum_case_to_string(FCK_MOUSE_EVENT_TYPE_BUTTON_5);
+		fck_enum_case_to_string(FCK_MOUSE_EVENT_TYPE_WHEEL);
+		fck_enum_case_to_string(FCK_MOUSE_EVENT_TYPE_POSITION);
+		break;
+	default:
+		return "UNKNOWN";
+	}
+}
+
+static inline const char *fck_keyboard_event_type_to_string(fck_keyboard_event_type keyboard_event)
+{
+	switch (keyboard_event)
+	{
+
+		fck_enum_case_to_string(FCK_KEYBOARD_EVENT_TYPE_NONE);
+		fck_enum_case_to_string(FCK_KEYBOARD_EVENT_TYPE_UP);
+		fck_enum_case_to_string(FCK_KEYBOARD_EVENT_TYPE_DOWN);
+	default:
+		return "UNKNOWN";
+		break;
+	}
+}
+
+static inline const char *fck_pkey_tostring(fck_pkey key)
+{
+	switch (key)
+	{
+		fck_enum_case_to_string(FCK_PKEY_UNKNOWN);
+		fck_enum_case_to_string(FCK_PKEY_A);
+		fck_enum_case_to_string(FCK_PKEY_B);
+		fck_enum_case_to_string(FCK_PKEY_C);
+		fck_enum_case_to_string(FCK_PKEY_D);
+		fck_enum_case_to_string(FCK_PKEY_E);
+		fck_enum_case_to_string(FCK_PKEY_F);
+		fck_enum_case_to_string(FCK_PKEY_G);
+		fck_enum_case_to_string(FCK_PKEY_H);
+		fck_enum_case_to_string(FCK_PKEY_I);
+		fck_enum_case_to_string(FCK_PKEY_J);
+		fck_enum_case_to_string(FCK_PKEY_K);
+		fck_enum_case_to_string(FCK_PKEY_L);
+		fck_enum_case_to_string(FCK_PKEY_M);
+		fck_enum_case_to_string(FCK_PKEY_N);
+		fck_enum_case_to_string(FCK_PKEY_O);
+		fck_enum_case_to_string(FCK_PKEY_P);
+		fck_enum_case_to_string(FCK_PKEY_Q);
+		fck_enum_case_to_string(FCK_PKEY_R);
+		fck_enum_case_to_string(FCK_PKEY_S);
+		fck_enum_case_to_string(FCK_PKEY_T);
+		fck_enum_case_to_string(FCK_PKEY_U);
+		fck_enum_case_to_string(FCK_PKEY_V);
+		fck_enum_case_to_string(FCK_PKEY_W);
+		fck_enum_case_to_string(FCK_PKEY_X);
+		fck_enum_case_to_string(FCK_PKEY_Y);
+		fck_enum_case_to_string(FCK_PKEY_Z);
+		fck_enum_case_to_string(FCK_PKEY_1);
+		fck_enum_case_to_string(FCK_PKEY_2);
+		fck_enum_case_to_string(FCK_PKEY_3);
+		fck_enum_case_to_string(FCK_PKEY_4);
+		fck_enum_case_to_string(FCK_PKEY_5);
+		fck_enum_case_to_string(FCK_PKEY_6);
+		fck_enum_case_to_string(FCK_PKEY_7);
+		fck_enum_case_to_string(FCK_PKEY_8);
+		fck_enum_case_to_string(FCK_PKEY_9);
+		fck_enum_case_to_string(FCK_PKEY_0);
+		fck_enum_case_to_string(FCK_PKEY_RETURN);
+		fck_enum_case_to_string(FCK_PKEY_ESCAPE);
+		fck_enum_case_to_string(FCK_PKEY_BACKSPACE);
+		fck_enum_case_to_string(FCK_PKEY_TAB);
+		fck_enum_case_to_string(FCK_PKEY_SPACE);
+		fck_enum_case_to_string(FCK_PKEY_MINUS);
+		fck_enum_case_to_string(FCK_PKEY_EQUALS);
+		fck_enum_case_to_string(FCK_PKEY_LEFTBRACKET);
+		fck_enum_case_to_string(FCK_PKEY_RIGHTBRACKET);
+		fck_enum_case_to_string(FCK_PKEY_BACKSLASH);
+		fck_enum_case_to_string(FCK_PKEY_NONUSHASH);
+		fck_enum_case_to_string(FCK_PKEY_SEMICOLON);
+		fck_enum_case_to_string(FCK_PKEY_APOSTROPHE);
+		fck_enum_case_to_string(FCK_PKEY_GRAVE);
+		fck_enum_case_to_string(FCK_PKEY_COMMA);
+		fck_enum_case_to_string(FCK_PKEY_PERIOD);
+		fck_enum_case_to_string(FCK_PKEY_SLASH);
+		fck_enum_case_to_string(FCK_PKEY_CAPSLOCK);
+		fck_enum_case_to_string(FCK_PKEY_F1);
+		fck_enum_case_to_string(FCK_PKEY_F2);
+		fck_enum_case_to_string(FCK_PKEY_F3);
+		fck_enum_case_to_string(FCK_PKEY_F4);
+		fck_enum_case_to_string(FCK_PKEY_F5);
+		fck_enum_case_to_string(FCK_PKEY_F6);
+		fck_enum_case_to_string(FCK_PKEY_F7);
+		fck_enum_case_to_string(FCK_PKEY_F8);
+		fck_enum_case_to_string(FCK_PKEY_F9);
+		fck_enum_case_to_string(FCK_PKEY_F10);
+		fck_enum_case_to_string(FCK_PKEY_F11);
+		fck_enum_case_to_string(FCK_PKEY_F12);
+		fck_enum_case_to_string(FCK_PKEY_PRINTSCREEN);
+		fck_enum_case_to_string(FCK_PKEY_SCROLLLOCK);
+		fck_enum_case_to_string(FCK_PKEY_PAUSE);
+		fck_enum_case_to_string(FCK_PKEY_INSERT);
+		fck_enum_case_to_string(FCK_PKEY_HOME);
+		fck_enum_case_to_string(FCK_PKEY_PAGEUP);
+		fck_enum_case_to_string(FCK_PKEY_DELETE);
+		fck_enum_case_to_string(FCK_PKEY_END);
+		fck_enum_case_to_string(FCK_PKEY_PAGEDOWN);
+		fck_enum_case_to_string(FCK_PKEY_RIGHT);
+		fck_enum_case_to_string(FCK_PKEY_LEFT);
+		fck_enum_case_to_string(FCK_PKEY_DOWN);
+		fck_enum_case_to_string(FCK_PKEY_UP);
+		fck_enum_case_to_string(FCK_PKEY_NUMLOCKCLEAR);
+		fck_enum_case_to_string(FCK_PKEY_KP_DIVIDE);
+		fck_enum_case_to_string(FCK_PKEY_KP_MULTIPLY);
+		fck_enum_case_to_string(FCK_PKEY_KP_MINUS);
+		fck_enum_case_to_string(FCK_PKEY_KP_PLUS);
+		fck_enum_case_to_string(FCK_PKEY_KP_ENTER);
+		fck_enum_case_to_string(FCK_PKEY_KP_1);
+		fck_enum_case_to_string(FCK_PKEY_KP_2);
+		fck_enum_case_to_string(FCK_PKEY_KP_3);
+		fck_enum_case_to_string(FCK_PKEY_KP_4);
+		fck_enum_case_to_string(FCK_PKEY_KP_5);
+		fck_enum_case_to_string(FCK_PKEY_KP_6);
+		fck_enum_case_to_string(FCK_PKEY_KP_7);
+		fck_enum_case_to_string(FCK_PKEY_KP_8);
+		fck_enum_case_to_string(FCK_PKEY_KP_9);
+		fck_enum_case_to_string(FCK_PKEY_KP_0);
+		fck_enum_case_to_string(FCK_PKEY_KP_PERIOD);
+		fck_enum_case_to_string(FCK_PKEY_NONUSBACKSLASH);
+		fck_enum_case_to_string(FCK_PKEY_APPLICATION);
+		fck_enum_case_to_string(FCK_PKEY_POWER);
+		fck_enum_case_to_string(FCK_PKEY_KP_EQUALS);
+		fck_enum_case_to_string(FCK_PKEY_F13);
+		fck_enum_case_to_string(FCK_PKEY_F14);
+		fck_enum_case_to_string(FCK_PKEY_F15);
+		fck_enum_case_to_string(FCK_PKEY_F16);
+		fck_enum_case_to_string(FCK_PKEY_F17);
+		fck_enum_case_to_string(FCK_PKEY_F18);
+		fck_enum_case_to_string(FCK_PKEY_F19);
+		fck_enum_case_to_string(FCK_PKEY_F20);
+		fck_enum_case_to_string(FCK_PKEY_F21);
+		fck_enum_case_to_string(FCK_PKEY_F22);
+		fck_enum_case_to_string(FCK_PKEY_F23);
+		fck_enum_case_to_string(FCK_PKEY_F24);
+		fck_enum_case_to_string(FCK_PKEY_EXECUTE);
+		fck_enum_case_to_string(FCK_PKEY_HELP);
+		fck_enum_case_to_string(FCK_PKEY_MENU);
+		fck_enum_case_to_string(FCK_PKEY_SELECT);
+		fck_enum_case_to_string(FCK_PKEY_STOP);
+		fck_enum_case_to_string(FCK_PKEY_AGAIN);
+		fck_enum_case_to_string(FCK_PKEY_UNDO);
+		fck_enum_case_to_string(FCK_PKEY_CUT);
+		fck_enum_case_to_string(FCK_PKEY_COPY);
+		fck_enum_case_to_string(FCK_PKEY_PASTE);
+		fck_enum_case_to_string(FCK_PKEY_FIND);
+		fck_enum_case_to_string(FCK_PKEY_MUTE);
+		fck_enum_case_to_string(FCK_PKEY_VOLUMEUP);
+		fck_enum_case_to_string(FCK_PKEY_VOLUMEDOWN);
+		fck_enum_case_to_string(FCK_PKEY_KP_COMMA);
+		fck_enum_case_to_string(FCK_PKEY_KP_EQUALSAS400);
+		fck_enum_case_to_string(FCK_PKEY_INTERNATIONAL1);
+		fck_enum_case_to_string(FCK_PKEY_INTERNATIONAL2);
+		fck_enum_case_to_string(FCK_PKEY_INTERNATIONAL3);
+		fck_enum_case_to_string(FCK_PKEY_INTERNATIONAL4);
+		fck_enum_case_to_string(FCK_PKEY_INTERNATIONAL5);
+		fck_enum_case_to_string(FCK_PKEY_INTERNATIONAL6);
+		fck_enum_case_to_string(FCK_PKEY_INTERNATIONAL7);
+		fck_enum_case_to_string(FCK_PKEY_INTERNATIONAL8);
+		fck_enum_case_to_string(FCK_PKEY_INTERNATIONAL9);
+		fck_enum_case_to_string(FCK_PKEY_LANG1);
+		fck_enum_case_to_string(FCK_PKEY_LANG2);
+		fck_enum_case_to_string(FCK_PKEY_LANG3);
+		fck_enum_case_to_string(FCK_PKEY_LANG4);
+		fck_enum_case_to_string(FCK_PKEY_LANG5);
+		fck_enum_case_to_string(FCK_PKEY_LANG6);
+		fck_enum_case_to_string(FCK_PKEY_LANG7);
+		fck_enum_case_to_string(FCK_PKEY_LANG8);
+		fck_enum_case_to_string(FCK_PKEY_LANG9);
+		fck_enum_case_to_string(FCK_PKEY_ALTERASE);
+		fck_enum_case_to_string(FCK_PKEY_SYSREQ);
+		fck_enum_case_to_string(FCK_PKEY_CANCEL);
+		fck_enum_case_to_string(FCK_PKEY_CLEAR);
+		fck_enum_case_to_string(FCK_PKEY_PRIOR);
+		fck_enum_case_to_string(FCK_PKEY_RETURN2);
+		fck_enum_case_to_string(FCK_PKEY_SEPARATOR);
+		fck_enum_case_to_string(FCK_PKEY_OUT);
+		fck_enum_case_to_string(FCK_PKEY_OPER);
+		fck_enum_case_to_string(FCK_PKEY_CLEARAGAIN);
+		fck_enum_case_to_string(FCK_PKEY_CRSEL);
+		fck_enum_case_to_string(FCK_PKEY_EXSEL);
+		fck_enum_case_to_string(FCK_PKEY_KP_00);
+		fck_enum_case_to_string(FCK_PKEY_KP_000);
+		fck_enum_case_to_string(FCK_PKEY_THOUSANDSSEPARATOR);
+		fck_enum_case_to_string(FCK_PKEY_DECIMALSEPARATOR);
+		fck_enum_case_to_string(FCK_PKEY_CURRENCYUNIT);
+		fck_enum_case_to_string(FCK_PKEY_CURRENCYSUBUNIT);
+		fck_enum_case_to_string(FCK_PKEY_KP_LEFTPAREN);
+		fck_enum_case_to_string(FCK_PKEY_KP_RIGHTPAREN);
+		fck_enum_case_to_string(FCK_PKEY_KP_LEFTBRACE);
+		fck_enum_case_to_string(FCK_PKEY_KP_RIGHTBRACE);
+		fck_enum_case_to_string(FCK_PKEY_KP_TAB);
+		fck_enum_case_to_string(FCK_PKEY_KP_BACKSPACE);
+		fck_enum_case_to_string(FCK_PKEY_KP_A);
+		fck_enum_case_to_string(FCK_PKEY_KP_B);
+		fck_enum_case_to_string(FCK_PKEY_KP_C);
+		fck_enum_case_to_string(FCK_PKEY_KP_D);
+		fck_enum_case_to_string(FCK_PKEY_KP_E);
+		fck_enum_case_to_string(FCK_PKEY_KP_F);
+		fck_enum_case_to_string(FCK_PKEY_KP_XOR);
+		fck_enum_case_to_string(FCK_PKEY_KP_POWER);
+		fck_enum_case_to_string(FCK_PKEY_KP_PERCENT);
+		fck_enum_case_to_string(FCK_PKEY_KP_LESS);
+		fck_enum_case_to_string(FCK_PKEY_KP_GREATER);
+		fck_enum_case_to_string(FCK_PKEY_KP_AMPERSAND);
+		fck_enum_case_to_string(FCK_PKEY_KP_DBLAMPERSAND);
+		fck_enum_case_to_string(FCK_PKEY_KP_VERTICALBAR);
+		fck_enum_case_to_string(FCK_PKEY_KP_DBLVERTICALBAR);
+		fck_enum_case_to_string(FCK_PKEY_KP_COLON);
+		fck_enum_case_to_string(FCK_PKEY_KP_HASH);
+		fck_enum_case_to_string(FCK_PKEY_KP_SPACE);
+		fck_enum_case_to_string(FCK_PKEY_KP_AT);
+		fck_enum_case_to_string(FCK_PKEY_KP_EXCLAM);
+		fck_enum_case_to_string(FCK_PKEY_KP_MEMSTORE);
+		fck_enum_case_to_string(FCK_PKEY_KP_MEMRECALL);
+		fck_enum_case_to_string(FCK_PKEY_KP_MEMCLEAR);
+		fck_enum_case_to_string(FCK_PKEY_KP_MEMADD);
+		fck_enum_case_to_string(FCK_PKEY_KP_MEMSUBTRACT);
+		fck_enum_case_to_string(FCK_PKEY_KP_MEMMULTIPLY);
+		fck_enum_case_to_string(FCK_PKEY_KP_MEMDIVIDE);
+		fck_enum_case_to_string(FCK_PKEY_KP_PLUSMINUS);
+		fck_enum_case_to_string(FCK_PKEY_KP_CLEAR);
+		fck_enum_case_to_string(FCK_PKEY_KP_CLEARENTRY);
+		fck_enum_case_to_string(FCK_PKEY_KP_BINARY);
+		fck_enum_case_to_string(FCK_PKEY_KP_OCTAL);
+		fck_enum_case_to_string(FCK_PKEY_KP_DECIMAL);
+		fck_enum_case_to_string(FCK_PKEY_KP_HEXADECIMAL);
+		fck_enum_case_to_string(FCK_PKEY_LCTRL);
+		fck_enum_case_to_string(FCK_PKEY_LSHIFT);
+		fck_enum_case_to_string(FCK_PKEY_LALT);
+		fck_enum_case_to_string(FCK_PKEY_LGUI);
+		fck_enum_case_to_string(FCK_PKEY_RCTRL);
+		fck_enum_case_to_string(FCK_PKEY_RSHIFT);
+		fck_enum_case_to_string(FCK_PKEY_RALT);
+		fck_enum_case_to_string(FCK_PKEY_RGUI);
+		fck_enum_case_to_string(FCK_PKEY_MODE);
+		fck_enum_case_to_string(FCK_PKEY_SLEEP);
+		fck_enum_case_to_string(FCK_PKEY_WAKE);
+		fck_enum_case_to_string(FCK_PKEY_CHANNEL_INCREMENT);
+		fck_enum_case_to_string(FCK_PKEY_CHANNEL_DECREMENT);
+		fck_enum_case_to_string(FCK_PKEY_MEDIA_PLAY);
+		fck_enum_case_to_string(FCK_PKEY_MEDIA_PAUSE);
+		fck_enum_case_to_string(FCK_PKEY_MEDIA_RECORD);
+		fck_enum_case_to_string(FCK_PKEY_MEDIA_FAST_FORWARD);
+		fck_enum_case_to_string(FCK_PKEY_MEDIA_REWIND);
+		fck_enum_case_to_string(FCK_PKEY_MEDIA_NEXT_TRACK);
+		fck_enum_case_to_string(FCK_PKEY_MEDIA_PREVIOUS_TRACK);
+		fck_enum_case_to_string(FCK_PKEY_MEDIA_STOP);
+		fck_enum_case_to_string(FCK_PKEY_MEDIA_EJECT);
+		fck_enum_case_to_string(FCK_PKEY_MEDIA_PLAY_PAUSE);
+		fck_enum_case_to_string(FCK_PKEY_MEDIA_SELECT);
+		fck_enum_case_to_string(FCK_PKEY_AC_NEW);
+		fck_enum_case_to_string(FCK_PKEY_AC_OPEN);
+		fck_enum_case_to_string(FCK_PKEY_AC_CLOSE);
+		fck_enum_case_to_string(FCK_PKEY_AC_EXIT);
+		fck_enum_case_to_string(FCK_PKEY_AC_SAVE);
+		fck_enum_case_to_string(FCK_PKEY_AC_PRINT);
+		fck_enum_case_to_string(FCK_PKEY_AC_PROPERTIES);
+		fck_enum_case_to_string(FCK_PKEY_AC_SEARCH);
+		fck_enum_case_to_string(FCK_PKEY_AC_HOME);
+		fck_enum_case_to_string(FCK_PKEY_AC_BACK);
+		fck_enum_case_to_string(FCK_PKEY_AC_FORWARD);
+		fck_enum_case_to_string(FCK_PKEY_AC_STOP);
+		fck_enum_case_to_string(FCK_PKEY_AC_REFRESH);
+		fck_enum_case_to_string(FCK_PKEY_AC_BOOKMARKS);
+		fck_enum_case_to_string(FCK_PKEY_SOFTLEFT);
+		fck_enum_case_to_string(FCK_PKEY_SOFTRIGHT);
+		fck_enum_case_to_string(FCK_PKEY_CALL);
+		fck_enum_case_to_string(FCK_PKEY_ENDCALL);
+		fck_enum_case_to_string(FCK_PKEY_RESERVED);
+		fck_enum_case_to_string(FCK_PKEY_COUNT);
+	default:
+		return "UNKNOWN";
+	}
+}
+
+// typedef fckc_u32 fck_vkey;
 
 #define FCK_VKEY_EXTENDED_MASK (1u << 29)
 #define FCK_VKEY_SCANCODE_MASK (1u << 30)
@@ -625,35 +947,32 @@ typedef fckc_u32 fck_vkey;
  *
  * \since This datatype is available since SDL 3.2.0.
  */
-typedef fckc_u32 fck_vkey_mod;
+typedef fckc_u32 fck_key_mod;
 
-#define FCK_VKEY_MOD_NONE 0x0000u                                   /**< no modifier is applicable. */
-#define FCK_VKEY_MOD_LSHIFT 0x0001u                                 /**< the left Shift key is down. */
-#define FCK_VKEY_MOD_RSHIFT 0x0002u                                 /**< the right Shift key is down. */
-#define FCK_VKEY_MOD_LEVEL5 0x0004u                                 /**< the Level 5 Shift key is down. */
-#define FCK_VKEY_MOD_LCTRL 0x0040u                                  /**< the left Ctrl (Control) key is down. */
-#define FCK_VKEY_MOD_RCTRL 0x0080u                                  /**< the right Ctrl (Control) key is down. */
-#define FCK_VKEY_MOD_LALT 0x0100u                                   /**< the left Alt key is down. */
-#define FCK_VKEY_MOD_RALT 0x0200u                                   /**< the right Alt key is down. */
-#define FCK_VKEY_MOD_LGUI 0x0400u                                   /**< the left GUI key (often the Windows key) is down. */
-#define FCK_VKEY_MOD_RGUI 0x0800u                                   /**< the right GUI key (often the Windows key) is down. */
-#define FCK_VKEY_MOD_NUM 0x1000u                                    /**< the Num Lock key (may be located on an extended keypad) is down. */
-#define FCK_VKEY_MOD_CAPS 0x2000u                                   /**< the Caps Lock key is down. */
-#define FCK_VKEY_MOD_MODE 0x4000u                                   /**< the !AltGr key is down. */
-#define FCK_VKEY_MOD_SCROLL 0x8000u                                 /**< the Scroll Lock key is down. */
-#define FCK_VKEY_MOD_CTRL (FCK_VKEY_MOD_LCTRL | FCK_VKEY_MOD_RCTRL) /**< Any Ctrl key is down. */
-#define FCK_VKEY_MOD_SHIFT (FCK_VKEY_MOD_LSHIFT | FCK_VKEY_MOD_RSHIFT) /**< Any Shift key is down. */
-#define FCK_VKEY_MOD_ALT (FCK_VKEY_MOD_LALT | FCK_VKEY_MOD_RALT)       /**< Any Alt key is down. */
-#define FCK_VKEY_MOD_GUI (FCK_VKEY_MOD_LGUI | FCK_VKEY_MOD_RGUI)       /**< Any GUI key is down. */
+#define FCK_KEY_MOD_NONE 0x0000u                                    /**< no modifier is applicable. */
+#define FCK_KEY_MOD_LSHIFT 0x0001u                                  /**< the left Shift key is down. */
+#define FCK_KEY_MOD_RSHIFT 0x0002u                                  /**< the right Shift key is down. */
+#define FCK_KEY_MOD_LEVEL5 0x0004u                                  /**< the Level 5 Shift key is down. */
+#define FCK_KEY_MOD_LCTRL 0x0040u                                   /**< the left Ctrl (Control) key is down. */
+#define FCK_KEY_MOD_RCTRL 0x0080u                                   /**< the right Ctrl (Control) key is down. */
+#define FCK_KEY_MOD_LALT 0x0100u                                    /**< the left Alt key is down. */
+#define FCK_KEY_MOD_RALT 0x0200u                                    /**< the right Alt key is down. */
+#define FCK_KEY_MOD_LGUI 0x0400u                                    /**< the left GUI key (often the Windows key) is down. */
+#define FCK_KEY_MOD_RGUI 0x0800u                                    /**< the right GUI key (often the Windows key) is down. */
+#define FCK_KEY_MOD_NUM 0x1000u                                     /**< the Num Lock key (may be located on an extended keypad) is down. */
+#define FCK_KEY_MOD_CAPS 0x2000u                                    /**< the Caps Lock key is down. */
+#define FCK_KEY_MOD_MODE 0x4000u                                    /**< the !AltGr key is down. */
+#define FCK_KEY_MOD_SCROLL 0x8000u                                  /**< the Scroll Lock key is down. */
+#define FCK_KEY_MOD_CTRL (FCK_KEY_MOD_LCTRL | FCK_KEY_MOD_RCTRL)    /**< Any Ctrl key is down. */
+#define FCK_KEY_MOD_SHIFT (FCK_KEY_MOD_LSHIFT | FCK_KEY_MOD_RSHIFT) /**< Any Shift key is down. */
+#define FCK_KEY_MOD_ALT (FCK_KEY_MOD_LALT | FCK_KEY_MOD_RALT)       /**< Any Alt key is down. */
+#define FCK_KEY_MOD_GUI (FCK_KEY_MOD_LGUI | FCK_KEY_MOD_RGUI)       /**< Any GUI key is down. */
 
-typedef union fck_event_input_common {
-	struct
-	{
-		fck_event_input_type type;
-		fckc_u32 size;
-		fckc_u64 timestamp;
-	};
-	fckc_u64 pad;
+typedef struct fck_event_input_common
+{
+	fck_event_type type;
+	fckc_u32 size;
+	fckc_u64 timestamp;
 } fck_event_input_common;
 
 typedef struct fck_event_input_device
@@ -662,7 +981,7 @@ typedef struct fck_event_input_device
 	fck_input_device_type device_type;
 } fck_event_input_device;
 
-typedef struct fck_event_input_device_mouse
+typedef struct fck_event_mouse
 {
 	fck_event_input_common common;
 	fck_input_device_type device_type;
@@ -675,49 +994,51 @@ typedef struct fck_event_input_device_mouse
 	fckc_f32 y;
 	fckc_f32 dx;
 	fckc_f32 dy;
-} fck_event_input_device_mouse;
+} fck_event_mouse;
 
-typedef struct fck_event_input_device_keyboard
+typedef union fck_event_unicode {
+	char u[4];
+	struct
+	{
+		char u0;
+		char u1;
+		char u2;
+		char u3;
+	} s;
+} fck_event_unicode;
+
+typedef struct fck_event_key
 {
 	fck_event_input_common common;
 	fck_input_device_type device_type;
 
 	fck_keyboard_event_type type;
-	fck_vkey_mod mod;
+	fck_key_mod mod;
 
 	fck_pkey pkey;
-	fck_vkey vkey;
-	fckc_u32 pad;
-} fck_event_input_device_keyboard;
+	fck_event_unicode unicode;
+	// fck_vkey vkey; // TODO: I do not know if I even need this one lol
 
-typedef struct fck_event_input_text
+} fck_event_key;
+
+typedef struct fck_event_text_input
 {
 	fck_event_input_common common;
 	const char *text;
-} fck_event_input_text;
+} fck_event_text_input;
 
-typedef struct fck_event
-{
+typedef union fck_event {
+	// Type for convenience
+	fck_event_type type;
+
+	// Common information - All events
 	fck_event_input_common common;
-	fckc_u8 opaque[48];
+
+	// Input device events - Not connectivity!
+	fck_event_input_device device;
+	fck_event_key key;
+	fck_event_mouse mouse;
+	fck_event_text_input text;
 } fck_event;
-
-#define fck_events_as_concat(lhs, rhs) lhs##rhs
-#define fck_events_as_unique(lhs, rhs) fck_events_as_concat(lhs, rhs)
-
-// This one breaks on MSVC... sad
-// #define fck_as(dst_type, ptr) \
-// 	({                                                                                                                                     \
-// 		(void)(ptr)->common;                                                                                                               \
-// 		dst_type fck_events_as_unique(tmp, __LINE__);                                                                                      \
-// 		memcpy(&fck_events_as_unique(tmp, __LINE__), (ptr), sizeof(fck_events_as_unique(tmp, __LINE__)));                                  \
-// 		fck_events_as_unique(tmp, __LINE__);                                                                                               \
-// 	})
-
-// Guess this one has to do
-#define fck_event_as(target_type, var, src)                                                                                                \
-	target_type var;                                                                                                                       \
-	(var) = ((void)(src)->common.type, *(target_type *)memcpy(&(var), (src), sizeof(var)))
-#define fck_event_make_generic(var, src) (var) = *(fck_event *)memcpy(&(var), &(src), sizeof(src))
 
 #endif // !FCK_EVENTS_H_INCLUDED

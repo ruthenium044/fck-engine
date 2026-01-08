@@ -28,8 +28,8 @@ target_include_directories(${PROJECT_NAME}
         "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
 )
 
-find_package(fckc CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-find_package(std CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-find_package(events CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-find_package(app-loadable CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
+find_package(fckc)
+find_package(std)
+find_package(events)
+find_package(app-loadable)
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::fckc fck::app-loadable SDL3::SDL3 fck::std fck::events)

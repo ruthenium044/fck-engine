@@ -14,7 +14,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(SDL)
 
-
 file(GLOB_RECURSE FOUND_INPUT_SOURCE_SDL_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/include/**.h")
 file(GLOB_RECURSE FOUND_INPUT_SOURCE_SDL_C_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/**.c")
 
@@ -32,7 +31,7 @@ target_include_directories(${PROJECT_NAME}
         "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
 )
 
-find_package(fckc CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
+find_package(fckc)
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::fckc SDL3::SDL3)
 set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "fck-lib")
 

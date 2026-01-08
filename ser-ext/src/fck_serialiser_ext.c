@@ -90,12 +90,11 @@ void fck_memory_serialiser_free(fck_memory_serialiser *serialiser)
 	serialiser->at = serialiser->capacity = 0;
 };
 
+extern struct fck_serialiser_vt *fck_byte_writer_vt;
+extern struct fck_serialiser_vt *fck_byte_reader_vt;
 
-extern struct fck_serialiser_vt* fck_byte_writer_vt;
-extern struct fck_serialiser_vt* fck_byte_reader_vt;
-
-extern struct fck_serialiser_vt* fck_string_writer_vt;
-extern struct fck_serialiser_vt* fck_string_reader_vt;
+extern struct fck_serialiser_vt *fck_string_writer_vt;
+extern struct fck_serialiser_vt *fck_string_reader_vt;
 
 static fck_serialiser_ext_api fck_ser_mem_api = {
 	.alloc = fck_memory_serialiser_alloc,

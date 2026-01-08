@@ -14,6 +14,8 @@
 typedef float fckc_f32;
 typedef double fckc_f64;
 
+typedef char fckc_char;
+
 typedef int8_t fckc_i8;
 typedef uint8_t fckc_u8;
 
@@ -111,5 +113,13 @@ FCK_NAMED_VECTOR_TYPE(u64, fckc_u64);
 			  } *)0)                                                                                                                       \
 	              ->t))
 #endif
+
+#define fckc_align(offset, align) (((offset) + (align) - 1) & ~((align) - 1))
+
+#define fck_kilobytes(x) ((fckc_size_t)(x) * 1024UL)
+#define fck_megabytes(x) ((fckc_size_t)(x) * 1024UL * 1024UL)
+#define fck_gigabytes(x) ((fckc_size_t)(x) * 1024UL * 1024UL * 1024UL)
+
+#define sht_test(mask, flag) (((mask) & (flag)) == (flag))
 
 #endif // !FCKC_INTTYPES_H_INCLUDED

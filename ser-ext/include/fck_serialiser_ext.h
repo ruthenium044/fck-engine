@@ -7,13 +7,13 @@ struct fck_serialiser_vt;
 
 typedef struct fck_memory_serialiser
 {
-	struct fck_serialiser_vt* vt;
-	struct kll_allocator* allocator;
+	struct fck_serialiser_vt *vt;
+	struct kll_allocator *allocator;
 
 	fckc_size_t capacity;
 	fckc_size_t at;
 
-	fckc_u8* bytes;
+	fckc_u8 *bytes;
 } fck_memory_serialiser;
 
 typedef struct fck_serialiser_byte_vts
@@ -38,13 +38,11 @@ typedef struct fck_serialiser_ext_api
 {
 	fck_serialiser_ext_vts vts;
 
-	fck_memory_serialiser(*create)(struct fck_serialiser_vt* vt, fckc_u8* bytes, fckc_size_t capacity);
-	fck_memory_serialiser(*alloc)(struct kll_allocator* allocator, struct fck_serialiser_vt* vt, fckc_size_t capacity);
-	void (*realloc)(fck_memory_serialiser* serialiser, fckc_size_t capacity);
-	void (*maybe_realloc)(fck_memory_serialiser* serialiser, fckc_size_t extra);
-	void (*free)(fck_memory_serialiser* serialiser);
-}fck_serialiser_ext_api;
-
-
+	fck_memory_serialiser (*create)(struct fck_serialiser_vt *vt, fckc_u8 *bytes, fckc_size_t capacity);
+	fck_memory_serialiser (*alloc)(struct kll_allocator *allocator, struct fck_serialiser_vt *vt, fckc_size_t capacity);
+	void (*realloc)(fck_memory_serialiser *serialiser, fckc_size_t capacity);
+	void (*maybe_realloc)(fck_memory_serialiser *serialiser, fckc_size_t extra);
+	void (*free)(fck_memory_serialiser *serialiser);
+} fck_serialiser_ext_api;
 
 #endif // !FCK_SERIALISER_EXT_H_INCLUDED

@@ -77,10 +77,10 @@ typedef struct fck_ui
 
 static int nk_sdl_input_event_is_valid(fck_event const *event)
 {
-	switch (event->common.type)
+	switch (event->type)
 	{
-	case FCK_EVENT_INPUT_TYPE_DEVICE:
-	case FCK_EVENT_INPUT_TYPE_TEXT:
+	case FCK_EVENT_TYPE_DEVICE:
+	case FCK_EVENT_TYPE_TEXT:
 		return 1;
 	default:
 		return 0;
@@ -196,44 +196,43 @@ static void fck_ui_handle_event_device(struct fck_ui *ui, fck_event const *evt)
 {
 	// This might fuck with C89, but let's stick with C99 for declarations initialisation
 	// until I am actually forced to move to C89 for that - which will realistically never happen
-	fck_event_as(fck_event_input_device_keyboard, keyboard, evt);
-	fck_event_as(fck_event_input_device_mouse, mouse, evt);
-	fck_event_as(fck_event_input_device, device, evt);
+	// fck_event_as(fck_event_keyboard, keyboard, evt);
+	// fck_event_as(fck_event_mouse, mouse, evt);
+	// fck_event_as(fck_event_input_device, device, evt);
+	int down;
 
 	struct nk_context *ctx = &ui->sdl.ctx;
 
-	switch (device.device_type)
+	switch (evt->device.device_type)
 	{
 	case FCK_INPUT_DEVICE_TYPE_MOUSE:
-		fck_assert(sizeof(mouse) == evt->common.size);
-		memcpy(&mouse, evt, evt->common.size);
-		switch (mouse.type)
+		switch (evt->mouse.type)
 		{
 		case FCK_MOUSE_EVENT_TYPE_BUTTON_LEFT:
-			if (mouse.clicks > 1)
+			if (evt->mouse.clicks > 1)
 			{
-				nk_input_button(ctx, NK_BUTTON_DOUBLE, mouse.x, mouse.y, mouse.is_down);
+				nk_input_button(ctx, NK_BUTTON_DOUBLE, evt->mouse.x, evt->mouse.y, evt->mouse.is_down);
 			}
-			nk_input_button(ctx, NK_BUTTON_LEFT, mouse.x, mouse.y, mouse.is_down);
+			nk_input_button(ctx, NK_BUTTON_LEFT, evt->mouse.x, evt->mouse.y, evt->mouse.is_down);
 			break;
 		case FCK_MOUSE_EVENT_TYPE_BUTTON_RIGHT:
-			nk_input_button(ctx, NK_BUTTON_RIGHT, mouse.x, mouse.y, mouse.is_down);
+			nk_input_button(ctx, NK_BUTTON_RIGHT, evt->mouse.x, evt->mouse.y, evt->mouse.is_down);
 			break;
 		case FCK_MOUSE_EVENT_TYPE_BUTTON_MIDDLE:
-			nk_input_button(ctx, NK_BUTTON_MIDDLE, mouse.x, mouse.y, mouse.is_down);
+			nk_input_button(ctx, NK_BUTTON_MIDDLE, evt->mouse.x, evt->mouse.y, evt->mouse.is_down);
 			break;
 		case FCK_MOUSE_EVENT_TYPE_WHEEL:
-			nk_input_scroll(ctx, nk_vec2((float)mouse.x, (float)mouse.y));
+			nk_input_scroll(ctx, nk_vec2((float)evt->mouse.x, (float)evt->mouse.y));
 			break;
 		case FCK_MOUSE_EVENT_TYPE_POSITION:
 			if (ctx->input.mouse.grabbed)
 			{
 				int x = (int)ctx->input.mouse.prev.x, y = (int)ctx->input.mouse.prev.y;
-				nk_input_motion(ctx, x + mouse.dx, y + mouse.dy);
+				nk_input_motion(ctx, x + evt->mouse.dx, y + evt->mouse.dy);
 			}
 			else
 			{
-				nk_input_motion(ctx, mouse.x, mouse.y);
+				nk_input_motion(ctx, evt->mouse.x, evt->mouse.y);
 			}
 			break;
 		case FCK_MOUSE_EVENT_TYPE_BUTTON_NONE:
@@ -243,81 +242,79 @@ static void fck_ui_handle_event_device(struct fck_ui *ui, fck_event const *evt)
 		}
 		break;
 	case FCK_INPUT_DEVICE_TYPE_KEYBOARD:
-		fck_assert(sizeof(keyboard) == evt->common.size);
-		memcpy(&keyboard, evt, evt->common.size);
-		int down = keyboard.type == FCK_KEYBOARD_EVENT_TYPE_DOWN;
-		switch (keyboard.vkey)
+		down = evt->key.type == FCK_KEYBOARD_EVENT_TYPE_DOWN;
+		switch (evt->key.pkey)
 		{
 		default:
 			break;
-		case FCK_VKEY_RSHIFT: /* RSHIFT & LSHIFT share same routine */
-		case FCK_VKEY_LSHIFT:
+		case FCK_PKEY_RSHIFT: /* RSHIFT & LSHIFT share same routine */
+		case FCK_PKEY_LSHIFT:
 			nk_input_key(ctx, NK_KEY_SHIFT, down);
 			break;
-		case FCK_VKEY_DELETE:
+		case FCK_PKEY_DELETE:
 			nk_input_key(ctx, NK_KEY_DEL, down);
 			break;
-		case FCK_VKEY_RETURN:
+		case FCK_PKEY_RETURN:
 			nk_input_key(ctx, NK_KEY_ENTER, down);
 			break;
-		case FCK_VKEY_TAB:
+		case FCK_PKEY_TAB:
 			nk_input_key(ctx, NK_KEY_TAB, down);
 			break;
-		case FCK_VKEY_BACKSPACE:
+		case FCK_PKEY_BACKSPACE:
 			nk_input_key(ctx, NK_KEY_BACKSPACE, down);
 			break;
-		case FCK_VKEY_HOME:
+		case FCK_PKEY_HOME:
 			nk_input_key(ctx, NK_KEY_TEXT_START, down);
 			nk_input_key(ctx, NK_KEY_SCROLL_START, down);
 			break;
-		case FCK_VKEY_END:
+		case FCK_PKEY_END:
 			nk_input_key(ctx, NK_KEY_TEXT_END, down);
 			nk_input_key(ctx, NK_KEY_SCROLL_END, down);
 			break;
-		case FCK_VKEY_PAGEDOWN:
+		case FCK_PKEY_PAGEDOWN:
 			nk_input_key(ctx, NK_KEY_SCROLL_DOWN, down);
 			break;
-		case FCK_VKEY_PAGEUP:
+		case FCK_PKEY_PAGEUP:
 			nk_input_key(ctx, NK_KEY_SCROLL_UP, down);
 			break;
-		case FCK_VKEY_UP:
+		case FCK_PKEY_UP:
 			nk_input_key(ctx, NK_KEY_UP, down);
 			break;
-		case FCK_VKEY_DOWN:
+		case FCK_PKEY_DOWN:
 			nk_input_key(ctx, NK_KEY_DOWN, down);
 			break;
-		case FCK_VKEY_LEFT:
-			if ((keyboard.mod | FCK_VKEY_MOD_LCTRL) == FCK_VKEY_MOD_LCTRL)
+		case FCK_PKEY_LEFT:
+			if ((evt->key.mod | FCK_KEY_MOD_LCTRL) == FCK_KEY_MOD_LCTRL)
 				nk_input_key(ctx, NK_KEY_TEXT_WORD_LEFT, down);
 			else
 				nk_input_key(ctx, NK_KEY_LEFT, down);
 			break;
-		case FCK_VKEY_RIGHT:
-			if ((keyboard.mod | FCK_VKEY_MOD_LCTRL) == FCK_VKEY_MOD_LCTRL)
+		case FCK_PKEY_RIGHT:
+			if ((evt->key.mod | FCK_KEY_MOD_LCTRL) == FCK_KEY_MOD_LCTRL)
 				nk_input_key(ctx, NK_KEY_TEXT_WORD_RIGHT, down);
 			else
 				nk_input_key(ctx, NK_KEY_RIGHT, down);
 			break;
-		case FCK_VKEY_Z:
-			nk_input_key(ctx, NK_KEY_TEXT_UNDO, down && (keyboard.mod | FCK_VKEY_MOD_LCTRL) == FCK_VKEY_MOD_LCTRL);
+		case FCK_PKEY_Z:
+			nk_input_key(ctx, NK_KEY_TEXT_UNDO, down && (evt->key.mod | FCK_KEY_MOD_LCTRL) == FCK_KEY_MOD_LCTRL);
 			break;
-		case FCK_VKEY_R:
-			nk_input_key(ctx, NK_KEY_TEXT_REDO, down && (keyboard.mod | FCK_VKEY_MOD_LCTRL) == FCK_VKEY_MOD_LCTRL);
+		case FCK_PKEY_R:
+			nk_input_key(ctx, NK_KEY_TEXT_REDO, down && (evt->key.mod | FCK_KEY_MOD_LCTRL) == FCK_KEY_MOD_LCTRL);
 			break;
-		case FCK_VKEY_C:
-			nk_input_key(ctx, NK_KEY_COPY, down && (keyboard.mod | FCK_VKEY_MOD_LCTRL) == FCK_VKEY_MOD_LCTRL);
+		case FCK_PKEY_C:
+			nk_input_key(ctx, NK_KEY_COPY, down && (evt->key.mod | FCK_KEY_MOD_LCTRL) == FCK_KEY_MOD_LCTRL);
 			break;
-		case FCK_VKEY_V:
-			nk_input_key(ctx, NK_KEY_PASTE, down && (keyboard.mod | FCK_VKEY_MOD_LCTRL) == FCK_VKEY_MOD_LCTRL);
+		case FCK_PKEY_V:
+			nk_input_key(ctx, NK_KEY_PASTE, down && (evt->key.mod | FCK_KEY_MOD_LCTRL) == FCK_KEY_MOD_LCTRL);
 			break;
-		case FCK_VKEY_X:
-			nk_input_key(ctx, NK_KEY_CUT, down && (keyboard.mod | FCK_VKEY_MOD_LCTRL) == FCK_VKEY_MOD_LCTRL);
+		case FCK_PKEY_X:
+			nk_input_key(ctx, NK_KEY_CUT, down && (evt->key.mod | FCK_KEY_MOD_LCTRL) == FCK_KEY_MOD_LCTRL);
 			break;
-		case FCK_VKEY_B:
-			nk_input_key(ctx, NK_KEY_TEXT_LINE_START, down && (keyboard.mod | FCK_VKEY_MOD_LCTRL) == FCK_VKEY_MOD_LCTRL);
+		case FCK_PKEY_B:
+			nk_input_key(ctx, NK_KEY_TEXT_LINE_START, down && (evt->key.mod | FCK_KEY_MOD_LCTRL) == FCK_KEY_MOD_LCTRL);
 			break;
-		case FCK_VKEY_E:
-			nk_input_key(ctx, NK_KEY_TEXT_LINE_END, down && (keyboard.mod | FCK_VKEY_MOD_LCTRL) == FCK_VKEY_MOD_LCTRL);
+		case FCK_PKEY_E:
+			nk_input_key(ctx, NK_KEY_TEXT_LINE_END, down && (evt->key.mod | FCK_KEY_MOD_LCTRL) == FCK_KEY_MOD_LCTRL);
 		}
 		break;
 	case FCK_INPUT_DEVICE_TYPE_NONE:
@@ -329,27 +326,24 @@ static void fck_ui_handle_event_device(struct fck_ui *ui, fck_event const *evt)
 static void fck_ui_handle_event(struct fck_ui *ui, fck_event const *evt)
 {
 	struct nk_context *ctx = &ui->sdl.ctx;
-	fck_event_as(fck_event_input_device, device, evt);
-	fck_event_as(fck_event_input_text, text, evt);
+	// fck_event_as(fck_event_input_device, device, evt);
+	// fck_event_as(fck_event_text_input, text, evt);
 
-	switch (evt->common.type)
+	switch (evt->type)
 	{
-	case FCK_EVENT_INPUT_TYPE_DEVICE: {
-		memcpy(&device, evt, sizeof(device));
+	case FCK_EVENT_TYPE_DEVICE: {
 		fck_ui_handle_event_device(ui, evt);
 	}
 	break;
-	case FCK_EVENT_INPUT_TYPE_TEXT: {
-		fck_assert(sizeof(text) == evt->common.size);
-		memcpy(&text, evt, evt->common.size);
+	case FCK_EVENT_TYPE_TEXT: {
 		nk_glyph glyph;
 		size_t size;
-		size = os->str->unsafe->len(text.text);
-		memcpy(glyph, text.text, size);
+		size = os->str->unsafe->len(evt->text.text);
+		memcpy(glyph, evt->text.text, size);
 		nk_input_glyph(ctx, glyph);
 	}
 	break;
-	case FCK_EVENT_INPUT_TYPE_NONE:
+	case FCK_EVENT_TYPE_NONE:
 		// TODO: NONE IS ERROR
 		break;
 	}

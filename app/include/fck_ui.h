@@ -4,7 +4,7 @@
 #define FCK_UI_H_IMPLEMENTED
 
 struct nk_context;
-struct fck_event;
+union fck_event;
 struct fck_renderer;
 
 enum fck_theme
@@ -30,7 +30,7 @@ fck_ui *fck_ui_alloc(struct fck_renderer *renderer);
 void fck_ui_free(fck_ui *ui, struct fck_renderer *renderer);
 
 void fck_ui_render(fck_ui *ui, struct fck_renderer *renderer);
-void fck_ui_enqueue_event(fck_ui *ui, struct fck_event const *event);
+void fck_ui_enqueue_event(fck_ui *ui, union fck_event const *event);
 
 fck_ui_ctx *fck_ui_context(fck_ui *ui);
 

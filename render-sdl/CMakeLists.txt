@@ -32,10 +32,10 @@ target_include_directories(${PROJECT_NAME}
 
 
 
-find_package(fckc CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-find_package(render CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-find_package(std CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-find_package(api CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
+find_package(fckc)
+find_package(render)
+find_package(std)
+find_package(api)
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::fckc fck::render fck::hash fck::set fck::kll fck::std fck::api SDL3::SDL3)
 set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "fck-lib")
 

@@ -150,4 +150,4 @@ void fck_serialise_identifiers(struct fck_serialiser *serialiser, struct fck_mar
 void fck_serialise_types(struct fck_serialiser *serialiser, struct fck_marshal_params *params, fck_types *v, fckc_size_t c);
 void fck_serialise_members(struct fck_serialiser *serialiser, struct fck_marshal_params *params, fck_members *v, fckc_size_t c);
 
-void fck_type_serialise(fck_marshaller* marshaller, fck_marshal_params* params, void* data, fckc_size_t count);
+void fck_type_serialise(fck_marshaller *marshaller, fck_marshal_params *params, void *data, fckc_size_t count);

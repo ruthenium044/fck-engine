@@ -32,7 +32,7 @@ target_include_directories(${PROJECT_NAME}
 
 
 
-find_package(fckc CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
+find_package(fckc)
 target_link_libraries(${PROJECT_NAME} fck::fckc)
 
 add_executable(${PROJECT_NAME}-test test/main.c)

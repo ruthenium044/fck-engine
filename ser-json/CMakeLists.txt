@@ -25,9 +25,9 @@ target_include_directories(${PROJECT_NAME}
 
 
 
-find_package(fckc CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-find_package(ser CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-find_package(kll CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
+find_package(fckc)
+find_package(ser)
+find_package(kll)
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::fckc fck::ser fck::kll)
 set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "fck-lib")
 

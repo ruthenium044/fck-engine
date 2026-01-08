@@ -248,7 +248,7 @@ typedef struct sht_elements
 
 typedef struct sht_memory_arena
 {
-	void *opaque;
+	sht_handle *owner;
 
 	void *cpu[SHT_MEMORY_COUNT];
 	fckc_size_t offset[SHT_MEMORY_COUNT];
@@ -273,6 +273,7 @@ typedef struct sht_memory_image
 
 typedef struct sht_memory
 {
+	// API is not that nice...
 	//  Named convenience pointers
 	sht_memory_arena *bump;
 	sht_memory_arena *temp;
@@ -478,7 +479,8 @@ typedef struct sht_bss_vt
 typedef struct sht_command_buffer_vt
 {
 	sht_command_buffer (*create)(sht_driver driver);
-	void (*destroy)(sht_driver driver, sht_command_buffer command);
+	void (*destroy)(sht_command_buffer *command);
+
 	sht_command_buffer (*acquire)(sht_driver driver, fckc_u32 index);
 	sht_bool32 (*is_ok)(sht_command_buffer command);
 
@@ -522,6 +524,9 @@ typedef struct sht_driver_vt
 	void (*copy_buffers)(sht_driver driver, sht_buffer *dst, sht_buffer *src);
 	void (*upload_buffer)(sht_driver driver, sht_buffer *dst, void *src, fckc_size_t size);
 	void (*upload_image)(sht_driver driver, sht_image *dst, void *src, fckc_size_t size);
+
+	// Band-aid - prefer actual sync you idiot
+	void (*idle)(sht_driver driver);
 } sht_driver_vt;
 
 typedef struct sht_instance
@@ -534,7 +539,7 @@ typedef struct sht_instance_vt
 {
 	sht_driver (*start)(sht_instance instance, struct fck_window *window);
 	sht_bool32 (*is_ok)(sht_driver driver);
-	void (*unload)(sht_instance instance);
+	void (*unload)(sht_instance *instance);
 } sht_instance_vt;
 
 typedef struct sht_loader

@@ -112,8 +112,6 @@ typedef struct sht_vk_common_sync_resources
 	VkSemaphore presentation_completed[SHT_VK_IMAGE_COUNT];
 
 	fckc_u32 frame_index_to_swapchain_image_index[SHT_VK_IMAGE_COUNT];
-
-	VkSurfaceKHR surface;
 	fckc_u32 index;
 } sht_vk_common_sync_resources;
 
@@ -123,6 +121,7 @@ typedef struct sht_vk_swapchain
 {
 	struct sht_vk_driver *driver;
 
+	VkSurfaceKHR surface;
 	sht_vk_common_sync_resources sync;
 	VkSwapchainKHR swapchain;
 
@@ -135,7 +134,7 @@ typedef struct sht_vk_swapchain
 	sht_vk_declare(CreateSwapchainKHR);
 	sht_vk_declare(GetSwapchainImagesKHR);
 	sht_vk_declare(AcquireNextImageKHR);
-
+	sht_vk_declare(DestroySwapchainKHR);
 } sht_vk_swapchain;
 
 typedef struct sht_vk_command
@@ -143,7 +142,7 @@ typedef struct sht_vk_command
 	struct sht_vk_driver *driver;
 
 	VkCommandPool pool;
-	VkCommandBuffer buffer[SHT_VK_IMAGE_COUNT];
+	VkCommandBuffer buffers[SHT_VK_IMAGE_COUNT];
 
 	// Present, transfer, copy??? We will see!
 
@@ -312,6 +311,8 @@ typedef struct sht_vk_driver
 
 	// Render pass here does not make sense...
 	sht_vk_declare(CreateDevice);
+	sht_vk_declare(DestroyDevice);
+	sht_vk_declare(DestroySurfaceKHR);
 
 	sht_vk_declare(GetImageMemoryRequirements);
 	sht_vk_declare(GetBufferMemoryRequirements);
@@ -343,12 +344,16 @@ typedef struct sht_vk_driver
 	sht_vk_declare(DestroyDescriptorSetLayout);
 
 	sht_vk_declare(CreateShaderModule);
+	sht_vk_declare(DestroyShaderModule);
 
 	sht_vk_declare(CreatePipelineLayout);
 	sht_vk_declare(DestroyPipelineLayout);
 
 	sht_vk_declare(CreateGraphicsPipelines);
 	sht_vk_declare(CreatePipelineCache);
+
+	sht_vk_declare(DestroyPipeline);
+	sht_vk_declare(DestroyPipelineCache);
 
 	sht_vk_declare(CreateSemaphore);
 	sht_vk_declare(DestroySemaphore);
@@ -367,8 +372,8 @@ typedef struct sht_vk_driver
 	sht_vk_declare(CreateFramebuffer);
 	sht_vk_declare(DestroyFramebuffer);
 
-	sht_vk_swapchain swapchain;
 	sht_vk_command command;
+	sht_vk_swapchain swapchain;
 	sht_memory memory;
 	sht_resource_storages storages;
 } sht_vk_driver;
@@ -397,12 +402,4 @@ typedef struct sht_vk_instance
 
 VkResult sht_vk_platform_init(sht_vk_instance *vk, sht_vk_platform *platform, sht_vk_gpu *gpu, fck_window window,
                               VkSurfaceKHR *out_surface);
-VkResult sht_vk_memory_init(sht_memory *mem, sht_vk_driver *driver, fckc_size_t size);
-
-VkBool32 sht_vk_query_memory_type_index(const VkPhysicalDeviceMemoryProperties *properties, uint32_t mem_type_bits,
-                                        VkMemoryPropertyFlags flags, uint32_t *type_index);
-
-sht_format sht_vk_format_to_sht_format(VkFormat format);
-VkFormat sht_vk_format_from_sht_format(sht_format format);
-
 #endif // !SHT_VK_INTERNAL_H_INCLUDED

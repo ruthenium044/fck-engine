@@ -5,7 +5,10 @@
 
 struct nk_context;
 union fck_event;
-struct fck_renderer;
+// struct fck_renderer;
+struct sht_driver;
+struct sht_command_buffer;
+struct sht_image_view;
 
 enum fck_theme
 {
@@ -26,10 +29,10 @@ typedef struct nk_context fck_ui_ctx;
 
 typedef struct fck_ui fck_ui;
 
-fck_ui *fck_ui_alloc(struct fck_renderer *renderer);
-void fck_ui_free(fck_ui *ui, struct fck_renderer *renderer);
+fck_ui *fck_ui_alloc(struct sht_driver *driver);
+void fck_ui_free(fck_ui *ui, struct sht_driver *driver);
 
-void fck_ui_render(fck_ui *ui, struct fck_renderer *renderer);
+void fck_ui_render(fck_ui *ui, struct sht_driver *driver, struct sht_command_buffer *command_buffer, struct sht_image_view *target);
 void fck_ui_enqueue_event(fck_ui *ui, union fck_event const *event);
 
 fck_ui_ctx *fck_ui_context(fck_ui *ui);

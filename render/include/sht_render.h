@@ -202,7 +202,7 @@ typedef struct sht_vertex_binding
 typedef struct sht_vertex_desc
 {
 	fckc_size_t stride;
-	sht_vertex_binding *bindings;
+	const sht_vertex_binding *bindings;
 	fckc_size_t count;
 } sht_vertex_desc;
 
@@ -315,6 +315,8 @@ typedef struct sht_swapchain_vt
 	// TODO: More stuff
 	sht_image_view (*wait_and_acquire)(sht_swapchain swapchain, fck_alias(sht_swapchain_state *, fckc_u32 *) index_or_state);
 	sht_extent (*extent)(sht_swapchain swapchain);
+	sht_extent (*display)(sht_swapchain swapchain);
+	float (*scale)(sht_swapchain swapchain);
 	sht_bool32 (*is_ok)(sht_swapchain swapchain, fck_alias(sht_swapchain_state, fckc_u32) index_or_state);
 	// void *(*get_family)(sht_queues queues); // TODO:
 } sht_swapchain_vt;
@@ -419,7 +421,7 @@ typedef struct sht_binding
 typedef struct sht_binding_desc
 {
 	// sht_binding_type bindings[16];
-	sht_binding *bindings;
+	const sht_binding *bindings;
 	fckc_size_t count;
 } sht_binding_desc;
 
@@ -478,7 +480,9 @@ typedef struct sht_upload_desc
 typedef struct sht_bss_vt
 {
 	sht_bss (*create)(sht_driver driver, sht_binding_desc *desc);
-	sht_bool32 (*upload)(sht_bss bss, fckc_u32 index, fckc_u32 id, sht_upload_desc *desc);
+	sht_bool32 (*upload)(sht_bss bss, fckc_u32 id, sht_upload_desc *desc);
+	// TODO: This one updates all. It broadcasts...
+	sht_bool32 (*broadcast)(sht_bss bss, fckc_u32 id, sht_upload_desc *desc);
 	void (*destroy)(sht_bss *bss);
 } sht_bss_vt;
 
@@ -528,8 +532,8 @@ typedef struct sht_driver_vt
 	sht_sampler (*create_sampler)(sht_driver driver);
 	void (*destroy_sampler)(sht_driver driver, sht_sampler *sampler);
 	void (*copy_buffers)(sht_driver driver, sht_buffer *dst, sht_buffer *src);
-	void (*upload_buffer)(sht_driver driver, sht_buffer *dst, void *src, fckc_size_t size);
-	void (*upload_image)(sht_driver driver, sht_image *dst, void *src, fckc_size_t size);
+	void (*upload_buffer)(sht_driver driver, sht_buffer *dst, const void *src, fckc_size_t size);
+	void (*upload_image)(sht_driver driver, sht_image *dst, const void *src, fckc_size_t size);
 
 	// Band-aid - prefer actual sync you idiot
 	void (*idle)(sht_driver driver);

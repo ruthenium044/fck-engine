@@ -38,7 +38,7 @@ typedef struct sht_standard_vertex
 	fckc_f32 uv[2];
 } sht_standard_vertex;
 
-sht_vertex_binding vertex_bindings[] = {
+const sht_vertex_binding vertex_bindings[] = {
 	{.format = SHT_FORMAT_R32G32B32_SFLOAT, .offset = offsetof(sht_standard_vertex, position), .location = 0},
 	{.format = SHT_FORMAT_R32G32B32_SFLOAT, .offset = offsetof(sht_standard_vertex, color), .location = 1},
 	{.format = SHT_FORMAT_R32G32_SFLOAT, .offset = offsetof(sht_standard_vertex, uv), .location = 2}};
@@ -48,18 +48,16 @@ typedef struct fck_test_app_application
 	fck_window window;
 	fck_event_channel event_channel;
 
-	sht_mvp mvp;
-	sht_bss bss;
-
 	sht_sampler sampler;
 	sht_image texture_image;
 	sht_image_view texture_view;
 
+	sht_mvp mvp;
+	sht_bss bss;
 	sht_elements vertices;
 	sht_elements indices;
 
 	sht_graphics_pipeline pipeline;
-
 	sht_image depth_image;
 	sht_image_view depth_view;
 
@@ -180,20 +178,17 @@ fck_test_app_result fck_test_app_app_init(void **app_state, int argc, char **arg
 		fck_hlsl_object vert = compiler.create_hlsl_from_file(&compiler, &vert_desc, &vert_file);
 		fck_hlsl_object frag = compiler.create_hlsl_from_file(&compiler, &frag_desc, &frag_file);
 
-		sht_graphic_desc desc = (sht_graphic_desc){
-			.fragment = &frag.generic,
-			.vertex = &vert.generic,
-			.vertex_desc = &(sht_vertex_desc){.stride = sizeof(sht_standard_vertex),
-		                                      .bindings = vertex_bindings,
-		                                      .count = fck_arraysize(vertex_bindings)},
-			.raster =
-				(sht_raster_desc){
-					.cull_mode = SHT_CULL_MODE_NONE,
-					.topology = SHT_TRIANGLE_LIST,
-					.color = SHT_FORMAT_B8G8R8A8_UNORM,
-					.depth = SHT_FORMAT_D16_UNORM,
-				},
-		};
+		sht_graphic_desc desc = (sht_graphic_desc){.fragment = &frag.generic,
+		                                           .vertex = &vert.generic,
+		                                           .vertex_desc = &(sht_vertex_desc){.stride = sizeof(sht_standard_vertex),
+		                                                                             .bindings = vertex_bindings,
+		                                                                             .count = fck_arraysize(vertex_bindings)},
+		                                           .raster = (sht_raster_desc){
+													   .cull_mode = SHT_CULL_MODE_NONE,
+													   .topology = SHT_TRIANGLE_LIST,
+													   .color = SHT_FORMAT_B8G8R8A8_UNORM,
+													   .depth = SHT_FORMAT_D16_UNORM,
+												   }};
 		app->pipeline = driver.vt->graphics_pipeline->create(driver, app->bss, &desc);
 		compiler.destroy(&compiler, &vert.generic);
 		compiler.destroy(&compiler, &frag.generic);
@@ -244,8 +239,8 @@ int fck_test_app_app_tick(void *app_state)
 		}
 		return FCK_TEST_APP_RESULT_DONE;
 	}
-	driver.vt->bss->upload(app->bss, frame_index, 0, sht_upload_params{.data = &app->mvp, .size = sizeof(app->mvp)});
-	driver.vt->bss->upload(app->bss, frame_index, 1, sht_upload_params{.view = app->texture_view, .sampler = app->sampler});
+	driver.vt->bss->upload(app->bss, 0, sht_upload_params{.data = &app->mvp, .size = sizeof(app->mvp)});
+	driver.vt->bss->upload(app->bss, 1, sht_upload_params{.view = app->texture_view, .sampler = app->sampler});
 
 	sht_viewport viewport;
 	viewport.offset.x = 0.0f;

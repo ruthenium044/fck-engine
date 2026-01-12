@@ -22,12 +22,12 @@
 #include <fck_os.h>
 #include <fck_set.h>
 
-#include <fck_canvas.h>
-#include <fck_img.h>
-#include <fck_render.h>
+// #include <fck_render.h>
+#include <sht_render.h>
 
 #include <fck_app_loadable.h>
 #include <fck_events.h>
+#include <fckc_assert.h>
 
 typedef struct fck_input_event
 {
@@ -74,6 +74,15 @@ static fck_asset_database_api asset_database_api = {
 //
 // };
 
+typedef struct fck_mvp
+{
+	fckc_f32 model[4][4];
+	fckc_f32 view[4][4];
+	fckc_f32 projection[4][4];
+
+	fckc_f32 color[4];
+} fck_mvp;
+
 typedef struct fck_instance
 {
 	// Polymnorphism hehe
@@ -82,21 +91,26 @@ typedef struct fck_instance
 	fck_ui *ui; // User
 	// struct SDL_Window *window;     // This one could stay public - Makes sense for multi-instance stuff
 	// struct SDL_Renderer *renderer; // User
-	fck_window wind;
-	fck_renderer renderer;
+	fck_window window;
+	fck_event_channel event_channel;
+
+	// fck_renderer renderer;
 
 	fck_ui_window_manager *window_manager;
 	struct fck_assembly *assembly;
 
+	sht_instance instance;
+	sht_driver driver;
 	fck_asset_database assets;
 } fck_instance;
 
 fck_api_registry *api;
 fck_type_system *ts;
-fck_canvas_api *canvas;
-fck_render_api *render_api;
+// fck_canvas_api *canvas;
+// fck_render_api *render_api;
+sht_loader *renderer_loader;
 fck_serialiser_ext_api *ser_api;
-fck_img_api *img;
+// fck_img_api *img;
 fck_asset_database_api *asset_db = &asset_database_api;
 
 typedef struct some_type
@@ -277,7 +291,7 @@ int fck_instance_overlay(fck_instance *instance)
 {
 	int width;
 	int height;
-	if (!os->win->size(instance->wind, &width, &height))
+	if (!os->win->size(instance->window, &width, &height))
 	{
 		return 1;
 	}
@@ -288,10 +302,10 @@ int fck_instance_overlay(fck_instance *instance)
 	switch (fck_ui_window_manager_query_text_input_signal(instance->ui, instance->window_manager))
 	{
 	case FCK_UI_WINDOW_MANAGER_TEXT_INPUT_SIGNAL_START:
-		os->win->text_input_start(instance->wind);
+		os->win->text_input_start(instance->window);
 		break;
 	case FCK_UI_WINDOW_MANAGER_TEXT_INPUT_SIGNAL_STOP:
-		os->win->text_input_stop(instance->wind);
+		os->win->text_input_stop(instance->window);
 		break;
 	default:
 		// Shut up compiler
@@ -300,7 +314,7 @@ int fck_instance_overlay(fck_instance *instance)
 	return 0;
 }
 
-static fck_texture texture;
+// static fck_texture texture;
 
 char *fck_instance_parse_runtime_asset_path(int argc, char *argv[])
 {
@@ -351,10 +365,10 @@ fck_instance *fck_instance_alloc(int argc, char *argv[])
 {
 	fck_apis_manifest manifest[] = {
 		{.api = (void **)&ts, .name = "fck-ts", NULL},
-		{.api = (void **)&canvas, .name = "fck-canvas", NULL},
-		{.api = (void **)&render_api, .name = "fck-render-sdl", NULL},
+		//{.api = (void **)&canvas, .name = "fck-canvas", NULL},
+		{.api = (void **)&renderer_loader, .name = "fck-render-vk", NULL},
 		{.api = (void **)&ser_api, .name = "fck-ser-ext"},
-		{.api = (void **)&img, .name = "fck-img-sdl"},
+		//{.api = (void **)&img, .name = "fck-img-sdl"},
 	};
 
 	fck_apis_init init = (fck_apis_init){
@@ -369,19 +383,24 @@ fck_instance *fck_instance_alloc(int argc, char *argv[])
 	char *asset_root = fck_instance_resolve_asset_path(argc, argv);
 	app->assets = asset_db->create(asset_root);
 
-	app->wind = os->win->create("Widnow", 1280, 720);
-	app->renderer = render_api->new(&app->wind);
+	app->window = os->win->create("Widnow", 1280, 720);
+	app->event_channel = os->event_channel->create(kll_heap, 64);
 
-	app->ui = fck_ui_alloc(&app->renderer);
+	app->instance = renderer_loader->load(SHT_HEADER_VERSION);
+	fck_assert(renderer_loader->is_ok(app->instance));
+	app->driver = app->instance.vt->start(app->instance, &app->window);
+	fck_assert(app->instance.vt->is_ok(app->driver));
+
+	app->ui = fck_ui_alloc(&app->driver);
 	app->window_manager = fck_ui_window_manager_alloc(16);
 
-	kll_temp_allocator *temp = kll_temp_new(kll_heap, 256);
-	char *image_path = asset_db->make_path(&app->assets, temp, "snow.png");
-	fck_img image = img->load(kll_heap, image_path);
-	kll_temp_delete(temp);
+	// kll_temp_allocator *temp = kll_temp_new(kll_heap, 256);
+	// char *image_path = asset_db->make_path(&app->assets, temp, "snow.png");
+	// fck_img image = img->load(kll_heap, image_path);
+	// kll_temp_delete(temp);
 
-	texture = app->renderer.vt->texture->from_img(app->renderer.obj, &image, FCK_TEXTURE_ACCESS_STATIC, FCK_TEXTURE_BLEND_MODE_BLEND);
-	img->free(image);
+	// texture = app->renderer.vt->texture->from_img(app->renderer.obj, &image, FCK_TEXTURE_ACCESS_STATIC, FCK_TEXTURE_BLEND_MODE_BLEND);
+	// img->free(image);
 
 	app->assembly = ts->assembly->alloc(kll_heap);
 
@@ -398,9 +417,9 @@ void fck_instance_free(fck_instance *instance)
 {
 	fck_ui_window_manager_free(instance->window_manager);
 
-	fck_ui_free(instance->ui, &instance->renderer);
-	render_api->delete(instance->renderer);
-	os->win->destroy(instance->wind);
+	fck_ui_free(instance->ui, &instance->driver);
+	// render_api->delete(instance->renderer);
+	os->win->destroy(instance->window);
 	kll_free(kll_heap, instance);
 }
 
@@ -412,18 +431,78 @@ int fck_instance_event(fck_instance *instance, fck_event const *event)
 
 int fck_instance_tick(fck_instance *instance)
 {
+	{
+		os->event_channel->pump(instance->event_channel);
+
+		fckc_size_t count;
+		fck_event events[12];
+		while (os->event_channel->poll(instance->event_channel, events, fck_arraysize(events), &count))
+		{
+			for (fckc_size_t index = 0; index < count; index++)
+			{
+				fck_event *event = events + index;
+				if (event->key.pkey == FCK_PKEY_ESCAPE)
+				{
+					return 1;
+				}
+				fck_instance_event(instance, event);
+			}
+		}
+	}
+
 	fck_instance_overlay(instance);
+	sht_driver driver = instance->driver;
+	sht_memory *mem = driver.vt->memory(driver);
+	sht_swapchain swapchain = driver.vt->swapchain(driver);
+	sht_command_buffer_vt *command = driver.vt->command_buffer;
 
-	instance->renderer.vt->clear(instance->renderer.obj);
+	mem->reset(mem->temp);
 
-	fck_rect_dst dst = {400.0f, 400.0f, 667.0f / 2, 883.0f / 2};
-	canvas->sprite(&instance->renderer, &texture, NULL, &dst);
+	fckc_u32 frame_index;
+	sht_image_view color_target = swapchain.vt->wait_and_acquire(swapchain, &frame_index);
+	if (!swapchain.vt->is_ok(swapchain, frame_index))
+	{
+		if (frame_index == SHT_SWAPCHAIN_NEEDS_RESIZE)
+		{
+			// Take a leap!
+			sht_extent extent = swapchain.vt->extent(swapchain);
+			return 0;
+		}
+		return 1;
+	}
+	// driver.vt->bss->upload(instance->bss, 0, sht_upload_params{.data = &instance->mvp, .size = sizeof(instance->mvp)});
+	//  driver.vt->bss->upload(app->bss, frame_index, 1, sht_upload_params{.view = app->texture_view, .sampler = app->sampler});
 
-	fck_ui_render(instance->ui, &instance->renderer);
+	sht_viewport viewport;
+	viewport.offset.x = 0.0f;
+	viewport.depth.min = (float)0.0f;
+	viewport.depth.max = (float)1.0f;
+	viewport.extent = swapchain.vt->extent(swapchain);
+	viewport.offset.y = 0.0f;
+	viewport.extent.height = viewport.extent.height;
+	int width, height;
+	os->win->size(instance->window, &width, &height);
 
-	// canvas->rect(&instance->renderer, &dst);
+	sht_command_buffer command_buffer = command->acquire(driver, frame_index);
+	if (command->is_ok(command_buffer))
+	{
+		command->viewport(command_buffer, &viewport);
+		fck_ui_render(instance->ui, &instance->driver, &command_buffer, &color_target);
 
-	instance->renderer.vt->present(instance->renderer.obj);
+		command->submit(command_buffer, SHT_QUEUE_GRAPHIC);
+	}
+
+	{
+		// instance->renderer.vt->clear(instance->renderer.obj);
+		//  fck_rect_dst dst = {400.0f, 400.0f, 667.0f / 2, 883.0f / 2};
+		//  canvas->sprite(&instance->renderer, &texture, NULL, &dst);
+
+		// fck_ui_render(instance->ui, &instance->renderer);
+
+		// canvas->rect(&instance->renderer, &dst);
+
+		// instance->renderer.vt->present(instance->renderer.obj);
+	}
 	return 0;
 }
 

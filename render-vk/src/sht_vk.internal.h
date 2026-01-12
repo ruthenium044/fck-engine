@@ -18,9 +18,11 @@
 
 #define sht_vk_render_pass_storage_capacity 32
 #define sht_vk_framebuffer_storage_capacity 128
-#define sht_vk_descriptor_set_capacity 128
+#define sht_vk_capacity 128
 #define sht_vk_graphics_pipeline_capacity 64
+#define sht_vk_descriptor_pool_capacity 64
 #define sht_vk_bss_binding_capacity 8
+#define sht_vk_bss_descriptor_set_bind_copies 8
 #define sht_vk_swapchain_image_capacity 8
 
 #define sht_vk_success(vk_result) ((vk_result) == VK_SUCCESS)
@@ -277,24 +279,50 @@ typedef struct sht_bss_buffer_backends
 typedef struct sht_vk_binding_desc
 {
 	sht_binding bindings[sht_vk_bss_binding_capacity];
+	fckc_size_t count;
 } sht_vk_binding_desc;
+
+typedef struct sht_vk_descriptor_set_copies
+{
+	VkDescriptorSet sets[sht_vk_bss_descriptor_set_bind_copies];
+	fckc_size_t at;
+} sht_vk_descriptor_set_copies;
+
+typedef struct sht_vk_descriptor_pool_storage_entry
+{
+	VkDescriptorPool pool;
+	VkDescriptorSetLayout layout;
+	VkPipelineLayout pipeline_layout; // Idk man. I REALLY DO NOT KNOW
+} sht_vk_descriptor_pool_storage_entry;
+
+typedef struct sht_vk_descriptor_pool_storage_key
+{
+	sht_vk_descriptor_pool_storage_entry *entry;
+} sht_vk_descriptor_pool_storage_key;
 
 typedef struct sht_vk_bss
 {
 	sht_vk_binding_desc desc;
-	VkDescriptorPool pool;
-	VkDescriptorSetLayout layout;
-	VkPipelineLayout pipeline_layout; // Idk man. I REALLY DO NOT KNOW
-
-	VkDescriptorSet sets[SHT_VK_IMAGE_COUNT];
+	// VkDescriptorPool pool;
+	// VkDescriptorSetLayout layout;
+	// VkPipelineLayout pipeline_layout; // Idk man. I REALLY DO NOT KNOW
+	sht_vk_descriptor_pool_storage_key poo;
+	sht_vk_descriptor_set_copies copies[SHT_VK_IMAGE_COUNT];
+	// VkDescriptorSet sets[SHT_VK_IMAGE_COUNT];
 	sht_bss_buffer_backends buffer_backends[SHT_VK_IMAGE_COUNT];
 } sht_vk_bss;
 
 typedef struct sht_vk_bss_storage
 {
-	sht_vk_bss handles[sht_vk_descriptor_set_capacity];
+	sht_vk_bss handles[sht_vk_capacity];
 	fckc_size_t count;
 } sht_vk_bss_storage;
+
+typedef struct sht_vk_descriptor_pool_storage
+{
+	sht_vk_descriptor_pool_storage_entry entries[sht_vk_descriptor_pool_capacity];
+	fckc_size_t count;
+} sht_vk_descriptor_pool_storage;
 
 typedef struct sht_resource_storages
 {
@@ -302,6 +330,7 @@ typedef struct sht_resource_storages
 	sht_vk_render_pass_storage render_pass;
 	sht_vk_framebuffer_storage framebuffer;
 	sht_vk_graphics_pipeline_storage graphics_pipeline;
+	sht_vk_descriptor_pool_storage descriptor_pool;
 } sht_resource_storages;
 
 typedef struct sht_vk_driver
@@ -376,6 +405,7 @@ typedef struct sht_vk_driver
 	sht_vk_swapchain swapchain;
 	sht_memory memory;
 	sht_resource_storages storages;
+	fck_window window;
 } sht_vk_driver;
 
 /* Why the weird structure with pointers to parents and then back down?

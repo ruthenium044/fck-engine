@@ -19,16 +19,19 @@
  * ===============================================================
  */
 // TODO: Prefer SDL libs
+#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include <fck_render.h>
+// #include <fck_render.h>
 
 #include <kll.h>
 #include <kll_heap.h>
 #include <kll_malloc.h>
 
 #include <fck_events.h>
+#include <fck_shader.h>
+#include <sht_render.h>
 
 // typedef union nk_sdl_input_event {
 //	fck_event
@@ -40,6 +43,26 @@
 //	SDL_TextInputEvent text;
 // } nk_sdl_input_event;
 
+// UI vertex
+typedef struct fck_vertex_ui
+{
+	fckc_f32 position[2];
+	fckc_f32 colour[4];
+	fckc_f32 uv[2];
+
+} fck_vertex_ui;
+
+void fck_vertex_ui_log(fck_vertex_ui const *v)
+{
+	os->io->log("x: %f.4 - y: %f.4 - r: %f.4 - g: %f.4 - b: %f.4 - a: %f.4 - u: %f.4 - v: %f.4", v->position[0], v->position[1],
+	            v->colour[0], v->colour[1], v->colour[2], v->colour[3], v->uv[0], v->uv[1]);
+}
+
+const sht_vertex_binding vertex_bindings[] = {
+	{.format = SHT_FORMAT_R32G32_SFLOAT, .offset = offsetof(fck_vertex_ui, position), .location = 0},
+	{.format = SHT_FORMAT_R32G32B32A32_SFLOAT, .offset = offsetof(fck_vertex_ui, colour), .location = 1},
+	{.format = SHT_FORMAT_R32G32_SFLOAT, .offset = offsetof(fck_vertex_ui, uv), .location = 2}};
+
 typedef struct nk_sdl_input_event_queue
 {
 	fckc_size_t count;
@@ -50,7 +73,6 @@ typedef struct nk_sdl_device
 {
 	struct nk_buffer cmds;
 	struct nk_draw_null_texture tex_null;
-	fck_texture font_tex;
 } nk_sdl_device;
 
 // typedef struct fck_renderer_vertex
@@ -73,6 +95,23 @@ typedef struct nk_sdl
 typedef struct fck_ui
 {
 	nk_sdl sdl;
+
+	sht_buffer vertices;
+	sht_buffer indices;
+
+	sht_bss bss;
+	sht_graphics_pipeline pipeline;
+	struct
+	{
+		sht_image image;
+		sht_image_view view;
+	} font;
+
+	sht_sampler sampler;
+
+	sht_image depth_image;
+	sht_image_view depth_view;
+
 } fck_ui;
 
 static int nk_sdl_input_event_is_valid(fck_event const *event)
@@ -102,19 +141,24 @@ static void nk_sdl_input_event_queue_convert_and_maybe_push(nk_sdl_input_event_q
 	}
 }
 
-static void nk_sdl_device_upload_atlas(struct fck_ui *ui, struct fck_renderer *renderer, const void *pixels, int width, int height)
+static void nk_sdl_device_upload_atlas(struct fck_ui *ui, struct sht_driver *driver, const void *pixels, int width, int height)
 {
 	struct nk_sdl_device *dev = &ui->sdl.ogl;
-	fck_texture image =
-		renderer->vt->texture->create(renderer->obj, FCK_TEXTURE_ACCESS_STATIC, FCK_TEXTURE_BLEND_MODE_BLEND, width, height);
-
-	if (!renderer->vt->texture->is_valid(renderer->obj, image))
+	sht_memory *mem = driver->vt->memory(*driver);
+	ui->font.image = mem->image->create(mem->bump,
+	                                    &(sht_image_configuration){.format = SHT_FORMAT_R8G8B8A8_UNORM,
+	                                                               .height = height,
+	                                                               .width = width,
+	                                                               .transfer = SHT_TRANSFER_TARGET,
+	                                                               .usage = SHT_IMAGE_USAGE_SAMPLED},
+	                                    SHT_MEMORY_GPU);
+	if (!mem->image->is_ok(&ui->font.image))
 	{
 		return;
 	}
-
-	renderer->vt->texture->upload(image, pixels, 4LLU * width);
-	dev->font_tex = image;
+	fckc_size_t size = (fckc_size_t)width * height * 4;
+	driver->vt->upload_image(*driver, &ui->font.image, pixels, size);
+	ui->font.view = mem->image->view(mem->bump, ui->font.image, ui->font.image.format);
 }
 
 static void nk_sdl_clipboard_paste(nk_handle usr, struct nk_text_edit *edit)
@@ -155,13 +199,13 @@ static void nk_sdl_font_stash_begin(struct fck_ui *ui, struct nk_font_atlas **at
 	*atlas = &ui->sdl.atlas;
 }
 
-static void nk_sdl_font_stash_end(struct fck_ui *ui, struct fck_renderer *renderer)
+static void nk_sdl_font_stash_end(struct fck_ui *ui, struct sht_driver *driver)
 {
 	const void *image;
 	int w, h;
 	image = nk_font_atlas_bake(&ui->sdl.atlas, &w, &h, NK_FONT_ATLAS_RGBA32);
-	nk_sdl_device_upload_atlas(ui, renderer, image, w, h);
-	nk_font_atlas_end(&ui->sdl.atlas, nk_handle_ptr(&ui->sdl.ogl.font_tex), &ui->sdl.ogl.tex_null);
+	nk_sdl_device_upload_atlas(ui, driver, image, w, h);
+	nk_font_atlas_end(&ui->sdl.atlas, nk_handle_ptr(&ui->font), &ui->sdl.ogl.tex_null);
 	if (ui->sdl.atlas.default_font)
 		nk_style_set_font(&ui->sdl.ctx, &ui->sdl.atlas.default_font->handle);
 }
@@ -179,12 +223,17 @@ struct fck_ui *fck_ui_init_internal()
 	return ui;
 }
 
-void fck_ui_free(fck_ui *ui, struct fck_renderer *renderer)
+void fck_ui_free(fck_ui *ui, struct sht_driver *driver)
 {
 	struct nk_sdl_device *dev = &ui->sdl.ogl;
 	nk_font_atlas_clear(&ui->sdl.atlas);
 	nk_free(&ui->sdl.ctx);
-	renderer->vt->texture->destroy(dev->font_tex);
+
+	sht_memory *mem = driver->vt->memory(*driver);
+	mem->image->discard(mem->bump, &ui->font.view);
+	mem->image->destroy(mem->bump, &ui->font.image);
+	mem->free(mem->bump, &ui->indices);
+	mem->free(mem->bump, &ui->indices);
 	/* glDeleteTextures(1, &dev->font_tex); */
 	nk_buffer_free(&dev->cmds);
 	memset(ui, 0, sizeof(*ui));
@@ -227,7 +276,8 @@ static void fck_ui_handle_event_device(struct fck_ui *ui, fck_event const *evt)
 		case FCK_MOUSE_EVENT_TYPE_POSITION:
 			if (ctx->input.mouse.grabbed)
 			{
-				int x = (int)ctx->input.mouse.prev.x, y = (int)ctx->input.mouse.prev.y;
+				int x = (int)ctx->input.mouse.prev.x;
+				int y = (int)ctx->input.mouse.prev.y;
 				nk_input_motion(ctx, x + evt->mouse.dx, y + evt->mouse.dy);
 			}
 			else
@@ -349,9 +399,9 @@ static void fck_ui_handle_event(struct fck_ui *ui, fck_event const *evt)
 	}
 }
 
-struct fck_ui *fck_ui_alloc(struct fck_renderer *renderer)
+struct fck_ui *fck_ui_alloc(struct sht_driver *driver)
 {
-	float font_scale = 1;
+	float font_scale = 8;
 
 	fck_ui *ui = fck_ui_init_internal();
 
@@ -370,13 +420,69 @@ struct fck_ui *fck_ui_alloc(struct fck_renderer *renderer)
 		/*font = nk_font_atlas_add_from_file(atlas, "../../../extra_font/ProggyClean.ttf", 12 * font_scale, &config);*/
 		/*font = nk_font_atlas_add_from_file(atlas, "../../../extra_font/ProggyTiny.ttf", 10 * font_scale, &config);*/
 		/*font = nk_font_atlas_add_from_file(atlas, "../../../extra_font/Cousine-Regular.ttf", 13 * font_scale, &config);*/
-		nk_sdl_font_stash_end(ui, renderer);
+		nk_sdl_font_stash_end(ui, driver);
 
 		/* this hack makes the font appear to be scaled down to the desired
 		 * size and is only necessary when font_scale > 1 */
 		font->handle.height /= font_scale;
 		/*nk_style_load_all_cursors(ctx, atlas->cursors);*/
 		nk_style_set_font(&ui->sdl.ctx, &font->handle);
+	}
+
+	sht_swapchain swapchain = driver->vt->swapchain(*driver);
+	sht_memory *mem = driver->vt->memory(*driver);
+
+	sht_binding bindings[] = {
+		{.id = 0, .type = SHT_BINDING_UNIFORM, .stages = SHT_STAGE_VERTEX_SHADER},
+		{.id = 1, .type = SHT_BINDING_READ_ONLY_IMAGE, .stages = SHT_STAGE_FRAGMENT_SHADER},
+	};
+
+	ui->sampler = driver->vt->create_sampler(*driver);
+	driver->vt->bss->create(*driver, &(sht_binding_desc){.bindings = bindings, .count = fck_arraysize(bindings)});
+
+	sht_extent extent = swapchain.vt->extent(swapchain);
+	{
+		sht_image_configuration config = (sht_image_configuration){
+			.format = SHT_FORMAT_D16_UNORM,
+			.width = extent.width,
+			.height = extent.height,
+			.transfer = SHT_TRANSFER_RETAINED,
+			.usage = SHT_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT,
+		};
+
+		ui->depth_image = mem->image->create(mem->bump, &config, SHT_MEMORY_GPU);
+		ui->depth_view = mem->image->view(mem->bump, ui->depth_image, SHT_FORMAT_UNDEFINED);
+		ui->vertices = mem->malloc(mem->bump, &sht_buffer_retained(SHT_BUFFER_USAGE_VERTEX, sizeof(fck_vertex_ui) * 4096), SHT_MEMORY_CPU);
+		ui->indices = mem->malloc(mem->bump, &sht_buffer_retained(SHT_BUFFER_USAGE_INDEX, sizeof(fckc_u32) * 4096), SHT_MEMORY_CPU);
+		ui->bss = driver->vt->bss->create(*driver, &(sht_binding_desc){.bindings = bindings, .count = fck_arraysize(bindings)});
+
+		{
+			fck_shader_compiler compiler = fck_shader_compiler_create();
+			fck_file vert_file = os->fs->open("/Users/ruthenium/fck/app/assets/fck_ui.hlsl.vert", "r");
+			fck_shader_desc vert_desc = (fck_shader_desc){FCK_SHADER_VERTEX, "triangle-vert", "main"};
+
+			fck_file frag_file = os->fs->open("/Users/ruthenium/fck/app/assets/fck_ui.hlsl.frag", "r");
+			fck_shader_desc frag_desc = (fck_shader_desc){FCK_SHADER_FRAGMENT, "triangle-frag", "main"};
+
+			fck_hlsl_object vert = compiler.create_hlsl_from_file(&compiler, &vert_desc, &vert_file);
+			fck_hlsl_object frag = compiler.create_hlsl_from_file(&compiler, &frag_desc, &frag_file);
+
+			sht_graphic_desc desc = (sht_graphic_desc){.fragment = &frag.generic,
+			                                           .vertex = &vert.generic,
+			                                           .vertex_desc = &(sht_vertex_desc){.stride = sizeof(fck_vertex_ui),
+			                                                                             .bindings = vertex_bindings,
+			                                                                             .count = fck_arraysize(vertex_bindings)},
+			                                           .raster = (sht_raster_desc){
+														   .cull_mode = SHT_CULL_MODE_NONE,
+														   .topology = SHT_TRIANGLE_LIST,
+														   .color = SHT_FORMAT_B8G8R8A8_UNORM,
+														   .depth = SHT_FORMAT_D16_UNORM,
+													   }};
+			ui->pipeline = driver->vt->graphics_pipeline->create(*driver, ui->bss, &desc);
+			compiler.destroy(&compiler, &vert.generic);
+			compiler.destroy(&compiler, &frag.generic);
+			compiler.shutdown(&compiler);
+		}
 	}
 
 	nk_sdl_input_event_queue_reset(&ui->sdl.input_queue);
@@ -393,8 +499,10 @@ struct nk_context *fck_ui_context(struct fck_ui *ui)
 	return &ui->sdl.ctx;
 }
 
-void fck_ui_render(struct fck_ui *ui, struct fck_renderer *renderer)
+void fck_ui_render(struct fck_ui *ui, struct sht_driver *driver, struct sht_command_buffer *command_buffer, struct sht_image_view *target)
 {
+	sht_command_buffer_vt *command = driver->vt->command_buffer;
+
 	// Apply enqueued events
 	{
 		struct nk_context *context = &ui->sdl.ctx;
@@ -412,8 +520,8 @@ void fck_ui_render(struct fck_ui *ui, struct fck_renderer *renderer)
 		// SDL_Rect saved_clip;
 
 		//	int clipping_enabled;
-		int vs = sizeof(struct fck_vertex_2d);
-		fckc_size_t vp = offsetof(struct fck_vertex_2d, position);
+		int vs = sizeof(struct fck_vertex_ui);
+		fckc_size_t vp = offsetof(struct fck_vertex_ui, position);
 		/* convert from command queue into draw list and draw to screen */
 		const struct nk_draw_command *cmd;
 		const nk_draw_index *offset = NULL;
@@ -422,9 +530,9 @@ void fck_ui_render(struct fck_ui *ui, struct fck_renderer *renderer)
 		/* fill converting configuration */
 		struct nk_convert_config config;
 		static const struct nk_draw_vertex_layout_element vertex_layout[] = {
-			{NK_VERTEX_POSITION, NK_FORMAT_FLOAT, NK_OFFSETOF(struct fck_vertex_2d, position)},
-			{NK_VERTEX_TEXCOORD, NK_FORMAT_FLOAT, NK_OFFSETOF(struct fck_vertex_2d, uv)},
-			{NK_VERTEX_COLOR, NK_FORMAT_R32G32B32A32_FLOAT, NK_OFFSETOF(struct fck_vertex_2d, col)},
+			{NK_VERTEX_POSITION, NK_FORMAT_FLOAT, NK_OFFSETOF(struct fck_vertex_ui, position)},
+			{NK_VERTEX_TEXCOORD, NK_FORMAT_FLOAT, NK_OFFSETOF(struct fck_vertex_ui, uv)},
+			{NK_VERTEX_COLOR, NK_FORMAT_R32G32B32A32_FLOAT, NK_OFFSETOF(struct fck_vertex_ui, colour)},
 			{NK_VERTEX_LAYOUT_END}};
 
 		fckc_u64 now = os->chrono->ms();
@@ -433,8 +541,8 @@ void fck_ui_render(struct fck_ui *ui, struct fck_renderer *renderer)
 
 		NK_MEMSET(&config, 0, sizeof(config));
 		config.vertex_layout = vertex_layout;
-		config.vertex_size = sizeof(struct fck_vertex_2d);
-		config.vertex_alignment = NK_ALIGNOF(struct fck_vertex_2d);
+		config.vertex_size = sizeof(struct fck_vertex_ui);
+		config.vertex_alignment = NK_ALIGNOF(struct fck_vertex_ui);
 		config.tex_null = dev->tex_null;
 		config.circle_segment_count = 22;
 		config.curve_segment_count = 22;
@@ -448,31 +556,73 @@ void fck_ui_render(struct fck_ui *ui, struct fck_renderer *renderer)
 		nk_buffer_init_default(&ebuf);
 		nk_convert(&ui->sdl.ctx, &dev->cmds, &vbuf, &ebuf, &config);
 
-		/* iterate over and execute each draw command */
-		offset = (const nk_draw_index *)nk_buffer_memory_const(&ebuf);
+		const fck_vertex_ui *vertices = (const fck_vertex_ui *)nk_buffer_memory_const(&vbuf);
+		const void *indices = nk_buffer_memory_const(&ebuf);
+		memcpy(ui->vertices.cpu, vertices, vbuf.needed);
+		memcpy(ui->indices.cpu, indices, ebuf.needed);
 
-		// clipping_enabled = SDL_RenderClipEnabled(renderer);
-		// SDL_GetRenderClipRect(renderer, &saved_clip);
+		sht_swapchain swapchain = driver->vt->swapchain(*driver);
 
-		nk_draw_foreach(cmd, &ui->sdl.ctx, &dev->cmds)
+		sht_extent extent = swapchain.vt->extent(swapchain);
+
+		float dpi = swapchain.vt->scale(swapchain);
+		fckc_f32 projection[16] = {
+			2.0f,  0.0f,  0.0f,  0.0f,
+
+			0.0f,  -2.0f, 0.0f,  0.0f,
+
+			0.0f,  0.0f,  -1.0f, 0.0f,
+
+			-1.0f, 1.0f,  0.0f,  1.0f,
+		};
+		projection[0] /= (extent.width / dpi);
+		projection[5] /= (extent.height / dpi);
+
+		sht_render_desc desc = (sht_render_desc){
+			.colour = {.view = *target, .load_op = SHT_CLEAR, .store_op = SHT_STORE, .clear_value = {0.0f, 0.0f, 0.0f, 0.0f}},
+			.depth = {.view = ui->depth_view, .load_op = SHT_CLEAR, .store_op = SHT_DONT_CARE, .clear_value = 0.0f},
+		};
+
+		sht_render_pass render_pass = command->render_pass->begin(*command_buffer, &desc);
+		if (command->render_pass->is_ok(render_pass))
 		{
-			if (!cmd->elem_count)
-				continue;
+			driver->vt->bss->upload(ui->bss, 0, sht_upload_params{.data = projection, .size = sizeof(projection)});
+			driver->vt->bss->upload(ui->bss, 1, sht_upload_params{.view = ui->font.view, .sampler = ui->sampler});
 
-			renderer->vt->clip(renderer->obj, cmd->clip_rect.x, cmd->clip_rect.y, cmd->clip_rect.w, cmd->clip_rect.h);
+			command->bss(*command_buffer, ui->bss);
 
+			command->graphics_pipeline(*command_buffer, ui->pipeline);
+			// command->viewport(*command_buffer, &viewport);
+			command->vertex_buffer(*command_buffer, &ui->vertices, 0);
+			command->index_buffer(*command_buffer, &ui->indices, 0);
+
+			fckc_size_t index_offset = 0;
+			nk_draw_foreach(cmd, &ui->sdl.ctx, &dev->cmds)
 			{
-				const void *vertices = nk_buffer_memory_const(&vbuf);
-				renderer->vt->raw(renderer->obj, *(fck_texture *)cmd->texture.ptr, (fck_vertex_2d *)vertices, (vbuf.needed / vs),
-				                  (void *)offset, cmd->elem_count);
-				offset += cmd->elem_count;
-			}
-		}
+				if (!cmd->elem_count && !cmd->texture.ptr)
+					continue;
 
-		// SDL_SetRenderClipRect(renderer, &saved_clip);
-		// if (!clipping_enabled)
-		{
-			//	SDL_SetRenderClipRect(renderer, NULL);
+				driver->vt->bss->upload(ui->bss, 1, sht_upload_params{.view = ui->font.view, .sampler = ui->sampler});
+
+				fckc_u32 x = cmd->clip_rect.x;
+				fckc_u32 y = cmd->clip_rect.y;
+				sht_scissor scissor = (sht_scissor){.offset = {x, y}, .extent = {cmd->clip_rect.w * dpi, cmd->clip_rect.h * dpi}};
+				command->scissor(*command_buffer, &scissor);
+				command->draw_indexed(*command_buffer, &(sht_draw_indexed_desc){
+														   .first_index = index_offset,
+														   .index_count = cmd->elem_count,
+														   .instance_count = 1,
+														   .first_instance = 0,
+														   .vertex_offset = 0,
+													   });
+				// for (size_t index = index_offset; index < cmd->elem_count; index++)
+				//{
+				//	const fck_vertex_ui *vertex = vertices + index;
+				//	fck_vertex_ui_log(vertex);
+				// }
+				index_offset = index_offset + cmd->elem_count;
+			}
+			command->render_pass->end(*command_buffer);
 		}
 
 		nk_clear(&ui->sdl.ctx);

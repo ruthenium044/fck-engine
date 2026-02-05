@@ -1123,6 +1123,8 @@ VkResult sht_vk_driver_init(sht_vk_driver *driver, sht_vk_queues *queues)
 	sht_vk_load_function(driver, CreateDescriptorSetLayout);
 	sht_vk_load_function(driver, CreateDescriptorPool);
 	sht_vk_load_function(driver, UpdateDescriptorSets);
+	sht_vk_load_function(driver, ResetDescriptorPool);
+
 	sht_vk_load_function(driver, AllocateDescriptorSets);
 
 	sht_vk_load_function(driver, FreeDescriptorSets);
@@ -1628,12 +1630,70 @@ sht_image_view sht_swapchain_get_view(sht_swapchain swapchain, fckc_u32 index)
 	return (sht_image_view){.format = sht_vk_format_to_sht_format(sc->info.imageFormat), .gpu = image_view};
 }
 
+sht_vk_descriptor_pool_storage_key sht_vk_descriptor_pool_storage_create(sht_vk_driver *driver, sht_vk_descriptor_pool_storage *storage,
+                                                                         sht_binding_desc *desc)
+{
+	fckc_size_t at = storage->count;
+	storage->count = storage->count + 1;
+	sht_vk_descriptor_pool_storage_entry *entry = storage->entries + at;
+	entry->ref_count = entry->ref_count + 1;
+
+	for (fckc_size_t index = 0; index < fck_arraysize(entry->dynamic_pools); index++)
+	{
+		sht_vk_crash(sht_vk_descriptor_pool_create(driver, desc, entry->dynamic_pools + index));
+	}
+	sht_vk_crash(sht_vk_descriptor_pool_create(driver, desc, &entry->constant_pool));
+
+	sht_vk_crash(sht_vk_descriptor_set_layout_create(driver, desc, &entry->layout));
+
+	VkPipelineLayoutCreateInfo pipeline_layout_create_info;
+	pipeline_layout_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	pipeline_layout_create_info.pSetLayouts = &entry->layout;
+	pipeline_layout_create_info.setLayoutCount = 1;
+	pipeline_layout_create_info.pNext = NULL;
+	pipeline_layout_create_info.flags = 0;
+	pipeline_layout_create_info.pushConstantRangeCount = 0;
+	pipeline_layout_create_info.pPushConstantRanges = NULL;
+
+	sht_vk_crash(
+		driver->CreatePipelineLayout(driver->device, &pipeline_layout_create_info, default_allocation_callbacks, &entry->pipeline_layout));
+
+	return (sht_vk_descriptor_pool_storage_key){.entry = storage->entries + at};
+}
+
+sht_vk_descriptor_pool_storage_entry *sht_vk_descriptor_pool_storage_key_resolve(sht_vk_descriptor_pool_storage_key key)
+{
+	return key.entry;
+}
+
+sht_bool32 sht_vk_descriptor_pool_storage_key_is_ok(sht_vk_descriptor_pool_storage_key key)
+{
+	return key.entry != NULL;
+}
+
+void sht_vk_descriptor_pool_storage_key_release(sht_vk_driver *driver, sht_vk_descriptor_pool_storage_key *key)
+{
+	key->entry->ref_count = key->entry->ref_count - 1;
+	if (key->entry->ref_count == 0)
+	{
+		// Or we defer it and call it a GC huehuehuehue
+		driver->DestroyPipelineLayout(driver->device, key->entry->pipeline_layout, default_allocation_callbacks);
+		driver->DestroyDescriptorSetLayout(driver->device, key->entry->layout, default_allocation_callbacks);
+		for (fckc_size_t index = 0; index < fck_arraysize(key->entry->dynamic_pools); index++)
+		{
+			driver->DestroyDescriptorPool(driver->device, key->entry->dynamic_pools[index], default_allocation_callbacks);
+		}
+		driver->DestroyDescriptorPool(driver->device, key->entry->constant_pool, default_allocation_callbacks);
+	}
+	key->entry = NULL;
+}
+
 void sht_bss_destroy(sht_bss *bss)
 {
 	sht_vk_bss *vk_bss = (sht_vk_bss *)bss->handle;
 	sht_vk_driver *driver = (sht_vk_driver *)bss->owner;
 
-	driver->DestroyPipelineLayout(driver->device, vk_bss->pipeline_layout, default_allocation_callbacks);
+	sht_vk_descriptor_pool_storage_key_release(driver, &vk_bss->pool_storage_key);
 
 	for (fckc_size_t index = 0; index < fck_arraysize(vk_bss->buffer_backends); index++)
 	{
@@ -1655,20 +1715,8 @@ void sht_bss_destroy(sht_bss *bss)
 	//	driver->FreeDescriptorSets(driver->device, vk_bss->pool, 1, set);
 	//}
 
-	driver->DestroyDescriptorSetLayout(driver->device, vk_bss->layout, default_allocation_callbacks);
-	driver->DestroyDescriptorPool(driver->device, vk_bss->pool, default_allocation_callbacks);
 	sht_invalidate(bss);
 	sht_invalidate(vk_bss);
-}
-
-sht_vk_descriptor_pool_storage_key sht_vk_descriptor_pool_storage_create(sht_vk_descriptor_pool_storage *storage)
-{
-}
-
-sht_vk_descriptor_pool_storage_entry *sht_vk_descriptor_pool_storage_resolve(sht_vk_descriptor_pool_storage *storage,
-                                                                             sht_vk_descriptor_pool_storage_key key)
-{
-	return key.entry;
 }
 
 sht_bss sht_bss_create(sht_driver driver, sht_binding_desc *desc)
@@ -1683,33 +1731,16 @@ sht_bss sht_bss_create(sht_driver driver, sht_binding_desc *desc)
 	fck_assert(fck_arraysize(vk_bss->desc.bindings) >= desc->count);
 	memcpy(vk_bss->desc.bindings, desc->bindings, sizeof(*desc->bindings) * desc->count);
 	vk_bss->desc.count = desc->count;
+	memset(&vk_bss->nodes, 0, sizeof(vk_bss->nodes));
+	// vk_bss->node.prev = vk_bss->node.next = NULL;
 
-	// Umm... count the uniforms, samplers etc. in desc? Fucking christ
-	sht_vk_crash(sht_vk_descriptor_pool_create(vk_driver, desc, &vk_bss->pool));
+	vk_bss->pool_storage_key = sht_vk_descriptor_pool_storage_create(vk_driver, &vk_driver->storages.descriptor_pool, desc);
+	sht_vk_descriptor_pool_storage_entry *pool_entry = sht_vk_descriptor_pool_storage_key_resolve(vk_bss->pool_storage_key);
 
-	sht_vk_crash(sht_vk_descriptor_set_layout_create(vk_driver, desc, &vk_bss->layout));
+	sht_vk_crash(sht_vk_descriptor_set_create(vk_driver, pool_entry->constant_pool, pool_entry->layout, vk_bss->baselines,
+	                                          fck_arraysize(vk_bss->baselines)));
 
-	for (fckc_size_t index = 0; index < fck_arraysize(vk_bss->copies); index++)
-	{
-		sht_vk_descriptor_set_copies *set_copies = vk_bss->copies + index;
-		VkDescriptorSet *sets = set_copies->sets;
-		fckc_size_t count = fck_arraysize(vk_bss->copies->sets);
-		sht_vk_crash(sht_vk_descriptor_set_create(vk_driver, vk_bss->pool, vk_bss->layout, sets, count));
-	}
-
-	// Create the pipeline layout that is used to generate the rendering pipelines that are based on this descriptor set layout
-	// In a more complex scenario you would have different pipeline layouts for different descriptor set layouts that could be reused
-	VkPipelineLayoutCreateInfo pipeline_layout_create_info;
-	pipeline_layout_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	pipeline_layout_create_info.pSetLayouts = &vk_bss->layout;
-	pipeline_layout_create_info.setLayoutCount = 1;
-	pipeline_layout_create_info.pNext = NULL;
-	pipeline_layout_create_info.flags = 0;
-	pipeline_layout_create_info.pushConstantRangeCount = 0;
-	pipeline_layout_create_info.pPushConstantRanges = NULL;
-
-	sht_vk_crash(vk_driver->CreatePipelineLayout(vk_driver->device, &pipeline_layout_create_info, default_allocation_callbacks,
-	                                             &vk_bss->pipeline_layout));
+	memcpy((void *)vk_bss->latest, (void *)vk_bss->baselines, sizeof(vk_bss->baselines));
 
 	return (sht_bss){.owner = (sht_handle *)vk_driver, .handle = (sht_handle *)vk_bss};
 }
@@ -1719,7 +1750,8 @@ static void sht_vk_bss_storage_destroy(sht_vk_bss_storage *storage, sht_vk_drive
 	for (fckc_size_t index = 0; index < storage->count; index++)
 	{
 		sht_vk_bss *bss = storage->handles + index;
-		if (bss->pool != VK_NULL_HANDLE)
+
+		if (sht_vk_descriptor_pool_storage_key_is_ok(bss->pool_storage_key))
 		{
 			sht_bss temp = (sht_bss){.handle = bss, .owner = driver};
 			sht_bss_destroy(&temp);
@@ -1780,6 +1812,25 @@ void sht_vk_resize(sht_vk_swapchain *swapchain)
 	sht_vk_render_pass_storage_destroy(&driver->storages.render_pass, driver);
 }
 
+static void sht_vk_command_buffer_bss_copy(sht_vk_driver *driver, sht_vk_bss *bss, VkDescriptorSet src, VkDescriptorSet dst)
+{
+	VkCopyDescriptorSet copies[sht_vk_bss_binding_capacity];
+	for (fckc_size_t index = 0; index < bss->desc.count; index++)
+	{
+		sht_binding *binding = bss->desc.bindings + index;
+		VkCopyDescriptorSet copy = {0};
+		copy.sType = VK_STRUCTURE_TYPE_COPY_DESCRIPTOR_SET;
+		copy.descriptorCount = 1;
+		copy.srcSet = src;
+		copy.dstSet = dst;
+		copy.srcBinding = binding->id;
+		copy.dstBinding = binding->id;
+		copies[index] = copy;
+	}
+
+	driver->UpdateDescriptorSets(driver->device, 0, NULL, bss->desc.count, copies);
+}
+
 sht_image_view sht_swapchain_wait_and_acquire(sht_swapchain swapchain, fckc_u32 *index)
 {
 	sht_vk_swapchain *sc = (sht_vk_swapchain *)swapchain.handle;
@@ -1815,6 +1866,40 @@ sht_image_view sht_swapchain_wait_and_acquire(sht_swapchain swapchain, fckc_u32 
 	// BANGER!
 	// TODO: We also need the IMAGE not just the IMAGE VIEW
 	// ALSO: WE need to propagate the image TO the end so we can create a pipeline barrier
+
+	{
+		sht_vk_bss_nodes *start = &driver->storages.bss.inflight;
+
+		sht_vk_bss_node *root = driver->storages.bss.inflight.values + sync->index;
+		sht_vk_bss_nodes *current = root->next;
+		while (current != start)
+		{
+			sht_vk_bss *bss = (sht_vk_bss *)current;
+			sht_vk_bss_node *current_node = current->values + sync->index;
+			sht_vk_bss_nodes *next = current_node->next;
+
+			current = next;
+
+			sht_vk_bss_node *node = bss->nodes.values + sync->index;
+			node->next = NULL;
+			node->prev = NULL;
+
+			VkDescriptorSet src = bss->latest[sync->index];
+			VkDescriptorSet dst = bss->baselines[sync->index];
+			sht_vk_command_buffer_bss_copy(driver, bss, src, dst);
+			bss->latest[sync->index] = bss->baselines[sync->index];
+		}
+		root->next = &driver->storages.bss.inflight;
+		root->prev = &driver->storages.bss.inflight;
+	}
+
+	fckc_size_t pool_count = driver->storages.descriptor_pool.count;
+	for (fckc_size_t index = 0; index < pool_count; index++)
+	{
+		sht_vk_descriptor_pool_storage_entry *entry = driver->storages.descriptor_pool.entries + index;
+		driver->ResetDescriptorPool(driver->device, entry->dynamic_pools[sync->index], 0);
+	}
+
 	return sht_swapchain_get_view(swapchain, image_index);
 }
 
@@ -1886,6 +1971,7 @@ sht_command_buffer sht_command_buffer_acquire(sht_driver driver, fckc_u32 index)
 	sht_vk_command *api = &vk_driver->command;
 	VkCommandBuffer command_buffer = api->buffers[index];
 
+	// TODO: Reinit the bss?! OH FUCK. Maybe do it lazily in bind and/or upload
 	api->ResetCommandBuffer(command_buffer, 0);
 
 	VkCommandBufferBeginInfo cmd_buffer_info = {};
@@ -2079,6 +2165,7 @@ void sht_command_buffer_submit(sht_command_buffer command, sht_queue_type queue_
 		// fckc_u32 frame_index = find - 1;
 		sync->frame_index_to_swapchain_image_index[sync->index] = image_index | (1 << 31);
 		fck_assert(image_index < sht_vk_swapchain_image_capacity);
+
 		api->EndCommandBuffer(command_buffer);
 
 		submit_info.pWaitSemaphores = &sync->presentation_completed[sync->index];
@@ -3018,8 +3105,12 @@ sht_driver sht_driver_create(sht_instance instance, struct fck_window *window)
 	sht_vk_crash(sht_vk_swapchain_init(&vk->driver.swapchain, &vk->driver, surface, extent));
 
 	memset(&vk->driver.storages, 0, sizeof(vk->driver.storages));
-
-	// We use up this window.
+	for (fckc_size_t index = 0; index < fck_arraysize(vk->driver.storages.bss.inflight.values); index++)
+	{
+		sht_vk_bss_node *dummy = vk->driver.storages.bss.inflight.values + index;
+		dummy->prev = &vk->driver.storages.bss.inflight;
+		dummy->next = &vk->driver.storages.bss.inflight;
+	}
 	vk->driver.window = *window;
 
 	return (sht_driver){.handle = &vk->driver, .vt = &sht_driver_vt_api};
@@ -3285,8 +3376,10 @@ sht_graphics_pipeline sht_driver_graphics_pipeline_create(sht_driver driver, sht
 
 	sht_vk_bss *vk_bss = (sht_vk_bss *)bss.handle;
 
+	sht_vk_descriptor_pool_storage_entry *pool_entry = sht_vk_descriptor_pool_storage_key_resolve(vk_bss->pool_storage_key);
+
 	sht_vk_graphics_pipeline graphics_pipeline;
-	sht_vk_crash(sht_vk_graphics_pipeline_create(vk_driver, temp, &vk_bss->layout, vk_bss->pipeline_layout, 1, stages,
+	sht_vk_crash(sht_vk_graphics_pipeline_create(vk_driver, temp, &pool_entry->layout, pool_entry->pipeline_layout, 1, stages,
 	                                             fck_arraysize(stages), desc->vertex_desc, &graphics_pipeline));
 
 	sht_graphics_pipeline_key stable = sht_vk_graphics_pipeline_storage_add(&vk_driver->storages.graphics_pipeline, &graphics_pipeline);
@@ -3334,28 +3427,53 @@ void sht_command_buffer_bss(sht_command_buffer command, sht_bss bss)
 	// VkDescriptorSet set = vk_bss->sets[index];
 
 	// Make a copy, we bind the copy - This means we can always send it out
-	sht_vk_descriptor_set_copies *set_copies = vk_bss->copies + index;
-	VkDescriptorSet *src = set_copies->sets + set_copies->at;
-	set_copies->at = (set_copies->at + 1) % sht_vk_bss_binding_capacity;
-	VkDescriptorSet *dst = set_copies->sets + set_copies->at; // Reset set_copies->at in buffer begin
-	// As soon as we bind, we are committed!
+	// sht_vk_descriptor_set_copies *set_copies = vk_bss->copies + index;
+	VkDescriptorSet src = vk_bss->latest[index];
+	// set_copies->at = (set_copies->at + 1) % sht_vk_bss_binding_capacity;
 
-	VkCopyDescriptorSet copies[sht_vk_bss_binding_capacity];
-	for (fckc_size_t index = 0; index < vk_bss->desc.count; index++)
+	sht_vk_descriptor_pool_storage_entry *pool_entry = sht_vk_descriptor_pool_storage_key_resolve(vk_bss->pool_storage_key);
+	VkDescriptorSet dst;
+	sht_vk_crash(sht_vk_descriptor_set_create(api->driver, pool_entry->dynamic_pools[index], pool_entry->layout, &dst, 1));
+	sht_vk_command_buffer_bss_copy(api->driver, vk_bss, src, dst);
+
+	sht_vk_descriptor_pool_storage_entry *entry = sht_vk_descriptor_pool_storage_key_resolve(vk_bss->pool_storage_key);
+	api->CmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, entry->pipeline_layout, 0, 1, &src, 0, NULL);
+
+	vk_bss->latest[index] = dst;
+
+	sht_vk_bss_node *inflight = api->driver->storages.bss.inflight.values + index;
+	sht_vk_bss_node *current = vk_bss->nodes.values + index;
+	if (current->next == NULL)
 	{
-		sht_binding *binding = vk_bss->desc.bindings + index;
-		VkCopyDescriptorSet copy = {0};
-		copy.sType = VK_STRUCTURE_TYPE_COPY_DESCRIPTOR_SET;
-		copy.descriptorCount = 1;
-		copy.srcSet = *src;
-		copy.dstSet = *dst;
-		copy.srcBinding = binding->id;
-		copy.dstBinding = binding->id;
-		copies[index] = copy;
-	}
-	api->driver->UpdateDescriptorSets(api->driver->device, 0, NULL, vk_bss->desc.count, copies);
+		sht_vk_bss_nodes *inflight_nodes = &api->driver->storages.bss.inflight;
+		sht_vk_bss_nodes *tail_nodes = inflight->prev;
+		sht_vk_bss_nodes *bss_nodes = &vk_bss->nodes;
 
-	api->CmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vk_bss->pipeline_layout, 0, 1, src, 0, NULL);
+		sht_vk_bss_node *tail_node = tail_nodes->values + index;
+		sht_vk_bss_node *bss_node = bss_nodes->values + index;
+
+		tail_node->next = bss_nodes;
+		bss_node->next = inflight_nodes;
+		bss_node->prev = tail_nodes;
+		inflight->prev = bss_nodes;
+	}
+
+	// sht_vk_node *inflights = api->driver->storages.bss.inflights + index;
+	// if (vk_bss->node.next == NULL)
+	//{
+	//	// Circular, so tail is starting->prev
+	//	sht_vk_node *tail = inflights->prev;
+	//	// [P N] - [P N] - [P N]
+	//	//           ^ start
+	//	tail->next = &vk_bss->node;
+	//	vk_bss->node.next = inflights;
+	//
+	//	vk_bss->node.prev = tail;
+	//	inflights->prev = &vk_bss->node;
+	//
+	//	// vk_bss->node.next = inflights;
+	//	// inflights->tail = &vk_bss->node;
+	//}
 }
 
 fckc_size_t sht_bss_binding_find(sht_vk_bss *bss, fckc_u32 id)
@@ -3397,24 +3515,8 @@ sht_bool32 sht_bss_upload(sht_bss bss, fckc_u32 id, sht_upload_desc *desc)
 	fckc_u32 index = driver->swapchain.sync.index;
 	fck_assert(index < SHT_VK_IMAGE_COUNT);
 
-	sht_vk_descriptor_set_copies *set_copies = vk_bss->copies + index;
-
-	// The challenge here is that when we are recording commands we have to upload/update
-	// before we bind. This means, if we bind the same descriptor set multiple times
-	// we actually have to create copies and bind + update these instead
-	if (set_copies->at == 0)
-	{
-		// In this branch, we know we are not within the context of a command buffer
-		// cause we can only be bigger than 0 if we bound once through the scope of a command buffer
-		// And if recording just ended, we are looking at a completely different slot of
-		// buffered descriptor sets to begin with
-	}
-	else
-	{
-		// Now, when this happens we might want to alloc a ringbuffer and then later re-use said ringbuffer
-		// This approach can then later get ported to a ResetPool approach
-	}
-	VkDescriptorSet *set = set_copies->sets + set_copies->at;
+	// VkDescriptorSet *set = set_copies->sets + set_copies->at;
+	VkDescriptorSet *set = &vk_bss->latest[index];
 
 	sht_bss_buffer_backends *buffer_backend = vk_bss->buffer_backends + index;
 
@@ -3474,6 +3576,11 @@ sht_bool32 sht_vk_is_ok(sht_instance instance)
 
 FCK_EXPORT_API sht_loader *fck_main(fck_api_registry *apis, sht_render_api_config *config)
 {
+	if (apis == NULL)
+	{
+		// Maybe log warning
+		return &sht_loader_api;
+	}
 	// Maybe here we load the shared object ;)
 	os->io->log("%s loaded", sht_render_api);
 	apis->add(sht_render_api, &sht_loader_api);

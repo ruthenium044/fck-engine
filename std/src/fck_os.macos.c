@@ -728,7 +728,8 @@ void fck_macos_poll_events(fck_event_spsc *spsc)
 	id pool;
 
 	NSApplication *ns_app;
-	NSEvent *e;
+	NSEvent *nsevent;
+	CGEventRef cgevent;
 	NSString *str;
 	const char *chars;
 
@@ -739,7 +740,6 @@ void fck_macos_poll_events(fck_event_spsc *spsc)
 	NSInteger click_count, button, is_down;
 	NSUShort keycode;
 	CGFloat dx, dy;
-
 	fck_event event;
 	fck_event_unicode unicode;
 	fck_keyboard_event_type key_type;
@@ -750,34 +750,39 @@ void fck_macos_poll_events(fck_event_spsc *spsc)
 	while (true)
 	{
 		// This is a very sad one
-		e = (NSEvent *)((id (*)(id, SEL, NSEventMask, void *, NSString *, bool))objc_msgSend)( //
-			ns_app,                                                                            //
-			sel_registerName("nextEventMatchingMask:untilDate:inMode:dequeue:"),               //
-			ULONG_MAX,                                                                         //
-			NULL,                                                                              //
+		nsevent = (NSEvent *)((id (*)(id, SEL, NSEventMask, void *, NSString *, bool))objc_msgSend)( //
+			ns_app,                                                                                  //
+			sel_registerName("nextEventMatchingMask:untilDate:inMode:dequeue:"),                     //
+			ULONG_MAX,                                                                               //
+			NULL,                                                                                    //
 			((id (*)(id, SEL, const char *))objc_msgSend)((id)objc_getClass("NSString"), sel_registerName("stringWithUTF8String:"),
 		                                                  "kCFRunLoopDefaultMode"),
 			true);
 
-		type = (NSEventType)objc_msgSend_uint(e, sel_registerName("type"));
+		type = (NSEventType)objc_msgSend_uint(nsevent, sel_registerName("type"));
 		if (type == 0 || type >= NSEventTypeGesture) // Let's skip new macos events
 		{
 			break;
 		}
 
-		point = ((NSPoint (*)(id, SEL))objc_msgSend)(e, sel_registerName("locationInWindow"));
-
+		point = ((NSPoint (*)(id, SEL))objc_msgSend)(nsevent, sel_registerName("locationInWindow"));
+		cgevent = ((CGEventRef (*)(id, SEL))objc_msgSend)(nsevent, sel_registerName("CGEvent"));
 		// static unsigned int previous_modifier_flags = 0;
-		modifier_flags = objc_msgSend_uint(e, sel_registerName("modifierFlags"));
-		timestamp = objc_msgSend_double(e, sel_registerName("timestamp"));
+		modifier_flags = objc_msgSend_uint(nsevent, sel_registerName("modifierFlags"));
+		timestamp = objc_msgSend_double(nsevent, sel_registerName("timestamp"));
+
+		extern CGPoint CGEventGetLocation(CGEventRef event);
+		extern CGPoint CGEventGetUnflippedLocation(CGEventRef event);
+		CGPoint unflipped = CGEventGetUnflippedLocation(cgevent);
+		CGPoint flipped = CGEventGetLocation(cgevent);
 
 		event.type = FCK_EVENT_TYPE_NONE;
 
 		switch (type)
 		{
 		case NSEventTypeMouseMoved:
-			dx = objc_msgSend_cgfloat(e, sel_registerName("deltaX"));
-			dy = objc_msgSend_cgfloat(e, sel_registerName("deltaY"));
+			dx = objc_msgSend_cgfloat(nsevent, sel_registerName("deltaX"));
+			dy = objc_msgSend_cgfloat(nsevent, sel_registerName("deltaY"));
 			fck_macos_mouse_event(&event.mouse, timestamp, FCK_MOUSE_EVENT_TYPE_POSITION, -1, 0, 0, point.x, point.y, dx, dy);
 			break;
 
@@ -788,16 +793,17 @@ void fck_macos_poll_events(fck_event_spsc *spsc)
 		case NSEventTypeLeftMouseUp:
 		case NSEventTypeRightMouseUp:
 		case NSEventTypeOtherMouseUp:
-			click_count = objc_msgSend_int(e, sel_registerName("clickCount"));
-			button = objc_msgSend_int(e, sel_registerName("buttonNumber"));
+			click_count = objc_msgSend_int(nsevent, sel_registerName("clickCount"));
+			button = objc_msgSend_int(nsevent, sel_registerName("buttonNumber"));
+			printf("x:%f y:%f\n", point.x, point.y);
 			fck_macos_mouse_event(&event.mouse, timestamp, FCK_MOUSE_EVENT_TYPE_BUTTON_NONE, button, is_down, click_count, point.x, point.y,
 			                      0, 0);
 			break;
 
 		case NSEventTypeScrollWheel:
-			dx = objc_msgSend_cgfloat(e, sel_registerName("scrollingDeltaX"));
-			dy = objc_msgSend_cgfloat(e, sel_registerName("scrollingDeltaY"));
-			if (!objc_msgSend_bool(e, sel_registerName("hasPreciseScrollingDeltas")))
+			dx = objc_msgSend_cgfloat(nsevent, sel_registerName("scrollingDeltaX"));
+			dy = objc_msgSend_cgfloat(nsevent, sel_registerName("scrollingDeltaY"));
+			if (!objc_msgSend_bool(nsevent, sel_registerName("hasPreciseScrollingDeltas")))
 			{
 				// ... Idk - There is a possibility to give it a hardcoded higher value? but that is shit...
 			}
@@ -805,8 +811,8 @@ void fck_macos_poll_events(fck_event_spsc *spsc)
 			break;
 
 		case NSEventTypeKeyDown: {
-			keycode = objc_msgSend_ushort(e, sel_registerName("keyCode"));
-			str = objc_msgSend_string(e, sel_registerName("charactersIgnoringModifiers"));
+			keycode = objc_msgSend_ushort(nsevent, sel_registerName("keyCode"));
+			str = objc_msgSend_string(nsevent, sel_registerName("charactersIgnoringModifiers"));
 			chars = (const char *)objc_msgSend_address(str, sel_registerName("UTF8String"));
 
 			fck_macos_unicode_create(chars, &unicode);
@@ -814,8 +820,8 @@ void fck_macos_poll_events(fck_event_spsc *spsc)
 			break;
 		}
 		case NSEventTypeKeyUp: {
-			keycode = objc_msgSend_ushort(e, sel_registerName("keyCode"));
-			str = objc_msgSend_string(e, sel_registerName("charactersIgnoringModifiers"));
+			keycode = objc_msgSend_ushort(nsevent, sel_registerName("keyCode"));
+			str = objc_msgSend_string(nsevent, sel_registerName("charactersIgnoringModifiers"));
 			chars = (const char *)objc_msgSend_address(str, sel_registerName("UTF8String"));
 
 			fck_macos_unicode_create(chars, &unicode);
@@ -823,7 +829,7 @@ void fck_macos_poll_events(fck_event_spsc *spsc)
 			break;
 		}
 		case NSEventTypeFlagsChanged: {
-			keycode = objc_msgSend_ushort(e, sel_registerName("keyCode"));
+			keycode = objc_msgSend_ushort(nsevent, sel_registerName("keyCode"));
 			is_down = (modifier_flags & (1 << fck_pkey_to_modifier[keycode])) == 1 << fck_pkey_to_modifier[keycode];
 			key_type = is_down ? FCK_KEYBOARD_EVENT_TYPE_DOWN : FCK_KEYBOARD_EVENT_TYPE_UP;
 			unicode = (fck_event_unicode){.s.u0 = 0, .s.u1 = 0, .s.u2 = 0, .s.u3 = 0};
@@ -843,7 +849,7 @@ void fck_macos_poll_events(fck_event_spsc *spsc)
 		}
 
 		// Needed? Should I really do it now?
-		objc_msgSend_void_id(ns_app, sel_registerName("sendEvent:"), e);
+		objc_msgSend_void_id(ns_app, sel_registerName("sendEvent:"), nsevent);
 	}
 
 	fck_event_spsc_submit(spsc);

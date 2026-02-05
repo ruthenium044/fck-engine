@@ -569,11 +569,11 @@ void fck_ui_render(struct fck_ui *ui, struct sht_driver *driver, struct sht_comm
 		fckc_f32 projection[16] = {
 			2.0f,  0.0f,  0.0f,  0.0f,
 
-			0.0f,  -2.0f, 0.0f,  0.0f,
+			0.0f,  2.0f,  0.0f,  0.0f,
 
 			0.0f,  0.0f,  -1.0f, 0.0f,
 
-			-1.0f, 1.0f,  0.0f,  1.0f,
+			-1.0f, -1.0f, 0.0f,  1.0f,
 		};
 		projection[0] /= (extent.width / dpi);
 		projection[5] /= (extent.height / dpi);
@@ -592,7 +592,6 @@ void fck_ui_render(struct fck_ui *ui, struct sht_driver *driver, struct sht_comm
 			command->bss(*command_buffer, ui->bss);
 
 			command->graphics_pipeline(*command_buffer, ui->pipeline);
-			// command->viewport(*command_buffer, &viewport);
 			command->vertex_buffer(*command_buffer, &ui->vertices, 0);
 			command->index_buffer(*command_buffer, &ui->indices, 0);
 
@@ -615,11 +614,6 @@ void fck_ui_render(struct fck_ui *ui, struct sht_driver *driver, struct sht_comm
 														   .first_instance = 0,
 														   .vertex_offset = 0,
 													   });
-				// for (size_t index = index_offset; index < cmd->elem_count; index++)
-				//{
-				//	const fck_vertex_ui *vertex = vertices + index;
-				//	fck_vertex_ui_log(vertex);
-				// }
 				index_offset = index_offset + cmd->elem_count;
 			}
 			command->render_pass->end(*command_buffer);

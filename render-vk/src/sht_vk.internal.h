@@ -290,9 +290,12 @@ typedef struct sht_vk_descriptor_set_copies
 
 typedef struct sht_vk_descriptor_pool_storage_entry
 {
-	VkDescriptorPool pool;
 	VkDescriptorSetLayout layout;
-	VkPipelineLayout pipeline_layout; // Idk man. I REALLY DO NOT KNOW
+	VkPipelineLayout pipeline_layout;
+	VkDescriptorPool dynamic_pools[SHT_VK_IMAGE_COUNT];
+	VkDescriptorPool constant_pool;
+
+	fckc_u32 ref_count;
 } sht_vk_descriptor_pool_storage_entry;
 
 typedef struct sht_vk_descriptor_pool_storage_key
@@ -300,20 +303,40 @@ typedef struct sht_vk_descriptor_pool_storage_key
 	sht_vk_descriptor_pool_storage_entry *entry;
 } sht_vk_descriptor_pool_storage_key;
 
+typedef struct sht_vk_bss_node
+{
+	struct sht_vk_bss_nodes *next;
+	struct sht_vk_bss_nodes *prev;
+} sht_vk_bss_node;
+
+typedef struct sht_vk_bss_nodes
+{
+	// TODO: Maybe embed tagged info in here!
+	sht_vk_bss_node values[SHT_VK_IMAGE_COUNT];
+} sht_vk_bss_nodes;
+
 typedef struct sht_vk_bss
 {
+	// Header
+	sht_vk_bss_nodes nodes;
+
+	// Data
 	sht_vk_binding_desc desc;
 	// VkDescriptorPool pool;
 	// VkDescriptorSetLayout layout;
 	// VkPipelineLayout pipeline_layout; // Idk man. I REALLY DO NOT KNOW
-	sht_vk_descriptor_pool_storage_key poo;
-	sht_vk_descriptor_set_copies copies[SHT_VK_IMAGE_COUNT];
-	// VkDescriptorSet sets[SHT_VK_IMAGE_COUNT];
+	sht_vk_descriptor_pool_storage_key pool_storage_key;
+	// sht_vk_descriptor_set_copies copies[SHT_VK_IMAGE_COUNT];
+	//  VkDescriptorSet sets[SHT_VK_IMAGE_COUNT];
+	VkDescriptorSet latest[SHT_VK_IMAGE_COUNT];
+	VkDescriptorSet baselines[SHT_VK_IMAGE_COUNT];
 	sht_bss_buffer_backends buffer_backends[SHT_VK_IMAGE_COUNT];
 } sht_vk_bss;
 
 typedef struct sht_vk_bss_storage
 {
+	sht_vk_bss_nodes inflight;
+
 	sht_vk_bss handles[sht_vk_capacity];
 	fckc_size_t count;
 } sht_vk_bss_storage;
@@ -367,6 +390,7 @@ typedef struct sht_vk_driver
 	sht_vk_declare(CreateDescriptorSetLayout);
 	sht_vk_declare(CreateDescriptorPool);
 	sht_vk_declare(UpdateDescriptorSets);
+	sht_vk_declare(ResetDescriptorPool);
 	sht_vk_declare(AllocateDescriptorSets);
 	sht_vk_declare(FreeDescriptorSets);
 	sht_vk_declare(DestroyDescriptorPool);

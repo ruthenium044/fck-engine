@@ -74,7 +74,7 @@ fck_test_app_result fck_test_app_app_init(void **app_state, int argc, char **arg
 	app->event_channel = os->event_channel->create(kll_heap, 64);
 	app->window = os->win->create("fck-vk", 1400, 600);
 
-	fck_shared_object api_so = os->so->load("fck-api");
+	fck_shared_object api_so = os->so->load("fck-render-vk");
 	sht_loader *loader = ((void *(*)(void *, void *))os->so->symbol(api_so, "fck_main"))(NULL, NULL);
 
 	app->instance = loader->load(SHT_HEADER_VERSION);
@@ -263,7 +263,6 @@ int fck_test_app_app_tick(void *app_state)
 		sht_render_pass render_pass = command->render_pass->begin(command_buffer, &desc);
 		if (command->render_pass->is_ok(render_pass))
 		{
-
 			command->viewport(command_buffer, &viewport);
 			command->scissor(command_buffer, &scissor);
 
@@ -315,11 +314,11 @@ int main(int argc, char *argv[])
 	fck_test_app_result result = fck_test_app_app_init((void **)&app, argc, argv);
 	for (;;)
 	{
-		result = fck_test_app_app_tick(app);
 		if (result != FCK_TEST_APP_RESULT_CONTINUE)
 		{
 			break;
 		}
+		result = fck_test_app_app_tick(app);
 	}
 	fck_test_app_app_quit(app, result);
 	return 0;

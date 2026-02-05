@@ -1118,7 +1118,7 @@ static fck_memory_api memory_api = {
 	.set = memset,
 };
 
-int fck_io_api_macos_log(const char *format, ...)
+void fck_io_api_macos_log(const char *format, ...)
 {
 	va_list args;
 	va_start(args, format);
@@ -1126,7 +1126,7 @@ int fck_io_api_macos_log(const char *format, ...)
 	va_end(args);
 
 	result = putchar('\n') || result;
-	return result;
+	assert(result);
 }
 
 static fck_io_api io_api = {

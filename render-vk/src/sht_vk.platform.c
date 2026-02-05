@@ -11,6 +11,9 @@ VkSurfaceKHR sht_vk_surface_create(sht_vk_instance *vk, sht_vk_platform *platfor
 	// This shit in between here has to come from OUTSIDE the render api
 	// since we have no control over a window! :)
 	// Or maybe it doesn not? We know we are on macos...
+	VkSurfaceKHR surface;
+
+#if defined(__APPLE__)
 	VkMetalSurfaceCreateInfoEXT metal_create_info = (VkMetalSurfaceCreateInfoEXT){
 		.sType = VK_STRUCTURE_TYPE_METAL_SURFACE_CREATE_INFO_EXT,
 		.pLayer = (const CAMetalLayer *)handle, //
@@ -18,12 +21,13 @@ VkSurfaceKHR sht_vk_surface_create(sht_vk_instance *vk, sht_vk_platform *platfor
 		.pNext = NULL,
 	};
 
-	VkSurfaceKHR surface;
 	PFN_vkCreateMetalSurfaceEXT create = (PFN_vkCreateMetalSurfaceEXT)platform->CreateSurfaceOpaque;
 	if (sht_vk_error(create(vk->instance, &metal_create_info, NULL, &surface)))
 	{
 		return VK_NULL_HANDLE;
 	}
+#endif
+
 	return surface;
 }
 

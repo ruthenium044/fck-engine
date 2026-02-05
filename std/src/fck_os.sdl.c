@@ -112,6 +112,8 @@ static fck_memory_api memory_api = {
 	.set = SDL_memset,
 };
 
+
+
 static fck_io_api io_api = {
 	.format = SDL_snprintf,
 	.log = SDL_Log,

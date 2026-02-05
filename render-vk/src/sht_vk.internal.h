@@ -7,8 +7,8 @@
 #include "sht_render.h"
 
 #define VK_NO_PROTOTYPES
-#include <vulkan/vk_enum_string_helper.h>
 #include <vulkan/vulkan_core.h>
+#include <vulkan/vk_enum_string_helper.h>
 
 #include <fck_os.h>
 #include <fckc_assert.h>
@@ -56,7 +56,7 @@ static inline VkResult sht_vk_report(VkResult result, const char *msg)
 // Vulkan API loading
 #define sht_vk_declare(function_name) PFN_vk##function_name function_name
 #define sht_vk_load_function(api_namespace, api_member)                                                                                    \
-	(api_namespace)->api_member = (PFN_vk##api_member)dlsym(RTLD_DEFAULT, "vk" #api_member)
+	(api_namespace)->api_member = (PFN_vk##api_member)os->so->symbol(fck_shared_object_null, "vk" #api_member)
 
 #define sht_static_assert(condition, note) extern char sht_static_assertion[(condition) ? 1 : -1]
 
@@ -68,7 +68,7 @@ struct sht_vk_instance;
 typedef struct sht_vk_queues
 {
 	struct sht_vk_gpu *gpu;
-
+	
 	fckc_u32 family[SHT_QUEUE_COUNT];
 	fckc_u32 primary[SHT_QUEUE_COUNT];
 

@@ -16,6 +16,8 @@ include(FetchContent)
 file(GLOB_RECURSE FOUND_SHADER_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/include/**.h")
 file(GLOB_RECURSE FOUND_SHADER_C_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/**.cpp")
 
+set_source_files_properties(${FOUND_SHADER_C_SOURCES} PROPERTIES LANGUAGE CXX)
+
 add_library(${PROJECT_NAME} SHARED ${FOUND_SHADER_C_SOURCES})
 add_library(fck::shader ALIAS ${PROJECT_NAME})
 
@@ -38,5 +40,5 @@ find_package(Vulkan COMPONENTS dxc shaderc_combined)
 find_package(fckc)
 find_package(std)
 find_package(kll)
-target_link_libraries(${PROJECT_NAME} PRIVATE fck::fckc fck::std Vulkan::shaderc_combined Vulkan::dxc_lib)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::fckc fck::kll fck::std Vulkan::shaderc_combined Vulkan::dxc_lib)
 set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "fck-lib")

@@ -3,13 +3,10 @@
 #include "fckc_math.h"
 #include "sht_vk.internal.h"
 
-#include <dlfcn.h>
-
 #include <fck_os.h>
 #include <fckc_assert.h>
 
 #include <string.h>
-#include <vulkan/vulkan_metal.h>
 
 #include <fck_hash.h>
 #include <fck_shader.h>

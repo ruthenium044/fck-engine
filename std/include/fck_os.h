@@ -32,6 +32,7 @@ typedef struct fck_unsafe_string_api
 	fckc_size_t (*len)(const char *str);
 } fck_unsafe_string_api;
 
+// I think not shit? ok with some issues
 typedef struct fck_string_find_api
 {
 	char *(*graphical)(char *str);
@@ -41,6 +42,7 @@ typedef struct fck_string_find_api
 	char *(*chr)(char *str, int ch);
 } fck_string_find_api;
 
+// Is ok with some issues
 typedef struct fck_string_api
 {
 	fck_unsafe_string_api *unsafe;
@@ -54,6 +56,7 @@ typedef struct fck_string_api
 	double (*tod)(const char *str, char **end);
 } fck_string_api;
 
+// Hm... Meh
 typedef struct fck_memory_api
 {
 	// malloc, realloc and free come from KLL!!!
@@ -65,8 +68,10 @@ typedef struct fck_memory_api
 typedef struct fck_io_api
 {
 	int (*format)(char *s, size_t n, const char *format, ...);
-	int (*log)(const char *format, ...);
+	void (*log)(const char *format, ...);
 } fck_io_api;
+
+#define fck_shared_object_null (fck_shared_object){0}
 
 typedef struct fck_shared_object
 {

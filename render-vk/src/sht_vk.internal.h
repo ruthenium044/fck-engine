@@ -55,8 +55,8 @@ static inline VkResult sht_vk_report(VkResult result, const char *msg)
 
 // Vulkan API loading
 #define sht_vk_declare(function_name) PFN_vk##function_name function_name
-#define sht_vk_load_function(api_namespace, api_member)                                                                                    \
-	(api_namespace)->api_member = (PFN_vk##api_member)os->so->symbol(fck_shared_object_null, "vk" #api_member)
+#define sht_vk_load_function(api_namespace, api_so, api_member)                                                                                    \
+	(api_namespace)->api_member = (PFN_vk##api_member)os->so->symbol(api_so, "vk" #api_member)
 
 #define sht_static_assert(condition, note) extern char sht_static_assertion[(condition) ? 1 : -1]
 
@@ -102,6 +102,7 @@ typedef struct sht_vk_gpu
 
 typedef struct sht_vk_platform
 {
+	// Remove all this... This is kinda useless... I guess
 	PFN_vkVoidFunction CreateSurfaceOpaque;
 } sht_vk_platform;
 
@@ -452,7 +453,11 @@ typedef struct sht_vk_instance
 	sht_vk_gpu gpu;
 	sht_vk_platform platform;
 	sht_vk_driver driver;
+	fck_shared_object so;
 } sht_vk_instance;
+
+void sht_vk_platform_adjust_instance(VkInstanceCreateInfo* create_info);
+void sht_vk_platform_adjust_extensions(const char** instance_extension_names, fckc_size_t* count);
 
 VkResult sht_vk_platform_init(sht_vk_instance *vk, sht_vk_platform *platform, sht_vk_gpu *gpu, fck_window window,
                               VkSurfaceKHR *out_surface);

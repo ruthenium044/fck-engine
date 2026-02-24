@@ -299,7 +299,18 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL sht_vk_debug_callback(VkDebugUtilsMessageS
                                                             VkDebugUtilsMessageTypeFlagsEXT messageType,
                                                             const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData, void *pUserData)
 {
-	os->io->log("VK: %s", pCallbackData->pMessage);
+	if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT)
+	{
+		os->io->log("VK-Info:\t%s", pCallbackData->pMessage);
+	}
+	if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
+	{
+		os->io->log("VK-Warn:\t%s", pCallbackData->pMessage);
+	}
+	if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
+	{
+		os->io->log("VK-Error:\t%s", pCallbackData->pMessage);
+	}
 	return VK_FALSE; // Always return false unless you want to trigger a layer failure
 }
 
@@ -314,23 +325,26 @@ VkResult sht_vk_instance_init(sht_vk_instance *vk)
 	appInfo.engineVersion = VK_MAKE_VERSION(0, 0, 1);
 	appInfo.apiVersion = VK_MAKE_VERSION(1, 0, 0);
 
-	sht_vk_load_function(vk, CreateInstance);
-	sht_vk_load_function(vk, DestroyInstance);
+	vk->so = os->so->load("vulkan-1.dll");
 
-	VkInstanceCreateInfo instance_create_info;
+	sht_vk_load_function(vk, vk->so, CreateInstance);
+	sht_vk_load_function(vk, vk->so, DestroyInstance);
+
+	VkInstanceCreateInfo instance_create_info = {0};
 	const char *instance_extension_names[16];
 	fckc_size_t instance_extension_count = 0;
 	instance_create_info.flags = 0;
 
 	static const char *layer_names[] = {"VK_LAYER_KHRONOS_validation"};
 
-	instance_extension_names[instance_extension_count++] = VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME;
-	instance_create_info.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+	// instance_extension_names[instance_extension_count++] = VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME;
+	// instance_create_info.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+	sht_vk_platform_adjust_instance(&instance_create_info);
+	sht_vk_platform_adjust_extensions(instance_extension_names, &instance_extension_count);
 
 	instance_extension_names[instance_extension_count++] = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
 	instance_extension_names[instance_extension_count++] = VK_KHR_SURFACE_EXTENSION_NAME;
 	instance_extension_names[instance_extension_count++] = VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME;
-	instance_extension_names[instance_extension_count++] = VK_EXT_METAL_SURFACE_EXTENSION_NAME;
 	instance_extension_names[instance_extension_count++] = VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME;
 
 	instance_create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -344,8 +358,8 @@ VkResult sht_vk_instance_init(sht_vk_instance *vk)
 	createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
 	createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
 	                             VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT;
-	createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-	                         VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_DEVICE_ADDRESS_BINDING_BIT_EXT;
+	createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT /*|*/
+	                        /* VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_DEVICE_ADDRESS_BINDING_BIT_EXT*/;
 	createInfo.pfnUserCallback = sht_vk_debug_callback;
 	createInfo.pUserData = NULL;
 	instance_create_info.pNext = (const void *)&createInfo;
@@ -357,18 +371,18 @@ VkResult sht_vk_gpu_init(sht_vk_instance *instance, sht_vk_gpu *gpu)
 {
 	gpu->vk = instance;
 
-	sht_vk_load_function(gpu, EnumeratePhysicalDevices);
-	sht_vk_load_function(gpu, GetPhysicalDeviceProperties);
-	sht_vk_load_function(gpu, GetPhysicalDeviceFeatures);
-	sht_vk_load_function(gpu, GetPhysicalDeviceMemoryProperties);
-	sht_vk_load_function(gpu, GetPhysicalDeviceQueueFamilyProperties);
-	sht_vk_load_function(gpu, GetPhysicalDeviceFormatProperties);
+	sht_vk_load_function(gpu, instance->so, EnumeratePhysicalDevices);
+	sht_vk_load_function(gpu, instance->so, GetPhysicalDeviceProperties);
+	sht_vk_load_function(gpu, instance->so, GetPhysicalDeviceFeatures);
+	sht_vk_load_function(gpu, instance->so, GetPhysicalDeviceMemoryProperties);
+	sht_vk_load_function(gpu, instance->so, GetPhysicalDeviceQueueFamilyProperties);
+	sht_vk_load_function(gpu, instance->so, GetPhysicalDeviceFormatProperties);
 
-	sht_vk_load_function(gpu, EnumerateDeviceExtensionProperties);
-	sht_vk_load_function(gpu, GetPhysicalDeviceSurfaceSupportKHR);
-	sht_vk_load_function(gpu, GetPhysicalDeviceSurfacePresentModesKHR);
-	sht_vk_load_function(gpu, GetPhysicalDeviceSurfaceFormatsKHR);
-	sht_vk_load_function(gpu, GetPhysicalDeviceSurfaceCapabilitiesKHR);
+	sht_vk_load_function(gpu, instance->so, EnumerateDeviceExtensionProperties);
+	sht_vk_load_function(gpu, instance->so, GetPhysicalDeviceSurfaceSupportKHR);
+	sht_vk_load_function(gpu, instance->so, GetPhysicalDeviceSurfacePresentModesKHR);
+	sht_vk_load_function(gpu, instance->so, GetPhysicalDeviceSurfaceFormatsKHR);
+	sht_vk_load_function(gpu, instance->so, GetPhysicalDeviceSurfaceCapabilitiesKHR);
 
 	return VK_SUCCESS;
 }
@@ -377,9 +391,9 @@ VkResult sht_vk_queues_init(sht_vk_queues *queues, sht_vk_gpu *gpu, VkSurfaceKHR
 {
 	queues->gpu = gpu;
 
-	sht_vk_load_function(queues, QueueSubmit);
-	sht_vk_load_function(queues, QueuePresentKHR);
-	sht_vk_load_function(queues, GetDeviceQueue);
+	sht_vk_load_function(queues, gpu->vk->so, QueueSubmit);
+	sht_vk_load_function(queues, gpu->vk->so, QueuePresentKHR);
+	sht_vk_load_function(queues, gpu->vk->so, GetDeviceQueue);
 
 	VkQueueFamilyProperties queue_family_properties[8];
 	fckc_u32 queue_family_capacity = fck_arraysize(queue_family_properties);
@@ -1092,67 +1106,67 @@ VkResult sht_vk_driver_init(sht_vk_driver *driver, sht_vk_queues *queues)
 {
 	driver->gpu = queues->gpu;
 
-	sht_vk_load_function(driver, CreateDevice);
-	sht_vk_load_function(driver, DestroyDevice);
-	sht_vk_load_function(driver, DestroySurfaceKHR);
+	sht_vk_load_function(driver, driver->gpu->vk->so, CreateDevice);
+	sht_vk_load_function(driver, driver->gpu->vk->so, DestroyDevice);
+	sht_vk_load_function(driver, driver->gpu->vk->so, DestroySurfaceKHR);
 
-	sht_vk_load_function(driver, CreateShaderModule);
-	sht_vk_load_function(driver, DestroyShaderModule);
+	sht_vk_load_function(driver, driver->gpu->vk->so, CreateShaderModule);
+	sht_vk_load_function(driver, driver->gpu->vk->so, DestroyShaderModule);
 
-	sht_vk_load_function(driver, CreateImage);
-	sht_vk_load_function(driver, DestroyImageView);
-	sht_vk_load_function(driver, DestroyImage);
-	sht_vk_load_function(driver, GetImageMemoryRequirements);
-	sht_vk_load_function(driver, AllocateMemory);
-	sht_vk_load_function(driver, FreeMemory);
-	sht_vk_load_function(driver, BindImageMemory);
-	sht_vk_load_function(driver, CreateImageView);
-	sht_vk_load_function(driver, CreateBuffer);
-	sht_vk_load_function(driver, DestroyBuffer);
-	sht_vk_load_function(driver, CreateRenderPass);
-	sht_vk_load_function(driver, DestroyRenderPass);
+	sht_vk_load_function(driver, driver->gpu->vk->so, CreateImage);
+	sht_vk_load_function(driver, driver->gpu->vk->so, DestroyImageView);
+	sht_vk_load_function(driver, driver->gpu->vk->so, DestroyImage);
+	sht_vk_load_function(driver, driver->gpu->vk->so, GetImageMemoryRequirements);
+	sht_vk_load_function(driver, driver->gpu->vk->so, AllocateMemory);
+	sht_vk_load_function(driver, driver->gpu->vk->so, FreeMemory);
+	sht_vk_load_function(driver, driver->gpu->vk->so, BindImageMemory);
+	sht_vk_load_function(driver, driver->gpu->vk->so, CreateImageView);
+	sht_vk_load_function(driver, driver->gpu->vk->so, CreateBuffer);
+	sht_vk_load_function(driver, driver->gpu->vk->so, DestroyBuffer);
+	sht_vk_load_function(driver, driver->gpu->vk->so, CreateRenderPass);
+	sht_vk_load_function(driver, driver->gpu->vk->so, DestroyRenderPass);
 
-	sht_vk_load_function(driver, GetBufferMemoryRequirements);
-	sht_vk_load_function(driver, BindBufferMemory);
-	sht_vk_load_function(driver, MapMemory);
-	sht_vk_load_function(driver, UnmapMemory);
-	sht_vk_load_function(driver, CreateSemaphore);
-	sht_vk_load_function(driver, DestroySemaphore);
-	sht_vk_load_function(driver, CreateFence);
+	sht_vk_load_function(driver, driver->gpu->vk->so, GetBufferMemoryRequirements);
+	sht_vk_load_function(driver, driver->gpu->vk->so, BindBufferMemory);
+	sht_vk_load_function(driver, driver->gpu->vk->so, MapMemory);
+	sht_vk_load_function(driver, driver->gpu->vk->so, UnmapMemory);
+	sht_vk_load_function(driver, driver->gpu->vk->so, CreateSemaphore);
+	sht_vk_load_function(driver, driver->gpu->vk->so, DestroySemaphore);
+	sht_vk_load_function(driver, driver->gpu->vk->so, CreateFence);
 
-	sht_vk_load_function(driver, CreateDescriptorSetLayout);
-	sht_vk_load_function(driver, CreateDescriptorPool);
-	sht_vk_load_function(driver, UpdateDescriptorSets);
-	sht_vk_load_function(driver, ResetDescriptorPool);
+	sht_vk_load_function(driver, driver->gpu->vk->so, CreateDescriptorSetLayout);
+	sht_vk_load_function(driver, driver->gpu->vk->so, CreateDescriptorPool);
+	sht_vk_load_function(driver, driver->gpu->vk->so, UpdateDescriptorSets);
+	sht_vk_load_function(driver, driver->gpu->vk->so, ResetDescriptorPool);
 
-	sht_vk_load_function(driver, AllocateDescriptorSets);
+	sht_vk_load_function(driver, driver->gpu->vk->so, AllocateDescriptorSets);
 
-	sht_vk_load_function(driver, FreeDescriptorSets);
-	sht_vk_load_function(driver, DestroyDescriptorPool);
-	sht_vk_load_function(driver, DestroyDescriptorSetLayout);
+	sht_vk_load_function(driver, driver->gpu->vk->so, FreeDescriptorSets);
+	sht_vk_load_function(driver, driver->gpu->vk->so, DestroyDescriptorPool);
+	sht_vk_load_function(driver, driver->gpu->vk->so, DestroyDescriptorSetLayout);
 
-	sht_vk_load_function(driver, CreatePipelineLayout);
-	sht_vk_load_function(driver, DestroyPipelineLayout);
+	sht_vk_load_function(driver, driver->gpu->vk->so, CreatePipelineLayout);
+	sht_vk_load_function(driver, driver->gpu->vk->so, DestroyPipelineLayout);
 
-	sht_vk_load_function(driver, CreateGraphicsPipelines);
-	sht_vk_load_function(driver, CreatePipelineCache);
-	sht_vk_load_function(driver, DestroyPipeline);
-	sht_vk_load_function(driver, DestroyPipelineCache);
+	sht_vk_load_function(driver, driver->gpu->vk->so, CreateGraphicsPipelines);
+	sht_vk_load_function(driver, driver->gpu->vk->so, CreatePipelineCache);
+	sht_vk_load_function(driver, driver->gpu->vk->so, DestroyPipeline);
+	sht_vk_load_function(driver, driver->gpu->vk->so, DestroyPipelineCache);
 
 	// The good shit
-	sht_vk_load_function(driver, CreateFence);
-	sht_vk_load_function(driver, DestroyFence);
-	sht_vk_load_function(driver, ResetFences);
-	sht_vk_load_function(driver, WaitForFences);
-	sht_vk_load_function(driver, GetFenceStatus);
+	sht_vk_load_function(driver, driver->gpu->vk->so, CreateFence);
+	sht_vk_load_function(driver, driver->gpu->vk->so, DestroyFence);
+	sht_vk_load_function(driver, driver->gpu->vk->so, ResetFences);
+	sht_vk_load_function(driver, driver->gpu->vk->so, WaitForFences);
+	sht_vk_load_function(driver, driver->gpu->vk->so, GetFenceStatus);
 
-	sht_vk_load_function(driver, DeviceWaitIdle);
+	sht_vk_load_function(driver, driver->gpu->vk->so, DeviceWaitIdle);
 
-	sht_vk_load_function(driver, CreateSampler);
-	sht_vk_load_function(driver, DestroySampler);
+	sht_vk_load_function(driver, driver->gpu->vk->so, CreateSampler);
+	sht_vk_load_function(driver, driver->gpu->vk->so, DestroySampler);
 
-	sht_vk_load_function(driver, CreateFramebuffer);
-	sht_vk_load_function(driver, DestroyFramebuffer);
+	sht_vk_load_function(driver, driver->gpu->vk->so, CreateFramebuffer);
+	sht_vk_load_function(driver, driver->gpu->vk->so, DestroyFramebuffer);
 
 	VkPhysicalDeviceProperties properties;
 	VkPhysicalDeviceFeatures features;
@@ -1169,8 +1183,11 @@ VkResult sht_vk_driver_init(sht_vk_driver *driver, sht_vk_queues *queues)
 	queue_info.queueCount = 1;
 	queue_info.pQueuePriorities = queue_priorities;
 
-	const char *instance_extension_names[] = {"VK_KHR_portability_subset", VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+	fckc_size_t instance_extension_count = 0;
+	const char *instance_extension_names[16];
 	// instance_extension_names[instance_extension_count++] = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
+	//sht_vk_platform_adjust_extensions(instance_extension_names, &instance_extension_count);
+	instance_extension_names[instance_extension_count++] = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
 
 	VkDeviceCreateInfo device_info = {};
 	// Deprecated
@@ -1183,7 +1200,7 @@ VkResult sht_vk_driver_init(sht_vk_driver *driver, sht_vk_queues *queues)
 	device_info.queueCreateInfoCount = 1;
 	device_info.pQueueCreateInfos = &queue_info;
 	device_info.ppEnabledExtensionNames = instance_extension_names;
-	device_info.enabledExtensionCount = fck_arraysize(instance_extension_names);
+	device_info.enabledExtensionCount = instance_extension_count;
 	device_info.pEnabledFeatures = NULL;
 
 	sht_vk_crash(driver->CreateDevice(driver->gpu->device, &device_info, default_allocation_callbacks, &driver->device));
@@ -1194,57 +1211,57 @@ VkResult sht_vk_command_init(sht_vk_command *command, sht_vk_driver *driver, sht
 {
 	command->driver = driver;
 
-	sht_vk_load_function(command, CreateCommandPool);
-	sht_vk_load_function(command, DestroyCommandPool);
-	sht_vk_load_function(command, AllocateCommandBuffers);
-	sht_vk_load_function(command, FreeCommandBuffers);
-	sht_vk_load_function(command, BeginCommandBuffer);
-	sht_vk_load_function(command, EndCommandBuffer);
-	sht_vk_load_function(command, ResetCommandBuffer);
-	sht_vk_load_function(command, CmdBindPipeline);
-	sht_vk_load_function(command, CmdSetViewport);
-	sht_vk_load_function(command, CmdSetScissor);
-	sht_vk_load_function(command, CmdSetLineWidth);
-	sht_vk_load_function(command, CmdSetDepthBias);
-	sht_vk_load_function(command, CmdSetBlendConstants);
-	sht_vk_load_function(command, CmdSetDepthBounds);
-	sht_vk_load_function(command, CmdSetStencilCompareMask);
-	sht_vk_load_function(command, CmdSetStencilWriteMask);
-	sht_vk_load_function(command, CmdSetStencilReference);
-	sht_vk_load_function(command, CmdBindDescriptorSets);
-	sht_vk_load_function(command, CmdBindIndexBuffer);
-	sht_vk_load_function(command, CmdBindVertexBuffers);
-	sht_vk_load_function(command, CmdDraw);
-	sht_vk_load_function(command, CmdDrawIndexed);
-	sht_vk_load_function(command, CmdDrawIndirect);
-	sht_vk_load_function(command, CmdDrawIndexedIndirect);
-	sht_vk_load_function(command, CmdDispatch);
-	sht_vk_load_function(command, CmdDispatchIndirect);
-	sht_vk_load_function(command, CmdCopyBuffer);
-	sht_vk_load_function(command, CmdCopyImage);
-	sht_vk_load_function(command, CmdBlitImage);
-	sht_vk_load_function(command, CmdCopyBufferToImage);
-	sht_vk_load_function(command, CmdCopyImageToBuffer);
-	sht_vk_load_function(command, CmdUpdateBuffer);
-	sht_vk_load_function(command, CmdFillBuffer);
-	sht_vk_load_function(command, CmdClearColorImage);
-	sht_vk_load_function(command, CmdClearDepthStencilImage);
-	sht_vk_load_function(command, CmdClearAttachments);
-	sht_vk_load_function(command, CmdResolveImage);
-	sht_vk_load_function(command, CmdSetEvent);
-	sht_vk_load_function(command, CmdResetEvent);
-	sht_vk_load_function(command, CmdWaitEvents);
-	sht_vk_load_function(command, CmdPipelineBarrier);
-	sht_vk_load_function(command, CmdBeginQuery);
-	sht_vk_load_function(command, CmdEndQuery);
-	sht_vk_load_function(command, CmdResetQueryPool);
-	sht_vk_load_function(command, CmdWriteTimestamp);
-	sht_vk_load_function(command, CmdCopyQueryPoolResults);
-	sht_vk_load_function(command, CmdPushConstants);
-	sht_vk_load_function(command, CmdBeginRenderPass);
-	sht_vk_load_function(command, CmdNextSubpass);
-	sht_vk_load_function(command, CmdEndRenderPass);
-	sht_vk_load_function(command, CmdExecuteCommands);
+	sht_vk_load_function(command, driver->gpu->vk->so, CreateCommandPool);
+	sht_vk_load_function(command, driver->gpu->vk->so, DestroyCommandPool);
+	sht_vk_load_function(command, driver->gpu->vk->so, AllocateCommandBuffers);
+	sht_vk_load_function(command, driver->gpu->vk->so, FreeCommandBuffers);
+	sht_vk_load_function(command, driver->gpu->vk->so, BeginCommandBuffer);
+	sht_vk_load_function(command, driver->gpu->vk->so, EndCommandBuffer);
+	sht_vk_load_function(command, driver->gpu->vk->so, ResetCommandBuffer);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdBindPipeline);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdSetViewport);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdSetScissor);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdSetLineWidth);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdSetDepthBias);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdSetBlendConstants);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdSetDepthBounds);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdSetStencilCompareMask);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdSetStencilWriteMask);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdSetStencilReference);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdBindDescriptorSets);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdBindIndexBuffer);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdBindVertexBuffers);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdDraw);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdDrawIndexed);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdDrawIndirect);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdDrawIndexedIndirect);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdDispatch);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdDispatchIndirect);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdCopyBuffer);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdCopyImage);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdBlitImage);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdCopyBufferToImage);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdCopyImageToBuffer);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdUpdateBuffer);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdFillBuffer);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdClearColorImage);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdClearDepthStencilImage);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdClearAttachments);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdResolveImage);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdSetEvent);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdResetEvent);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdWaitEvents);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdPipelineBarrier);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdBeginQuery);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdEndQuery);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdResetQueryPool);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdWriteTimestamp);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdCopyQueryPoolResults);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdPushConstants);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdBeginRenderPass);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdNextSubpass);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdEndRenderPass);
+	sht_vk_load_function(command, driver->gpu->vk->so, CmdExecuteCommands);
 
 	VkCommandPoolCreateInfo cmd_pool_info = {};
 	cmd_pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -1431,10 +1448,10 @@ VkResult sht_vk_swapchain_resize(sht_vk_swapchain *swapchain, sht_vk_driver *dri
 VkResult sht_vk_swapchain_init(sht_vk_swapchain *swapchain, sht_vk_driver *driver, VkSurfaceKHR surface, VkExtent2D extent)
 {
 	swapchain->driver = driver;
-	sht_vk_load_function(swapchain, CreateSwapchainKHR);
-	sht_vk_load_function(swapchain, GetSwapchainImagesKHR);
-	sht_vk_load_function(swapchain, AcquireNextImageKHR);
-	sht_vk_load_function(swapchain, DestroySwapchainKHR);
+	sht_vk_load_function(swapchain, driver->gpu->vk->so, CreateSwapchainKHR);
+	sht_vk_load_function(swapchain, driver->gpu->vk->so, GetSwapchainImagesKHR);
+	sht_vk_load_function(swapchain, driver->gpu->vk->so, AcquireNextImageKHR);
+	sht_vk_load_function(swapchain, driver->gpu->vk->so, DestroySwapchainKHR);
 
 	swapchain->surface = surface;
 

@@ -2,6 +2,7 @@
 #include "fck_os.h"
 
 #include <SDL3/SDL_clipboard.h>
+#include <SDL3/SDL_events.h>
 #include <SDL3/SDL_iostream.h>
 #include <SDL3/SDL_keyboard.h>
 #include <SDL3/SDL_loadso.h>
@@ -9,6 +10,8 @@
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_timer.h>
 #include <SDL3/SDL_video.h>
+
+#include <fck_events.h>
 
 static fck_char_api char_api = {
 	.isdigit = SDL_isdigit,
@@ -112,8 +115,6 @@ static fck_memory_api memory_api = {
 	.set = SDL_memset,
 };
 
-
-
 static fck_io_api io_api = {
 	.format = SDL_snprintf,
 	.log = SDL_Log,
@@ -127,17 +128,18 @@ static int fck_shared_object_is_valid(fck_shared_object so)
 #if defined(_WIN32) || defined(_WIN64)
 // Technically windows does not care if we provide an extension or not
 // It is quite forgiving in that sense. We leave it for completeness
-#define FCK_SHARED_OBJECT_EXTENSION ".dll"
+#define FCK_SHARED_OBJECT_EXTENSION "dll"
 #elif defined(__APPLE__) && defined(__MACH__)
-#define FCK_SHARED_OBJECT_EXTENSION ".dylib"
+#define FCK_SHARED_OBJECT_EXTENSION "dylib"
 #elif defined(__unix__) || defined(__unix) || defined(__linux__)
-#define FCK_SHARED_OBJECT_EXTENSION ".so"
+#define FCK_SHARED_OBJECT_EXTENSION "so"
 #else
 #error "Unsupported platform: unknown shared object extension"
 #endif
 
 static fck_shared_object fck_shared_object_load(const char *path)
 {
+	// This is fucked, this is fucked, this is fucked, this is fucked
 	char real_path[256];
 
 	// Portable code stinks
@@ -212,6 +214,25 @@ int fck_window_api_text_input_stop(fck_window window)
 int fck_window_api_size(fck_window window, int *width, int *height)
 {
 	return (int)SDL_GetWindowSize((SDL_Window *)window.handle, width, height);
+}
+
+void *fck_window_native(fck_window window, const char *name)
+{
+	if (!strcmp(name, "win32.window"))
+	{
+		SDL_PropertiesID properties = SDL_GetWindowProperties((SDL_Window*)window.handle);
+		return SDL_GetPointerProperty(properties, SDL_PROP_WINDOW_WIN32_HWND_POINTER, NULL);
+	}
+	if (!strcmp(name, "win32.instance"))
+	{
+		SDL_PropertiesID properties = SDL_GetWindowProperties((SDL_Window*)window.handle);
+		return SDL_GetPointerProperty(properties, SDL_PROP_WINDOW_WIN32_INSTANCE_POINTER, NULL);
+	}
+	if (!strcmp(name, "macos.window"))
+	{
+		SDL_PropertiesID properties = SDL_GetWindowProperties((SDL_Window*)window.handle);
+		return SDL_GetPointerProperty(properties, SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, NULL);
+	}
 }
 
 int fck_clipboard_api_set(const char *text)
@@ -299,6 +320,56 @@ fckc_i64 fck_filesystem_flush(fck_file file)
 	return (fckc_i64)SDL_FlushIO((SDL_IOStream *)file.handle);
 }
 
+fck_event_channel fck_event_channel_create(struct kll_allocator *alloocator, fckc_size_t capacity)
+{
+	(void)alloocator;
+	(void)capacity;
+	return (fck_event_channel){.handle = (void *)0x5D2};
+}
+
+void fck_event_channel_destroy(fck_event_channel channel)
+{
+	channel.handle = NULL;
+}
+
+void fck_event_channel_pump(fck_event_channel channel)
+{
+	(void)channel;
+	SDL_PumpEvents();
+}
+
+fckc_size_t fck_event_channel_poll(fck_event_channel channel, union fck_event *events, fckc_size_t capacity, fckc_size_t *count)
+{
+	SDL_Event e;
+
+	(void)channel;
+	*count = 0;
+
+	for (;;)
+	{
+		if (capacity == *count)
+		{
+			return *count;
+		}
+
+		bool has_event = SDL_PollEvent(&e);
+		if (has_event)
+		{
+			// Translate event
+			fck_event target;
+			*(events + *count) = target;
+			*count = *count + 1;
+		}
+	}
+}
+
+static fck_event_channel_api event_channel_api = {
+	.create = fck_event_channel_create,
+	.destroy = fck_event_channel_destroy,
+	.poll = fck_event_channel_poll,
+	.pump = fck_event_channel_pump,
+};
+
 static fck_filesystem_api file_system_api = {
 	.open = fck_filesystem_open,
 	.close = fck_filesystem_close,
@@ -324,6 +395,7 @@ static fck_window_api window_api = {
 	.is_valid = fck_window_api_is_valid,
 	.size = fck_window_api_size,
 	.resize = fck_window_api_resize,
+	.native = fck_window_native,
 	.text_input_start = fck_window_api_text_input_start,
 	.text_input_stop = fck_window_api_text_input_stop,
 };
@@ -341,6 +413,7 @@ static fck_os_api std_api = {
 	.win = &window_api,
 	.chrono = &chrono_api,
 	.fs = &file_system_api,
+	.event_channel = &event_channel_api,
 };
 
 fck_os_api *os = &std_api;

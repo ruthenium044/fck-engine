@@ -1,11 +1,20 @@
 #include "sht_vk.internal.h"
-#include <vulkan/vulkan_metal.h>
 
+#if defined(_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+#include <vulkan/vulkan_win32.h>
+
+#elif defined(__APPLE__)
 #include <ApplicationServices/ApplicationServices.h>
 #include <objc/message.h>
+#include <vulkan/vulkan_metal.h>
 
 #include <dlfcn.h>
+#endif
 
+// Inline this...
+#if defined(__APPLE__)
 VkSurfaceKHR sht_vk_surface_create(sht_vk_instance *vk, sht_vk_platform *platform, const void *handle)
 {
 	// This shit in between here has to come from OUTSIDE the render api
@@ -13,7 +22,6 @@ VkSurfaceKHR sht_vk_surface_create(sht_vk_instance *vk, sht_vk_platform *platfor
 	// Or maybe it doesn not? We know we are on macos...
 	VkSurfaceKHR surface;
 
-#if defined(__APPLE__)
 	VkMetalSurfaceCreateInfoEXT metal_create_info = (VkMetalSurfaceCreateInfoEXT){
 		.sType = VK_STRUCTURE_TYPE_METAL_SURFACE_CREATE_INFO_EXT,
 		.pLayer = (const CAMetalLayer *)handle, //
@@ -26,9 +34,48 @@ VkSurfaceKHR sht_vk_surface_create(sht_vk_instance *vk, sht_vk_platform *platfor
 	{
 		return VK_NULL_HANDLE;
 	}
-#endif
 
 	return surface;
+}
+#endif
+
+// #if defined _WIN32
+// #define FCK_WIN32 1
+// #else
+// #define FCK_WIN32 0
+// #endif
+//
+//// This might not work long term!!
+// #if defined __APPLE__
+// #define FCK_APPLE 1
+// #else
+// #define FCK_APPLE 0
+// #endif
+
+void sht_vk_platform_adjust_instance(VkInstanceCreateInfo *create_info)
+{
+#if defined(__APPLE__)
+	{
+		create_info->flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+	}
+#endif
+}
+
+void sht_vk_platform_adjust_extensions(const char **instance_extension_names, fckc_size_t *count)
+{
+#if defined(_WIN32)
+	{
+		instance_extension_names[*count] = VK_KHR_WIN32_SURFACE_EXTENSION_NAME;
+		*count = *count + 1;
+	}
+#elif defined(__APPLE__)
+	{
+		instance_extension_names[*count] = VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME;
+		*count = *count + 1;
+		instance_extension_names[*count] = VK_EXT_METAL_SURFACE_EXTENSION_NAME;
+		*count = *count + 1;
+	}
+#endif
 }
 
 VkPhysicalDevice sht_vk_physical_device_by_name(sht_vk_instance *vk, sht_vk_gpu *gpu, const char *target)
@@ -65,7 +112,67 @@ VkBool32 sht_vk_gpu_select(sht_vk_instance *vk, sht_vk_gpu *gpu, const char *nam
 
 VkResult sht_vk_platform_init(sht_vk_instance *vk, sht_vk_platform *platform, sht_vk_gpu *gpu, fck_window window, VkSurfaceKHR *out_surface)
 {
-#if defined(__APPLE__)
+#if defined(_WIN32)
+	{
+		// typedef VkResult(VKAPI_PTR * PFN_vkCreateWin32SurfaceKHR)(VkInstance instance, const VkWin32SurfaceCreateInfoKHR *pCreateInfo,
+		//                                                           const VkAllocationCallbacks *pAllocator, VkSurfaceKHR *pSurface);
+
+		//// Not used, just declared to understand when we run into this issue...
+		// typedef VkBool32(VKAPI_PTR * PFN_vkGetPhysicalDeviceWin32PresentationSupportKHR)(VkPhysicalDevice physicalDevice,
+		//                                                                                  uint32_t queueFamilyIndex);
+		struct
+		{
+			sht_vk_declare(CreateWin32SurfaceKHR);
+			sht_vk_declare(GetPhysicalDeviceWin32PresentationSupportKHR);
+		} platform_data, *pf;
+		pf = &platform_data;
+
+		sht_vk_load_function(pf, vk->so, CreateWin32SurfaceKHR);
+		sht_vk_load_function(pf, vk->so, GetPhysicalDeviceWin32PresentationSupportKHR);
+
+		VkWin32SurfaceCreateInfoKHR create_info = {0};
+		create_info.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+		create_info.hwnd = (HWND)os->win->native(window, "win32.window");
+		create_info.hinstance = (HINSTANCE)os->win->native(window, "win32.instance");
+
+		VkPhysicalDevice physical_device = NULL;
+		{
+			VkPhysicalDevice phy_devices[16]; // There is no fucking way...
+			fckc_u32 phy_device_count = fck_arraysize(phy_devices);
+			if (sht_vk_error(gpu->EnumeratePhysicalDevices(vk->instance, &phy_device_count, phy_devices)))
+			{
+				// Umm...
+			}
+			for (fckc_u32 index = 0; index < phy_device_count; index++)
+			{
+				physical_device = phy_devices[index];
+				// QueueFamilyIndex 0. YOLO
+				if (pf->GetPhysicalDeviceWin32PresentationSupportKHR(physical_device, 0))
+				{
+					break;
+				}
+				/*VkPhysicalDeviceProperties props = { 0 };
+				gpu->GetPhysicalDeviceProperties(physical_device, &props);
+				if (os->str->unsafe->cmp(props.deviceName, target) == 0)
+				{
+				    return physical_device;
+				}*/
+			}
+		}
+		if (physical_device == NULL)
+		{
+			return VK_NOT_READY;
+		}
+
+		pf->CreateWin32SurfaceKHR(vk->instance, &create_info, NULL, out_surface);
+		if (*out_surface == VK_NULL_HANDLE)
+		{
+			return VK_NOT_READY;
+		}
+		gpu->device = physical_device;
+	}
+
+#elif defined(__APPLE__)
 	typedef CGRect NSRect;
 	typedef CGPoint NSPoint;
 	typedef CGSize NSSize;
@@ -85,6 +192,7 @@ VkResult sht_vk_platform_init(sht_vk_instance *vk, sht_vk_platform *platform, sh
 
 #define name(target_type) sizeof(target_type) ? #target_type : NULL
 
+	// TODO: Should be os->so->symbol and the other too!!
 	platform->CreateSurfaceOpaque = (PFN_vkVoidFunction)dlsym(RTLD_DEFAULT, "vkCreateMetalSurfaceEXT");
 
 	int width;

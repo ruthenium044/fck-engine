@@ -13,6 +13,7 @@ add_library(fck::render-vk ALIAS ${PROJECT_NAME})
 
 target_sources(${PROJECT_NAME}
     PRIVATE src/sht_render.vk.c
+    PRIVATE src/sht_vk.platform.c
     PRIVATE ${FOUND_HEADER_VK_C_SOURCES}
 )
 

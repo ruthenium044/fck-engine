@@ -454,6 +454,7 @@ struct fck_ui *fck_ui_alloc(struct sht_driver *driver)
 		ui->depth_view = mem->image->view(mem->bump, ui->depth_image, SHT_FORMAT_UNDEFINED);
 		ui->vertices = mem->malloc(mem->bump, &sht_buffer_retained(SHT_BUFFER_USAGE_VERTEX, sizeof(fck_vertex_ui) * 4096), SHT_MEMORY_CPU);
 		ui->indices = mem->malloc(mem->bump, &sht_buffer_retained(SHT_BUFFER_USAGE_INDEX, sizeof(fckc_u32) * 4096), SHT_MEMORY_CPU);
+	
 		ui->bss = driver->vt->bss->create(*driver, &(sht_binding_desc){.bindings = bindings, .count = fck_arraysize(bindings)});
 
 		{
@@ -467,11 +468,14 @@ struct fck_ui *fck_ui_alloc(struct sht_driver *driver)
 			fck_hlsl_object vert = compiler.create_hlsl_from_file(&compiler, &vert_desc, &vert_file);
 			fck_hlsl_object frag = compiler.create_hlsl_from_file(&compiler, &frag_desc, &frag_file);
 
+
+			sht_vertex_desc vertex_desc = (sht_vertex_desc) {
+				.stride = sizeof(fck_vertex_ui),
+					.bindings = vertex_bindings,
+					.count = fck_arraysize(vertex_bindings)};
 			sht_graphic_desc desc = (sht_graphic_desc){.fragment = &frag.generic,
 			                                           .vertex = &vert.generic,
-			                                           .vertex_desc = &(sht_vertex_desc){.stride = sizeof(fck_vertex_ui),
-			                                                                             .bindings = vertex_bindings,
-			                                                                             .count = fck_arraysize(vertex_bindings)},
+			                                           .vertex_desc = &vertex_desc,
 			                                           .raster = (sht_raster_desc){
 														   .cull_mode = SHT_CULL_MODE_NONE,
 														   .topology = SHT_TRIANGLE_LIST,

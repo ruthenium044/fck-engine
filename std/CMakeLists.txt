@@ -7,13 +7,13 @@ include_guard(GLOBAL)
 find_package(events)
 find_package(fckc)
 
+
+add_library(${PROJECT_NAME} SHARED)
+target_link_libraries(${PROJECT_NAME} PUBLIC fck::fckc fck::events)
+
 if(APPLE)
     find_package(kll)
-    add_library(${PROJECT_NAME} SHARED)
-    target_sources(${PROJECT_NAME}
-        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include/fck_os.h
-        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/fck_os.macos.c
-    )
+    target_sources(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/fck_os.macos.c)
 
     target_link_libraries(${PROJECT_NAME} PUBLIC fck::fckc fck::events fck::kll
     "-framework AppKit"
@@ -31,14 +31,10 @@ else()
     )
     FetchContent_MakeAvailable(SDL)
 
-    add_library(${PROJECT_NAME} SHARED)
-        target_sources(${PROJECT_NAME}
-        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include/fck_os.h
-        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/fck_os.sdl.c
-    )
-
-    target_link_libraries(${PROJECT_NAME} PUBLIC fck::fckc fck::events SDL3::SDL3)
+    target_sources(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/fck_os.sdl.c)
+    target_link_libraries(${PROJECT_NAME} PUBLIC SDL3::SDL3)
 endif()
+target_sources(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include/fck_os.h)
     
 add_library(fck::std ALIAS ${PROJECT_NAME})
 

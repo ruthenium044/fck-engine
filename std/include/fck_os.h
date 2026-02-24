@@ -71,8 +71,6 @@ typedef struct fck_io_api
 	void (*log)(const char *format, ...);
 } fck_io_api;
 
-#define fck_shared_object_null (fck_shared_object){0}
-
 typedef struct fck_shared_object
 {
 	void *handle;
@@ -94,14 +92,19 @@ typedef struct fck_window
 typedef struct fck_window_api
 {
 	fck_window (*create)(const char *name, int w, int h);
-	int (*is_valid)(fck_window);
-	int (*size)(fck_window, int *width, int *height);
-	int (*position)(fck_window, int *x, int *z);
-	int (*resize)(fck_window, int width, int height);
-	void (*destroy)(fck_window handle);
+	int (*is_valid)(fck_window window);
+	int (*size)(fck_window window, int *width, int *height);
+	int (*position)(fck_window window, int *x, int *z);
+	int (*resize)(fck_window window, int width, int height);
+	void (*destroy)(fck_window window);
 
-	int (*text_input_start)(fck_window);
-	int (*text_input_stop)(fck_window);
+	// Returns platform native data, such as:
+	// HWDN and HINSTANCE on windows
+	// or NSWindow on MacOS
+	void* (*native)(fck_window window, const char* name);
+
+	int (*text_input_start)(fck_window window);
+	int (*text_input_stop)(fck_window window);
 } fck_window_api;
 
 typedef struct fck_clipboard
@@ -177,10 +180,11 @@ typedef struct fck_os_api
 	fck_io_api *io;
 	fck_shared_object_api *so;
 	fck_window_api *win;
-	fck_clipboard_api *clipboard;
-	fck_chrono_api *chrono;
 	fck_filesystem_api *fs;
 
+	// Special APIs are not getting a cool little abbrevation
+	fck_clipboard_api *clipboard;
+	fck_chrono_api *chrono;
 	fck_event_channel_api *event_channel;
 } fck_os_api;
 

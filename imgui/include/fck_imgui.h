@@ -1,6 +1,0 @@
-#ifndef FCK_IMGUI_H_INCLUDED
-#define FCK_IMGUI_H_INCLUDED
-
-
-
-#endif // !FCK_IMGUI_H_INCLUDED

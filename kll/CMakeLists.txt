@@ -5,24 +5,19 @@ project(fck-kll)
 
 include_guard(GLOBAL)
 
-file(GLOB_RECURSE FOUND_KLL_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/include/**.h")
-file(GLOB_RECURSE FOUND_KLL_C_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/**.c")
-
-add_library(${PROJECT_NAME} SHARED ${FOUND_KLL_C_SOURCES})
+add_library(${PROJECT_NAME} SHARED)
 add_library(fck::kll ALIAS ${PROJECT_NAME})
 
-target_sources(${PROJECT_NAME}
-    PRIVATE ${FOUND_KLL_C_SOURCES}
-    PRIVATE ${FOUND_KLL_HEADERS} 
-)
+target_include_directories(${PROJECT_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
+target_sources(${PROJECT_NAME} PRIVATE "include/kll.h")
+target_sources(${PROJECT_NAME} PRIVATE "include/kll_heap.h")
+target_sources(${PROJECT_NAME} PRIVATE "include/kll_temp.h")
+target_sources(${PROJECT_NAME} PRIVATE "include/kll_impl_util.h")
+target_sources(${PROJECT_NAME} PRIVATE "include/kll_malloc.h")
 
-target_include_directories(${PROJECT_NAME}
-    PUBLIC
-        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-        "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
-)
-
-
+target_sources(${PROJECT_NAME} PRIVATE "src/kll.c")
+target_sources(${PROJECT_NAME} PRIVATE "src/kll_heap.c")
+target_sources(${PROJECT_NAME} PRIVATE "src/kll_temp.c")
 
 find_package(fckc)
 target_link_libraries(${PROJECT_NAME} PUBLIC fck::fckc)

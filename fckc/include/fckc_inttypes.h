@@ -45,56 +45,6 @@ typedef uintptr_t fckc_uintptr;
 #define to_size_t(x) ((fckc_size_t)x)
 #define to_int(x) ((int)x)
 
-// TODO: Remove all this junk below... it is part of math...
-
-#define FCK_NAMED_VECTOR_TYPE(name, type)                                                                                                  \
-	typedef union fckc_##name##x1 {                                                                                                        \
-		struct                                                                                                                             \
-		{                                                                                                                                  \
-			type x;                                                                                                                        \
-		};                                                                                                                                 \
-		type v[1];                                                                                                                         \
-	} fckc_##name##x1;                                                                                                                     \
-	typedef union fckc_##name##x2 {                                                                                                        \
-		struct                                                                                                                             \
-		{                                                                                                                                  \
-			type x;                                                                                                                        \
-			type y;                                                                                                                        \
-		};                                                                                                                                 \
-		type v[2];                                                                                                                         \
-	} fckc_##name##x2;                                                                                                                     \
-	typedef union fckc_##name##x3 {                                                                                                        \
-		struct                                                                                                                             \
-		{                                                                                                                                  \
-			type x;                                                                                                                        \
-			type y;                                                                                                                        \
-			type z;                                                                                                                        \
-		};                                                                                                                                 \
-		type v[3];                                                                                                                         \
-	} fckc_##name##x3;                                                                                                                     \
-	typedef union fckc_##name##x4 {                                                                                                        \
-		struct                                                                                                                             \
-		{                                                                                                                                  \
-			type x;                                                                                                                        \
-			type y;                                                                                                                        \
-			type z;                                                                                                                        \
-			type w;                                                                                                                        \
-		};                                                                                                                                 \
-		type v[4];                                                                                                                         \
-	} fckc_##name##x4
-
-// Maybe just expand them...
-FCK_NAMED_VECTOR_TYPE(f32, fckc_f32);
-FCK_NAMED_VECTOR_TYPE(f64, fckc_f64);
-FCK_NAMED_VECTOR_TYPE(i8, fckc_i8);
-FCK_NAMED_VECTOR_TYPE(i16, fckc_i16);
-FCK_NAMED_VECTOR_TYPE(i32, fckc_i32);
-FCK_NAMED_VECTOR_TYPE(i64, fckc_i64);
-FCK_NAMED_VECTOR_TYPE(u8, fckc_u8);
-FCK_NAMED_VECTOR_TYPE(u16, fckc_u16);
-FCK_NAMED_VECTOR_TYPE(u32, fckc_u32);
-FCK_NAMED_VECTOR_TYPE(u64, fckc_u64);
-
 #define fck_scope_str_concat(lhs, rhs) lhs##rhs
 #define fck_scope_unique(lhs, rhs) fck_scope_str_concat(lhs, rhs)
 #define fck_scope(ctor, dtor)                                                                                                              \

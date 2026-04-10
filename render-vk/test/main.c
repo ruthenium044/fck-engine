@@ -115,10 +115,10 @@ fck_test_app_result fck_test_app_app_init(void **app_state, int argc, char **arg
 	sht_swapchain swapchain = driver.vt->swapchain(driver);
 
 	sht_standard_vertex vertex_data[] = {
-		{.position = {0.0f, 1.0f, 0.0f}, .color = {1.0f, 0.0f, 0.0f}, .uv = {0.0f, 1.0f}},
-		{.position = {1.0f, 1.0f, 0.0f}, .color = {0.0f, 1.0f, 0.0f}, .uv = {1.0f, 1.0f}},
-		{.position = {0.0f, 0.0f, 0.0f}, .color = {0.0f, 0.0f, 1.0f}, .uv = {0.0f, 0.0f}},
-		{.position = {1.0f, 0.0f, 0.0f}, .color = {0.0f, 0.0f, 1.0f}, .uv = {1.0f, 0.0f}},
+		{.position = {0.0f, 1.0f, 0.0f}, .color = {1.0f, 1.0f, 1.0f}, .uv = {0.0f, 1.0f}},
+		{.position = {1.0f, 1.0f, 0.0f}, .color = {1.0f, 1.0f, 1.0f}, .uv = {1.0f, 1.0f}},
+		{.position = {0.0f, 0.0f, 0.0f}, .color = {1.0f, 1.0f, 1.0f}, .uv = {0.0f, 0.0f}},
+		{.position = {1.0f, 0.0f, 0.0f}, .color = {1.0f, 1.0f, 1.0f}, .uv = {1.0f, 0.0f}},
 	};
 
 	app->vertices.count = fck_arraysize(vertex_data);
@@ -169,11 +169,12 @@ fck_test_app_result fck_test_app_app_init(void **app_state, int argc, char **arg
 
 	{
 		fck_shader_compiler compiler = fck_shader_compiler_create();
-		fck_file vert_file = os->fs->open("/Users/ruthenium/fck/render-vk/test/hlsl/triangle.vert", "r");
-		fck_shader_desc vert_desc = (fck_shader_desc){FCK_SHADER_VERTEX, "triangle-vert", "main"};
 
-		fck_file frag_file = os->fs->open("/Users/ruthenium/fck/render-vk/test/hlsl/triangle.frag", "r");
-		fck_shader_desc frag_desc = (fck_shader_desc){FCK_SHADER_FRAGMENT, "triangle-frag", "main"};
+		fck_file vert_file = os->fs->open("C:\\Users\\jukai\\Documents\\fck-engine\\app\\assets\\fck_ui.hlsl.vert", "r");
+		fck_shader_desc vert_desc = (fck_shader_desc){ FCK_SHADER_VERTEX, "triangle-vert", "main" };
+
+		fck_file frag_file = os->fs->open("C:\\Users\\jukai\\Documents\\fck-engine\\app\\assets\\fck_ui.hlsl.frag", "r");
+		fck_shader_desc frag_desc = (fck_shader_desc){ FCK_SHADER_FRAGMENT, "triangle-frag", "main" };
 
 		fck_hlsl_object vert = compiler.create_hlsl_from_file(&compiler, &vert_desc, &vert_file);
 		fck_hlsl_object frag = compiler.create_hlsl_from_file(&compiler, &frag_desc, &frag_file);

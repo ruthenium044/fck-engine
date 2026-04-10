@@ -4,24 +4,20 @@ project(fck-ts)
 
 include_guard(GLOBAL)
 
-file(GLOB_RECURSE FOUND_TS_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/include/**.h")
-file(GLOB_RECURSE FOUND_TS_INL_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/src/**.inl")
-file(GLOB_RECURSE FOUND_TS_C_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/**.c")
-
 add_library(${PROJECT_NAME} SHARED ${FOUND_TS_C_SOURCES})
 add_library(fck::ts ALIAS ${PROJECT_NAME})
 
-target_sources(${PROJECT_NAME}
-    PRIVATE ${FOUND_TS_HEADERS}
-    PRIVATE ${FOUND_TS_INL_HEADERS} 
-    PRIVATE ${FOUND_TS_C_SOURCES} 
-)
+target_sources(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include/fck_type_system.h")
 
-target_include_directories(${PROJECT_NAME}
-    PUBLIC
-        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-        "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
-)
+target_sources(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/fck_type_system.inl")
+target_sources(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/fck_type_system.c")
+target_sources(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/fck_type_system_identifiers.c")
+target_sources(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/fck_type_system_marshal.c")
+target_sources(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/fck_type_system_members.c")
+target_sources(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/fck_type_system_runtime_implementation.c")
+target_sources(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/fck_type_system_serialisation.c")
+
+target_include_directories(${PROJECT_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
 find_package(hash)
 find_package(std)

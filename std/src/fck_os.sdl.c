@@ -344,8 +344,7 @@ fckc_size_t fck_event_channel_poll(fck_event_channel channel, union fck_event *e
 
 	(void)channel;
 	*count = 0;
-
-	for (;;)
+	for (;0;)
 	{
 		if (capacity == *count)
 		{
@@ -355,12 +354,13 @@ fckc_size_t fck_event_channel_poll(fck_event_channel channel, union fck_event *e
 		bool has_event = SDL_PollEvent(&e);
 		if (has_event)
 		{
-			// Translate event
+			// Translate event...
 			fck_event target;
 			*(events + *count) = target;
 			*count = *count + 1;
 		}
 	}
+	return *count;
 }
 
 static fck_event_channel_api event_channel_api = {

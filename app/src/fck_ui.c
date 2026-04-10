@@ -459,10 +459,10 @@ struct fck_ui *fck_ui_alloc(struct sht_driver *driver)
 
 		{
 			fck_shader_compiler compiler = fck_shader_compiler_create();
-			fck_file vert_file = os->fs->open("/Users/ruthenium/fck/app/assets/fck_ui.hlsl.vert", "r");
+			fck_file vert_file = os->fs->open("C:\\Users\\jukai\\Documents\\fck-engine\\app\\assets\\fck_ui.hlsl.vert", "r");
 			fck_shader_desc vert_desc = (fck_shader_desc){FCK_SHADER_VERTEX, "triangle-vert", "main"};
 
-			fck_file frag_file = os->fs->open("/Users/ruthenium/fck/app/assets/fck_ui.hlsl.frag", "r");
+			fck_file frag_file = os->fs->open("C:\\Users\\jukai\\Documents\\fck-engine\\app\\assets\\fck_ui.hlsl.frag", "r");
 			fck_shader_desc frag_desc = (fck_shader_desc){FCK_SHADER_FRAGMENT, "triangle-frag", "main"};
 
 			fck_hlsl_object vert = compiler.create_hlsl_from_file(&compiler, &vert_desc, &vert_file);

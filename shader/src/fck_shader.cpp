@@ -28,10 +28,11 @@ fck_shader_generic fck_shader_create_generic(struct fck_shader_compiler *compile
 	fckc_size_t source_len = source_size; // No need for alignment cause first!
 	fckc_size_t file_len = strlen(desc->file);
 	fckc_size_t ep_len = strlen(desc->entry_point);
-	const fckc_size_t terminator_count = 3;
+	const fckc_size_t terminator_count = 4;
 	fckc_size_t total_len = file_len + ep_len + source_len + terminator_count;
 
 	char *total = (char *)malloc(total_len);
+	memset(total, 0, total_len);
 	char *dst = total;
 	generic.source = dst = ((char *)memcpy(dst, source, source_len));
 	dst = ((char *)memset(dst + source_len + 1, 0, 1));
@@ -118,6 +119,7 @@ fck_hlsl_object fck_shader_create_hlsl_from_file(struct fck_shader_compiler *com
 	char *text = (char *)kll_malloc(kll_heap, size);
 	fckc_size_t read = os->fs->read(*file, text, size);
 	fck_assert(size == read);
+	text[read] = '\0'; 
 
 	fck_hlsl_object hlsl = compiler->create_hlsl(compiler, desc, text);
 	return hlsl;
@@ -126,7 +128,6 @@ fck_hlsl_object fck_shader_create_hlsl_from_file(struct fck_shader_compiler *com
 void fck_shader_destroy(struct fck_shader_compiler *compiler, fck_shader_generic *shader)
 {
 	free((void *)shader->source);
-	memset(shader, 0xCF, sizeof(*shader));
 }
 
 void fck_shader_compiler_shutdown(fck_shader_compiler *compiler)

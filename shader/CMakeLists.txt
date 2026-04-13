@@ -13,7 +13,7 @@ include_guard(GLOBAL)
 
 include(FetchContent)
 
-add_library(${PROJECT_NAME} SHARED)
+add_library(${PROJECT_NAME})
 add_library(fck::shader ALIAS ${PROJECT_NAME})
 
 # dxc requires some higher cxx std... no clue, do not care
@@ -30,6 +30,6 @@ find_package(Vulkan COMPONENTS dxc shaderc_combined)
 find_package(fckc)
 find_package(std)
 find_package(kll)
-target_link_libraries(${PROJECT_NAME} PRIVATE fck::fckc fck::kll fck::std Vulkan::shaderc_combined Vulkan::dxc_lib)
+target_link_libraries(${PROJECT_NAME} PUBLIC fck::fckc PRIVATE fck::kll fck::std Vulkan::shaderc_combined Vulkan::dxc_lib)
 set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "fck-lib")
 

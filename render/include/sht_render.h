@@ -3,7 +3,7 @@
 
 #include <fckc_inttypes.h>
 
-#define sht_render_api "sht-render"
+#define sht_render_api_name "sht-render"
 
 // Not much here is widely ABI compatible yet!
 struct fck_shader_generic;

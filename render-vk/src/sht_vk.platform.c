@@ -92,7 +92,7 @@ VkPhysicalDevice sht_vk_physical_device_by_name(sht_vk_instance *vk, sht_vk_gpu 
 		VkPhysicalDevice physical_device = phy_devices[index];
 		VkPhysicalDeviceProperties props = {0};
 		gpu->GetPhysicalDeviceProperties(physical_device, &props);
-		if (os->str->unsafe->cmp(props.deviceName, target) == 0)
+		if (strcmp(props.deviceName, target) == 0)
 		{
 			return physical_device;
 		}

@@ -6,10 +6,11 @@
 #include <assert.h>
 
 #include <kll.h>
-#include <kll_heap.h>
+#include <kll_system.h>
 #include <kll_malloc.h>
 
-#include <fck_os.h>
+#include <memory.h>
+#include <string.h>
 
 typedef struct fck_apis_node
 {
@@ -32,14 +33,14 @@ static fck_apis_hash_map fck_apis_storage;
 
 static void fck_apis_add(const char *name, void *api)
 {
-	fck_hash_int hash = fck_hash(name, os->str->unsafe->len(name));
+	fck_hash_int hash = fck_hash(name, strlen(name));
 	fck_hash_int slot = hash % fck_apis_hash_map_capacity;
 
 	fck_apis_node *current = &fck_apis_storage.heads[slot];
 	fck_apis_node *tail = fck_apis_storage.tails[slot];
 	if (tail != NULL)
 	{
-		tail->next = (fck_apis_node *)kll_malloc(kll_heap, sizeof(*current));
+		tail->next = (fck_apis_node *)kll_malloc(kll_system, sizeof(*current));
 		current = tail->next;
 	}
 
@@ -52,7 +53,7 @@ static void fck_apis_add(const char *name, void *api)
 
 static int fck_apis_remove(const char *name)
 {
-	fck_hash_int hash = fck_hash(name, os->str->unsafe->len(name));
+	fck_hash_int hash = fck_hash(name, strlen(name));
 	fck_hash_int slot = hash % fck_apis_hash_map_capacity;
 
 	fck_apis_node *current = &fck_apis_storage.heads[slot];
@@ -71,8 +72,8 @@ static int fck_apis_remove(const char *name)
 
 	if (next != NULL)
 	{
-		os->mem->cpy(current, next, sizeof(*current));
-		kll_free(kll_heap, next);
+		memcpy(current, next, sizeof(*current));
+		kll_free(kll_system, next);
 	}
 
 	if (tail == current)
@@ -102,7 +103,7 @@ static void *fck_apis_find_from_hash(fckc_u64 hash)
 
 static void *fck_apis_find_from_string(const char *name)
 {
-	fck_hash_int hash = fck_hash(name, os->str->unsafe->len(name));
+	fck_hash_int hash = fck_hash(name, strlen(name));
 	void *api = fck_apis_find_from_hash(hash);
 	return api;
 }

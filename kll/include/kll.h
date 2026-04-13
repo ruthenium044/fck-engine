@@ -4,43 +4,42 @@
 
 #include <fckc_inttypes.h>
 
-// TODO: Should not be typedef
-typedef struct kll_context kll_context;
+#define kll_api_name "kll"
 
-typedef void *(kll_realloc_function)(kll_context *context, void *ptr, fckc_size_t size, fckc_size_t line, const char *file);
+struct kll_allocator;
 
-typedef struct kll_vt
-{
-	kll_realloc_function *realloc;
-} kll_vt;
+typedef void *(kll_realloc_function)(struct kll_allocator * allocator, void *ptr, fckc_size_t size, const char *file, fckc_size_t line);
 
 typedef struct kll_allocator
 {
-	// Opaque pointer for custom context
-	kll_context *context;
-	// VTable without indirection cause only one pointer.
-	kll_vt vt;
+	kll_realloc_function *realloc;
+	// User data follows!
 } kll_allocator;
 
-typedef void(kll_reset_func)(kll_context *context);
-typedef char *(kll_format_func)(kll_context *context, const char *format, ...);
+struct kll_arena;
 
-typedef struct kll_temp_vt
+typedef void *(kll_arena_reset_function)(struct kll_arena * arena);
+typedef struct kll_arena
 {
-	// char *(*format)(kll_context *context);
-	kll_reset_func *reset;
-	kll_format_func *format;
-} kll_temp_vt;
+	kll_realloc_function *realloc;
+	kll_arena_reset_function *reset;
+	// User data follows!
+} kll_arena;
 
-typedef struct kll_temp_allocator
+struct kll_arena_api
 {
-	// Opaque pointer for custom context
-	kll_context *context;
-	// VTable without indirection cause only one pointer.
-	kll_vt vt;
+	kll_arena *(*create)(kll_allocator *allocator);
+	void (*destroy)(kll_arena *arena);
 
-	// Up to this point, temp allocators are layout compatible with normal allocators
-	kll_temp_vt temp;
-} kll_temp_allocator;
+	char *(*format)(struct kll_arena*arena, const char *format, ...);
+};
+
+struct kll_api
+{
+	struct kll_arena_api *arena;
+
+	kll_allocator *system;
+	kll_arena *frame;
+};
 
 #endif // !FCK_KLL_H_INCLUDED

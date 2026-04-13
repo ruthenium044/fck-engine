@@ -5,7 +5,7 @@
 #include <fck_events.h>
 
 #include <kll.h>
-#include <kll_heap.h>
+#include <kll_system.h>
 #include <kll_malloc.h>
 
 #include <fckc_assert.h>
@@ -67,11 +67,11 @@ typedef struct fck_test_app_application
 
 fck_test_app_result fck_test_app_app_init(void **app_state, int argc, char **argv)
 {
-	fck_test_app_application *app = (fck_test_app_application *)kll_malloc(kll_heap, sizeof(*app));
+	fck_test_app_application *app = (fck_test_app_application *)kll_malloc(kll_system, sizeof(*app));
 	memset(app, 0, sizeof(*app));
 	*app_state = app;
 
-	app->event_channel = os->event_channel->create(kll_heap, 64);
+	app->event_channel = os->event_channel->create(kll_system, 64);
 	app->window = os->win->create("fck-vk", 1400, 600);
 
 	fck_shared_object api_so = os->so->load("fck-render-vk");
@@ -151,8 +151,8 @@ fck_test_app_result fck_test_app_app_init(void **app_state, int argc, char **arg
 	sht_extent extent = swapchain.vt->extent(swapchain);
 	sht_image_configuration config = (sht_image_configuration){
 		.format = SHT_FORMAT_D16_UNORM,
-		.width = extent.width,
-		.height = extent.height,
+		.width = (fckc_u32)extent.width,
+		.height = (fckc_u32)extent.height,
 		.transfer = SHT_TRANSFER_RETAINED,
 		.usage = SHT_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT,
 	};
@@ -170,10 +170,10 @@ fck_test_app_result fck_test_app_app_init(void **app_state, int argc, char **arg
 	{
 		fck_shader_compiler compiler = fck_shader_compiler_create();
 
-		fck_file vert_file = os->fs->open("C:\\Users\\jukai\\Documents\\fck-engine\\render-vk\\assets\\fck_ui.hlsl.vert", "r");
+		fck_file vert_file = os->fs->open("hlsl\\triangle.vert", "r");
 		fck_shader_desc vert_desc = (fck_shader_desc){ FCK_SHADER_VERTEX, "triangle-vert", "main" };
 
-		fck_file frag_file = os->fs->open("C:\\Users\\jukai\\Documents\\fck-engine\\render-vk\\assets\\fck_ui.hlsl.frag", "r");
+		fck_file frag_file = os->fs->open("hlsl\\triangle.frag", "r");
 		fck_shader_desc frag_desc = (fck_shader_desc){ FCK_SHADER_FRAGMENT, "triangle-frag", "main" };
 
 		fck_hlsl_object vert = compiler.create_hlsl_from_file(&compiler, &vert_desc, &vert_file);
@@ -199,7 +199,7 @@ fck_test_app_result fck_test_app_app_init(void **app_state, int argc, char **arg
 	return FCK_TEST_APP_RESULT_CONTINUE;
 }
 
-int fck_test_app_app_tick(void *app_state)
+fck_test_app_result fck_test_app_app_tick(void *app_state)
 {
 	fck_test_app_application *app = (fck_test_app_application *)app_state;
 

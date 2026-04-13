@@ -4,7 +4,7 @@ project(fck-std)
 
 include_guard(GLOBAL)
 
-add_library(${PROJECT_NAME} SHARED)
+add_library(${PROJECT_NAME})
 add_library(fck::std ALIAS ${PROJECT_NAME})
 
 if(APPLE)
@@ -18,6 +18,14 @@ if(APPLE)
     "-framework QuartzCore")
 else()
     target_sources(${PROJECT_NAME} PRIVATE "src/fck_os.sdl.c")
+
+    if(BUILD_SHARED_LIBS)
+        set(SDL_SHARED ON CACHE BOOL "" FORCE)
+        set(SDL_STATIC OFF CACHE BOOL "" FORCE)
+    else()
+        set(SDL_SHARED OFF CACHE BOOL "" FORCE)
+        set(SDL_STATIC ON CACHE BOOL "" FORCE)
+    endif()
 
     include(FetchContent)
     FetchContent_Declare(
@@ -37,10 +45,10 @@ target_include_directories(${PROJECT_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/i
 
 find_package(events)
 find_package(fckc)
-target_link_libraries(${PROJECT_NAME} PUBLIC fck::fckc fck::events)
+target_link_libraries(${PROJECT_NAME} PUBLIC fck::fckc PRIVATE fck::events)
 
 add_executable(${PROJECT_NAME}-test "test/main.c")
-target_link_libraries(${PROJECT_NAME}-test PUBLIC ${PROJECT_NAME} fck::fckc fck::events)
+target_link_libraries(${PROJECT_NAME}-test PRIVATE ${PROJECT_NAME} fck::fckc fck::events)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "fck-lib")
 set_target_properties(${PROJECT_NAME}-test PROPERTIES FOLDER "fck-tests")

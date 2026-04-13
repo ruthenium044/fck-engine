@@ -11,10 +11,11 @@
 #include <fck_hash.h>
 #include <fck_shader.h>
 #include <kll.h>
-#include <kll_heap.h>
+#include <kll_system.h>
 #include <kll_malloc.h>
 
 #include <fck_apis.h>
+#include <fckc_inttypes.h>
 
 #include <sht_render.h>
 
@@ -42,7 +43,7 @@ static VkDescriptorType sht_binding_type_to_vk_desc_type[] = {
 // 1. Allocation Function
 void *VKAPI_PTR sht_vk_default_allocation(void *pUserData, size_t size, size_t alignment, VkSystemAllocationScope allocationScope)
 {
-	void *ptr = kll_malloc(kll_heap, size);
+	void *ptr = kll_malloc(kll_system, size);
 	VK_LOG("ALLOC", "Size: %zu, Align: %zu, Scope: %d -> Addr: %p", size, alignment, allocationScope, ptr);
 	return ptr;
 }
@@ -52,7 +53,7 @@ void *VKAPI_PTR sht_vk_default_reallocation(void *pUserData, void *pOriginal, si
                                             VkSystemAllocationScope allocationScope)
 {
 
-	void *ptr = kll_realloc(kll_heap, pOriginal, size);
+	void *ptr = kll_realloc(kll_system, pOriginal, size);
 	VK_LOG("REALLOC", "Old: %p, New Size: %zu, Scope: %d -> New Addr: %p", pOriginal, size, allocationScope, ptr);
 	return ptr;
 }
@@ -64,7 +65,7 @@ void VKAPI_PTR sht_vk_default_free(void *pUserData, void *pMemory)
 	if (pMemory)
 	{
 		VK_LOG("FREE", "Addr: %p", pMemory);
-		kll_free(kll_heap, pMemory);
+		kll_free(kll_system, pMemory);
 	}
 }
 
@@ -193,7 +194,7 @@ void sht_vk_descriptor_set_update_buffer(sht_vk_driver *driver, VkDescriptorSet 
 	VkDescriptorBufferInfo buffer_info = {0};
 	buffer_info.buffer = buffer->gpu;
 	buffer_info.offset = 0;
-	buffer_info.range = buffer->size; // VK_WHOLE_SIZE Maybe?
+	buffer_info.range = VK_WHOLE_SIZE; // VK_WHOLE_SIZE Maybe?
 
 	// Update the descriptor set determining the shader binding points
 	// For every binding point used in a shader there needs to be one
@@ -1462,7 +1463,7 @@ VkResult sht_vk_swapchain_init(sht_vk_swapchain *swapchain, sht_vk_driver *drive
 	uint32_t format_count;
 	sht_vk_crash(gpu->GetPhysicalDeviceSurfaceFormatsKHR(gpu->device, surface, &format_count, NULL));
 
-	VkSurfaceFormatKHR *formats = (VkSurfaceFormatKHR *)kll_malloc(kll_heap, format_count * sizeof(VkSurfaceFormatKHR));
+	VkSurfaceFormatKHR *formats = (VkSurfaceFormatKHR *)kll_malloc(kll_system, format_count * sizeof(VkSurfaceFormatKHR));
 	sht_vk_crash(gpu->GetPhysicalDeviceSurfaceFormatsKHR(gpu->device, surface, &format_count, formats));
 	fck_assert(format_count >= 1); // That would be fucking weird, lol
 
@@ -1479,7 +1480,7 @@ VkResult sht_vk_swapchain_init(sht_vk_swapchain *swapchain, sht_vk_driver *drive
 	{
 		format = formats[0].format;
 	}
-	kll_free(kll_heap, formats);
+	kll_free(kll_system, formats);
 
 	VkSurfaceCapabilitiesKHR surface_capabilities;
 	sht_vk_crash(gpu->GetPhysicalDeviceSurfaceCapabilitiesKHR(gpu->device, surface, &surface_capabilities));
@@ -1857,7 +1858,7 @@ sht_image_view sht_swapchain_wait_and_acquire(sht_swapchain swapchain, fckc_u32 
 	VkDevice device = driver->device;
 
 	VkFence *wait_fence = &sync->wait_fences[sync->index];
-	VkResult result = driver->WaitForFences(device, 1, wait_fence, VK_TRUE, UINT64_MAX);
+	VkResult result = driver->WaitForFences(device, 1, wait_fence, VK_TRUE, UINT32_MAX);
 	sht_vk_crash(driver->ResetFences(device, 1, wait_fence));
 
 	VkSemaphore *completed = &sync->presentation_completed[sync->index];
@@ -2604,7 +2605,7 @@ VkResult sht_vk_shader_module_load(sht_vk_driver *driver, fck_shader_desc desc, 
 	fck_file shader_source = os->fs->open(path, "r");
 
 	fckc_size_t size = os->fs->size(shader_source);
-	char *text = (char *)kll_malloc(kll_heap, size);
+	char *text = (char *)kll_malloc(kll_system, size);
 	os->fs->read(shader_source, text, size);
 
 	fck_hlsl_object hlsl = compiler.create_hlsl(&compiler, &desc, text);
@@ -3566,8 +3567,8 @@ sht_bool32 sht_bss_upload(sht_bss bss, fckc_u32 id, sht_upload_desc *desc)
 
 sht_instance sht_vk_load(fckc_u32 version)
 {
-	sht_vk_instance *vk = kll_malloc(kll_heap, sizeof(*vk));
-	vk->allocator = kll_heap;
+	sht_vk_instance *vk = kll_malloc(kll_system, sizeof(*vk));
+	vk->allocator = kll_system;
 	vk->name = "sht-vulkan";
 	sht_vk_crash(sht_vk_instance_init(vk));
 
@@ -3599,8 +3600,8 @@ FCK_EXPORT_API sht_loader *fck_main(fck_api_registry *apis, sht_render_api_confi
 		return &sht_loader_api;
 	}
 	// Maybe here we load the shared object ;)
-	os->io->log("%s loaded", sht_render_api);
-	apis->add(sht_render_api, &sht_loader_api);
+	os->io->log("%s loaded", sht_render_api_name);
+	apis->add(sht_render_api_name, &sht_loader_api);
 	return &sht_loader_api;
 }
 

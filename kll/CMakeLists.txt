@@ -5,18 +5,19 @@ project(fck-kll)
 
 include_guard(GLOBAL)
 
-add_library(${PROJECT_NAME} SHARED)
+add_library(${PROJECT_NAME})
 add_library(fck::kll ALIAS ${PROJECT_NAME})
 
 target_include_directories(${PROJECT_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_sources(${PROJECT_NAME} PRIVATE "include/kll.h")
-target_sources(${PROJECT_NAME} PRIVATE "include/kll_heap.h")
+
+target_sources(${PROJECT_NAME} PRIVATE "include/kll_system.h")
 target_sources(${PROJECT_NAME} PRIVATE "include/kll_temp.h")
-target_sources(${PROJECT_NAME} PRIVATE "include/kll_impl_util.h")
+
 target_sources(${PROJECT_NAME} PRIVATE "include/kll_malloc.h")
 
 target_sources(${PROJECT_NAME} PRIVATE "src/kll.c")
-target_sources(${PROJECT_NAME} PRIVATE "src/kll_heap.c")
+target_sources(${PROJECT_NAME} PRIVATE "src/kll_system.c")
 target_sources(${PROJECT_NAME} PRIVATE "src/kll_temp.c")
 
 find_package(fckc)

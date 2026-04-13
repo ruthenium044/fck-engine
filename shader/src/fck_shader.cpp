@@ -8,7 +8,7 @@ extern "C"
 #include <fck_os.h>
 #include <fckc_assert.h>
 #include <kll.h>
-#include <kll_heap.h>
+#include <kll_system.h>
 #include <kll_malloc.h>
 }
 #include <shaderc/shaderc.h>
@@ -116,7 +116,7 @@ fck_hlsl_object fck_shader_create_hlsl(struct fck_shader_compiler *compiler, fck
 fck_hlsl_object fck_shader_create_hlsl_from_file(struct fck_shader_compiler *compiler, fck_shader_desc *desc, fck_file *file)
 {
 	fckc_size_t size = os->fs->size(*file);
-	char *text = (char *)kll_malloc(kll_heap, size);
+	char *text = (char *)kll_malloc(kll_system, size);
 	fckc_size_t read = os->fs->read(*file, text, size);
 	fck_assert(size == read);
 	text[read] = '\0'; 

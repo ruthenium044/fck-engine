@@ -5,7 +5,7 @@ project(fck-render-vk)
 
 include_guard(GLOBAL)
 
-add_library(${PROJECT_NAME} SHARED)
+add_library(${PROJECT_NAME})
 add_library(fck::render-vk ALIAS ${PROJECT_NAME})
 
 target_sources(${PROJECT_NAME} PRIVATE "src/sht_vk.internal.h")
@@ -25,15 +25,20 @@ find_package(shader)
 find_package(Vulkan)
 
 if(APPLE)
-    target_link_libraries(${PROJECT_NAME} PRIVATE fck::api fck::fckc fck::std fck::kll fck::render fck::events Vulkan::Vulkan fck::shader fck::hash
+    target_link_libraries(${PROJECT_NAME} PUBLIC fck::render PRIVATE fck::api fck::fckc fck::std fck::kll fck::events Vulkan::Vulkan fck::shader fck::hash
         "-framework Metal"
         "-framework MetalKit")
 else()
-    target_link_libraries(${PROJECT_NAME} PRIVATE fck::api fck::fckc fck::std fck::kll fck::render fck::events Vulkan::Vulkan fck::shader fck::hash)
+    target_link_libraries(${PROJECT_NAME} PUBLIC fck::render PRIVATE fck::api fck::fckc fck::std fck::kll fck::events Vulkan::Vulkan fck::shader fck::hash)
 endif()
 
+
 add_executable(${PROJECT_NAME}-test test/main.c)
-target_link_libraries(${PROJECT_NAME}-test PRIVATE ${PROJECT_NAME} fck::fckc fck::std fck::kll fck::render fck::events fck::shader)
+target_link_libraries(${PROJECT_NAME}-test PRIVATE ${PROJECT_NAME} fck::std fck::kll fck::render fck::events fck::shader)
+
+set_target_properties(${PROJECT_NAME}-test PROPERTIES
+    VS_DEBUGGING_WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "fck-lib")
 set_target_properties(${PROJECT_NAME}-test PROPERTIES FOLDER "fck-tests")

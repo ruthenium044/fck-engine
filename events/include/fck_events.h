@@ -36,7 +36,7 @@ typedef enum fck_keyboard_event_type
 	FCK_KEYBOARD_EVENT_TYPE_DOWN,
 } fck_keyboard_event_type;
 
-// Taken from SDL_Scancode
+// Taken from SDL_Scancode - shamelessly
 typedef enum fck_pkey
 {
 	FCK_PKEY_UNKNOWN = 0,

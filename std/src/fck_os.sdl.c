@@ -13,108 +13,6 @@
 
 #include <fck_events.h>
 
-static fck_char_api char_api = {
-	.isdigit = SDL_isdigit,
-	.isspace = SDL_isspace,
-	.isgraph = SDL_isgraph,
-	.isprint = SDL_isprint,
-	.iscntrl = SDL_iscntrl,
-};
-
-static fck_unsafe_string_api unsafe_string_api = {
-	.cmp = SDL_strcmp,
-	.dup = SDL_strdup,
-	.len = SDL_strlen,
-};
-
-char *fck_string_find_graphical(char *str)
-{
-	if (str == NULL || *str == '\0')
-	{
-		return NULL;
-	}
-	while (*str != '\0')
-	{
-		if (!SDL_isgraph(*str))
-		{
-			str = str + 1;
-			continue;
-		}
-		return str;
-	}
-	return NULL;
-}
-
-char *fck_string_find_printable(char *str)
-{
-	if (str == NULL || *str == '\0')
-	{
-		return NULL;
-	}
-	while (*str != '\0')
-	{
-		if (!SDL_isprint(*str))
-		{
-			str = str + 1;
-			continue;
-		}
-		return str;
-	}
-	return NULL;
-}
-
-char *fck_string_find_control(char *str)
-{
-	if (str == NULL || *str == '\0')
-	{
-		return NULL;
-	}
-	while (*str != '\0')
-	{
-		if (!SDL_iscntrl(*str))
-		{
-			str = str + 1;
-			continue;
-		}
-		return str;
-	}
-	return NULL;
-}
-
-char *fck_string_find_string(char *str, const char *other)
-{
-	return SDL_strstr(str, other);
-}
-
-char *fck_string_find_char(char *str, int ch)
-{
-	return SDL_strchr(str, ch);
-}
-
-static fck_string_find_api string_find_api = {
-	.string = fck_string_find_string,
-	.graphical = fck_string_find_graphical,
-	.printable = fck_string_find_printable,
-	.chr = fck_string_find_char,
-	.control = fck_string_find_control,
-};
-
-static fck_string_api string_api = {
-	.unsafe = &unsafe_string_api, //
-	.find = &string_find_api,     //
-	.cmp = SDL_strncmp,           //
-	.dup = SDL_strndup,           //
-	.len = SDL_strnlen,           //
-	.toll = SDL_strtoll,          //
-	.toull = SDL_strtoull,        //
-	.tod = SDL_strtod,            //
-};
-
-static fck_memory_api memory_api = {
-	.cpy = SDL_memcpy,
-	.set = SDL_memset,
-};
-
 static fck_io_api io_api = {
 	.format = SDL_snprintf,
 	.log = SDL_Log,
@@ -140,7 +38,7 @@ static int fck_shared_object_is_valid(fck_shared_object so)
 static fck_shared_object fck_shared_object_load(const char *path)
 {
 	// This is fucked, this is fucked, this is fucked, this is fucked
-	char real_path[256];
+	char real_path[512];
 
 	// Portable code stinks
 	// const char *path_delim_backslash = SDL_strrchr(path, '\\');
@@ -233,6 +131,8 @@ void *fck_window_native(fck_window window, const char *name)
 		SDL_PropertiesID properties = SDL_GetWindowProperties((SDL_Window*)window.handle);
 		return SDL_GetPointerProperty(properties, SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, NULL);
 	}
+
+	return NULL;
 }
 
 int fck_clipboard_api_set(const char *text)
@@ -405,9 +305,6 @@ static fck_chrono_api chrono_api = {
 };
 
 static fck_os_api std_api = {
-	.chr = &char_api,
-	.str = &string_api,
-	.mem = &memory_api,
 	.io = &io_api,
 	.so = &so_api,
 	.win = &window_api,

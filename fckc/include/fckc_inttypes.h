@@ -31,19 +31,19 @@ typedef uint64_t fckc_u64;
 typedef size_t fckc_size_t;
 typedef uintptr_t fckc_uintptr;
 
-#define to_f32(x) ((fckc_f32)x)
-#define to_f64(x) ((fckc_f64)x)
-#define to_u8(x) ((fckc_u8)x)
-#define to_u16(x) ((fckc_u16)x)
-#define to_u32(x) ((fckc_u32)x)
-#define to_u64(x) ((fckc_u64)x)
-#define to_i8(x) ((fckc_i8)x)
-#define to_i16(x) ((fckc_i16)x)
-#define to_i32(x) ((fckc_i32)x)
-#define to_i64(x) ((fckc_i64)x)
+#define to_f32(x) ((fckc_f32)(x))
+#define to_f64(x) ((fckc_f64)(x))
+#define to_u8(x) ((fckc_u8)(x))
+#define to_u16(x) ((fckc_u16)(x))
+#define to_u32(x) ((fckc_u32)(x))
+#define to_u64(x) ((fckc_u64)(x))
+#define to_i8(x) ((fckc_i8)(x))
+#define to_i16(x) ((fckc_i16)(x))
+#define to_i32(x) ((fckc_i32)(x))
+#define to_i64(x) ((fckc_i64)(x))
 
-#define to_size_t(x) ((fckc_size_t)x)
-#define to_int(x) ((int)x)
+#define to_size_t(x) ((fckc_size_t)(x))
+#define to_int(x) ((int)(x))
 
 #define fck_scope_str_concat(lhs, rhs) lhs##rhs
 #define fck_scope_unique(lhs, rhs) fck_scope_str_concat(lhs, rhs)

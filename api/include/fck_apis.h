@@ -8,6 +8,13 @@
 
 typedef struct fck_api_registry
 {
+	// TODO: 
+	// add
+	// remove
+
+	// set 
+	// get
+
 	void (*add)(const char *name, void *api);
 	void *(*get)(fckc_u64 hash);
 	void *(*find)(const char *name);

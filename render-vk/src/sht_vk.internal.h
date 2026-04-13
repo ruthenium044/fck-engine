@@ -55,6 +55,7 @@ static inline VkResult sht_vk_report(VkResult result, const char *msg)
 
 // Vulkan API loading
 #define sht_vk_declare(function_name) PFN_vk##function_name function_name
+
 #define sht_vk_load_function(api_namespace, api_so, api_member)                                                                                    \
 	(api_namespace)->api_member = (PFN_vk##api_member)os->so->symbol(api_so, "vk" #api_member)
 

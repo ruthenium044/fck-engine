@@ -16,54 +16,6 @@
 struct kll_allocator;
 union fck_event;
 
-typedef struct fck_char_api
-{
-	int (*isspace)(int ch);
-	int (*isdigit)(int ch);
-	int (*isgraph)(int ch);
-	int (*isprint)(int ch);
-	int (*iscntrl)(int ch);
-} fck_char_api;
-
-typedef struct fck_unsafe_string_api
-{
-	int (*cmp)(const char *lhs, const char *rhs);
-	char *(*dup)(const char *str);
-	fckc_size_t (*len)(const char *str);
-} fck_unsafe_string_api;
-
-// I think not shit? ok with some issues
-typedef struct fck_string_find_api
-{
-	char *(*graphical)(char *str);
-	char *(*printable)(char *str);
-	char *(*control)(char *str);
-	char *(*string)(char *str, const char *other);
-	char *(*chr)(char *str, int ch);
-} fck_string_find_api;
-
-// Is ok with some issues
-typedef struct fck_string_api
-{
-	fck_unsafe_string_api *unsafe;
-	fck_string_find_api *find;
-
-	int (*cmp)(const char *lhs, const char *rhs, fckc_size_t maxlen);
-	char *(*dup)(const char *str, fckc_size_t maxlen);
-	fckc_size_t (*len)(const char *str, fckc_size_t maxlen);
-	long long (*toll)(const char *str, char **end, int base);
-	unsigned long long (*toull)(const char *str, char **end, int base);
-	double (*tod)(const char *str, char **end);
-} fck_string_api;
-
-// Hm... Meh
-typedef struct fck_memory_api
-{
-	// malloc, realloc and free come from KLL!!!
-	void *(*cpy)(void *dst, void const *src, fckc_size_t size);
-	void *(*set)(void *bytes, int value, fckc_size_t size);
-} fck_memory_api;
-
 // Should be fck_format_api...
 typedef struct fck_io_api
 {
@@ -151,7 +103,6 @@ typedef struct fck_filesystem_api
 	fckc_size_t (*read)(fck_file, void *ptr, fckc_size_t size);
 	fckc_size_t (*write)(fck_file, const void *ptr, fckc_size_t size);
 	fckc_i64 (*flush)(fck_file);
-
 } fck_filesystem_api;
 
 typedef struct fck_event_channel
@@ -174,9 +125,6 @@ typedef struct fck_event_channel_api
 
 typedef struct fck_os_api
 {
-	fck_char_api *chr;
-	fck_string_api *str;
-	fck_memory_api *mem;
 	fck_io_api *io;
 	fck_shared_object_api *so;
 	fck_window_api *win;

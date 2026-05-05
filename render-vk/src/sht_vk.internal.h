@@ -243,6 +243,7 @@ typedef struct sht_vk_framebuffer
 {
 	sht_render_desc desc;
 	VkFramebuffer handle;
+	VkExtent2D extent;
 } sht_vk_framebuffer;
 
 typedef struct sht_vk_render_pass_storage

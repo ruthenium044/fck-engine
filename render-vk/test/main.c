@@ -75,7 +75,7 @@ fck_test_app_result fck_test_app_app_init(void **app_state, int argc, char **arg
 	app->window = os->win->create("fck-vk", 1400, 600);
 
 	fck_shared_object api_so = os->so->load("fck-render-vk");
-	sht_loader *loader = ((void *(*)(void *, void *))os->so->symbol(api_so, "fck_main"))(NULL, NULL);
+	sht_loader *loader = (sht_loader*)((void *(*)(void *, void *))os->so->symbol(api_so, "fck_main"))(NULL, NULL);
 
 	app->instance = loader->load(SHT_HEADER_VERSION);
 	fck_assert(loader->is_ok(app->instance));
@@ -170,10 +170,10 @@ fck_test_app_result fck_test_app_app_init(void **app_state, int argc, char **arg
 	{
 		fck_shader_compiler compiler = fck_shader_compiler_create();
 
-		fck_file vert_file = os->fs->open("hlsl\\triangle.vert", "r");
+		fck_file vert_file = os->fs->open("hlsl/triangle.vert", "r");
 		fck_shader_desc vert_desc = (fck_shader_desc){ FCK_SHADER_VERTEX, "triangle-vert", "main" };
 
-		fck_file frag_file = os->fs->open("hlsl\\triangle.frag", "r");
+		fck_file frag_file = os->fs->open("hlsl/triangle.frag", "r");
 		fck_shader_desc frag_desc = (fck_shader_desc){ FCK_SHADER_FRAGMENT, "triangle-frag", "main" };
 
 		fck_hlsl_object vert = compiler.create_hlsl_from_file(&compiler, &vert_desc, &vert_file);
@@ -199,31 +199,13 @@ fck_test_app_result fck_test_app_app_init(void **app_state, int argc, char **arg
 	return FCK_TEST_APP_RESULT_CONTINUE;
 }
 
-fck_test_app_result fck_test_app_app_tick(void *app_state)
+fck_test_app_result fck_test_app_app_draw(fck_test_app_application* app)
 {
-	fck_test_app_application *app = (fck_test_app_application *)app_state;
-
-	os->event_channel->pump(app->event_channel);
-
-	fckc_size_t count;
-	fck_event events[12];
-	while (os->event_channel->poll(app->event_channel, events, fck_arraysize(events), &count))
-	{
-		for (fckc_size_t index = 0; index < count; index++)
-		{
-			fck_event *event = events + index;
-			if (event->key.pkey == FCK_PKEY_ESCAPE)
-			{
-				return FCK_TEST_APP_RESULT_DONE;
-			}
-		}
-	}
-
 	sht_driver driver = app->driver;
 
-	sht_memory *mem = driver.vt->memory(driver);
+	sht_memory* mem = driver.vt->memory(driver);
 	sht_swapchain swapchain = driver.vt->swapchain(driver);
-	sht_command_buffer_vt *command = driver.vt->command_buffer;
+	sht_command_buffer_vt* command = driver.vt->command_buffer;
 
 	mem->reset(mem->temp);
 
@@ -240,8 +222,8 @@ fck_test_app_result fck_test_app_app_tick(void *app_state)
 		}
 		return FCK_TEST_APP_RESULT_DONE;
 	}
-	driver.vt->bss->upload(app->bss, 0, sht_upload_params{.data = &app->mvp, .size = sizeof(app->mvp)});
-	driver.vt->bss->upload(app->bss, 1, sht_upload_params{.view = app->texture_view, .sampler = app->sampler});
+	driver.vt->bss->upload(app->bss, 0, sht_upload_params{ .data = &app->mvp, .size = sizeof(app->mvp) });
+	driver.vt->bss->upload(app->bss, 1, sht_upload_params{ .view = app->texture_view, .sampler = app->sampler });
 
 	sht_viewport viewport;
 	viewport.offset.x = 0.0f;
@@ -278,13 +260,36 @@ fck_test_app_result fck_test_app_app_tick(void *app_state)
 													  .index_count = app->indices.count,
 													  .instance_count = 1,
 													  .vertex_offset = 0,
-												  });
+				});
 			command->render_pass->end(command_buffer);
 		}
 		command->submit(command_buffer, SHT_QUEUE_GRAPHIC);
 	}
-
 	return FCK_TEST_APP_RESULT_CONTINUE;
+}
+
+fck_test_app_result fck_test_app_app_tick(void *app_state)
+{
+	fck_test_app_application *app = (fck_test_app_application *)app_state;
+
+	os->event_channel->pump(app->event_channel);
+
+	fckc_size_t count;
+	fck_event events[12];
+	while (os->event_channel->poll(app->event_channel, events, fck_arraysize(events), &count))
+	{
+		for (fckc_size_t index = 0; index < count; index++)
+		{
+			fck_event *event = events + index;
+			if (event->key.pkey == FCK_PKEY_ESCAPE)
+			{
+				return FCK_TEST_APP_RESULT_DONE;
+			}
+		}
+	}
+
+	fck_test_app_result result = fck_test_app_app_draw(app);
+	return result;
 }
 
 void fck_test_app_app_quit(void *app_state, fck_test_app_result result)

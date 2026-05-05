@@ -1,5 +1,5 @@
-#ifndef FCK_OS_H
-#define FCK_OS_H
+#ifndef FCK_OS_H_INCLUDED
+#define FCK_OS_H_INCLUDED
 
 #include <fckc_apidef.h>
 #include <fckc_inttypes.h>

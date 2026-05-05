@@ -80,7 +80,7 @@ static fck_shared_object_api so_api = {
 
 static fck_window fck_window_api_create(const char *name, int w, int h)
 {
-	SDL_Window *window = SDL_CreateWindow(name, w, h, 0);
+	SDL_Window *window = SDL_CreateWindow(name, w, h, SDL_WINDOW_RESIZABLE);
 	return (fck_window){.handle = window};
 }
 
@@ -118,17 +118,17 @@ void *fck_window_native(fck_window window, const char *name)
 {
 	if (!strcmp(name, "win32.window"))
 	{
-		SDL_PropertiesID properties = SDL_GetWindowProperties((SDL_Window*)window.handle);
+		SDL_PropertiesID properties = SDL_GetWindowProperties((SDL_Window *)window.handle);
 		return SDL_GetPointerProperty(properties, SDL_PROP_WINDOW_WIN32_HWND_POINTER, NULL);
 	}
 	if (!strcmp(name, "win32.instance"))
 	{
-		SDL_PropertiesID properties = SDL_GetWindowProperties((SDL_Window*)window.handle);
+		SDL_PropertiesID properties = SDL_GetWindowProperties((SDL_Window *)window.handle);
 		return SDL_GetPointerProperty(properties, SDL_PROP_WINDOW_WIN32_INSTANCE_POINTER, NULL);
 	}
 	if (!strcmp(name, "macos.window"))
 	{
-		SDL_PropertiesID properties = SDL_GetWindowProperties((SDL_Window*)window.handle);
+		SDL_PropertiesID properties = SDL_GetWindowProperties((SDL_Window *)window.handle);
 		return SDL_GetPointerProperty(properties, SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, NULL);
 	}
 
@@ -244,7 +244,7 @@ fckc_size_t fck_event_channel_poll(fck_event_channel channel, union fck_event *e
 
 	(void)channel;
 	*count = 0;
-	for (;0;)
+	for (;;)
 	{
 		if (capacity == *count)
 		{
@@ -252,13 +252,15 @@ fckc_size_t fck_event_channel_poll(fck_event_channel channel, union fck_event *e
 		}
 
 		bool has_event = SDL_PollEvent(&e);
-		if (has_event)
+		if (!has_event)
 		{
-			// Translate event...
-			fck_event target;
-			*(events + *count) = target;
-			*count = *count + 1;
+			break;
 		}
+
+		// Translate event...
+		fck_event target;
+		*(events + *count) = target;
+		*count = *count + 1;
 	}
 	return *count;
 }

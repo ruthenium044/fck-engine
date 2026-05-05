@@ -266,8 +266,7 @@ typedef struct sht_memory_image
 {
 	sht_image (*create)(sht_memory_arena *mem, sht_image_configuration *config, sht_memory_type memory_type);
 	void (*destroy)(sht_memory_arena *mem, sht_image *image);
-	// This is not symmetric to buffer (value vs ref)
-	// This is because I want to try out what feels better, but also image occupies 7 registers, while buffer only 4...
+
 	sht_bool32 (*is_ok)(sht_image *image);
 	// Get used to this terminology.
 	// You view and discard resource views, you create and destroy the resources!

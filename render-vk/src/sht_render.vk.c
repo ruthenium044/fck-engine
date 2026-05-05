@@ -11,8 +11,8 @@
 #include <fck_hash.h>
 #include <fck_shader.h>
 #include <kll.h>
-#include <kll_system.h>
 #include <kll_malloc.h>
+#include <kll_system.h>
 
 #include <fck_apis.h>
 #include <fckc_inttypes.h>
@@ -360,7 +360,7 @@ VkResult sht_vk_instance_init(sht_vk_instance *vk)
 	createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
 	                             VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT;
 	createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT /*|*/
-	                        /* VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_DEVICE_ADDRESS_BINDING_BIT_EXT*/;
+		/* VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_DEVICE_ADDRESS_BINDING_BIT_EXT*/;
 	createInfo.pfnUserCallback = sht_vk_debug_callback;
 	createInfo.pUserData = NULL;
 	instance_create_info.pNext = (const void *)&createInfo;
@@ -1187,7 +1187,7 @@ VkResult sht_vk_driver_init(sht_vk_driver *driver, sht_vk_queues *queues)
 	fckc_size_t instance_extension_count = 0;
 	const char *instance_extension_names[16];
 	// instance_extension_names[instance_extension_count++] = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
-	//sht_vk_platform_adjust_extensions(instance_extension_names, &instance_extension_count);
+	// sht_vk_platform_adjust_extensions(instance_extension_names, &instance_extension_count);
 	instance_extension_names[instance_extension_count++] = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
 
 	VkDeviceCreateInfo device_info = {};
@@ -1851,6 +1851,8 @@ static void sht_vk_command_buffer_bss_copy(sht_vk_driver *driver, sht_vk_bss *bs
 
 sht_image_view sht_swapchain_wait_and_acquire(sht_swapchain swapchain, fckc_u32 *index)
 {
+	const fckc_u64 timeout = ~0LLU;
+
 	sht_vk_swapchain *sc = (sht_vk_swapchain *)swapchain.handle;
 	sht_vk_common_sync_resources *sync = &sc->sync;
 
@@ -1858,18 +1860,16 @@ sht_image_view sht_swapchain_wait_and_acquire(sht_swapchain swapchain, fckc_u32 
 	VkDevice device = driver->device;
 
 	VkFence *wait_fence = &sync->wait_fences[sync->index];
-	VkResult result = driver->WaitForFences(device, 1, wait_fence, VK_TRUE, UINT32_MAX);
+	VkResult result = driver->WaitForFences(device, 1, wait_fence, VK_TRUE, timeout);
 	sht_vk_crash(driver->ResetFences(device, 1, wait_fence));
 
 	VkSemaphore *completed = &sync->presentation_completed[sync->index];
 	*index = sync->index;
 
 	fckc_u32 image_index;
-	result = sc->AcquireNextImageKHR(device, sc->swapchain, UINT64_MAX, *completed, VK_NULL_HANDLE, &image_index);
-	if (result == VK_ERROR_OUT_OF_DATE_KHR || (result == VK_SUBOPTIMAL_KHR))
+	result = sc->AcquireNextImageKHR(device, sc->swapchain, timeout, *completed, VK_NULL_HANDLE, &image_index);
+	if (result == VK_ERROR_OUT_OF_DATE_KHR /*|| (result == VK_SUBOPTIMAL_KHR)*/ /* SUBOPTIMAL just means we have more surface than we need... */)
 	{
-		// TODO: Resize!!
-		// sht_vk_resize(swapchain, mem, runtime, runtime->render_pass);
 		*index = SHT_SWAPCHAIN_NEEDS_RESIZE;
 		sht_vk_resize(sc);
 		return (sht_image_view){0};
@@ -2123,8 +2123,9 @@ void sht_swapchain_present(sht_command_buffer command_buffer, fckc_u32 image_ind
 
 	sht_vk_queues *queues = &driver->gpu->queues;
 	VkQueue present_queue = sht_vk_queues_get_primary(queues, driver->device, SHT_QUEUE_PRESENT);
-	sht_vk_crash(queues->QueuePresentKHR(present_queue, &present_info));
-	sync->index = (sync->index + 1) % SHT_VK_IMAGE_COUNT;
+	VkResult result = queues->QueuePresentKHR(present_queue, &present_info);
+	(void)result; // We discard it, since next time we try to get a new swapchain image, we ask for the same shit
+	sync->index = (sync->index + 1) % SHT_VK_IMAGE_COUNT; // Idk if we should skip counting lol
 }
 
 void sht_command_buffer_submit(sht_command_buffer command, sht_queue_type queue_type)
@@ -2212,7 +2213,7 @@ void sht_command_buffer_submit(sht_command_buffer command, sht_queue_type queue_
 
 		sht_vk_crash(queues->QueueSubmit(queue, 1, &submit_info, fence));
 		// TODO: Barriers might be better! Let's see and do all that later!
-		sht_vk_crash(driver->WaitForFences(driver->device, 1, &fence, VK_TRUE, UINT64_MAX));
+		sht_vk_crash(driver->WaitForFences(driver->device, 1, &fence, VK_TRUE, ~0llu));
 		driver->DestroyFence(driver->device, fence, default_allocation_callbacks);
 		break;
 	}
@@ -2983,6 +2984,7 @@ static VkResult sht_vk_framebuffer_create(sht_vk_driver *driver, VkSurfaceKHR su
 	fb_info.layers = 1;
 
 	framebuffer->desc = *desc;
+	framebuffer->extent = extent;
 	return sht_vk_error(driver->CreateFramebuffer(driver->device, &fb_info, default_allocation_callbacks, &framebuffer->handle));
 }
 
@@ -3013,7 +3015,7 @@ void sht_vk_render_pass_begin(sht_command_buffer command, sht_vk_driver *driver,
 	render_pass_begin_info.renderPass = render_pass->handle;
 	render_pass_begin_info.renderArea.offset.x = 0;
 	render_pass_begin_info.renderArea.offset.y = 0;
-	render_pass_begin_info.renderArea.extent = extent;
+	render_pass_begin_info.renderArea.extent = framebuffer->extent;
 	render_pass_begin_info.clearValueCount = clear_count;
 	render_pass_begin_info.pClearValues = clearValues;
 	render_pass_begin_info.framebuffer = framebuffer->handle;

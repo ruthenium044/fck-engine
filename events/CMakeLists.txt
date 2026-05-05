@@ -13,6 +13,7 @@ target_sources(${PROJECT_NAME} INTERFACE "include/fck_events.h")
 
 find_package(fckc)
 target_link_libraries(${PROJECT_NAME} INTERFACE fck::fckc)
-
 set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "fck-headers")
+
+
 

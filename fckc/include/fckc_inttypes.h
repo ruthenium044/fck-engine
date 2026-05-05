@@ -66,6 +66,10 @@ typedef uintptr_t fckc_uintptr;
 
 #define fckc_align(offset, align) (((offset) + (align) - 1) & ~((align) - 1))
 
+#define fckc_concat_implementation(x, y) x ## y
+#define fckc_concat(x, y) fckc_concat_implementation(x, y)
+#define fckc_pad(n) char fckc_concat(_padding_, __LINE__)[n]
+
 #define fck_kilobytes(x) ((fckc_size_t)(x) * 1024UL)
 #define fck_megabytes(x) ((fckc_size_t)(x) * 1024UL * 1024UL)
 #define fck_gigabytes(x) ((fckc_size_t)(x) * 1024UL * 1024UL * 1024UL)

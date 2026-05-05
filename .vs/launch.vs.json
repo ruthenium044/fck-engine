@@ -7,7 +7,8 @@
       "exe": "",
       "project": "CMakeLists.txt",
       "projectTarget": "fck-render-vk-test.exe",
-      "name": "fck-render-vk-test.exe"
+      "name": "fck-render-vk-test.exe",
+      "currentDir": "${workspaceRoot}/render-vk/test/"
     }
   ]
 }

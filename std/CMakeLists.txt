@@ -21,6 +21,7 @@ if(APPLE)
 else()
     target_sources(${PROJECT_NAME} PRIVATE "src/fck_os.sdl.c")
     target_sources(${PROJECT_NAME} PRIVATE "src/fck_input.sdl.mouse.c")
+    target_sources(${PROJECT_NAME} PRIVATE "src/fck_input.sdl.text.c")
     target_sources(${PROJECT_NAME} PRIVATE "src/fck_input.sdl.keyboard.c")
 
     if(BUILD_SHARED_LIBS)

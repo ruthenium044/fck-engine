@@ -140,4 +140,4 @@ FCK_STD_API extern fck_os_api *os;
 
 // extern fck_os_api *os;
 
-#endif // !FCK_OS_H
+#endif // !FCK_OS_H_INCLUDED

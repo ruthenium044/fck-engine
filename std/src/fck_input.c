@@ -71,11 +71,31 @@ fckc_size_t fck_input_events(fck_input_event *events, fckc_size_t size)
 	return offset;
 }
 
-fck_input input = (fck_input){
+int fck_input_is(fck_input_source *source, const char *name)
+{
+	if (SDL_strcmp(source->name, name) == 0)
+	{
+		return 1;
+	}
+	return 0;
+}
+
+fck_input input_api = (fck_input){
 	.add = fck_input_add,
 	.remove = fck_input_remove,
 	.sources = fck_input_sources,
 	.events = fck_input_events,
+	.is = fck_input_is,
 };
 
-FCK_EXPORT_API fck_input *input_api = &input;
+FCK_IMPORT_API fck_input_source* input_mouse;
+FCK_IMPORT_API fck_input_source* input_physical_keyboard;
+FCK_IMPORT_API fck_input_source* input_text;
+
+FCK_EXPORT_API fck_input *fck_input_load(void)
+{
+	input_api.add(input_mouse);
+	input_api.add(input_physical_keyboard);
+	input_api.add(input_text);
+	return &input_api;
+}

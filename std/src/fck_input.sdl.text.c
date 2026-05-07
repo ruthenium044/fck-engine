@@ -7,11 +7,12 @@
 #include "fckc_apidef.h"
 #include "fckc_assert.h"
 #include "fckc_math.h"
+#include "fck_text_input.h"
 
 static fckc_size_t fck_input_text_owners(fckc_u64 **owners);
 static fckc_size_t fck_input_text_events(fck_input_event *events, fckc_size_t size);
 static fckc_size_t fck_input_text_descriptions(fck_input_description **descriptions);
-static fckc_size_t fck_input_text_state(fckc_u64 owner, fck_input_state *states, fckc_size_t size);
+static fckc_size_t fck_input_text_state(fckc_u64 owner, fckc_u32* ids, fck_input_data* states, fckc_size_t size);
 
 typedef struct fck_input_source_text
 {
@@ -22,7 +23,7 @@ typedef struct fck_input_source_text
 	// fck_input_data data[fck_pkey_count];
 } fck_input_source_text;
 
-static fck_input_source_text input_text = (fck_input_source_text){
+static fck_input_source_text input_source_text = (fck_input_source_text){
 	.source =
 		(fck_input_source){
 			.name = "text",
@@ -36,10 +37,11 @@ static fck_input_source_text input_text = (fck_input_source_text){
 	//.data = {0},
 };
 
-FCK_EXPORT_API fck_input_source *input_source_text = &input_text.source;
+FCK_EXPORT_API fck_input_source *input_text = &input_source_text.source;
 
 fckc_size_t fck_input_text_owners(fckc_u64 **owners)
 {
+	(void)owners;
 	return 0;
 }
 
@@ -80,7 +82,7 @@ fckc_size_t fck_input_text_events(fck_input_event *events, fckc_size_t size)
 				fck_assert(false);
 				continue;
 			case SDL_EVENT_TEXT_INPUT:
-				event->description = &input_text.description;
+				event->description = &input_source_text.description;
 				const char* text = e->text.text;
 				event->data.as_unicode = SDL_StepUTF8(&text, NULL);
 				event->owner = 0;
@@ -88,7 +90,7 @@ fckc_size_t fck_input_text_events(fck_input_event *events, fckc_size_t size)
 			}
 
 			event->time = e->common.timestamp;
-			event->source = &input_text.source;
+			event->source = &input_source_text.source;
 			event->userdata = NULL;
 		}
 
@@ -103,12 +105,14 @@ fckc_size_t fck_input_text_events(fck_input_event *events, fckc_size_t size)
 
 fckc_size_t fck_input_text_descriptions(fck_input_description **descriptions)
 {
-	*descriptions = &input_text;
+	*descriptions = &input_source_text.description;
 	return 1;
 }
 
-fckc_size_t fck_input_text_state(fckc_u64 owner, fck_input_state *states, fckc_size_t size)
+fckc_size_t fck_input_text_state(fckc_u64 owner, fckc_u32* ids, fck_input_data* states, fckc_size_t size)
 {
+	(void)owner, (void)ids, (void)states, (void)size;
+
 	// Can we make text events state somehow? Maybe accumulate N unicodes and ringbuffer them? 
 	// Oh... no...
 	return 0;

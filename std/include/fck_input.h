@@ -56,11 +56,11 @@ typedef struct fck_input_event
 	void *userdata;
 } fck_input_event;
 
-typedef struct fck_input_state
-{
-	fckc_u32 id;
-	fck_input_data data;
-} fck_input_state;
+//typedef struct fck_input_state
+//{
+//	fckc_u32 id;
+//	fck_input_data data;
+//} fck_input_state;
 
 typedef struct fck_input_source
 {
@@ -69,7 +69,6 @@ typedef struct fck_input_source
 	fckc_size_t (*owners)(fckc_u64 **owners);
 	fckc_size_t (*events)(fck_input_event *events, fckc_size_t size);
 	fckc_size_t (*descriptions)(fck_input_description **descriptions);
-
 	/* Example:
 	 * uint64_t items[2]
 	 * items[0].id = fck_input_mouse_button_left;
@@ -82,12 +81,12 @@ typedef struct fck_input_source
 	 *		any = any || state->data.as_boolean;
 	 * }
 	 */
-	fckc_size_t (*state)(fckc_u64 owner, fck_input_state *states, fckc_size_t size);
+	// TODO: Evaluate if fckc_size_t (*state)(fckc_u64 owner, fck_input_state *states, fckc_size_t size); or the current one
+	fckc_size_t (*state)(fckc_u64 owner, fckc_u32 *ids, fck_input_data *states, fckc_size_t size);
 
 	// Maybe push makes sense...
 	// fckc_size_t (*push)(fck_input_event *events, fckc_size_t size);
 
-	// fckc_u64 type;
 } fck_input_source;
 
 typedef struct fck_input
@@ -96,6 +95,9 @@ typedef struct fck_input
 	void (*remove)(fck_input_source *source);
 	fckc_size_t (*sources)(fck_input_source ***source);
 	fckc_size_t (*events)(fck_input_event *events, fckc_size_t size);
+
+	// Candiate
+	int (*is)(fck_input_source *source, const char *name);
 } fck_input;
 
 #endif // !FCK_INPUT_H_INCLUDED

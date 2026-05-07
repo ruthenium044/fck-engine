@@ -1,6 +1,8 @@
 #ifndef FCKC_APIDEF_H_INCLUDED
 #define FCKC_APIDEF_H_INCLUDED
 
+// TODO: get rid off this dumb fckc prefix... fck is enough
+// TODO: no caps
 
 #if defined(fck_static_export)
 	#define FCK_EXPORT_API

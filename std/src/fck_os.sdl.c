@@ -62,7 +62,6 @@ static fck_shared_object fck_shared_object_load(const char *path)
 }
 static void fck_shared_object_unload(fck_shared_object so)
 {
-	SDL_SharedObject *sdl_so = NULL;
 	SDL_UnloadObject((SDL_SharedObject *)so.handle);
 }
 
@@ -258,7 +257,7 @@ fckc_size_t fck_event_channel_poll(fck_event_channel channel, union fck_event *e
 		}
 
 		// Translate event...
-		fck_event target;
+		fck_event target = {0};
 		*(events + *count) = target;
 		*count = *count + 1;
 	}
@@ -310,6 +309,7 @@ static fck_os_api std_api = {
 	.io = &io_api,
 	.so = &so_api,
 	.win = &window_api,
+	.clipboard = &clipboard_api,
 	.chrono = &chrono_api,
 	.fs = &file_system_api,
 	.event_channel = &event_channel_api,

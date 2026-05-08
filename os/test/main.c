@@ -13,6 +13,10 @@ int main(int argc, char **argv)
 {
 	FCK_IMPORT_API fck_input *fck_input_load(void);
 
+	fck_shared_object so = os->so->load("fck-os.dll");
+	void* sym = os->so->symbol(so, "fck_input_load");
+	os->so->unload(so);
+
 	fck_input *input = fck_input_load();
 
 	fck_input_source *mouse = NULL;

@@ -16,13 +16,14 @@
 struct kll_allocator;
 union fck_event;
 
-// Should be fck_format_api...
+// TODO: This is meh, format in temp allocator?
 typedef struct fck_io_api
 {
 	int (*format)(char *s, size_t n, const char *format, ...);
 	void (*log)(const char *format, ...);
 } fck_io_api;
 
+// This is ok
 typedef struct fck_shared_object
 {
 	void *handle;
@@ -36,6 +37,7 @@ typedef struct fck_shared_object_api
 	void *(*symbol)(fck_shared_object so, const char *name);
 } fck_shared_object_api;
 
+// This is ok
 typedef struct fck_window
 {
 	void *handle;
@@ -55,15 +57,18 @@ typedef struct fck_window_api
 	// or NSWindow on MacOS
 	void* (*native)(fck_window window, const char* name);
 
+	// Wonky, but ok
 	int (*text_input_start)(fck_window window);
 	int (*text_input_stop)(fck_window window);
 } fck_window_api;
 
+// This is ok
 typedef struct fck_clipboard
 {
 	char *text;
 } fck_clipboard;
 
+// TODO: This is a bit weird, I want to avoid clipboard.text
 typedef struct fck_clipboard_api
 {
 	int (*set)(const char *text);
@@ -74,6 +79,7 @@ typedef struct fck_clipboard_api
 	void (*close)(fck_clipboard);
 } fck_clipboard_api;
 
+// Meh
 typedef struct fck_chrono_api
 {
 	fckc_u64 (*ms)(void);
@@ -84,6 +90,7 @@ typedef struct fck_file
 	void *handle;
 } fck_file;
 
+// TODO: We are not doing CAPS anymore
 typedef enum fck_stream_seek_mode
 {
 	FCK_STREAM_SET,
@@ -91,6 +98,7 @@ typedef enum fck_stream_seek_mode
 	FCK_STREAM_END,
 } fck_stream_seek_mode;
 
+// This is ok
 typedef struct fck_filesystem_api
 {
 	fck_file (*open)(const char *path, const char *mode);
@@ -105,6 +113,7 @@ typedef struct fck_filesystem_api
 	fckc_i64 (*flush)(fck_file);
 } fck_filesystem_api;
 
+// TODO: Remove
 typedef struct fck_event_channel
 {
 	void *handle;
@@ -123,6 +132,7 @@ typedef struct fck_event_channel_api
 	fckc_size_t (*poll)(fck_event_channel channel, union fck_event *events, fckc_size_t capacity, fckc_size_t *count);
 } fck_event_channel_api;
 
+// This is ok
 typedef struct fck_os_api
 {
 	fck_io_api *io;
@@ -136,6 +146,7 @@ typedef struct fck_os_api
 	fck_event_channel_api *event_channel;
 } fck_os_api;
 
+// Also ok. Maybe have inline loaders for each platform!
 FCK_STD_API extern fck_os_api *os;
 
 // extern fck_os_api *os;

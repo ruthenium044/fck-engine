@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(fck-std)
+project(fck-os)
 
 include_guard(GLOBAL)
 
@@ -22,7 +22,7 @@ else()
     )
 endif()
 
-add_library(fck::std ALIAS ${PROJECT_NAME})
+add_library(fck::os ALIAS ${PROJECT_NAME})
 
 target_sources(${PROJECT_NAME} PRIVATE "src/fck_input.c")
 

@@ -112,7 +112,6 @@ fckc_size_t fck_input_text_descriptions(fck_input_description **descriptions)
 fckc_size_t fck_input_text_state(fckc_u64 owner, fckc_u32* ids, fck_input_data* states, fckc_size_t size)
 {
 	(void)owner, (void)ids, (void)states, (void)size;
-
 	// Can we make text events state somehow? Maybe accumulate N unicodes and ringbuffer them? 
 	// Oh... no...
 	return 0;

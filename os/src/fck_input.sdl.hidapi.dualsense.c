@@ -11,7 +11,9 @@
 #include "fckc_math.h"
 
 // The maximum size of a USB packet for HID devices
-#define fck_usb_packet_length 64
+#define fck_dualsense_usb_packet_length 64
+#define fck_dualsense_bluetooth_extended_packet_length 78
+#define fck_dualsense_largest_possible_packet_length 78
 
 #define fck_vendor_sony 0x054C
 #define fck_product_dualsense 0x0ce6
@@ -428,7 +430,7 @@ static wchar_t *fck_input_dualsense_serial_number_from_hid_device(SDL_hid_device
 	{
 		return NULL;
 	}
-	fckc_u8 report[fck_usb_packet_length] = {0};
+	fckc_u8 report[fck_dualsense_usb_packet_length] = {0};
 	report[0] = fck_dualsense_feature_report_serial_number;
 	int report_result = SDL_hid_get_feature_report(hid, report, sizeof(report));
 	if (report_result <= 0)
@@ -469,7 +471,7 @@ static fckc_size_t fck_input_dualsense_events(fck_input_event *events, fckc_size
 	{
 		input_source_dualsense.last_discovery_ms = now;
 
-		SDL_hid_device_info *sony_devices = SDL_hid_enumerate(0x054C, 0);
+		SDL_hid_device_info *sony_devices = SDL_hid_enumerate(fck_vendor_sony, 0);
 
 		SDL_hid_device_info *current = sony_devices;
 		while (current)
@@ -487,7 +489,7 @@ static fckc_size_t fck_input_dualsense_events(fck_input_event *events, fckc_size
 						{
 							SDL_hid_device *hid = SDL_hid_open(current->vendor_id, current->product_id, current->serial_number);
 
-							wchar_t serial_number[fck_usb_packet_length] = {0};
+							wchar_t serial_number[fck_dualsense_usb_packet_length] = {0};
 							if (fck_input_dualsense_serial_number_from_hid_device(hid, serial_number, sizeof(serial_number)))
 							{
 								hash = fck_input_dualsense_hash_serial_number(serial_number);
@@ -539,7 +541,7 @@ static fckc_size_t fck_input_dualsense_events(fck_input_event *events, fckc_size
 		{
 			// Poll device state from HID
 			fck_input_source_dualsense_device *device = input_source_dualsense.devices + index;
-			fckc_u8 payload[fck_usb_packet_length * 2];
+			fckc_u8 payload[fck_dualsense_largest_possible_packet_length];
 			for (;;)
 			{
 				int result = SDL_hid_read_timeout(device->hid, payload, sizeof(payload), 0);
@@ -557,7 +559,7 @@ static fckc_size_t fck_input_dualsense_events(fck_input_event *events, fckc_size
 				switch (report_id)
 				{
 				case fck_dualsense_input_report_usb_simple: {
-					if (result == fck_usb_packet_length)
+					if (result == fck_dualsense_usb_packet_length)
 					{
 						device->last_received = now;
 						fck_dualsense_usb_report *report = (fck_dualsense_usb_report *)payload;

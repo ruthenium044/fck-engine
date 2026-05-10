@@ -12,7 +12,7 @@
 static fckc_size_t fck_input_text_owners(fckc_u64 **owners);
 static fckc_size_t fck_input_text_events(fck_input_event *events, fckc_size_t size);
 static fckc_size_t fck_input_text_descriptions(fck_input_description **descriptions);
-static fckc_size_t fck_input_text_state(fckc_u64 owner, fckc_u32* ids, fck_input_data* states, fckc_size_t size);
+static fckc_size_t fck_input_text_states(fckc_u64 owner, fckc_u32* ids, fck_input_data* states, fckc_size_t size);
 
 typedef struct fck_input_source_text
 {
@@ -30,7 +30,7 @@ static fck_input_source_text input_source_text = (fck_input_source_text){
 			.owners = fck_input_text_owners,
 			.events = fck_input_text_events,
 			.descriptions = fck_input_text_descriptions,
-			.state = fck_input_text_state,
+			.states = fck_input_text_states,
 		},
 	.owner = 0,
 	.description = {.data_type = fck_input_data_unicode, .id = 0, .name = "input"},
@@ -109,7 +109,7 @@ fckc_size_t fck_input_text_descriptions(fck_input_description **descriptions)
 	return 1;
 }
 
-fckc_size_t fck_input_text_state(fckc_u64 owner, fckc_u32* ids, fck_input_data* states, fckc_size_t size)
+fckc_size_t fck_input_text_states(fckc_u64 owner, fckc_u32* ids, fck_input_data* states, fckc_size_t size)
 {
 	(void)owner, (void)ids, (void)states, (void)size;
 	// Can we make text events state somehow? Maybe accumulate N unicodes and ringbuffer them? 

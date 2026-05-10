@@ -9,6 +9,7 @@ typedef enum fck_input_data_type
 	fck_input_data_scalar,
 	fck_input_data_float2,
 	fck_input_data_unicode
+	// Maybe: value, pair, unicode? :-( 
 } fck_input_data_type;
 
 inline const char *fck_input_data_type_to_string(fckc_u32 type)
@@ -53,14 +54,15 @@ typedef struct fck_input_event
 	// Idk if id is better tbh
 	struct fck_input_description *description;
 
+
 	void *userdata;
 } fck_input_event;
 
-//typedef struct fck_input_state
+// typedef struct fck_input_state
 //{
 //	fckc_u32 id;
 //	fck_input_data data;
-//} fck_input_state;
+// } fck_input_state;
 
 typedef struct fck_input_source
 {
@@ -70,19 +72,18 @@ typedef struct fck_input_source
 	fckc_size_t (*events)(fck_input_event *events, fckc_size_t size);
 	fckc_size_t (*descriptions)(fck_input_description **descriptions);
 	/* Example:
-	 * uint64_t items[2]
-	 * items[0].id = fck_input_mouse_button_left;
-	 * items[1].id = fck_input_mouse_button_right;
-	 * size_t result = source->state(0, items, fck_arraysize(items))
-	 * fck_assert(result ==  fck_arraysize(items));
+	 * fckc_u32 ids[2] = {fck_input_mouse_button_left, fck_input_mouse_button_right};
+	 * fck_input_data states[fck_arraysize(items)] = {0};
+	 * size_t result = source->state(0, ids, states, fck_arraysize(states))
+	 * fck_assert(result ==  fck_arraysize(states));
 	 * fckc_u32 any = 0;
 	 * for(size_t index = 0; index < result; index++) {
-	 *		fck_input_state* state = items + index;
+	 *		fck_input_data* state = states + index;
 	 *		any = any || state->data.as_boolean;
 	 * }
 	 */
 	// TODO: Evaluate if fckc_size_t (*state)(fckc_u64 owner, fck_input_state *states, fckc_size_t size); or the current one
-	fckc_size_t (*state)(fckc_u64 owner, fckc_u32 *ids, fck_input_data *states, fckc_size_t size);
+	fckc_size_t (*states)(fckc_u64 owner, fckc_u32 *ids, fck_input_data *states, fckc_size_t size);
 
 	// Maybe push makes sense...
 	// fckc_size_t (*push)(fck_input_event *events, fckc_size_t size);
@@ -99,5 +100,45 @@ typedef struct fck_input
 	// Candiate
 	int (*is)(fck_input_source *source, const char *name);
 } fck_input;
+
+// I need to find a way to create a uniform and statically bindable load!
+typedef fck_input *(fck_input_load_prototype)(void);
+#define fck_input_load_name "fck_input_load"
+#define to_fck_input_load(v) (fck_input_load_prototype *)(v)
+
+/*	Input Utilities */
+
+/*	Example: fck_input_poll(api->input, variable, {
+ *	if (app->input->is(e->source, "physical-keyboard"))
+ *	      {
+ *	          if (e->description->id == fck_pkey_escape)
+ *	          {
+ *	              if (e->data.as_scalar > 0.0f)
+ *	              {
+ *	                  return FCK_TEST_APP_RESULT_DONE;
+ *	              }
+ *	          }
+ *	      }
+ *	})
+ * NOTE: Is this worth it?*/
+#define fck_input_poll(input_or_source, event, body)                                                                                       \
+	{                                                                                                                                      \
+		fckc_size_t _##event##_count = 0;                                                                                                  \
+		fck_input_event _##event[32];                                                                                                      \
+		fck_input_event *(event) = NULL;                                                                                                   \
+		for (;;)                                                                                                                           \
+		{                                                                                                                                  \
+			_##event##_count = (input_or_source)->events(_##event, fck_arraysize(_##event));                                               \
+			if (_##event##_count == 0)                                                                                                     \
+			{                                                                                                                              \
+				break;                                                                                                                     \
+			}                                                                                                                              \
+			for (fckc_size_t _##event_##index = 0; _##event_##index < _##event##_count; _##event_##index++)                                \
+			{                                                                                                                              \
+				(event) = _##event + _##event_##index;                                                                                     \
+				body;                                                                                                                      \
+			}                                                                                                                              \
+		}                                                                                                                                  \
+	}
 
 #endif // !FCK_INPUT_H_INCLUDED

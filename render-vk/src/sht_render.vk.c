@@ -17,8 +17,6 @@
 #include <fck_apis.h>
 #include <fckc_inttypes.h>
 
-#include <sht_render.h>
-
 #define sht_invalidate(pointer_to_value) memset((pointer_to_value), 0x00, sizeof(*(pointer_to_value)))
 
 static sht_bss_vt bss;

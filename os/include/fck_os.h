@@ -113,25 +113,6 @@ typedef struct fck_filesystem_api
 	fckc_i64 (*flush)(fck_file);
 } fck_filesystem_api;
 
-// TODO: Remove
-typedef struct fck_event_channel
-{
-	void *handle;
-} fck_event_channel;
-
-typedef struct fck_event_channel_api
-{
-	// TODO: Make it possible so the user can not see the producing-side
-	fck_event_channel (*create)(struct kll_allocator *alloocator, fckc_size_t capacity);
-	void (*destroy)(fck_event_channel channel);
-
-	// Pumps events into channel
-	void (*pump)(fck_event_channel channel);
-
-	// Returns the actual count of events placed in provided buffer
-	fckc_size_t (*poll)(fck_event_channel channel, union fck_event *events, fckc_size_t capacity, fckc_size_t *count);
-} fck_event_channel_api;
-
 // This is ok
 typedef struct fck_os_api
 {
@@ -143,7 +124,6 @@ typedef struct fck_os_api
 	// Special APIs are not getting a cool little abbrevation
 	fck_clipboard_api *clipboard;
 	fck_chrono_api *chrono;
-	fck_event_channel_api *event_channel;
 } fck_os_api;
 
 // Also ok. Maybe have inline loaders for each platform!

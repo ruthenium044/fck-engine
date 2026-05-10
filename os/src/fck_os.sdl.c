@@ -11,13 +11,6 @@
 #include <SDL3/SDL_timer.h>
 #include <SDL3/SDL_video.h>
 
-#include <fck_events.h>
-
-static fck_io_api io_api = {
-	.format = SDL_snprintf,
-	.log = SDL_Log,
-};
-
 static int fck_shared_object_is_valid(fck_shared_object so)
 {
 	return so.handle != NULL;
@@ -115,6 +108,10 @@ int fck_window_api_size(fck_window window, int *width, int *height)
 
 void *fck_window_native(fck_window window, const char *name)
 {
+	if (!strcmp(name, "sdl.window"))
+	{	// Maybe this will be useful one day
+		return window.handle;
+	}
 	if (!strcmp(name, "win32.window"))
 	{
 		SDL_PropertiesID properties = SDL_GetWindowProperties((SDL_Window *)window.handle);
@@ -219,58 +216,6 @@ fckc_i64 fck_filesystem_flush(fck_file file)
 	return (fckc_i64)SDL_FlushIO((SDL_IOStream *)file.handle);
 }
 
-fck_event_channel fck_event_channel_create(struct kll_allocator *alloocator, fckc_size_t capacity)
-{
-	(void)alloocator;
-	(void)capacity;
-	return (fck_event_channel){.handle = (void *)0x5D2};
-}
-
-void fck_event_channel_destroy(fck_event_channel channel)
-{
-	channel.handle = NULL;
-}
-
-void fck_event_channel_pump(fck_event_channel channel)
-{
-	(void)channel;
-	SDL_PumpEvents();
-}
-
-fckc_size_t fck_event_channel_poll(fck_event_channel channel, union fck_event *events, fckc_size_t capacity, fckc_size_t *count)
-{
-	SDL_Event e;
-
-	(void)channel;
-	*count = 0;
-	for (;;)
-	{
-		if (capacity == *count)
-		{
-			return *count;
-		}
-
-		bool has_event = SDL_PollEvent(&e);
-		if (!has_event)
-		{
-			break;
-		}
-
-		// Translate event...
-		fck_event target = {0};
-		*(events + *count) = target;
-		*count = *count + 1;
-	}
-	return *count;
-}
-
-static fck_event_channel_api event_channel_api = {
-	.create = fck_event_channel_create,
-	.destroy = fck_event_channel_destroy,
-	.poll = fck_event_channel_poll,
-	.pump = fck_event_channel_pump,
-};
-
 static fck_filesystem_api file_system_api = {
 	.open = fck_filesystem_open,
 	.close = fck_filesystem_close,
@@ -305,6 +250,11 @@ static fck_chrono_api chrono_api = {
 	.ms = SDL_GetTicks,
 };
 
+
+static fck_io_api io_api = {
+	.log = SDL_Log,
+};
+
 static fck_os_api std_api = {
 	.io = &io_api,
 	.so = &so_api,
@@ -312,7 +262,6 @@ static fck_os_api std_api = {
 	.clipboard = &clipboard_api,
 	.chrono = &chrono_api,
 	.fs = &file_system_api,
-	.event_channel = &event_channel_api,
 };
 
 fck_os_api *os = &std_api;

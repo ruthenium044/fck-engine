@@ -20,7 +20,7 @@
 static fckc_size_t fck_input_physical_keyboard_owners(fckc_u64 **owners);
 static fckc_size_t fck_input_physical_keyboard_events(fck_input_event *events, fckc_size_t size);
 static fckc_size_t fck_input_physical_keyboard_descriptions(fck_input_description **descriptions);
-static fckc_size_t fck_input_physical_keyboard_state(fckc_u64 owner, fckc_u32* ids, fck_input_data* states, fckc_size_t size);
+static fckc_size_t fck_input_physical_keyboard_states(fckc_u64 owner, fckc_u32* ids, fck_input_data* states, fckc_size_t size);
 
 typedef struct fck_input_source_physical_keyboard
 {
@@ -38,7 +38,7 @@ static fck_input_source_physical_keyboard input_source_physical_keyboard = (fck_
 			.owners = fck_input_physical_keyboard_owners,
 			.events = fck_input_physical_keyboard_events,
 			.descriptions = fck_input_physical_keyboard_descriptions,
-			.state = fck_input_physical_keyboard_state,
+			.states = fck_input_physical_keyboard_states,
 		},
 	.owners = {0},
 	.descriptions =
@@ -374,7 +374,7 @@ static fckc_size_t fck_input_physical_keyboard_descriptions(fck_input_descriptio
 	return fck_pkey_count - 1;
 }
 
-static fckc_size_t fck_input_physical_keyboard_state(fckc_u64 owner, fckc_u32* ids, fck_input_data* states, fckc_size_t size)
+static fckc_size_t fck_input_physical_keyboard_states(fckc_u64 owner, fckc_u32* ids, fck_input_data* states, fckc_size_t size)
 {
 	(void)owner;
 

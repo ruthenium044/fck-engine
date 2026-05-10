@@ -27,9 +27,9 @@
 //	return 0;
 // }
 //
-// static fckc_size_t fck_input_none_state(fckc_u64 owner, fck_input_state *states, fckc_size_t size)
+// static fckc_size_t fck_input_none_state(fckc_u64 owner,  fckc_u32* ids, fck_input_data* states, fckc_size_t size)
 //{
-//	(void)owner, (void)states, (void)size;
+//	(void)ids, (void)owner, (void)states, (void)size;
 //	return 0;
 // }
 
@@ -41,7 +41,7 @@
 static fckc_size_t fck_input_mouse_owners(fckc_u64 **owners);
 static fckc_size_t fck_input_mouse_events(fck_input_event *events, fckc_size_t size);
 static fckc_size_t fck_input_mouse_descriptions(fck_input_description **descriptions);
-static fckc_size_t fck_input_mouse_state(fckc_u64 owner, fckc_u32* ids, fck_input_data* states, fckc_size_t size);
+static fckc_size_t fck_input_mouse_states(fckc_u64 owner, fckc_u32* ids, fck_input_data* states, fckc_size_t size);
 
 typedef struct fck_input_source_mouse
 {
@@ -59,7 +59,7 @@ static fck_input_source_mouse input_source_mouse = (fck_input_source_mouse){
 			.owners = fck_input_mouse_owners,
 			.events = fck_input_mouse_events,
 			.descriptions = fck_input_mouse_descriptions,
-			.state = fck_input_mouse_state,
+			.states = fck_input_mouse_states,
 		},
 	.owners = {0},
 	.descriptions =
@@ -173,7 +173,7 @@ static fckc_size_t fck_input_mouse_descriptions(fck_input_description **descript
 	return fck_mouse_count - 1;
 }
 
-static fckc_size_t fck_input_mouse_state(fckc_u64 owner, fckc_u32* ids, fck_input_data* states, fckc_size_t size)
+static fckc_size_t fck_input_mouse_states(fckc_u64 owner, fckc_u32* ids, fck_input_data* states, fckc_size_t size)
 {
 	(void)owner;
 

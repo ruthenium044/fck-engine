@@ -40,6 +40,7 @@ else()
     target_sources(${PROJECT_NAME} PRIVATE "src/fck_input.sdl.mouse.c")
     target_sources(${PROJECT_NAME} PRIVATE "src/fck_input.sdl.text.c")
     target_sources(${PROJECT_NAME} PRIVATE "src/fck_input.sdl.physical_keyboard.c")
+    target_sources(${PROJECT_NAME} PRIVATE "src/fck_input.sdl.hidapi.dualsense.c")
 
     if(BUILD_SHARED_LIBS)
         set(SDL_SHARED ON CACHE BOOL "" FORCE)
@@ -70,12 +71,11 @@ target_sources(${PROJECT_NAME} PRIVATE "include/fck_pkey.h")
 target_sources(${PROJECT_NAME} PRIVATE "include/fck_text_input.h")
 target_include_directories(${PROJECT_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
-find_package(events)
 find_package(fckc)
-target_link_libraries(${PROJECT_NAME} PUBLIC fck::fckc PRIVATE fck::events)
+target_link_libraries(${PROJECT_NAME} PUBLIC fck::fckc PRIVATE)
 
 add_executable(${PROJECT_NAME}-test "test/main.c")
-target_link_libraries(${PROJECT_NAME}-test PRIVATE ${PROJECT_NAME} fck::fckc fck::events)
+target_link_libraries(${PROJECT_NAME}-test PRIVATE ${PROJECT_NAME} fck::fckc)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "fck-lib")
 set_target_properties(${PROJECT_NAME}-test PROPERTIES FOLDER "fck-tests")

@@ -4,17 +4,17 @@
 #include "fck_os.h"
 #include "fckc_apidef.h"
 
-#include "fckc_assert.h"
 #include "fck_mouse.h"
 #include "fck_pkey.h"
 #include "fck_text_input.h"
+#include "fckc_assert.h"
 
 int main(int argc, char **argv)
 {
 	FCK_IMPORT_API fck_input *fck_input_load(void);
 
 	fck_shared_object so = os->so->load("fck-os.dll");
-	void* sym = os->so->symbol(so, "fck_input_load");
+	void *sym = os->so->symbol(so, "fck_input_load");
 	os->so->unload(so);
 
 	fck_input *input = fck_input_load();
@@ -54,57 +54,64 @@ int main(int argc, char **argv)
 	{
 		fck_input_event events[32] = {0};
 		int iteration = 0;
-		for (;;)
+		// for (;;)
 		{
 			iteration = iteration + 1;
 			fckc_size_t result = input->events(events, fck_arraysize(events));
 			for (fckc_size_t index = 0; index < result; index++)
 			{
-			    fck_input_event *e = events + index;
-			    if (e->source == keyboard)
-			    {
-			        switch (e->description->id)
-			        {
-			        case fck_pkey_a:
-			            os->io->log("Event Left");
-			            break;
-			        case fck_pkey_d:
-			            os->io->log("Event Right");
-			            break;
-			        case fck_pkey_w:
-			            os->io->log("Event Up");
-			            break;
-			        case fck_pkey_s:
-			            os->io->log("Event Down");
-			            break;
-			        }
-			    }
+				fck_input_event *e = events + index;
+				os->io->log("%s - %llu - %u \t %s - %s: %f %f", e->source->name, e->owner, e->description->id, e->description->name,
+				            fck_input_data_type_to_string(e->description->data_type), e->data.as_floats[0], e->data.as_floats[1]);
+				/*if (e->source == keyboard)
+				{
+					switch (e->description->id)
+					{
+					case fck_pkey_a:
+						os->io->log("Event Left");
+						break;
+					case fck_pkey_d:
+						os->io->log("Event Right");
+						break;
+					case fck_pkey_w:
+						os->io->log("Event Up");
+						break;
+					case fck_pkey_s:
+						os->io->log("Event Down");
+						break;
+					}
+				}*/
 			}
-			if (result == 0)
-			{
-				break;
-			}
+			// if (result == 0)
+			//{
+			//	break;
+			// }
 		}
 
-		if(iteration > 1) {
+		if (iteration > 1)
+		{
 			// Hm, we pump too aggressively
-			os->io->log("%d", iteration);
+			os->io->log("Iterations: %d", iteration);
 		}
 
 		fckc_u32 ids[] = {fck_pkey_a, fck_pkey_d, fck_pkey_w, fck_pkey_s};
 		fck_input_data states[fck_arraysize(ids)];
 
-		keyboard->state(0, ids, states, fck_arraysize(states));
-		if(states[0].as_scalar > 0.0f) {
+		keyboard->states(0, ids, states, fck_arraysize(states));
+		if (states[0].as_scalar > 0.0f)
+		{
 			os->io->log("State Left");
 		}
-		if (states[1].as_scalar > 0.0f) {
+		if (states[1].as_scalar > 0.0f)
+		{
 			os->io->log("State Right");
 		}
-		if (states[2].as_scalar > 0.0f) {
+		if (states[2].as_scalar > 0.0f)
+		{
 			os->io->log("State Up");
 		}
-		if (states[3].as_scalar > 0.0f) {
+		if (states[3].as_scalar > 0.0f)
+		{
 			os->io->log("State Down");
 		}
 	}

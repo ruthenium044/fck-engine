@@ -13,6 +13,8 @@
 FCK_IMPORT_API fck_input_source* input_mouse;
 FCK_IMPORT_API fck_input_source* input_physical_keyboard;
 FCK_IMPORT_API fck_input_source* input_text;
+FCK_IMPORT_API fck_input_source* dualsense_source;
+
 
 static fck_input_source *sources[fck_input_source_capacity] = {0};
 static fckc_size_t sources_count = 0;
@@ -94,6 +96,7 @@ fck_input input_api = (fck_input){
 
 FCK_EXPORT_API fck_input *fck_input_load(void)
 {
+	input_api.add(dualsense_source);
 	input_api.add(input_mouse);
 	input_api.add(input_physical_keyboard);
 	input_api.add(input_text);

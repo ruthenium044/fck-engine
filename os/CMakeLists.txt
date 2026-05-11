@@ -69,6 +69,7 @@ target_sources(${PROJECT_NAME} PRIVATE "include/fck_input.h")
 target_sources(${PROJECT_NAME} PRIVATE "include/fck_mouse.h")
 target_sources(${PROJECT_NAME} PRIVATE "include/fck_pkey.h")
 target_sources(${PROJECT_NAME} PRIVATE "include/fck_text_input.h")
+target_sources(${PROJECT_NAME} PRIVATE "include/fck_gamepad_input.h")
 target_include_directories(${PROJECT_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
 find_package(fckc)

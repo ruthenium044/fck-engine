@@ -22,6 +22,7 @@ int main(int argc, char **argv)
 	fck_input_source *mouse = NULL;
 	fck_input_source *keyboard = NULL;
 	fck_input_source *text = NULL;
+	fck_input_source *dualsense = NULL;
 
 	fck_window window = os->win->create("Test", 420, 640);
 	// os->win->text_input_start(window);
@@ -46,6 +47,11 @@ int main(int argc, char **argv)
 		{
 			os->io->log("Found: %s", source->name);
 			text = source;
+		}
+		if (input->is(source, "dualsense"))
+		{
+			os->io->log("Found: %s", source->name);
+			dualsense = source;
 		}
 	}
 	fck_assert(keyboard);

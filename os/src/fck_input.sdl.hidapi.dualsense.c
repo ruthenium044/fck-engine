@@ -5,11 +5,11 @@
 
 #include <SDL3/SDL_hidapi.h>
 
+#include "fck_gamepad_input.h"
 #include "fck_os.h"
 #include "fckc_apidef.h"
 #include "fckc_assert.h"
 #include "fckc_math.h"
-#include "fck_gamepad_input.h"
 
 #include <math.h>
 
@@ -24,7 +24,6 @@
 
 #define fck_dualsense_discovery_rate 2000
 #define fck_dualsense_timeout_rate 2000
-#define fck_dualsense_input_report_usb_packet_size 64
 
 #define fck_dualsense_input_report_usb_simple 0x01
 #define fck_dualsense_input_report_bluetooth_simple 0x01
@@ -159,7 +158,7 @@ typedef struct fck_dualsense_usb_report
 	fckc_u8 padding[53];
 } fck_dualsense_usb_report;
 
-/* Bluetooth Input Report (Report ID 0x01) - 64 Bytes */
+/* Bluetooth Input Report (Report ID 0x01) - 10 Bytes */
 typedef struct fck_dualsense_bluetooth_report
 {
 	fckc_u8 report_id; /* Always 0x01 */
@@ -192,11 +191,11 @@ typedef struct fck_dualsense_bluetooth_extended_report
 	fck_dualsense_buttons_3 buttons3;
 
 	/* Extended BT data */
-	fckc_u8 reserved[4]; /* Trigger feedback / etc */
+	fckc_u8 reserved0[4]; /* Trigger feedback / etc */
 	fckc_u16 gyro[3];    /* X, Y, Z */
 	fckc_u16 accel[3];   /* X, Y, Z */
-	fckc_u8 sensor_padding[34];
-	fckc_u32 crc32; /* Checksum at the end */
+	fckc_u8 sensor_padding[46];
+	fckc_u16 crc32[4]; /* Checksum at the end */
 } fck_dualsense_bluetooth_extended_report;
 
 #define fck_dualsense_input_report_usb_directional_pad_up_value 0
@@ -208,11 +207,6 @@ typedef struct fck_dualsense_bluetooth_extended_report
 #define fck_dualsense_input_report_usb_directional_pad_left_value 6
 #define fck_dualsense_input_report_usb_directional_pad_up_left_value 7
 #define fck_dualsense_input_report_usb_directional_pad_neutral_value 8
-
-#define fck_dualsense_input_report_usb_square_bit 4
-#define fck_dualsense_input_report_usb_cross_bit 5
-#define fck_dualsense_input_report_usb_circle_bit 6
-#define fck_dualsense_input_report_usb_triangle_bit 7
 
 #define fck_dualsense_bittest(value, bit) ((value) & (1 << (bit)))
 
@@ -601,7 +595,7 @@ static fckc_size_t fckt_dualsense_events_try_add(fckt_dualsense_events *queue, f
 	fck_input_data *previous = device->previous + type;
 	fck_input_data *current = device->current + type;
 	fck_input_description *desc = &input_source_dualsense.descriptions[type];
-	// Maybe a is_same inline would be beneficial... 
+	// Maybe a is_same inline would be beneficial...
 	switch (desc->data_type)
 	{
 	case fck_input_data_scalar:
@@ -678,8 +672,22 @@ static fckc_size_t fck_input_dualsense_events(fck_input_event *events, fckc_size
 				fckc_u8 report_id = payload[0];
 				switch (report_id)
 				{
-				case fck_dualsense_input_report_usb_simple: {
-					if (result == fck_dualsense_usb_packet_length)
+				case fck_dualsense_input_report_usb_simple: /* fck_dualsense_input_report_bluetooth_simple */ {
+					if (result == sizeof(fck_dualsense_bluetooth_report))
+					{
+						device->last_received = now;
+						fck_dualsense_bluetooth_report *report = (fck_dualsense_bluetooth_report *)payload;
+						memcpy(device->previous, device->current, sizeof(device->current));
+						fck_input_source_dualsense_position(device, fck_gamepad_left_stick, report->left_stick_x, report->left_stick_y);
+						fck_input_source_dualsense_position(device, fck_gamepad_right_stick, report->right_stick_x, report->right_stick_y);
+						fck_input_source_dualsense_axis(device, fck_gamepad_left_trigger, report->l2_analog);
+						fck_input_source_dualsense_axis(device, fck_gamepad_right_trigger, report->r2_analog);
+						fck_dualsense_device_set_state_1(device, report->buttons1);
+						fck_input_source_dualsense_buttons_set_state_2(device, report->buttons2);
+						fck_dualsense_device_set_state_3(device, report->buttons3);
+						break;
+					}
+					if (result == sizeof(fck_dualsense_usb_report))
 					{
 						device->last_received = now;
 						fck_dualsense_usb_report *report = (fck_dualsense_usb_report *)payload;
@@ -691,31 +699,38 @@ static fckc_size_t fck_input_dualsense_events(fck_input_event *events, fckc_size
 						fck_dualsense_device_set_state_1(device, report->buttons1);
 						fck_input_source_dualsense_buttons_set_state_2(device, report->buttons2);
 						fck_dualsense_device_set_state_3(device, report->buttons3);
+						break;
+					}
+					// Discard?
+					break;
+				}
+				case fck_dualsense_input_report_bluetooth_extended:
+				case fck_dualsense_input_report_bluetooth_extended_charging: {
+					if (result == sizeof(fck_dualsense_bluetooth_extended_report))
+					{
+						device->last_received = now;
+						fck_dualsense_bluetooth_extended_report *report = (fck_dualsense_bluetooth_extended_report *)payload;
+						memcpy(device->previous, device->current, sizeof(device->current));
+						fck_input_source_dualsense_position(device, fck_gamepad_left_stick, report->left_stick_x, report->left_stick_y);
+						fck_input_source_dualsense_position(device, fck_gamepad_right_stick, report->right_stick_x, report->right_stick_y);
+						fck_input_source_dualsense_axis(device, fck_gamepad_left_trigger, report->l2_analog);
+						fck_input_source_dualsense_axis(device, fck_gamepad_right_trigger, report->r2_analog);
+						fck_dualsense_device_set_state_1(device, report->buttons1);
+						fck_input_source_dualsense_buttons_set_state_2(device, report->buttons2);
+						fck_dualsense_device_set_state_3(device, report->buttons3);
 					}
 				}
 				break;
-				case fck_dualsense_input_report_bluetooth_extended:
-				case fck_dualsense_input_report_bluetooth_extended_charging: {
-					device->last_received = now;
-					fck_dualsense_bluetooth_extended_report *report = (fck_dualsense_bluetooth_extended_report *)payload;
-					memcpy(device->previous, device->current, sizeof(device->current));
-					fck_input_source_dualsense_position(device, fck_gamepad_left_stick, report->left_stick_x, report->left_stick_y);
-					fck_input_source_dualsense_position(device, fck_gamepad_right_stick, report->right_stick_x, report->right_stick_y);
-					fck_input_source_dualsense_axis(device, fck_gamepad_left_trigger, report->l2_analog);
-					fck_input_source_dualsense_axis(device, fck_gamepad_right_trigger, report->r2_analog);
-					fck_dualsense_device_set_state_1(device, report->buttons1);
-					fck_input_source_dualsense_buttons_set_state_2(device, report->buttons2);
-					fck_dualsense_device_set_state_3(device, report->buttons3);
-				}
-				break;
 				default:
+					os->io->log("TODO: Handle 0x%02X", report_id);
 					break;
 				}
 			}
 
 			for (fck_gamepad_input_type event_type = fck_gamepad_left_stick; event_type < fck_gamepad_count; event_type++)
 			{
-				if (!fckt_dualsense_events_try_add(&queue, device, event_type)) {
+				if (!fckt_dualsense_events_try_add(&queue, device, event_type))
+				{
 					return queue.at;
 				}
 			}
@@ -740,13 +755,13 @@ static fckc_size_t fck_input_dualsense_states(fckc_u64 owner, fckc_u32 *ids, fck
 		fck_dualsense_device *device = input_source_dualsense.devices + result - 1;
 		for (fckc_size_t index = 0; index < size; index++)
 		{
-			fckc_u32* id = ids + index;
-			fck_input_data* state = states + index;
+			fckc_u32 *id = ids + index;
+			fck_input_data *state = states + index;
 			if (*id >= fck_gamepad_count)
 			{
 				fckc_size_t last = size - 1;
-				fck_input_data* last_state = states + last;
-				fckc_u32* last_id = ids + last;
+				fck_input_data *last_state = states + last;
+				fckc_u32 *last_id = ids + last;
 				*state = *last_state;
 
 				*id = *last_id;
@@ -755,7 +770,7 @@ static fckc_size_t fck_input_dualsense_states(fckc_u64 owner, fckc_u32 *ids, fck
 				continue;
 			}
 
-			const fck_input_data* data = device->current + *id;
+			const fck_input_data *data = device->current + *id;
 			*state = *data;
 		}
 	}

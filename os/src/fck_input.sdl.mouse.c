@@ -4,10 +4,10 @@
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_log.h>
 
+#include "fck_mouse.h"
 #include "fckc_apidef.h"
 #include "fckc_assert.h"
 #include "fckc_math.h"
-#include "fck_mouse.h"
 
 #define fck_input_source_mouse_support_device_changes 0
 
@@ -41,7 +41,7 @@
 static fckc_size_t fck_input_mouse_owners(fckc_u64 **owners);
 static fckc_size_t fck_input_mouse_events(fck_input_event *events, fckc_size_t size);
 static fckc_size_t fck_input_mouse_descriptions(fck_input_description **descriptions);
-static fckc_size_t fck_input_mouse_states(fckc_u64 owner, fckc_u32* ids, fck_input_data* states, fckc_size_t size);
+static fckc_size_t fck_input_mouse_states(fckc_u64 owner, fckc_u32 *ids, fck_input_data *states, fckc_size_t size);
 
 typedef struct fck_input_source_mouse
 {
@@ -80,6 +80,10 @@ FCK_EXPORT_API fck_input_source *input_mouse = &input_source_mouse.source;
 
 static fckc_size_t fck_input_mouse_owners(fckc_u64 **owners)
 {
+	if (!SDL_HasMouse())
+	{
+		return 0;
+	}
 	*owners = input_source_mouse.owners;
 	return 1;
 }
@@ -129,24 +133,24 @@ static fckc_size_t fck_input_mouse_events(fck_input_event *events, fckc_size_t s
 				continue;
 			case SDL_EVENT_MOUSE_MOTION:
 				event->description = &input_source_mouse.descriptions[fck_mouse_position];
-				event->data.as_floats[0] = e->motion.x;
-				event->data.as_floats[1] = e->motion.y;
+				event->data.floats[0] = e->motion.x;
+				event->data.floats[1] = e->motion.y;
 				event->owner = to_u64(e->motion.which);
 				break;
 			case SDL_EVENT_MOUSE_BUTTON_UP:
 				event->description = &input_source_mouse.descriptions[e->button.button];
-				event->data.as_scalar = 0.0f;
+				event->data.scalar = 0.0f;
 				event->owner = to_u64(e->button.which);
 				break;
 			case SDL_EVENT_MOUSE_BUTTON_DOWN:
 				event->description = &input_source_mouse.descriptions[e->button.button];
-				event->data.as_scalar = 1.0f;
+				event->data.scalar = 1.0f;
 				event->owner = to_u64(e->button.which);
 				break;
 			case SDL_EVENT_MOUSE_WHEEL:
 				event->description = &input_source_mouse.descriptions[fck_mouse_wheel];
-				event->data.as_floats[0] = e->wheel.x;
-				event->data.as_floats[1] = e->wheel.y;
+				event->data.floats[0] = e->wheel.x;
+				event->data.floats[1] = e->wheel.y;
 				event->owner = to_u64(e->wheel.which);
 				break;
 			}
@@ -173,14 +177,14 @@ static fckc_size_t fck_input_mouse_descriptions(fck_input_description **descript
 	return fck_mouse_count - 1;
 }
 
-static fckc_size_t fck_input_mouse_states(fckc_u64 owner, fckc_u32* ids, fck_input_data* states, fckc_size_t size)
+static fckc_size_t fck_input_mouse_states(fckc_u64 owner, fckc_u32 *ids, fck_input_data *states, fckc_size_t size)
 {
 	(void)owner;
 
 	for (fckc_size_t index = 0; index < size; index++)
 	{
 		fckc_u32 *id = ids + index;
-		fck_input_data* state = states + index;
+		fck_input_data *state = states + index;
 		if (*id >= fck_mouse_count)
 		{
 			fckc_size_t last = size - 1;

@@ -93,9 +93,9 @@ typedef struct fck_file
 // TODO: We are not doing CAPS anymore
 typedef enum fck_stream_seek_mode
 {
-	FCK_STREAM_SET,
-	FCK_STREAM_CUR,
-	FCK_STREAM_END,
+	fck_stream_set,
+	fck_stream_cur,
+	fck_stream_end,
 } fck_stream_seek_mode;
 
 // This is ok

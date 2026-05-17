@@ -41,8 +41,12 @@ FCK_EXPORT_API fck_input_source *input_text = &input_source_text.source;
 
 fckc_size_t fck_input_text_owners(fckc_u64 **owners)
 {
-	(void)owners;
-	return 0;
+	if (!SDL_HasKeyboard() && !SDL_HasScreenKeyboardSupport())
+	{
+		return 0;
+	}
+	*owners = &input_source_text.owner;
+	return 1;
 }
 
 fckc_size_t fck_input_text_events(fck_input_event *events, fckc_size_t size)
@@ -84,7 +88,7 @@ fckc_size_t fck_input_text_events(fck_input_event *events, fckc_size_t size)
 			case SDL_EVENT_TEXT_INPUT:
 				event->description = &input_source_text.description;
 				const char* text = e->text.text;
-				event->data.as_unicode = SDL_StepUTF8(&text, NULL);
+				event->data.unicode = SDL_StepUTF8(&text, NULL);
 				event->owner = 0;
 				break;
 			}

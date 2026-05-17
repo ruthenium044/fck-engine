@@ -282,7 +282,7 @@ fck_test_app_result fck_test_app_app_tick(void *app_state)
 		{
 			if (e->description->id == fck_pkey_escape)
 			{
-				if (e->data.as_scalar > 0.0f)
+				if (e->data.scalar > 0.0f)
 				{
 					return FCK_TEST_APP_RESULT_DONE;
 				}

@@ -11,14 +11,19 @@ else()
     target_compile_options(${PROJECT_NAME} PRIVATE
         -Wall 
         -Wextra 
+        -Wconversion
+        -Wdouble-promotion
         -Wpedantic 
+        -Wnull-dereference
         -Werror
+        -Wformat=2
         -Wshadow
         -Wpointer-arith
         -Wcast-align
         -Wwrite-strings
         -Wmissing-prototypes
         -Wstrict-prototypes
+        -Wold-style-definition
     )
 endif()
 
@@ -41,14 +46,13 @@ else()
     target_sources(${PROJECT_NAME} PRIVATE "src/fck_input.sdl.text.c")
     target_sources(${PROJECT_NAME} PRIVATE "src/fck_input.sdl.physical_keyboard.c")
     target_sources(${PROJECT_NAME} PRIVATE "src/fck_input.sdl.hidapi.dualsense.c")
-
-    if(BUILD_SHARED_LIBS)
-        set(SDL_SHARED ON CACHE BOOL "" FORCE)
-        set(SDL_STATIC OFF CACHE BOOL "" FORCE)
-    else()
-        set(SDL_SHARED OFF CACHE BOOL "" FORCE)
-        set(SDL_STATIC ON CACHE BOOL "" FORCE)
-    endif()
+    #if(BUILD_SHARED_LIBS)
+    #    set(SDL_SHARED ON CACHE BOOL "" FORCE)
+    #    set(SDL_STATIC OFF CACHE BOOL "" FORCE)
+    #else()
+    #    set(SDL_SHARED OFF CACHE BOOL "" FORCE)
+    #    set(SDL_STATIC ON CACHE BOOL "" FORCE)
+    #endif()
 
     include(FetchContent)
     FetchContent_Declare(
@@ -65,18 +69,14 @@ else()
 endif()
 
 target_sources(${PROJECT_NAME} PRIVATE "include/fck_os.h")
-target_sources(${PROJECT_NAME} PRIVATE "include/fck_input.h")
-target_sources(${PROJECT_NAME} PRIVATE "include/fck_mouse.h")
-target_sources(${PROJECT_NAME} PRIVATE "include/fck_pkey.h")
-target_sources(${PROJECT_NAME} PRIVATE "include/fck_text_input.h")
-target_sources(${PROJECT_NAME} PRIVATE "include/fck_gamepad_input.h")
 target_include_directories(${PROJECT_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
 find_package(fckc)
-target_link_libraries(${PROJECT_NAME} PUBLIC fck::fckc PRIVATE)
+find_package(input)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::fckc PUBLIC fck::input)
 
 add_executable(${PROJECT_NAME}-test "test/main.c")
-target_link_libraries(${PROJECT_NAME}-test PRIVATE ${PROJECT_NAME} fck::fckc)
+target_link_libraries(${PROJECT_NAME}-test PRIVATE ${PROJECT_NAME} PRIVATE fck::fckc)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "fck-lib")
 set_target_properties(${PROJECT_NAME}-test PROPERTIES FOLDER "fck-tests")

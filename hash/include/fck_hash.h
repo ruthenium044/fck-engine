@@ -3,7 +3,7 @@
 #define FCK_HASH_H_INCLUDED
 
 // TODO: The first case should trigger a compile time error
-#define FCK_STATIC_HASH_NO_HASH_EXISTS(str) sizeof("" str "") / 0
+#define FCK_STATIC_HASH_NO_HASH_EXISTS(str) (sizeof("" str "") / 0)
 #define FCK_STATIC_HASH_HASH_EXISTS(str, h) (sizeof("" str "") ? (h) : (h))
 #define FCK_STATIC_HASH_CHOOSE(X, SELECT, ...) SELECT
 

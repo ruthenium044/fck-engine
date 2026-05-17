@@ -186,13 +186,13 @@ fckc_i64 fck_filesystem_seek(fck_file file, fckc_i64 offset, fckc_u32 seek_mode)
 	SDL_IOWhence whence;
 	switch ((fck_stream_seek_mode)seek_mode)
 	{
-	case FCK_STREAM_CUR:
+	case fck_stream_cur:
 		whence = SDL_IO_SEEK_CUR;
 		break;
-	case FCK_STREAM_END:
+	case fck_stream_end:
 		whence = SDL_IO_SEEK_END;
 		break;
-	case FCK_STREAM_SET:
+	case fck_stream_set:
 		whence = SDL_IO_SEEK_SET;
 		break;
 	default:

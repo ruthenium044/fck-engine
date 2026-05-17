@@ -37,9 +37,9 @@ typedef struct fck_input_description
 
 // TODO: Revise
 typedef union fck_input_data {
-	float as_scalar;
-	float as_floats[2];
-	fckc_u32 as_unicode;
+	float scalar;
+	float floats[2];
+	fckc_u32 unicode;
 } fck_input_data;
 
 struct fck_input_source;

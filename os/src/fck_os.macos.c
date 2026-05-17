@@ -764,10 +764,8 @@ void fck_macos_poll_events(fck_event_spsc *spsc)
 		{
 			break;
 		}
-
 		point = ((NSPoint (*)(id, SEL))objc_msgSend)(nsevent, sel_registerName("locationInWindow"));
 		cgevent = ((CGEventRef (*)(id, SEL))objc_msgSend)(nsevent, sel_registerName("CGEvent"));
-		// static unsigned int previous_modifier_flags = 0;
 		modifier_flags = objc_msgSend_uint(nsevent, sel_registerName("modifierFlags"));
 		timestamp = objc_msgSend_double(nsevent, sel_registerName("timestamp"));
 

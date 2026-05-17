@@ -299,6 +299,10 @@ FCK_EXPORT_API fck_input_source *input_physical_keyboard = &input_source_physica
 
 static fckc_size_t fck_input_physical_keyboard_owners(fckc_u64 **owners)
 {
+	if (!SDL_HasKeyboard())
+	{
+		return 0;
+	}
 	*owners = input_source_physical_keyboard.owners;
 	return 1;
 }
@@ -342,12 +346,12 @@ static fckc_size_t fck_input_physical_keyboard_events(fck_input_event *events, f
 				continue;
 			case SDL_EVENT_KEY_DOWN:
 				event->description = &input_source_physical_keyboard.descriptions[e->key.scancode];
-				event->data.as_scalar = 1.0f;
+				event->data.scalar = 1.0f;
 				event->owner = to_u64(e->key.which);
 				break;
 			case SDL_EVENT_KEY_UP:
 				event->description = &input_source_physical_keyboard.descriptions[e->key.scancode];
-				event->data.as_scalar = 0.0f;
+				event->data.scalar = 0.0f;
 				event->owner = to_u64(e->key.which);
 				break;
 			}

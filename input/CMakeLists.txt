@@ -1,0 +1,22 @@
+# fckc
+cmake_minimum_required(VERSION 3.20)
+
+project(fck-input)
+
+include_guard(GLOBAL)
+
+add_library(${PROJECT_NAME} INTERFACE)
+add_library(fck::input ALIAS ${PROJECT_NAME})
+
+target_include_directories(${PROJECT_NAME} INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+
+target_sources(${PROJECT_NAME} PRIVATE "include/fck_input.h")
+target_sources(${PROJECT_NAME} PRIVATE "include/fck_mouse.h")
+target_sources(${PROJECT_NAME} PRIVATE "include/fck_pkey.h")
+target_sources(${PROJECT_NAME} PRIVATE "include/fck_text_input.h")
+target_sources(${PROJECT_NAME} PRIVATE "include/fck_gamepad_input.h")
+
+find_package(fckc)
+target_link_libraries(${PROJECT_NAME} INTERFACE fck::fckc)
+set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "fck-headers")
+

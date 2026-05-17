@@ -20,6 +20,7 @@ find_package(os)
 find_package(api)
 find_package(hash)
 find_package(kll)
+find_package(input)
 find_package(shader)
 find_package(Vulkan)
 

@@ -4,8 +4,10 @@
 #include "fck_os.h"
 #include "fckc_apidef.h"
 
+#include "fck_gamepad_input.h"
 #include "fck_mouse.h"
 #include "fck_pkey.h"
+
 #include "fck_text_input.h"
 #include "fckc_assert.h"
 
@@ -55,6 +57,7 @@ int main(int argc, char **argv)
 		}
 	}
 	fck_assert(keyboard);
+	fck_assert(dualsense);
 
 	for (;;)
 	{
@@ -67,25 +70,25 @@ int main(int argc, char **argv)
 			for (fckc_size_t index = 0; index < result; index++)
 			{
 				fck_input_event *e = events + index;
-				os->io->log("%s - %llu - %u \t %s - %s: %f %f", e->source->name, e->owner, e->description->id, e->description->name,
-				            fck_input_data_type_to_string(e->description->data_type), e->data.as_floats[0], e->data.as_floats[1]);
+				/*	os->io->log("%s - %llu - %u \t %s - %s: %f %f", e->source->name, e->owner, e->description->id, e->description->name,
+				                fck_input_data_type_to_string(e->description->data_type), e->data.as_floats[0], e->data.as_floats[1]);*/
 				/*if (e->source == keyboard)
 				{
-					switch (e->description->id)
-					{
-					case fck_pkey_a:
-						os->io->log("Event Left");
-						break;
-					case fck_pkey_d:
-						os->io->log("Event Right");
-						break;
-					case fck_pkey_w:
-						os->io->log("Event Up");
-						break;
-					case fck_pkey_s:
-						os->io->log("Event Down");
-						break;
-					}
+				    switch (e->description->id)
+				    {
+				    case fck_pkey_a:
+				        os->io->log("Event Left");
+				        break;
+				    case fck_pkey_d:
+				        os->io->log("Event Right");
+				        break;
+				    case fck_pkey_w:
+				        os->io->log("Event Up");
+				        break;
+				    case fck_pkey_s:
+				        os->io->log("Event Down");
+				        break;
+				    }
 				}*/
 			}
 			// if (result == 0)
@@ -100,26 +103,53 @@ int main(int argc, char **argv)
 			os->io->log("Iterations: %d", iteration);
 		}
 
-		fckc_u32 ids[] = {fck_pkey_a, fck_pkey_d, fck_pkey_w, fck_pkey_s};
+		fckc_u32 ids[] = {fck_gamepad_dpad_left, fck_gamepad_dpad_right, fck_gamepad_dpad_up, fck_gamepad_dpad_down};
 		fck_input_data states[fck_arraysize(ids)];
 
-		keyboard->states(0, ids, states, fck_arraysize(states));
-		if (states[0].as_scalar > 0.0f)
+		fckc_u64 *owners;
+		fckc_size_t owner_count = dualsense->owners(&owners);
+		for (fckc_size_t index = 0; index < owner_count; index++)
 		{
-			os->io->log("State Left");
+			fckc_u64 owner = owners[index];
+			dualsense->states(owner, ids, states, fck_arraysize(states));
+			if (states[0].scalar > 0.0f)
+			{
+				os->io->log("State Left");
+			}
+			if (states[1].scalar > 0.0f)
+			{
+				os->io->log("State Right");
+			}
+			if (states[2].scalar > 0.0f)
+			{
+				os->io->log("State Up");
+			}
+			if (states[3].scalar > 0.0f)
+			{
+				os->io->log("State Down");
+			}
 		}
-		if (states[1].as_scalar > 0.0f)
-		{
-			os->io->log("State Right");
-		}
-		if (states[2].as_scalar > 0.0f)
-		{
-			os->io->log("State Up");
-		}
-		if (states[3].as_scalar > 0.0f)
-		{
-			os->io->log("State Down");
-		}
+
+		// fckc_u32 ids[] = {fck_pkey_a, fck_pkey_d, fck_pkey_w, fck_pkey_s};
+		// fck_input_data states[fck_arraysize(ids)];
+
+		// keyboard->states(0, ids, states, fck_arraysize(states));
+		// if (states[0].as_scalar > 0.0f)
+		//{
+		//	os->io->log("State Left");
+		// }
+		// if (states[1].as_scalar > 0.0f)
+		//{
+		//	os->io->log("State Right");
+		// }
+		// if (states[2].as_scalar > 0.0f)
+		//{
+		//	os->io->log("State Up");
+		// }
+		// if (states[3].as_scalar > 0.0f)
+		//{
+		//	os->io->log("State Down");
+		// }
 	}
 
 	return 0;

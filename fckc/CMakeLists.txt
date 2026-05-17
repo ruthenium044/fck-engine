@@ -1,9 +1,8 @@
 # fckc
 cmake_minimum_required(VERSION 3.20)
+include_guard(GLOBAL)
 
 project(fckc)
-
-include_guard(GLOBAL)
 
 add_library(${PROJECT_NAME} INTERFACE)
 add_library(fck::fckc ALIAS ${PROJECT_NAME})

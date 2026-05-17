@@ -1,20 +1,19 @@
 
-#include "fck_input.h"
 
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_log.h>
 
+#include "fck_input.h"
 #include "fckc_apidef.h"
 #include "fckc_assert.h"
 #include "fckc_math.h"
 
 #define fck_input_source_capacity 64
 
-FCK_IMPORT_API fck_input_source* input_mouse;
-FCK_IMPORT_API fck_input_source* input_physical_keyboard;
-FCK_IMPORT_API fck_input_source* input_text;
-FCK_IMPORT_API fck_input_source* dualsense_source;
-
+FCK_IMPORT_API fck_input_source *input_mouse;
+FCK_IMPORT_API fck_input_source *input_physical_keyboard;
+FCK_IMPORT_API fck_input_source *input_text;
+FCK_IMPORT_API fck_input_source *dualsense_source;
 
 static fck_input_source *sources[fck_input_source_capacity] = {0};
 static fckc_size_t sources_count = 0;

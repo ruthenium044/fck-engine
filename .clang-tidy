@@ -1,13 +1,32 @@
-Checks: 
-  - '-*'
-  - 'bugprone-*'
-  - '-bugprone-narrowing-conversions'
-  - 'cert-*'
-  - '-cert-err58-cpp'
-  - 'clang-analyzer-*'
-  - '-cppcoreguidelines-*'
-  - '-cppcoreguidelines-narrowing-conversions'
-  - '-cppcoreguidelines-pro-bounds-array-to-pointer-decay'
-  - 'misra-*' # require https://github.com/rettichschnidi/clang-tidy-misra
-  - '-cppcoreguidelines-pro-type-vararg'
-  - '-cppcoreguidelines-avoid-c-arrays'
+Checks: >
+    performance-*,
+    misc-*,
+    android-cloexec-*,
+    readability-duplicate-include,
+    readability-misleading-indentation,
+    bugprone-assert-side-effect,
+    bugprone-macro-repeated-side-effects,
+    bugprone-infinite-loop,
+    bugprone-macro-parentheses,
+    bugprone-posix-return,
+    bugprone-reserved-identifier,
+    bugprone-signal-handler,
+    bugprone-signed-char-misuse,
+    bugprone-sizeof-expression,
+    bugprone-branch-clone,
+    -clang-analyzer-security.insecureAPI.*,
+    -clang-diagnostic-reorder-init-list,
+    -misc-no-recursion,
+    -misc-confusable-identifiers,
+    -misc-use-anonymous-namespace,
+    -performance-enum-size,
+
+
+# treat all warnings as errors
+WarningsAsErrors: '*'
+
+CheckOptions:
+  - key:             bugprone-assert-side-effect.AssertMacros
+    value:           'ASSERT'
+
+ExtraArgs: [-std=c11,-DDEBUG]

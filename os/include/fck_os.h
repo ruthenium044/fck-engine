@@ -7,14 +7,11 @@
 // TODO: Still no clue how this shit behaves with multiple windows
 // well, well, well
 
-#if defined(FCK_STD_EXPORT)
-#define FCK_STD_API FCK_EXPORT_API
+#if defined(FCK_OS_EXPORT)
+#define FCK_OS_API FCK_EXPORT_API
 #else
-#define FCK_STD_API FCK_IMPORT_API
+#define FCK_OS_API FCK_IMPORT_API
 #endif
-
-struct kll_allocator;
-union fck_event;
 
 // TODO: This is meh, format in temp allocator?
 typedef struct fck_io_api
@@ -55,7 +52,7 @@ typedef struct fck_window_api
 	// Returns platform native data, such as:
 	// HWDN and HINSTANCE on windows
 	// or NSWindow on MacOS
-	void* (*native)(fck_window window, const char* name);
+	void *(*native)(fck_window window, const char *name);
 
 	// Wonky, but ok
 	int (*text_input_start)(fck_window window);
@@ -106,12 +103,30 @@ typedef struct fck_filesystem_api
 
 	int (*is_valid)(fck_file);
 
+	int (*remove)(const char* path);
+	fckc_i64 (*modified)(const char* path);
+
 	fckc_i64 (*size)(fck_file);
 	fckc_i64 (*seek)(fck_file, fckc_i64 offset, fck_alias(fck_stream_seek_mode, fckc_u32) seek_mode);
 	fckc_size_t (*read)(fck_file, void *ptr, fckc_size_t size);
 	fckc_size_t (*write)(fck_file, const void *ptr, fckc_size_t size);
 	fckc_i64 (*flush)(fck_file);
-} fck_filesystem_api;
+
+} fck_file_system_api;
+
+typedef struct fck_glob_api
+{
+	char* (*find)(const char* str, const char* substring);
+	char* (*match)(const char* str, const char* pattern);
+	fckc_size_t(*local)(const char* path, const char* pattern, char*** out_paths);
+	void (*free)(char** paths);
+}fck_glob_api;
+
+typedef struct fck_file_watcher_api
+{	
+	// Maybe make the file watcher part of the filesystem? 
+	void* todo;
+}fck_file_watcher_api;
 
 // This is ok
 typedef struct fck_os_api
@@ -119,15 +134,16 @@ typedef struct fck_os_api
 	fck_io_api *io;
 	fck_shared_object_api *so;
 	fck_window_api *win;
-	fck_filesystem_api *fs;
-
+	fck_file_system_api *fs;
+	fck_glob_api * glob;
 	// Special APIs are not getting a cool little abbrevation
 	fck_clipboard_api *clipboard;
 	fck_chrono_api *chrono;
+	fck_file_watcher_api *fw;
 } fck_os_api;
 
 // Also ok. Maybe have inline loaders for each platform!
-FCK_STD_API extern fck_os_api *os;
+FCK_OS_API extern fck_os_api *os;
 
 // extern fck_os_api *os;
 

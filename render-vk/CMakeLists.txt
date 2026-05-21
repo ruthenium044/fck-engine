@@ -34,7 +34,7 @@ endif()
 
 
 add_executable(${PROJECT_NAME}-test test/main.c)
-target_link_libraries(${PROJECT_NAME}-test PRIVATE ${PROJECT_NAME} fck::os fck::kll fck::render fck::shader)
+target_link_libraries(${PROJECT_NAME}-test PRIVATE ${PROJECT_NAME} fck::os fck::kll fck::render fck::shader fck::input)
 
 set_target_properties(${PROJECT_NAME}-test PROPERTIES
     VS_DEBUGGING_WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"

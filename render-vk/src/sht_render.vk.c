@@ -3592,7 +3592,7 @@ sht_bool32 sht_vk_is_ok(sht_instance instance)
 	return instance.handle != NULL;
 }
 
-FCK_EXPORT_API sht_loader *fck_main(fck_api_registry *apis, sht_render_api_config *config)
+FCK_EXPORT_API sht_loader *fck_render_vk_load(fck_api_registry *apis, sht_render_api_config *config)
 {
 	if (apis == NULL)
 	{
@@ -3600,7 +3600,6 @@ FCK_EXPORT_API sht_loader *fck_main(fck_api_registry *apis, sht_render_api_confi
 		return &sht_loader_api;
 	}
 	// Maybe here we load the shared object ;)
-	os->io->log("%s loaded", sht_render_api_name);
 	apis->add(sht_render_api_name, &sht_loader_api);
 	return &sht_loader_api;
 }

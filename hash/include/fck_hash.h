@@ -20,7 +20,7 @@ static fck_hash_int fck_hash(const char *str, int length)
 
 	for (int index = 0; index < length; index++)
 	{
-		char c = str[index];
+		const char c = str[index];
 		if (c == 0)
 		{
 			break;

@@ -1,142 +1,210 @@
+
 #include "fck_apis.h"
 
+#include "fckc_apidef.h"
 #include <fck_hash.h>
-#include <fck_os.h>
 
-#include <assert.h>
-
-#include <kll.h>
-#include <kll_system.h>
-#include <kll_malloc.h>
-
-#include <memory.h>
 #include <string.h>
 
-typedef struct fck_apis_node
-{
-	fckc_u64 hash;
-	const char *name;
-	void *api;
-
-	struct fck_apis_node *next;
-} fck_apis_node;
-
 #define fck_apis_hash_map_capacity 256
+#define fck_apis_hash_map_bucket_capacity 16
+#define fck_apis_name_lookup_capacity fck_apis_hash_map_capacity *fck_apis_hash_map_bucket_capacity
+
+typedef struct fck_apis_bucket
+{
+	fck_hash_int hash;
+	char name[260];
+	fckc_size_t count;
+
+	void *implementations[fck_apis_hash_map_bucket_capacity];
+} fck_apis_bucket;
 
 typedef struct fck_apis_hash_map
 {
-	fck_apis_node *tails[fck_apis_hash_map_capacity];
-	fck_apis_node heads[fck_apis_hash_map_capacity];
+	fck_apis_bucket buckets[fck_apis_hash_map_capacity];
 } fck_apis_hash_map;
 
-static fck_apis_hash_map fck_apis_storage;
-
-static void fck_apis_add(const char *name, void *api)
+typedef struct fck_apis_name_lookup_entry
 {
-	fck_hash_int hash = fck_hash(name, strlen(name));
-	fck_hash_int slot = hash % fck_apis_hash_map_capacity;
+	void *implementation;
+	const char *name;
+} fck_apis_name_lookup_entry;
 
-	fck_apis_node *current = &fck_apis_storage.heads[slot];
-	fck_apis_node *tail = fck_apis_storage.tails[slot];
-	if (tail != NULL)
-	{
-		tail->next = (fck_apis_node *)kll_malloc(kll_system, sizeof(*current));
-		current = tail->next;
-	}
-
-	current->hash = hash;
-	current->next = NULL;
-	current->name = name;
-	current->api = api;
-	fck_apis_storage.tails[slot] = current;
-}
-
-static int fck_apis_remove(const char *name)
+typedef struct fck_apis_name_lookup
 {
-	fck_hash_int hash = fck_hash(name, strlen(name));
-	fck_hash_int slot = hash % fck_apis_hash_map_capacity;
+	fck_apis_name_lookup_entry entries[fck_apis_name_lookup_capacity];
+} fck_apis_name_lookup;
 
-	fck_apis_node *current = &fck_apis_storage.heads[slot];
-	fck_apis_node *tail = fck_apis_storage.tails[slot];
-	if (tail == NULL)
-	{
-		return 0;
-	}
-
-	// This should work
-	fck_apis_node *next = current->next;
-	current->api = NULL;
-	current->hash = 0;
-	current->next = NULL;
-	current->name = NULL;
-
-	if (next != NULL)
-	{
-		memcpy(current, next, sizeof(*current));
-		kll_free(kll_system, next);
-	}
-
-	if (tail == current)
-	{
-		tail = NULL;
-	}
-	return 1;
-}
-
-static void *fck_apis_find_from_hash(fckc_u64 hash)
+void fck_apis_name_lookup_add(fck_apis_name_lookup *lookup, void *implementation, const char *name)
 {
-	fck_hash_int slot = hash % fck_apis_hash_map_capacity;
-	fck_apis_node *current = &fck_apis_storage.heads[slot];
-	for (;;)
+	const fck_hash_int hash = fck_hash((const char*)implementation, sizeof(implementation));
+	fck_hash_int slot = hash % fck_apis_hash_map_bucket_capacity;
+	for (fckc_size_t index = 0; index < fck_apis_hash_map_bucket_capacity; index++)
 	{
-		if (current->hash == hash)
+		fck_apis_name_lookup_entry *current = &lookup->entries[slot];
+		if (current->implementation == NULL && current->name == NULL)
 		{
-			return current->api;
+			current->implementation = implementation;
+			current->name = name;
+			return;
 		}
-		current = current->next;
-		if (current == NULL)
+		if (current->implementation == implementation && strcmp(current->name, name) == 0)
+		{
+			return;
+		}
+		slot = (slot + 1) % fck_apis_hash_map_bucket_capacity;
+	}
+	return;
+}
+
+const char* fck_apis_name_lookup_find(fck_apis_name_lookup *lookup, void *implementation)
+{
+	const fck_hash_int hash = fck_hash((const char*)implementation, sizeof(implementation));
+
+	fck_hash_int slot = hash % fck_apis_hash_map_bucket_capacity;
+	for (fckc_size_t index = 0; index < fck_apis_hash_map_bucket_capacity; index++)
+	{
+		fck_apis_name_lookup_entry *current = &lookup->entries[slot];
+		if (current->implementation == NULL)
 		{
 			return NULL;
 		}
+		if (current->implementation == implementation)
+		{
+			return current->name;
+		}
+		slot = (slot + 1) % fck_apis_hash_map_bucket_capacity;
 	}
-}
-
-static void *fck_apis_find_from_string(const char *name)
-{
-	fck_hash_int hash = fck_hash(name, strlen(name));
-	void *api = fck_apis_find_from_hash(hash);
-	return api;
-}
-
-static void *fck_apis_next(void *prev)
-{
-	assert(0 && "NOT IMPLEMENTED");
-	// TODO: We can do this one later...
 	return NULL;
 }
 
-fck_api_registry fck_apis_runtime_state = {
-	.add = fck_apis_add,
-	.get = fck_apis_find_from_hash,
-	.find = fck_apis_find_from_string,
-	.remove = fck_apis_remove,
-	.next = fck_apis_next,
-};
+static fck_apis_hash_map fck_apis_storage = {0};
+static fck_apis_name_lookup fck_apis_names = {0};
 
-FCK_EXPORT_API fck_api_registry *fck_main(fck_api_registry *api, fck_apis_init *init)
+static int fck_apis_add(const char *name, void *api)
 {
-	api = &fck_apis_runtime_state;
+	const fck_hash_int hash = fck_hash(name, strlen(name));
+	fck_hash_int slot = hash % fck_apis_hash_map_capacity;
 
-	fck_apis_manifest *manifest = init->manifest;
-	fckc_size_t count = init->count;
-	for (fckc_size_t index = 0; index < count; index++)
+	for (fckc_size_t index = 0; index < fck_apis_hash_map_capacity; index++)
 	{
-		fck_apis_manifest *current = &manifest[index];
-		fck_shared_object api_so = os->so->load(current->name);
-		fck_main_func *main_so = (fck_main_func *)os->so->symbol(api_so, FCK_ENTRY_POINT);
-		*current->api = main_so(api, current->params);
-		os->io->log("Library Loaded: %s", current->name);
+		fck_apis_bucket *current = &fck_apis_storage.buckets[slot];
+		if (current->hash == 0)
+		{
+			current->hash = hash;
+			int len = strlen(name);
+			memcpy(current->name, name, len);
+			current->name[len] = '\0';
+			current->count = 0;
+		}
+
+		if (current->hash == hash)
+		{
+			if (current->count == fck_arraysize(current->implementations))
+			{
+				return 0;
+			}
+			fck_apis_name_lookup_add(&fck_apis_names, api, current->name);
+
+			current->implementations[current->count] = api;
+			current->count = current->count + 1;
+			return current->count;
+		}
+		slot = (slot + 1) % fck_apis_hash_map_capacity;
+	}
+	return 0;
+}
+
+static int fck_apis_remove(const char *name, void *api)
+{
+	const fck_hash_int hash = fck_hash(name, strlen(name));
+	fck_hash_int slot = hash % fck_apis_hash_map_capacity;
+
+	for (fckc_size_t index = 0; index < fck_apis_hash_map_capacity; index++)
+	{
+		fck_apis_bucket *current = &fck_apis_storage.buckets[slot];
+		if (current->hash == 0)
+		{
+			return 0;
+		}
+
+		if (current->hash == hash)
+		{
+			if (current->count == 0)
+			{
+				return 0;
+			}
+
+			for (fckc_size_t implementation_index = 0; implementation_index < current->count; implementation_index++)
+			{
+				void **impl = current->implementations + implementation_index;
+				if (*impl == api)
+				{
+					const fckc_size_t last = current->count - 1;
+					*impl = current->implementations[last];
+					current->implementations[last] = NULL;
+
+					current->count = current->count - 1;
+					return current->count;
+				}
+			}
+			return 0;
+		}
+		slot = (slot + 1) % fck_apis_hash_map_capacity;
 	}
 
-	return api;
+	return 0;
+}
+
+static fckc_size_t fck_apis_implementations(const char *name, void ***apis)
+{
+	const fck_hash_int hash = fck_hash(name, strlen(name));
+	fck_hash_int slot = hash % fck_apis_hash_map_capacity;
+	for (fckc_size_t index = 0; index < fck_apis_hash_map_capacity; index++)
+	{
+		fck_apis_bucket *current = &fck_apis_storage.buckets[slot];
+		if (current->hash == 0)
+		{
+			return 0;
+		}
+
+		if (current->hash == hash)
+		{
+			*apis = current->implementations;
+			return current->count;
+		}
+		slot = (slot + 1) % fck_apis_hash_map_capacity;
+	}
+	return 0;
+}
+
+static void *fck_apis_find(const char *name)
+{
+	void **apis;
+	const fckc_size_t count = fck_apis_implementations(name, &apis);
+	if (count)
+	{
+		return apis[0];
+	}
+	return NULL;
+}
+
+static const char* fck_apis_nameof(void* api)
+{
+	return fck_apis_name_lookup_find(&fck_apis_names, api);
+}
+
+static fck_api_registry fck_apis_runtime_state = {
+	.add = fck_apis_add,
+	.implementations = fck_apis_implementations,
+	.find = fck_apis_find,
+	.remove = fck_apis_remove,
+	.nameof = fck_apis_nameof,
+};
+
+FCK_EXPORT_API fck_api_registry *fck_api_load(fck_api_registry *registry, void *params)
+{
+	(void)registry;
+	(void)params;
+	return &fck_apis_runtime_state;
 }

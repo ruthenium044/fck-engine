@@ -3,16 +3,25 @@
 
 #include <fckc_inttypes.h>
 
+typedef enum fck_input_source_type
+{
+	fck_input_source_none,
+	fck_input_source_keyboard,
+	fck_input_source_mouse,
+	fck_input_source_gamepad,
+	fck_input_source_text,
+} fck_input_source_type;
+
 typedef enum fck_input_data_type
 {
 	fck_input_data_none,
 	fck_input_data_scalar,
 	fck_input_data_float2,
 	fck_input_data_unicode
-	// Maybe: value, pair, unicode? :-( 
+	// Maybe: value, pair, unicode? :-(
 } fck_input_data_type;
 
-inline const char *fck_input_data_type_to_string(fckc_u32 type)
+static inline const char *fck_input_data_type_to_string(fckc_u32 type)
 {
 	switch (type)
 	{
@@ -54,7 +63,6 @@ typedef struct fck_input_event
 	// Idk if id is better tbh
 	struct fck_input_description *description;
 
-
 	void *userdata;
 } fck_input_event;
 
@@ -67,6 +75,7 @@ typedef struct fck_input_event
 typedef struct fck_input_source
 {
 	const char *name;
+	fck_input_source_type type;
 
 	fckc_size_t (*owners)(fckc_u64 **owners);
 	fckc_size_t (*events)(fck_input_event *events, fckc_size_t size);
@@ -103,8 +112,11 @@ typedef struct fck_input
 
 // I need to find a way to create a uniform and statically bindable load!
 typedef fck_input *(fck_input_load_prototype)(void);
+#define fck_input_api_name "fck_input"
 #define fck_input_load_name "fck_input_load"
 #define to_fck_input_load(v) (fck_input_load_prototype *)(v)
+
+#define fck_input_source_name "fck_input_source"
 
 /*	Input Utilities */
 

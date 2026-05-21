@@ -21,7 +21,7 @@ target_sources(${PROJECT_NAME} PRIVATE "src/kll_system.c")
 target_sources(${PROJECT_NAME} PRIVATE "src/kll_temp.c")
 
 find_package(fckc)
-target_link_libraries(${PROJECT_NAME} PRIVATE fck::fckc)
+target_link_libraries(${PROJECT_NAME} PUBLIC fck::fckc)
 set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "fck-lib")
 
 add_executable(${PROJECT_NAME}-test test/main.c)

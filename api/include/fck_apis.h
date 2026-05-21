@@ -1,43 +1,18 @@
 #ifndef FCK_APIS_H_IMPLEMENTED
 #define FCK_APIS_H_IMPLEMENTED
 
-#include <fckc_apidef.h>
 #include <fckc_inttypes.h>
-
-#define FCK_ENTRY_POINT "fck_main"
 
 typedef struct fck_api_registry
 {
-	// TODO: 
-	// add
-	// remove
-
-	// set 
-	// get
-
-	void (*add)(const char *name, void *api);
-	void *(*get)(fckc_u64 hash);
+	int (*add)(const char *name, void *api);
+	fckc_size_t (*implementations)(const char *name, void ***apis);
 	void *(*find)(const char *name);
-	int (*remove)(const char *name);
-	void *(*next)(void *prev);
+	int (*remove)(const char *name, void *api);
+	const char* (*nameof)(void* api);
 } fck_api_registry;
 
 // Both arguments are allowed to be NULL!
-typedef void *(fck_main_func)(fck_api_registry *, void *);
-
-#define fck_main_user(api_param, extra_param) fck_main(api_param, extra_param)
-
-typedef struct fck_apis_manifest
-{
-	void **api;
-	const char *name;
-	void *params;
-} fck_apis_manifest;
-
-typedef struct fck_apis_init
-{
-	fck_apis_manifest *manifest;
-	fckc_size_t count;
-} fck_apis_init;
+typedef void *(fck_main_func)(fck_api_registry * registry, void *old_implementation);
 
 #endif // !FCK_APIS_H_IMPLEMENTED

@@ -3,7 +3,7 @@
 #ifndef FCKC_INTTYPES_H_INCLUDED
 #define FCKC_INTTYPES_H_INCLUDED
 
-#include <inttypes.h>
+#include <stdint.h>
 #include <stddef.h>
 
 #define fck_arraysize(array) (sizeof(array) / sizeof((array)[0]))

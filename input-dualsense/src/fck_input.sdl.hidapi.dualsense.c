@@ -2,21 +2,22 @@
 
 // #include <SDL3/SDL_events.h>
 // #include <SDL3/SDL_log.h>
-
 #include <SDL3/SDL_hidapi.h>
+
+#include <fckc_inttypes.h>
 
 #include "fck_gamepad_input.h"
 #include "fck_os.h"
 #include "fckc_apidef.h"
 #include "fckc_assert.h"
-#include "fckc_math.h"
 
+#include <string.h>
 #include <math.h>
 
 // The maximum size of a USB packet for HID devices
 #define fck_dualsense_usb_packet_length 64
-#define fck_dualsense_bluetooth_extended_packet_length 78
-#define fck_dualsense_largest_possible_packet_length 78
+#define fck_dualsense_bluetooth_extended_packet8_length 78
+#define fck_dualsense_largest_possible_packet_length 7
 
 #define fck_vendor_sony 0x054C
 #define fck_product_dualsense 0x0ce6
@@ -274,6 +275,7 @@ static fck_input_source_dualsense input_source_dualsense = (fck_input_source_dua
 	.source =
 		(fck_input_source){
 			.name = "dualsense",
+			.type = fck_input_source_gamepad,
 			.owners = fck_input_dualsense_owners,
 			.events = fck_input_dualsense_events,
 			.descriptions = fck_input_dualsense_descriptions,
@@ -334,8 +336,8 @@ static fckc_u64 fck_input_dualsense_hash_serial_number(wchar_t *serial_number)
 static void fck_input_source_dualsense_position(fck_dualsense_device *device, fck_gamepad_input_type event, fckc_u8 x, fckc_u8 y)
 {
 	fck_input_data *data = device->current + event;
-	float vx = roundf((float)(x / 255.0f) * 100) / 100;
-	float vy = roundf((float)(y / 255.0f) * 100) / 100;
+	const float vx = roundf((float)(x / 255.0f) * 100) / 100;
+	const float vy = roundf((float)(y / 255.0f) * 100) / 100;
 	data->floats[0] = ((vx * 2.0f)) - 1.0f;
 	data->floats[1] = (2.0f - (vy * 2.0f)) - 1.0f;
 }
@@ -366,7 +368,7 @@ static void fck_dualsense_device_set_state_2(fck_dualsense_device *device, fck_d
 static void fck_dualsense_device_set_state_1(fck_dualsense_device *device, fck_dualsense_buttons_1 state)
 {
 	// Handle directional pad;
-	fckc_u8 dpad = state.dpad;
+	const fckc_u8 dpad = state.dpad;
 	device->current[fck_gamepad_dpad_left].scalar = 0;
 	device->current[fck_gamepad_dpad_right].scalar = 0;
 	device->current[fck_gamepad_dpad_up].scalar = 0;
@@ -447,7 +449,7 @@ static void fck_input_source_dualsense_remove_swap_last(fck_input_source_dualsen
 {
 	fck_assert(owner != fck_input_dualsense_owner_unused);
 
-	fckc_size_t result = fck_input_source_dualsense_find(input, owner);
+	const fckc_size_t result = fck_input_source_dualsense_find(input, owner);
 	if (result)
 	{
 		fckc_u64 *last = input->owners + input->count - 1;
@@ -467,7 +469,7 @@ static wchar_t *fck_input_dualsense_serial_number_from_hid_device(SDL_hid_device
 	}
 	fckc_u8 report[fck_dualsense_usb_packet_length] = {0};
 	report[0] = fck_dualsense_feature_report_serial_number;
-	int report_result = SDL_hid_get_feature_report(hid, report, sizeof(report));
+	const int report_result = SDL_hid_get_feature_report(hid, report, sizeof(report));
 	if (report_result <= 0)
 	{
 		return NULL;
@@ -517,8 +519,8 @@ static void fck_input_dualsense_discovery(fck_input_source_dualsense *source)
 
 			if (current->serial_number != NULL)
 			{
-				uint64_t hash = 0;
-				uint64_t result = 0;
+				fckc_u64 hash = 0;
+				fckc_u64 result = 0;
 
 				if (current->serial_number == NULL || current->serial_number[0] == L'\0')
 				{
@@ -635,9 +637,8 @@ static fckc_u32 fck_dualsense_crc32(fckc_u32 crc, const void *data, fckc_size_t 
 
 static void fck_input_dualsense_update_state(fck_dualsense_device *device, fckc_u8 *payload, fckc_size_t result)
 {
-	fckc_u64 now = os->chrono->ms();
-
-	fckc_u8 report_id = payload[0];
+	const fckc_u64 now = os->chrono->ms();
+	const fckc_u8 report_id = payload[0];
 	switch (report_id)
 	{
 	case fck_dualsense_input_report_usb_simple: /* fck_dualsense_input_report_bluetooth_simple */ {
@@ -716,8 +717,8 @@ static fckc_size_t fck_input_dualsense_events(fck_input_event *events, fckc_size
 {
 	fckt_dualsense_events queue = (fckt_dualsense_events){.events = events, .at = 0, .capacity = size};
 
-	fckc_u64 now = os->chrono->ms();
-	fckc_u64 discovery_delta = now - input_source_dualsense.last_discovery_ms;
+	const fckc_u64 now = os->chrono->ms();
+	const fckc_u64 discovery_delta = now - input_source_dualsense.last_discovery_ms;
 
 	if (discovery_delta >= fck_dualsense_discovery_rate)
 	{
@@ -728,7 +729,7 @@ static fckc_size_t fck_input_dualsense_events(fck_input_event *events, fckc_size
 	// TODO: Probably polling rate :)
 	for (fckc_size_t index = 0; index < input_source_dualsense.count; index++)
 	{
-		fckc_u64 owner = input_source_dualsense.owners[index];
+		const fckc_u64 owner = input_source_dualsense.owners[index];
 		if (owner != fck_input_dualsense_owner_unused)
 		{
 			// Poll device state from HID
@@ -736,7 +737,7 @@ static fckc_size_t fck_input_dualsense_events(fck_input_event *events, fckc_size
 			fckc_u8 payload[fck_dualsense_largest_possible_packet_length];
 			for (;;)
 			{
-				int result = SDL_hid_read_timeout(device->hid, payload, sizeof(payload), 0);
+				const int result = SDL_hid_read_timeout(device->hid, payload, sizeof(payload), 0);
 				if (result == -1)
 				{
 					fck_input_source_dualsense_remove_swap_last(&input_source_dualsense, owner);
@@ -753,9 +754,9 @@ static fckc_size_t fck_input_dualsense_events(fck_input_event *events, fckc_size
 				fck_input_dualsense_update_state(device, payload, result);
 			}
 
-			for (fck_gamepad_input_type event_type = fck_gamepad_left_stick; event_type < fck_gamepad_count; event_type++)
+			for (int event_type = fck_gamepad_left_stick; event_type < fck_gamepad_count; event_type++)
 			{
-				if (!fckt_dualsense_events_try_add(&queue, device, event_type))
+				if (!fckt_dualsense_events_try_add(&queue, device, (fck_gamepad_input_type)event_type))
 				{
 					return queue.at;
 				}
@@ -774,7 +775,7 @@ static fckc_size_t fck_input_dualsense_descriptions(fck_input_description **desc
 // TODO: Design flaw in all states functions. Why do I even guard against invalid ids??
 static fckc_size_t fck_input_dualsense_states(fckc_u64 owner, fckc_u32 *ids, fck_input_data *states, fckc_size_t size)
 {
-	fckc_size_t result = fck_input_source_dualsense_find(&input_source_dualsense, owner);
+	const fckc_size_t result = fck_input_source_dualsense_find(&input_source_dualsense, owner);
 	if (result)
 	{
 		fck_dualsense_device *device = input_source_dualsense.devices + result - 1;
@@ -784,7 +785,7 @@ static fckc_size_t fck_input_dualsense_states(fckc_u64 owner, fckc_u32 *ids, fck
 			fck_input_data *state = states + index;
 			if (*id >= fck_gamepad_count)
 			{
-				fckc_size_t last = size - 1;
+				const fckc_size_t last = size - 1;
 				fck_input_data *last_state = states + last;
 				fckc_u32 *last_id = ids + last;
 				*state = *last_state;
@@ -803,4 +804,10 @@ static fckc_size_t fck_input_dualsense_states(fckc_u64 owner, fckc_u32 *ids, fck
 	return 0;
 }
 
-FCK_EXPORT_API fck_input_source *dualsense_source = &input_source_dualsense.source;
+#include <fck_apis.h>
+
+FCK_EXPORT_API fck_input_source* fck_input_dualsense_load(fck_api_registry* registry, void* params)
+{
+	registry->add(fck_input_source_name, &input_source_dualsense.source);
+	return &input_source_dualsense.source;
+}

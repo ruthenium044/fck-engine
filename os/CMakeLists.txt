@@ -29,11 +29,9 @@ endif()
 
 add_library(fck::os ALIAS ${PROJECT_NAME})
 
-target_sources(${PROJECT_NAME} PRIVATE "src/fck_input.c")
-
 if(APPLE)
     target_sources(${PROJECT_NAME} PRIVATE "src/fck_os.macos.c")
-
+    # TODO: Dlete this branch - was a nice exercise, but fuck it
     find_package(kll)
     target_link_libraries(${PROJECT_NAME} PUBLIC fck::fckc fck::events fck::kll
     "-framework AppKit"
@@ -42,10 +40,6 @@ if(APPLE)
     "-framework QuartzCore")
 else()
     target_sources(${PROJECT_NAME} PRIVATE "src/fck_os.sdl.c")
-    target_sources(${PROJECT_NAME} PRIVATE "src/fck_input.sdl.mouse.c")
-    target_sources(${PROJECT_NAME} PRIVATE "src/fck_input.sdl.text.c")
-    target_sources(${PROJECT_NAME} PRIVATE "src/fck_input.sdl.physical_keyboard.c")
-    target_sources(${PROJECT_NAME} PRIVATE "src/fck_input.sdl.hidapi.dualsense.c")
     #if(BUILD_SHARED_LIBS)
     #    set(SDL_SHARED ON CACHE BOOL "" FORCE)
     #    set(SDL_STATIC OFF CACHE BOOL "" FORCE)
@@ -72,8 +66,8 @@ target_sources(${PROJECT_NAME} PRIVATE "include/fck_os.h")
 target_include_directories(${PROJECT_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
 find_package(fckc)
-find_package(input)
-target_link_libraries(${PROJECT_NAME} PRIVATE fck::fckc PUBLIC fck::input)
+
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::fckc)
 
 add_executable(${PROJECT_NAME}-test "test/main.c")
 target_link_libraries(${PROJECT_NAME}-test PRIVATE ${PROJECT_NAME} PRIVATE fck::fckc)

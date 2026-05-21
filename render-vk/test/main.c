@@ -73,7 +73,7 @@ fck_test_app_result fck_test_app_app_init(void **app_state, int argc, char **arg
 
 	app->window = os->win->create("fck-vk", 1400, 600);
 
-	fck_shared_object input_so = os->so->load("fck-os.dll");
+	fck_shared_object input_so = os->so->load("fck-input-all.dll");
 	fck_input_load_prototype *input_load = to_fck_input_load(os->so->symbol(input_so, fck_input_load_name));
 	app->input = input_load();
 
@@ -81,7 +81,7 @@ fck_test_app_result fck_test_app_app_init(void **app_state, int argc, char **arg
 	fckc_size_t result = app->input->sources(&sources);
 
 	fck_shared_object api_so = os->so->load("fck-render-vk");
-	sht_loader *loader = (sht_loader *)((void *(*)(void *, void *))os->so->symbol(api_so, "fck_main"))(NULL, NULL);
+	sht_loader *loader = (sht_loader *)((void *(*)(void *, void *))os->so->symbol(api_so, "fck_load"))(NULL, NULL);
 
 	app->instance = loader->load(SHT_HEADER_VERSION);
 	fck_assert(loader->is_ok(app->instance));

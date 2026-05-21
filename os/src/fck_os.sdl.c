@@ -1,8 +1,9 @@
-#define FCK_STD_EXPORT
+#define FCK_OS_EXPORT
 #include "fck_os.h"
 
 #include <SDL3/SDL_clipboard.h>
 #include <SDL3/SDL_events.h>
+#include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_iostream.h>
 #include <SDL3/SDL_keyboard.h>
 #include <SDL3/SDL_loadso.h>
@@ -76,40 +77,40 @@ static fck_window fck_window_api_create(const char *name, int w, int h)
 	return (fck_window){.handle = window};
 }
 
-void fck_window_api_destroy(fck_window window)
+static void fck_window_api_destroy(fck_window window)
 {
 	SDL_DestroyWindow((SDL_Window *)window.handle);
 }
 
-int fck_window_api_is_valid(fck_window window)
+static int fck_window_api_is_valid(fck_window window)
 {
 	return window.handle != NULL;
 }
 
-int fck_window_api_resize(fck_window window, int width, int height)
+static int fck_window_api_resize(fck_window window, int width, int height)
 {
 	return (int)SDL_SetWindowSize((SDL_Window *)window.handle, width, height);
 }
 
-int fck_window_api_text_input_start(fck_window window)
+static int fck_window_api_text_input_start(fck_window window)
 {
 	return (int)SDL_StartTextInput((SDL_Window *)window.handle);
 }
 
-int fck_window_api_text_input_stop(fck_window window)
+static int fck_window_api_text_input_stop(fck_window window)
 {
 	return (int)SDL_StopTextInput((SDL_Window *)window.handle);
 }
 
-int fck_window_api_size(fck_window window, int *width, int *height)
+static int fck_window_api_size(fck_window window, int *width, int *height)
 {
 	return (int)SDL_GetWindowSize((SDL_Window *)window.handle, width, height);
 }
 
-void *fck_window_native(fck_window window, const char *name)
+static void *fck_window_native(fck_window window, const char *name)
 {
 	if (!strcmp(name, "sdl.window"))
-	{	// Maybe this will be useful one day
+	{ // Maybe this will be useful one day
 		return window.handle;
 	}
 	if (!strcmp(name, "win32.window"))
@@ -131,27 +132,27 @@ void *fck_window_native(fck_window window, const char *name)
 	return NULL;
 }
 
-int fck_clipboard_api_set(const char *text)
+static int fck_clipboard_api_set(const char *text)
 {
 	return (int)SDL_SetClipboardText(text);
 }
 
-int fck_clipboard_api_has(void)
+static int fck_clipboard_api_has(void)
 {
 	return (int)SDL_HasClipboardText();
 }
 
-fck_clipboard fck_clipboard_api_receive(void)
+static fck_clipboard fck_clipboard_api_receive(void)
 {
 	return (fck_clipboard){.text = SDL_GetClipboardText()};
 }
 
-void fck_clipboard_api_close(fck_clipboard clipboard)
+static void fck_clipboard_api_close(fck_clipboard clipboard)
 {
 	SDL_free(clipboard.text);
 }
 
-int fck_clipboard_api_is_valid(fck_clipboard clipboard)
+static int fck_clipboard_api_is_valid(fck_clipboard clipboard)
 {
 	if (clipboard.text == NULL)
 	{
@@ -160,28 +161,28 @@ int fck_clipboard_api_is_valid(fck_clipboard clipboard)
 	return SDL_strcmp("", clipboard.text);
 }
 
-fck_file fck_filesystem_open(const char *path, const char *mode)
+static fck_file fck_filesystem_open(const char *path, const char *mode)
 {
 	SDL_IOStream *stream = SDL_IOFromFile(path, mode);
 	return (fck_file){.handle = (void *)stream};
 }
 
-void fck_filesystem_close(fck_file file)
+static void fck_filesystem_close(fck_file file)
 {
 	SDL_CloseIO((SDL_IOStream *)file.handle);
 }
 
-int fck_filesystem_is_valid(fck_file file)
+static int fck_filesystem_is_valid(fck_file file)
 {
 	return file.handle != NULL;
 }
 
-fckc_i64 fck_filesystem_size(fck_file file)
+static fckc_i64 fck_filesystem_size(fck_file file)
 {
 	return SDL_GetIOSize((SDL_IOStream *)file.handle);
 }
 
-fckc_i64 fck_filesystem_seek(fck_file file, fckc_i64 offset, fckc_u32 seek_mode)
+static fckc_i64 fck_filesystem_seek(fck_file file, fckc_i64 offset, fckc_u32 seek_mode)
 {
 	SDL_IOWhence whence;
 	switch ((fck_stream_seek_mode)seek_mode)
@@ -201,22 +202,122 @@ fckc_i64 fck_filesystem_seek(fck_file file, fckc_i64 offset, fckc_u32 seek_mode)
 	return (fckc_i64)SDL_SeekIO((SDL_IOStream *)file.handle, offset, whence);
 }
 
-fckc_size_t fck_filesystem_read(fck_file file, void *ptr, fckc_size_t size)
+static fckc_size_t fck_filesystem_read(fck_file file, void *ptr, fckc_size_t size)
 {
 	return SDL_ReadIO((SDL_IOStream *)file.handle, ptr, size);
 }
 
-fckc_size_t fck_filesystem_write(fck_file file, const void *ptr, fckc_size_t size)
+static fckc_size_t fck_filesystem_write(fck_file file, const void *ptr, fckc_size_t size)
 {
 	return SDL_WriteIO((SDL_IOStream *)file.handle, ptr, size);
 }
 
-fckc_i64 fck_filesystem_flush(fck_file file)
+static fckc_i64 fck_filesystem_flush(fck_file file)
 {
 	return (fckc_i64)SDL_FlushIO((SDL_IOStream *)file.handle);
 }
 
-static fck_filesystem_api file_system_api = {
+static fckc_i64 fck_filesystem_modified(const char *path)
+{
+	SDL_PathInfo info;
+	if(SDL_GetPathInfo(path, &info)) {
+		return info.modify_time;
+	}
+	return 0;
+}
+
+static int fck_filesystem_remove(const char* path)
+{
+	if (SDL_RemovePath(path)) {
+		return 1;
+	}
+	return 0;
+}
+
+static fckc_size_t fck_glob_local(const char *path, const char *pattern, char ***out_paths)
+{
+	int count = 0;
+	char buffer[4096];
+	int result = SDL_snprintf(buffer, sizeof(buffer), "%s%s", SDL_GetCurrentDirectory(), path);
+	if (result <= 0)
+	{
+		return to_size_t(0);
+	}
+
+	*out_paths = SDL_GlobDirectory(SDL_GetCurrentDirectory(), pattern, 0, &count);
+	return to_size_t(count);
+}
+
+char *fck_glob_find(const char *str, const char *substring)
+{
+	char *result = SDL_strstr(str, substring);
+	return result;
+}
+
+char *fck_glob_match(const char *str, const char *pattern)
+{
+	const char *s = str;
+	const char *p = pattern;
+	const char *s_fallback = NULL;
+	const char *p_fallback = NULL;
+	const char *match = NULL;
+
+	while (*s != '\0')
+	{
+		if (*p == *s || *p == '?')
+		{
+			// Characters match, or '?' matches any single character. Advance both.
+			s++;
+			p++;
+		}
+		else if (*p == '*')
+		{
+			if (match == NULL)
+			{
+				match = s;
+			}
+			// Found a '*'. Memory the current positions for potential backtracking.
+			p_fallback = p;     // Match 0 characters first, stay on '*'
+			s_fallback = s + 1; // Next time, try matching this 's' character with '*'
+			p++;
+		}
+		else if (p_fallback != NULL)
+		{
+			// Match failed, but we encountered a '*' earlier. Backtrack!
+			p = p_fallback;
+			s = s_fallback;
+		}
+		else
+		{
+			// Strict mismatch and no '*' to save us.
+			return NULL;
+		}
+	}
+
+	// Eat up any trailing wildcards in the pattern
+	while (*p == '*')
+	{
+		p++;
+	}
+
+	// If the entire pattern was consumed, we have a successful match.
+	// Per your signature requirement, we return the start of the matched string.
+	return (*p == '\0') ? (char *)match : NULL;
+}
+
+static void fck_glob_free(char **paths)
+{
+	SDL_free((void *)paths);
+}
+
+static fck_glob_api glob_api = {
+	.find = fck_glob_find,
+	.match = fck_glob_match,
+	.local = fck_glob_local,
+	.free = fck_glob_free,
+};
+
+static fck_file_system_api file_system_api = {
 	.open = fck_filesystem_open,
 	.close = fck_filesystem_close,
 	.is_valid = fck_filesystem_is_valid,
@@ -225,6 +326,8 @@ static fck_filesystem_api file_system_api = {
 	.read = fck_filesystem_read,
 	.write = fck_filesystem_write,
 	.flush = fck_filesystem_flush,
+	.modified = fck_filesystem_modified,
+	.remove = fck_filesystem_remove,
 };
 
 static fck_clipboard_api clipboard_api = {
@@ -250,7 +353,6 @@ static fck_chrono_api chrono_api = {
 	.ms = SDL_GetTicks,
 };
 
-
 static fck_io_api io_api = {
 	.log = SDL_Log,
 };
@@ -262,6 +364,7 @@ static fck_os_api std_api = {
 	.clipboard = &clipboard_api,
 	.chrono = &chrono_api,
 	.fs = &file_system_api,
+	.glob = &glob_api,
 };
 
 fck_os_api *os = &std_api;

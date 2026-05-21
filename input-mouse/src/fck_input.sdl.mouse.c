@@ -3,13 +3,18 @@
 
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_log.h>
+#include <SDL3/SDL_mouse.h>
+
+#include <fckc_inttypes.h>
 
 #include "fck_mouse.h"
 #include "fckc_apidef.h"
 #include "fckc_assert.h"
 #include "fckc_math.h"
 
-#define fck_input_source_mouse_support_device_changes 0
+#include <stddef.h>
+
+#define fck_input_mouse_support_device_changes 0
 
 // static fckc_size_t fck_input_none_owners(fckc_u64 **owners)
 //{
@@ -43,19 +48,20 @@ static fckc_size_t fck_input_mouse_events(fck_input_event *events, fckc_size_t s
 static fckc_size_t fck_input_mouse_descriptions(fck_input_description **descriptions);
 static fckc_size_t fck_input_mouse_states(fckc_u64 owner, fckc_u32 *ids, fck_input_data *states, fckc_size_t size);
 
-typedef struct fck_input_source_mouse
+typedef struct fck_input_mouse
 {
 	fck_input_source source;
 
 	fckc_u64 owners[fck_input_mouse_owner_capacity]; // Always a number to double check stuff - Zero is nice, but make it something cool!
 	fck_input_description descriptions[fck_mouse_count];
 	fck_input_data data[fck_mouse_count];
-} fck_input_source_mouse;
+} fck_input_mouse;
 
-static fck_input_source_mouse input_source_mouse = (fck_input_source_mouse){
+static fck_input_mouse input_source_mouse = (fck_input_mouse){
 	.source =
 		(fck_input_source){
 			.name = "mouse",
+			.type = fck_input_source_mouse,
 			.owners = fck_input_mouse_owners,
 			.events = fck_input_mouse_events,
 			.descriptions = fck_input_mouse_descriptions,
@@ -76,8 +82,6 @@ static fck_input_source_mouse input_source_mouse = (fck_input_source_mouse){
 	.data = {0},
 };
 
-FCK_EXPORT_API fck_input_source *input_mouse = &input_source_mouse.source;
-
 static fckc_size_t fck_input_mouse_owners(fckc_u64 **owners)
 {
 	if (!SDL_HasMouse())
@@ -95,8 +99,8 @@ static fckc_size_t fck_input_mouse_events(fck_input_event *events, fckc_size_t s
 		return 0;
 	}
 
-	fckc_u32 min_event = SDL_EVENT_MOUSE_MOTION;
-	fckc_u32 max_event = fck_input_source_mouse_support_device_changes ? SDL_EVENT_MOUSE_REMOVED : SDL_EVENT_MOUSE_WHEEL;
+	const fckc_u32 min_event = SDL_EVENT_MOUSE_MOTION;
+	const fckc_u32 max_event = fck_input_mouse_support_device_changes ? SDL_EVENT_MOUSE_REMOVED : SDL_EVENT_MOUSE_WHEEL;
 
 	SDL_Event sdl_events[32];
 	fckc_size_t used = 0;
@@ -106,9 +110,9 @@ static fckc_size_t fck_input_mouse_events(fck_input_event *events, fckc_size_t s
 	for (;;)
 	{
 		const fckc_size_t rest = size - used;
-		fckc_size_t available = fck_min(fck_arraysize(sdl_events), rest);
+		const fckc_size_t available = fck_min(fck_arraysize(sdl_events), rest);
 
-		int result = SDL_PeepEvents(sdl_events, available, SDL_GETEVENT, min_event, max_event);
+		const int result = SDL_PeepEvents(sdl_events, available, SDL_GETEVENT, min_event, max_event);
 		if (result <= 0)
 		{
 			// Maybe we should log errors...
@@ -187,7 +191,7 @@ static fckc_size_t fck_input_mouse_states(fckc_u64 owner, fckc_u32 *ids, fck_inp
 		fck_input_data *state = states + index;
 		if (*id >= fck_mouse_count)
 		{
-			fckc_size_t last = size - 1;
+			const fckc_size_t last = size - 1;
 			fck_input_data *last_state = states + last;
 			fckc_u32 *last_id = ids + last;
 			*state = *last_state;
@@ -204,5 +208,10 @@ static fckc_size_t fck_input_mouse_states(fckc_u64 owner, fckc_u32 *ids, fck_inp
 	return size;
 }
 
-// fck_input_source virtual_keyboard;
-// fck_input_source physical_keyboard;
+#include <fck_apis.h>
+
+FCK_EXPORT_API fck_input_source *fck_input_mouse_load(fck_api_registry *registry, void *old)
+{
+	registry->add(fck_input_source_name, &input_source_mouse.source);
+	return &input_source_mouse.source;
+}

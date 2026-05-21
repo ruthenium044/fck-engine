@@ -14,7 +14,14 @@ target_sources(${PROJECT_NAME} PRIVATE "src/fck_apis.c")
 
 find_package(hash)
 find_package(fckc)
-find_package(kll)
-find_package(os)
-target_link_libraries(${PROJECT_NAME} PUBLIC fck::fckc PRIVATE fck::kll fck::hash fck::os)
+target_link_libraries(${PROJECT_NAME} PUBLIC fck::fckc fck::hash)
 set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "fck-lib")
+
+add_library(${PROJECT_NAME}-headers INTERFACE)
+add_library(fck::api-headers ALIAS ${PROJECT_NAME}-headers)
+
+target_include_directories(${PROJECT_NAME}-headers INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+target_sources(${PROJECT_NAME}-headers PRIVATE "include/fck_apis.h")
+
+set_target_properties(${PROJECT_NAME}-headers PROPERTIES FOLDER "fck-headers")
+target_link_libraries(${PROJECT_NAME}-headers INTERFACE fck::fckc)

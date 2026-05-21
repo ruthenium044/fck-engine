@@ -1,12 +1,16 @@
 #include "fck_input.h"
 
 #include <SDL3/SDL_events.h>
-#include <SDL3/SDL_log.h>
+#include <SDL3/SDL_keyboard.h>
 
+#include <fckc_inttypes.h>
+
+#include "fck_pkey.h"
 #include "fckc_apidef.h"
 #include "fckc_assert.h"
 #include "fckc_math.h"
-#include "fck_pkey.h"
+
+#include <stddef.h>
 
 #define fck_input_source_physical_keyboard_support_device_changes 0
 
@@ -20,7 +24,7 @@
 static fckc_size_t fck_input_physical_keyboard_owners(fckc_u64 **owners);
 static fckc_size_t fck_input_physical_keyboard_events(fck_input_event *events, fckc_size_t size);
 static fckc_size_t fck_input_physical_keyboard_descriptions(fck_input_description **descriptions);
-static fckc_size_t fck_input_physical_keyboard_states(fckc_u64 owner, fckc_u32* ids, fck_input_data* states, fckc_size_t size);
+static fckc_size_t fck_input_physical_keyboard_states(fckc_u64 owner, fckc_u32 *ids, fck_input_data *states, fckc_size_t size);
 
 typedef struct fck_input_source_physical_keyboard
 {
@@ -35,6 +39,7 @@ static fck_input_source_physical_keyboard input_source_physical_keyboard = (fck_
 	.source =
 		(fck_input_source){
 			.name = "physical-keyboard",
+			.type = fck_input_source_keyboard,
 			.owners = fck_input_physical_keyboard_owners,
 			.events = fck_input_physical_keyboard_events,
 			.descriptions = fck_input_physical_keyboard_descriptions,
@@ -295,8 +300,6 @@ static fck_input_source_physical_keyboard input_source_physical_keyboard = (fck_
 	.data = {0},
 };
 
-FCK_EXPORT_API fck_input_source *input_physical_keyboard = &input_source_physical_keyboard.source;
-
 static fckc_size_t fck_input_physical_keyboard_owners(fckc_u64 **owners)
 {
 	if (!SDL_HasKeyboard())
@@ -314,8 +317,8 @@ static fckc_size_t fck_input_physical_keyboard_events(fck_input_event *events, f
 		return 0;
 	}
 
-	fckc_u32 min_event = SDL_EVENT_KEY_DOWN;
-	fckc_u32 max_event = fck_input_source_physical_keyboard_support_device_changes ? SDL_EVENT_KEYBOARD_REMOVED : SDL_EVENT_KEY_UP;
+	const fckc_u32 min_event = SDL_EVENT_KEY_DOWN;
+	const fckc_u32 max_event = fck_input_source_physical_keyboard_support_device_changes ? SDL_EVENT_KEYBOARD_REMOVED : SDL_EVENT_KEY_UP;
 
 	SDL_Event sdl_events[32];
 	fckc_size_t used = 0;
@@ -325,9 +328,9 @@ static fckc_size_t fck_input_physical_keyboard_events(fck_input_event *events, f
 	for (;;)
 	{
 		const fckc_size_t rest = size - used;
-		fckc_size_t available = fck_min(fck_arraysize(sdl_events), rest);
+		const fckc_size_t available = fck_min(fck_arraysize(sdl_events), rest);
 
-		int result = SDL_PeepEvents(sdl_events, available, SDL_GETEVENT, min_event, max_event);
+		const int result = SDL_PeepEvents(sdl_events, available, SDL_GETEVENT, min_event, max_event);
 		if (result <= 0)
 		{
 			// Maybe we should log errors...
@@ -378,19 +381,19 @@ static fckc_size_t fck_input_physical_keyboard_descriptions(fck_input_descriptio
 	return fck_pkey_count - 1;
 }
 
-static fckc_size_t fck_input_physical_keyboard_states(fckc_u64 owner, fckc_u32* ids, fck_input_data* states, fckc_size_t size)
+static fckc_size_t fck_input_physical_keyboard_states(fckc_u64 owner, fckc_u32 *ids, fck_input_data *states, fckc_size_t size)
 {
 	(void)owner;
 
 	for (fckc_size_t index = 0; index < size; index++)
 	{
-		fckc_u32* id = ids + index;
-		fck_input_data* state = states + index;
+		fckc_u32 *id = ids + index;
+		fck_input_data *state = states + index;
 		if (*id >= fck_pkey_count)
 		{
-			fckc_size_t last = size - 1;
-			fck_input_data* last_state = states + last;
-			fckc_u32* last_id = ids + last;
+			const fckc_size_t last = size - 1;
+			fck_input_data *last_state = states + last;
+			fckc_u32 *last_id = ids + last;
 			*state = *last_state;
 
 			*id = *last_id;
@@ -399,8 +402,16 @@ static fckc_size_t fck_input_physical_keyboard_states(fckc_u64 owner, fckc_u32* 
 			continue;
 		}
 
-		const fck_input_data* data = input_source_physical_keyboard.data + *id;
+		const fck_input_data *data = input_source_physical_keyboard.data + *id;
 		*state = *data;
 	}
 	return size;
+}
+
+#include <fck_apis.h>
+
+FCK_EXPORT_API fck_input_source *fck_input_keyboard_load(fck_api_registry *registry, void *old)
+{
+	registry->add(fck_input_source_name, &input_source_physical_keyboard.source);
+	return &input_source_physical_keyboard.source;
 }

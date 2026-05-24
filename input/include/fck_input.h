@@ -10,6 +10,7 @@ typedef enum fck_input_source_type
 	fck_input_source_mouse,
 	fck_input_source_gamepad,
 	fck_input_source_text,
+	fck_input_source_other = 0xFFFF
 } fck_input_source_type;
 
 typedef enum fck_input_data_type
@@ -66,16 +67,10 @@ typedef struct fck_input_event
 	void *userdata;
 } fck_input_event;
 
-// typedef struct fck_input_state
-//{
-//	fckc_u32 id;
-//	fck_input_data data;
-// } fck_input_state;
-
 typedef struct fck_input_source
 {
 	const char *name;
-	fck_input_source_type type;
+	fck_alias(fck_input_source_type, fckc_u32) type;
 
 	fckc_size_t (*owners)(fckc_u64 **owners);
 	fckc_size_t (*events)(fck_input_event *events, fckc_size_t size);

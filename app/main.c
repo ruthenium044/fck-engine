@@ -25,7 +25,7 @@ static char *dashes_to_underscores(char *str, fckc_size_t length)
 	return str;
 }
 
-#define plugins_hashmap_capacity 64
+#define plugins_hashmap_capacity 128
 
 typedef struct plugins_hashmap_entry
 {
@@ -143,7 +143,7 @@ static void *load_plugin(plugins_hashmap *map, fck_api_registry *registry, const
 			void *symbol = os->so->symbol(so, loadable);
 			if (!symbol)
 			{
-				memset(entry->path, 0, fck_arraysize(entry->path));
+				os->io->log("Load function (%.*s) not found", result, buffer);
 				os->so->unload(so);
 				return NULL;
 			}
@@ -157,7 +157,7 @@ static void *load_plugin(plugins_hashmap *map, fck_api_registry *registry, const
 				if (os->so->is_valid(entry->shared_object))
 				{
 					// Remove old implementation from registry...
-					const char* name = registry->nameof(entry->implementation);
+					const char *name = registry->nameof(entry->implementation);
 					registry->remove(name, entry->implementation);
 
 					os->io->log("Unloaded old Plugin: %.*s", strlen(entry->path), entry->path);
@@ -169,7 +169,6 @@ static void *load_plugin(plugins_hashmap *map, fck_api_registry *registry, const
 				return api;
 			}
 
-			memset(entry->path, 0, fck_arraysize(entry->path));
 			os->so->unload(so);
 			return NULL;
 		}
@@ -179,23 +178,23 @@ static void *load_plugin(plugins_hashmap *map, fck_api_registry *registry, const
 	return NULL;
 }
 
-static void purge_temporary_files(void)
+static void purge_files(const char* pattern)
 {
-	char** paths;
-	const fckc_size_t count = os->glob->local("", "temp-*.dll", &paths);
+	char **paths;
+	const fckc_size_t count = os->glob->executable("", pattern, &paths);
 	for (fckc_size_t index = 0; index < count; index++)
 	{
-		char* path = paths[index];
+		char *path = paths[index];
 		os->io->log("Purge Temporary File: %.*s", strlen(path), path);
 		os->fs->remove(path);
 	}
 	os->glob->free(paths);
 }
 
-static void load_plugins_all(plugins_hashmap* map, fck_api_registry *registry)
+static void load_plugins_all(plugins_hashmap *map, fck_api_registry *registry)
 {
 	char **paths;
-	const fckc_size_t count = os->glob->local("", "*.dll", &paths);
+	const fckc_size_t count = os->glob->executable("", "*.dll", &paths);
 	for (fckc_size_t index = 0; index < count; index++)
 	{
 		char *path = paths[index];
@@ -206,15 +205,19 @@ static void load_plugins_all(plugins_hashmap* map, fck_api_registry *registry)
 
 static plugins_hashmap plugin_map;
 
+typedef struct fck_plugin_api {
+	void* (*load)(const char* path);
+	void (*unload)(const char* path);
+}fck_plugin_api;
+
 int main(int argc, char **argv)
 {
-	purge_temporary_files();
+	purge_files("temp-*.dll");
 
-	// Dynamically available for convenience!
-	// apis
-	// os
 	fck_api_registry *registry = (fck_api_registry *)load_plugin(&plugin_map, NULL, "fck-api.dll");
 	load_plugins_all(&plugin_map, registry);
+
+	const fck_file_watcher fw = os->fw->create(os->fs->executable());
 
 	// Other stuff has to get loaded and registered?
 	const fck_window window = os->win->create("Test", 1920, 1080);
@@ -224,10 +227,31 @@ int main(int argc, char **argv)
 	int is_running = 1;
 	while (is_running)
 	{
-		// TODO: Make file watcher!
-		load_plugins_all(&plugin_map, registry);
+		fck_file_watcher_event changes[4];
+		fckc_size_t result = os->fw->changes(fw, changes, fck_arraysize(changes));
+		for (fckc_size_t index = 0; index < result; index++)
+		{
+			fck_file_watcher_event *change = changes + index;
+			switch ((fck_file_watcher_event_type)change->type)
+			{
+			case fck_file_modified:
+				os->io->log("Modified: %s", change->path);
+				break;
+			case fck_file_deleted:
+				os->io->log("Deleted: %s", change->path);
+				break;
+			case fck_file_created:
+				os->io->log("Created: %s", change->path);
+				load_plugin(&plugin_map, registry, change->path);
+				break;
+			case fck_file_unknown:
+				os->io->log("Unknown: %s", change->path);
+				break;
+			}
+		}
+
 		fck_input_event events[32] = {0};
-		const fckc_size_t result = input->events(events, fck_arraysize(events));
+		result = input->events(events, fck_arraysize(events));
 		for (fckc_size_t index = 0; index < result; index++)
 		{
 			fck_input_event *e = events + index;
@@ -239,13 +263,13 @@ int main(int argc, char **argv)
 				}
 			}
 
-			os->io->log("%s - %llu - %u \t %s - %s: %f %f", e->source->name, e->owner, e->description->id, e->description->name,
-			            fck_input_data_type_to_string(e->description->data_type), e->data.floats[0], e->data.floats[1]);
+			/*os->io->log("%s - %llu - %u \t %s - %s: %f %f", e->source->name, e->owner, e->description->id, e->description->name,
+			            fck_input_data_type_to_string(e->description->data_type), e->data.floats[0], e->data.floats[1]);*/
 		}
 	}
 
 	plugins_hashmap_clear(&plugin_map);
-	purge_temporary_files();
+	purge_files("temp-*.dll");
 
 	os->win->destroy(window);
 

@@ -39,6 +39,3 @@ target_link_libraries(${PROJECT_NAME}-test PRIVATE ${PROJECT_NAME} fck::os fck::
 set_target_properties(${PROJECT_NAME}-test PROPERTIES
     VS_DEBUGGING_WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
-
-set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "fck-lib")
-set_target_properties(${PROJECT_NAME}-test PROPERTIES FOLDER "fck-tests")

@@ -14,6 +14,3 @@ target_sources(${PROJECT_NAME} PRIVATE "include/fckc_assert.h")
 target_sources(${PROJECT_NAME} PRIVATE "include/fckc_atomic.h")
 target_sources(${PROJECT_NAME} PRIVATE "include/fckc_inttypes.h")
 target_sources(${PROJECT_NAME} PRIVATE "include/fckc_math.h")
-
-set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "fck-headers")
-

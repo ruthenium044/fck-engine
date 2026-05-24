@@ -18,5 +18,4 @@ target_sources(${PROJECT_NAME} PRIVATE "include/fck_gamepad_input.h")
 
 find_package(fckc)
 target_link_libraries(${PROJECT_NAME} INTERFACE fck::fckc)
-set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "fck-headers")
 

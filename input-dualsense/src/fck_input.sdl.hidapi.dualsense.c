@@ -806,7 +806,7 @@ static fckc_size_t fck_input_dualsense_states(fckc_u64 owner, fckc_u32 *ids, fck
 
 #include <fck_apis.h>
 
-FCK_EXPORT_API fck_input_source* fck_input_dualsense_load(fck_api_registry* registry, void* params)
+FCK_EXPORT_API fck_input_source* fck_input_dualsense_load(fck_api_registry* registry, void* old)
 {
 	registry->add(fck_input_source_name, &input_source_dualsense.source);
 	return &input_source_dualsense.source;

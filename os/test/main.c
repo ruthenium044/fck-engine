@@ -17,7 +17,7 @@ static char *dashes_to_underscores(char *str, fckc_size_t length)
 int main(int argc, char **argv)
 {
 	char **paths;
-	fckc_size_t count = os->glob->local("", "*", &paths);
+	fckc_size_t count = os->glob->executable("", "*", &paths);
 	for (fckc_size_t index = 0; index < count; index++)
 	{
 		char *path = paths[index];

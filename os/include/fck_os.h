@@ -16,7 +16,6 @@
 // TODO: This is meh, format in temp allocator?
 typedef struct fck_io_api
 {
-	int (*format)(char *s, size_t n, const char *format, ...);
 	void (*log)(const char *format, ...);
 } fck_io_api;
 
@@ -87,7 +86,6 @@ typedef struct fck_file
 	void *handle;
 } fck_file;
 
-// TODO: We are not doing CAPS anymore
 typedef enum fck_stream_seek_mode
 {
 	fck_stream_set,
@@ -98,35 +96,61 @@ typedef enum fck_stream_seek_mode
 // This is ok
 typedef struct fck_filesystem_api
 {
+	// Classic file stuff
 	fck_file (*open)(const char *path, const char *mode);
 	void (*close)(fck_file);
-
 	int (*is_valid)(fck_file);
-
-	int (*remove)(const char* path);
-	fckc_i64 (*modified)(const char* path);
-
 	fckc_i64 (*size)(fck_file);
 	fckc_i64 (*seek)(fck_file, fckc_i64 offset, fck_alias(fck_stream_seek_mode, fckc_u32) seek_mode);
 	fckc_size_t (*read)(fck_file, void *ptr, fckc_size_t size);
 	fckc_size_t (*write)(fck_file, const void *ptr, fckc_size_t size);
 	fckc_i64 (*flush)(fck_file);
 
+	// Path utilities - Maybe path api? 
+	int (*remove)(const char *path);
+	// This might be better as parth of file_info or path_info...
+	fckc_i64 (*modified)(const char *path);
+	const char* (*executable)(void);
+
 } fck_file_system_api;
 
 typedef struct fck_glob_api
 {
-	char* (*find)(const char* str, const char* substring);
-	char* (*match)(const char* str, const char* pattern);
-	fckc_size_t(*local)(const char* path, const char* pattern, char*** out_paths);
-	void (*free)(char** paths);
-}fck_glob_api;
+	char *(*find)(const char *str, const char *substring);
+	char *(*match)(const char *str, const char *pattern);
+	fckc_size_t (*executable)(const char *path, const char *pattern, char ***out_paths);
+	void (*free)(char **paths);
+} fck_glob_api;
+
+typedef enum fck_file_watcher_event_type
+{
+	fck_file_unknown,
+	fck_file_created,
+	fck_file_deleted,
+	fck_file_modified,
+} fck_file_watcher_event_type;
+
+typedef struct fck_file_watcher_event
+{
+	fck_alias(fck_file_watcher_event_type, fckc_u32) type;
+	fckc_i64 time;
+	char path[420]; // blaze it
+} fck_file_watcher_event;
+
+typedef struct fck_file_watcher
+{
+	void *handle;
+} fck_file_watcher;
 
 typedef struct fck_file_watcher_api
-{	
-	// Maybe make the file watcher part of the filesystem? 
-	void* todo;
-}fck_file_watcher_api;
+{
+	fck_file_watcher (*create)(const char *path);
+	fckc_size_t (*changes)(fck_file_watcher watcher, fck_file_watcher_event *events, fckc_size_t capacity);
+	// is_valid, exposed to allow users to answer the question: 
+	// "Ummm... why am I not getting any changes?"
+	int (*is_valid)(fck_file_watcher watcher);
+	void (*destroy)(fck_file_watcher watcher);
+} fck_file_watcher_api;
 
 // This is ok
 typedef struct fck_os_api
@@ -135,7 +159,7 @@ typedef struct fck_os_api
 	fck_shared_object_api *so;
 	fck_window_api *win;
 	fck_file_system_api *fs;
-	fck_glob_api * glob;
+	fck_glob_api *glob;
 	// Special APIs are not getting a cool little abbrevation
 	fck_clipboard_api *clipboard;
 	fck_chrono_api *chrono;

@@ -31,5 +31,4 @@ find_package(fckc)
 find_package(os)
 find_package(kll)
 target_link_libraries(${PROJECT_NAME} PUBLIC fck::fckc PRIVATE fck::kll fck::os Vulkan::shaderc_combined Vulkan::dxc_lib)
-set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "fck-lib")
 

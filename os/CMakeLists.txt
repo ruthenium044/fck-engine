@@ -71,6 +71,3 @@ target_link_libraries(${PROJECT_NAME} PRIVATE fck::fckc)
 
 add_executable(${PROJECT_NAME}-test "test/main.c")
 target_link_libraries(${PROJECT_NAME}-test PRIVATE ${PROJECT_NAME} PRIVATE fck::fckc)
-
-set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "fck-lib")
-set_target_properties(${PROJECT_NAME}-test PROPERTIES FOLDER "fck-tests")

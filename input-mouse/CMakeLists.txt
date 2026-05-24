@@ -9,7 +9,7 @@ add_library(${PROJECT_NAME})
 find_package(fckc)
 find_package(input)
 find_package(api)
-target_link_libraries(${PROJECT_NAME} PUBLIC fck::fckc fck::input fck::api-headers)
+target_link_libraries(${PROJECT_NAME} PUBLIC fck::fckc fck::input fck::api-interface)
 
 target_sources(${PROJECT_NAME} PRIVATE "src/fck_input.sdl.mouse.c")
 
@@ -25,5 +25,3 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(SDL)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC SDL3::SDL3)
-
-set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "fck-lib")

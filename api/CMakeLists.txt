@@ -1,27 +1,24 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(fck-api)
-
 include_guard(GLOBAL)
 
-add_library(${PROJECT_NAME})
-add_library(fck::api ALIAS ${PROJECT_NAME})
-
-target_include_directories(${PROJECT_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" )
-
-target_sources(${PROJECT_NAME} PRIVATE "include/fck_apis.h")
-target_sources(${PROJECT_NAME} PRIVATE "src/fck_apis.c")
+project(fck-api)
 
 find_package(hash)
 find_package(fckc)
-target_link_libraries(${PROJECT_NAME} PUBLIC fck::fckc fck::hash)
-set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER "fck-lib")
 
-add_library(${PROJECT_NAME}-headers INTERFACE)
-add_library(fck::api-headers ALIAS ${PROJECT_NAME}-headers)
+add_library(${PROJECT_NAME})
+add_library(${PROJECT_NAME}-interface INTERFACE)
 
-target_include_directories(${PROJECT_NAME}-headers INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/include")
-target_sources(${PROJECT_NAME}-headers PRIVATE "include/fck_apis.h")
+add_library(fck::api ALIAS ${PROJECT_NAME})
+add_library(fck::api-interface ALIAS ${PROJECT_NAME}-interface)
 
-set_target_properties(${PROJECT_NAME}-headers PROPERTIES FOLDER "fck-headers")
-target_link_libraries(${PROJECT_NAME}-headers INTERFACE fck::fckc)
+target_include_directories(${PROJECT_NAME}-interface INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+
+target_link_libraries(${PROJECT_NAME}-interface INTERFACE fck::fckc fck::hash)
+target_sources(${PROJECT_NAME}-interface PRIVATE "include/fck_apis.h")
+
+target_sources(${PROJECT_NAME} PRIVATE "src/fck_apis.c")
+
+target_link_libraries(${PROJECT_NAME} PUBLIC ${PROJECT_NAME}-interface)
+target_link_libraries(${PROJECT_NAME}-interface INTERFACE fck::fckc)

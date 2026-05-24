@@ -12,5 +12,6 @@ find_package(api)
 find_package(os)
 find_package(hash)
 find_package(input)
+find_package(plugins)
 
-target_link_libraries(${PROJECT_NAME} PRIVATE fck::hash fck::os fck::input fck::api)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::hash fck::os fck::input fck::api-interface fck::plugins-interface)

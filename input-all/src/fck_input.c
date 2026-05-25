@@ -4,16 +4,15 @@
 #include "fckc_apidef.h"
 #include "fckc_assert.h"
 #include <fckc_inttypes.h>
+#include <fck_apis.h>
 
 #include <SDL3/SDL_stdinc.h>
 
 #include <stddef.h>
 
-#include <fck_apis.h>
-
 #define fck_input_source_capacity 64
 
-fck_api_registry *apis;
+static fck_api_registry *apis;
 
 static void fck_input_add(fck_input_source *source)
 {
@@ -74,8 +73,6 @@ static fck_input input_api = (fck_input){
 	.events = fck_input_events,
 	.is = fck_input_is,
 };
-
-#include <fck_apis.h>
 
 FCK_EXPORT_API fck_input *fck_input_all_load(fck_api_registry *registry, void *params)
 {

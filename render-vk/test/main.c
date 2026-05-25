@@ -65,6 +65,10 @@ typedef struct fck_test_app_application
 	sht_driver driver;
 } fck_test_app_application;
 
+typedef fck_input* (fck_input_load_prototype)(void);
+#define to_fck_input_load(v) (fck_input_load_prototype *)(v)
+#define fck_input_load_name "fck_input_load"
+
 fck_test_app_result fck_test_app_app_init(void **app_state, int argc, char **argv)
 {
 	fck_test_app_application *app = (fck_test_app_application *)kll_malloc(kll_system, sizeof(*app));

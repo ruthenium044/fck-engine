@@ -1,8 +1,9 @@
 
 #include "fck_apis.h"
 
+#include "fck_hash.h"
 #include "fckc_apidef.h"
-#include <fck_hash.h>
+#include "fckc_inttypes.h"
 
 #include <string.h>
 
@@ -35,9 +36,9 @@ typedef struct fck_apis_name_lookup
 	fck_apis_name_lookup_entry entries[fck_apis_name_lookup_capacity];
 } fck_apis_name_lookup;
 
-void fck_apis_name_lookup_add(fck_apis_name_lookup *lookup, void *implementation, const char *name)
+static void fck_apis_name_lookup_add(fck_apis_name_lookup *lookup, void *implementation, const char *name)
 {
-	const fck_hash_int hash = fck_hash((const char*)implementation, sizeof(implementation));
+	const fck_hash_int hash = fck_hash((const char *)&implementation, sizeof(implementation));
 	fck_hash_int slot = hash % fck_apis_hash_map_bucket_capacity;
 	for (fckc_size_t index = 0; index < fck_apis_hash_map_bucket_capacity; index++)
 	{
@@ -57,9 +58,9 @@ void fck_apis_name_lookup_add(fck_apis_name_lookup *lookup, void *implementation
 	return;
 }
 
-const char* fck_apis_name_lookup_find(fck_apis_name_lookup *lookup, void *implementation)
+static const char *fck_apis_name_lookup_find(fck_apis_name_lookup *lookup, void *implementation)
 {
-	const fck_hash_int hash = fck_hash((const char*)implementation, sizeof(implementation));
+	const fck_hash_int hash = fck_hash((const char *)&implementation, sizeof(implementation));
 
 	fck_hash_int slot = hash % fck_apis_hash_map_bucket_capacity;
 	for (fckc_size_t index = 0; index < fck_apis_hash_map_bucket_capacity; index++)
@@ -92,7 +93,7 @@ static int fck_apis_add(const char *name, void *api)
 		if (current->hash == 0)
 		{
 			current->hash = hash;
-			int len = strlen(name);
+			const int len = strlen(name);
 			memcpy(current->name, name, len);
 			current->name[len] = '\0';
 			current->count = 0;
@@ -189,7 +190,7 @@ static void *fck_apis_find(const char *name)
 	return NULL;
 }
 
-static const char* fck_apis_nameof(void* api)
+static const char *fck_apis_nameof(void *api)
 {
 	return fck_apis_name_lookup_find(&fck_apis_names, api);
 }
@@ -206,5 +207,9 @@ FCK_EXPORT_API fck_api_registry *fck_api_load(fck_api_registry *registry, void *
 {
 	(void)registry;
 	(void)params;
+	if (registry)
+	{
+		registry->add(fck_api_registry_name, &fck_apis_runtime_state);
+	}
 	return &fck_apis_runtime_state;
 }

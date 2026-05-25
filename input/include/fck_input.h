@@ -3,6 +3,9 @@
 
 #include <fckc_inttypes.h>
 
+#define fck_input_api_name "fck_input"
+#define fck_input_source_name "fck_input_source"
+
 typedef enum fck_input_source_type
 {
 	fck_input_source_none,
@@ -104,14 +107,6 @@ typedef struct fck_input
 	// Candiate
 	int (*is)(fck_input_source *source, const char *name);
 } fck_input;
-
-// I need to find a way to create a uniform and statically bindable load!
-typedef fck_input *(fck_input_load_prototype)(void);
-#define fck_input_api_name "fck_input"
-#define fck_input_load_name "fck_input_load"
-#define to_fck_input_load(v) (fck_input_load_prototype *)(v)
-
-#define fck_input_source_name "fck_input_source"
 
 /*	Input Utilities */
 

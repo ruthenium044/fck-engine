@@ -4,6 +4,7 @@
 #include <fck_input.h>
 #include <fck_os.h>
 #include <fck_pkey.h>
+#include <fck_plugins.h>
 #include <fckc_assert.h>
 
 #include <fckc_inttypes.h>
@@ -13,172 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-static char *dashes_to_underscores(char *str, fckc_size_t length)
-{
-	for (fckc_size_t index = 0; index < length; index++)
-	{
-		if (str[index] == '-')
-		{
-			str[index] = '_';
-		}
-	}
-	return str;
-}
-
-#define plugins_hashmap_capacity 128
-
-typedef struct plugins_hashmap_entry
-{
-	char path[420];
-
-	fck_shared_object shared_object;
-	void *implementation;
-
-	fckc_i64 modified;
-} plugins_hashmap_entry;
-
-typedef struct plugins_hashmap
-{
-	plugins_hashmap_entry entries[plugins_hashmap_capacity];
-} plugins_hashmap;
-
-static fckc_size_t plugins_hashmap_add(plugins_hashmap *map, const char *path)
-{
-	const fck_hash_int hash = fck_hash(path, strlen(path));
-	const fckc_size_t capacity = fck_arraysize(map->entries);
-	fckc_size_t slot = hash % capacity;
-
-	for (fckc_size_t index = 0; index < capacity; index++)
-	{
-		plugins_hashmap_entry *entry = map->entries + slot;
-		if (entry->path[0] == '\0')
-		{
-			const int len = strlen(path);
-			memcpy(entry->path, path, len);
-			entry->modified = 0;
-			return slot + 1;
-		}
-
-		if (strcmp(entry->path, path) == 0)
-		{
-			return slot + 1;
-		}
-
-		slot = (slot + 1) % capacity;
-	}
-	return 0;
-}
-
-static fckc_size_t plugins_hashmap_clear(plugins_hashmap *map)
-{
-	for (fckc_size_t index = 0; index < fck_arraysize(map->entries); index++)
-	{
-		plugins_hashmap_entry *entry = map->entries + index;
-		if (os->so->is_valid(entry->shared_object))
-		{
-			os->io->log("Unloaded Plugin: %.*s", strlen(entry->path), entry->path);
-			os->so->unload(entry->shared_object);
-		}
-	}
-	memset(map, 0, sizeof(*map));
-	return 0;
-}
-
-static void *load_plugin(plugins_hashmap *map, fck_api_registry *registry, const char *target)
-{
-	char path_buffer[1024];
-
-	char *api = os->glob->match(target, "fck-*.dll");
-	if (api)
-	{
-		const fckc_size_t result = plugins_hashmap_add(map, target);
-		if (!result)
-		{
-			return NULL;
-		}
-
-		const fckc_i64 modified = os->fs->modified(target);
-
-		plugins_hashmap_entry *entry = map->entries + result - 1;
-		if (entry->modified >= modified)
-		{
-			return NULL;
-		}
-
-		// Add it if newer...
-		entry->modified = modified;
-
-		const char *path = entry->path;
-		const char *so_load_path = entry->path;
-		{
-			const fck_file so_file = os->fs->open(path, "r");
-			const fckc_i64 size = os->fs->size(so_file);
-			void *mem = malloc(size);
-			fckc_size_t result = os->fs->read(so_file, mem, size);
-			fck_assert(result == size);
-			os->fs->close(so_file);
-
-			snprintf(path_buffer, sizeof(path_buffer), "temp-(%lld)-%s", modified, path);
-			const fck_file temp_file = os->fs->open(path_buffer, "w");
-			result = os->fs->write(temp_file, mem, size);
-			fck_assert(result == size);
-			os->fs->close(temp_file);
-			free(mem);
-			so_load_path = path_buffer;
-		}
-
-		const fck_shared_object so = os->so->load(so_load_path);
-
-		if (os->so->is_valid(so))
-		{
-			char *extension = os->glob->find(path, ".dll");
-			const fckc_size_t length = (fckc_size_t)extension - (fckc_size_t)path;
-
-			char buffer[1024];
-
-			const int result = snprintf(buffer, sizeof(buffer), "%.*s_load", (int)length, path);
-			(void)result;
-
-			char *loadable = dashes_to_underscores(buffer, length);
-			void *symbol = os->so->symbol(so, loadable);
-			if (!symbol)
-			{
-				os->io->log("Load function (%.*s) not found", result, buffer);
-				os->so->unload(so);
-				return NULL;
-			}
-
-			fck_main_func *load = (fck_main_func *)symbol;
-			// If the returned API is a value equal to the old one (which can be NULL)
-			// We decide that we unload what we just loaded because we failed hot-reloading
-			void *api = load(registry, entry->implementation);
-			if (api != entry->implementation)
-			{
-				if (os->so->is_valid(entry->shared_object))
-				{
-					// Remove old implementation from registry...
-					const char *name = registry->nameof(entry->implementation);
-					registry->remove(name, entry->implementation);
-
-					os->io->log("Unloaded old Plugin: %.*s", strlen(entry->path), entry->path);
-					os->so->unload(entry->shared_object);
-				}
-				entry->shared_object = so;
-				entry->implementation = api;
-				os->io->log("Loaded Plugin: %.*s", strlen(entry->path), entry->path);
-				return api;
-			}
-
-			os->so->unload(so);
-			return NULL;
-		}
-		return NULL;
-	}
-
-	return NULL;
-}
-
-static void purge_files(const char* pattern)
+static void purge_files(const char *pattern)
 {
 	char **paths;
 	const fckc_size_t count = os->glob->executable("", pattern, &paths);
@@ -191,33 +27,45 @@ static void purge_files(const char* pattern)
 	os->glob->free(paths);
 }
 
-static void load_plugins_all(plugins_hashmap *map, fck_api_registry *registry)
+static fck_api_registry *fck_api_gegistry_load(const char *path)
 {
-	char **paths;
-	const fckc_size_t count = os->glob->executable("", "*.dll", &paths);
-	for (fckc_size_t index = 0; index < count; index++)
-	{
-		char *path = paths[index];
-		load_plugin(map, registry, path);
-	}
-	os->glob->free(paths);
+	// This badboy needs to get released
+	const fck_shared_object so = os->so->load(path);
+	fck_load_func *loader = (fck_load_func *)os->so->symbol(so, "fck_api_load");
+	fck_api_registry *registry = (fck_api_registry *)loader(NULL, NULL);
+	return registry;
 }
 
-static plugins_hashmap plugin_map;
-
-typedef struct fck_plugin_api {
-	void* (*load)(const char* path);
-	void (*unload)(const char* path);
-}fck_plugin_api;
+static fck_plugins_api *fck_plugins_load(fck_api_registry *registry, const char *path)
+{
+	// This badboy needs to get released
+	const fck_shared_object so = os->so->load(path);
+	fck_load_func *loader = (fck_load_func *)os->so->symbol(so, "fck_plugins_load");
+	fck_plugins_api *plugins = (fck_plugins_api *)loader(registry, NULL);
+	return plugins;
+}
 
 int main(int argc, char **argv)
 {
 	purge_files("temp-*.dll");
 
-	fck_api_registry *registry = (fck_api_registry *)load_plugin(&plugin_map, NULL, "fck-api.dll");
-	load_plugins_all(&plugin_map, registry);
+	fck_api_registry *registry = fck_api_gegistry_load("fck-api.dll");
+	fck_plugins_api *plugins = fck_plugins_load(registry, "fck-plugins.dll");
+	plugins->root(os->fs->executable());
 
-	const fck_file_watcher fw = os->fw->create(os->fs->executable());
+	{
+		char **paths;
+		const fckc_size_t count = os->glob->executable("", "*.dll", &paths);
+		for (fckc_size_t index = 0; index < count; index++)
+		{
+			char *path = paths[index];
+			plugins->load(path);
+		}
+		os->glob->free(paths);
+	}
+
+	fckc_u32 hotreload_counter = plugins->hotreload();
+	// const fck_file_watcher fw = os->fw->create(os->fs->executable());
 
 	// Other stuff has to get loaded and registered?
 	const fck_window window = os->win->create("Test", 1920, 1080);
@@ -227,31 +75,37 @@ int main(int argc, char **argv)
 	int is_running = 1;
 	while (is_running)
 	{
-		fck_file_watcher_event changes[4];
+		fckc_u32 next_hotreload_counter = plugins->hotreload();
+		if (next_hotreload_counter != hotreload_counter)
+		{
+			os->io->log("Something changed: %lu", next_hotreload_counter);
+			hotreload_counter = next_hotreload_counter;
+		}
+		/*fck_file_watcher_event changes[4];
 		fckc_size_t result = os->fw->changes(fw, changes, fck_arraysize(changes));
 		for (fckc_size_t index = 0; index < result; index++)
 		{
-			fck_file_watcher_event *change = changes + index;
-			switch ((fck_file_watcher_event_type)change->type)
-			{
-			case fck_file_modified:
-				os->io->log("Modified: %s", change->path);
-				break;
-			case fck_file_deleted:
-				os->io->log("Deleted: %s", change->path);
-				break;
-			case fck_file_created:
-				os->io->log("Created: %s", change->path);
-				load_plugin(&plugin_map, registry, change->path);
-				break;
-			case fck_file_unknown:
-				os->io->log("Unknown: %s", change->path);
-				break;
-			}
-		}
+		    fck_file_watcher_event *change = changes + index;
+		    switch ((fck_file_watcher_event_type)change->type)
+		    {
+		    case fck_file_modified:
+		        os->io->log("Modified: %s", change->path);
+		        break;
+		    case fck_file_deleted:
+		        os->io->log("Deleted: %s", change->path);
+		        break;
+		    case fck_file_created:
+		        os->io->log("Created: %s", change->path);
+		        plugins->load(change->path);
+		        break;
+		    case fck_file_unknown:
+		        os->io->log("Unknown: %s", change->path);
+		        break;
+		    }
+		}*/
 
 		fck_input_event events[32] = {0};
-		result = input->events(events, fck_arraysize(events));
+		const fckc_size_t result = input->events(events, fck_arraysize(events));
 		for (fckc_size_t index = 0; index < result; index++)
 		{
 			fck_input_event *e = events + index;
@@ -268,7 +122,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	plugins_hashmap_clear(&plugin_map);
+	plugins->shutdown();
 	purge_files("temp-*.dll");
 
 	os->win->destroy(window);

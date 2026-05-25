@@ -113,7 +113,7 @@ static int fck_window_api_size(fck_window window, int *width, int *height)
 static void *fck_window_native(fck_window window, const char *name)
 {
 	if (!SDL_strcmp(name, "sdl.window"))
-	{ // Maybe this will be useful one day
+	{
 		return window.handle;
 	}
 	if (!SDL_strcmp(name, "win32.window"))

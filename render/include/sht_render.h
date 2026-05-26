@@ -9,12 +9,14 @@
 struct fck_shader_generic;
 struct fck_window;
 
-#define SHT_MAKE_VERSION(major, minor, patch) ((((fckc_u32)(major)) << 22U) | (((fckc_u32)(minor)) << 12U) | ((fckc_u32)(patch)))
-#define SHT_VERSION_MAJOR(version) ((fckc_u32)(version) >> 22U)
-#define SHT_VERSION_MINOR(version) (((fckc_u32)(version) >> 12U) & 0x3FFU)
-#define SHT_VERSION_PATCH(version) ((fckc_u32)(version) & 0xFFFU)
+#define sht_make_version(major, minor, patch) ((((fckc_u32)(major)) << 22U) | (((fckc_u32)(minor)) << 12U) | ((fckc_u32)(patch)))
+#define sht_version_major(version) ((fckc_u32)(version) >> 22U)
+#define sht_version_minor(version) (((fckc_u32)(version) >> 12U) & 0x3FFU)
+#define sht_version_patch(version) ((fckc_u32)(version) & 0xFFFU)
 
-#define SHT_HEADER_VERSION SHT_MAKE_VERSION(0, 0, 1)
+#define sht_header_version sht_make_version(0, 0, 1)
+
+// TODO: Lots of stuff would benefit from being marked as const... Just to incidate it is no out/ref
 
 typedef struct sht_render_api_config
 {
@@ -479,9 +481,10 @@ typedef struct sht_upload_desc
 typedef struct sht_bss_vt
 {
 	sht_bss (*create)(sht_driver driver, sht_binding_desc *desc);
+	// ... Maybe upload_memory vs upload... Idk if this upload function cuts it tbh 
 	sht_bool32 (*upload)(sht_bss bss, fckc_u32 id, sht_upload_desc *desc);
 	// TODO: This one updates all. It broadcasts...
-	sht_bool32 (*broadcast)(sht_bss bss, fckc_u32 id, sht_upload_desc *desc);
+	//sht_bool32 (*broadcast)(sht_bss bss, fckc_u32 id, sht_upload_desc *desc);
 	void (*destroy)(sht_bss *bss);
 } sht_bss_vt;
 
@@ -551,10 +554,10 @@ typedef struct sht_instance_vt
 	void (*unload)(sht_instance *instance);
 } sht_instance_vt;
 
-typedef struct sht_loader
+typedef struct sht_render_api
 {
 	sht_instance (*load)(fckc_u32 version);
 	sht_bool32 (*is_ok)(sht_instance instance);
-} sht_loader;
+} sht_render_api;
 
 #endif // !SHT_RENDER_H_INCLUDED

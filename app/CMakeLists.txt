@@ -13,5 +13,18 @@ find_package(os)
 find_package(hash)
 find_package(input)
 find_package(plugins)
+find_package(render)
+find_package(shader)
 
-target_link_libraries(${PROJECT_NAME} PRIVATE fck::hash fck::os fck::input fck::api-interface fck::plugins-interface)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::hash)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::os)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::input)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::api-interface)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::plugins-interface)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::render)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::shader-interface)
+
+# this needs to get substituted well...
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+    fck_resource_path="${CMAKE_CURRENT_SOURCE_DIR}/resources/"
+)

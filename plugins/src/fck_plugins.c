@@ -119,8 +119,8 @@ static const char *fck_plugin_create_temp_dll(const char *path, fckc_i64 salt, c
 	fck_assert(result == size);
 	os->fs->close(so_file);
 
+	// We can fail here when we already loaded something... Maybe we can check first? 
 	const char *temp_path = fck_temporary_shared_object_name(path, salt, buffer, buffer_size);
-
 	const fck_file temp_file = os->fs->open(temp_path, "w");
 	result = os->fs->write(temp_file, mem, size);
 	fck_assert(result == size);
@@ -130,6 +130,7 @@ static const char *fck_plugin_create_temp_dll(const char *path, fckc_i64 salt, c
 	return temp_path;
 }
 
+// Ye, this is shit lmao 
 static fckc_size_t fck_plugin_cache_newest_shared_library(fck_plugins_hashmap *map, const char *target)
 {
 	char *api = os->glob->match(target, "fck-*.dll");
@@ -143,7 +144,7 @@ static fckc_size_t fck_plugin_cache_newest_shared_library(fck_plugins_hashmap *m
 
 		fck_plugins_hashmap_entry *entry = map->entries + result - 1;
 		const fckc_i64 modified = os->fs->modified(target);
-		if (modified >= entry->modified)
+		if (modified > entry->modified || !os->so->is_valid(entry->shared_object))
 		{
 			entry->modified = modified;
 			return result;
@@ -151,6 +152,15 @@ static fckc_size_t fck_plugin_cache_newest_shared_library(fck_plugins_hashmap *m
 		return 0;
 	}
 	return 0;
+}
+
+static void fck_purge_temporary_file(fck_plugins_hashmap_entry* entry)
+{
+	char buffer[1024];
+	const char* path = fck_temporary_shared_object_name(entry->path, entry->modified, buffer, sizeof(buffer));
+
+	os->io->log("Purge Temporary File: %.*s", strlen(path), path);
+	os->fs->remove(path);
 }
 
 static void *fck_plugin_load_shared_library(fck_plugins_hashmap *map, fck_api_registry *registry, const char *target)
@@ -184,6 +194,7 @@ static void *fck_plugin_load_shared_library(fck_plugins_hashmap *map, fck_api_re
 		if (!symbol)
 		{
 			os->io->log("Load function (%.*s) not found", result, buffer);
+			fck_purge_temporary_file(entry);
 			os->so->unload(so);
 			return NULL;
 		}
@@ -198,8 +209,6 @@ static void *fck_plugin_load_shared_library(fck_plugins_hashmap *map, fck_api_re
 			{
 				// If we had an SO lying around, it is now invalid, so we increment the
 				// generation counter - Maybe never unloading is way better...
-				plugin_hotreload_generation = plugin_hotreload_generation + 1;
-
 				if (registry)
 				{
 					// Remove old implementation from registry...
@@ -215,20 +224,11 @@ static void *fck_plugin_load_shared_library(fck_plugins_hashmap *map, fck_api_re
 			os->io->log("Loaded Plugin: %.*s as %.*s", strlen(entry->path), entry->path, strlen(so_load_path), so_load_path);
 			return api;
 		}
-
+		fck_purge_temporary_file(entry);
 		os->so->unload(so);
 		return NULL;
 	}
 	return NULL;
-}
-
-static void fck_purge_temporary_file(fck_plugins_hashmap_entry *entry)
-{
-	char buffer[1024];
-	const char *path = fck_temporary_shared_object_name(entry->path, entry->modified, buffer, sizeof(buffer));
-
-	os->io->log("Purge Temporary File: %.*s", strlen(path), path);
-	os->fs->remove(path);
 }
 
 static void *fck_plugins_api_load(const char *path)
@@ -268,37 +268,50 @@ static fckc_u32 fck_plugins_api_hotreload(void)
 {
 	if (os->fw->is_valid(plugin_watcher))
 	{
-		fck_file_watcher_event changes[16];
-		const fckc_size_t result = os->fw->changes(plugin_watcher, changes, fck_arraysize(changes));
-		for (fckc_size_t index = 0; index < result; index++)
+		const fckc_size_t iteration_limit = 64;
+		for (fckc_size_t iterations = 0; iterations < iteration_limit; iterations++)
 		{
-			fck_file_watcher_event *change = changes + index;
-			switch ((fck_file_watcher_event_type)change->type)
+			fck_file_watcher_event changes[16];
+			const fckc_size_t result = os->fw->changes(plugin_watcher, changes, fck_arraysize(changes));
+			if (result == 0)
 			{
-			case fck_file_unknown:
-				os->io->log("Unknown: %s", change->path);
-				break;
-			case fck_file_modified:
-				os->io->log("Modified: %s", change->path);
-				break;
-			case fck_file_deleted:
-				os->io->log("Deleted: %s", change->path);
-				break;
-			case fck_file_created: {
-				const fckc_size_t result = fck_plugin_cache_newest_shared_library(&plugin_map, change->path);
-				if (result)
-				{
-					// We ONLY load plugins that have been loaded explicitly
-					os->io->log("Created: %s", change->path);
-					fck_plugins_hashmap_entry *entry = plugin_map.entries + result - 1;
-					entry->modified = entry->modified - 1; // Little hack ;)
-					if (os->so->is_valid(entry->shared_object))
-					{
-						fck_plugins_api_load(change->path);
-					}
-				}
 				break;
 			}
+
+			for (fckc_size_t index = 0; index < result; index++)
+			{
+				fck_file_watcher_event *change = changes + index;
+				switch ((fck_file_watcher_event_type)change->type)
+				{
+				case fck_file_unknown:
+					os->io->log("Unknown: %s", change->path);
+					break;
+				case fck_file_deleted:
+					plugin_hotreload_generation = plugin_hotreload_generation + 1;
+					os->io->log("Deleted: %s", change->path);
+					break;
+				case fck_file_modified:
+					plugin_hotreload_generation = plugin_hotreload_generation + 1;
+					os->io->log("Modified: %s", change->path);
+					break;
+				case fck_file_created: {
+					const fckc_size_t result = fck_plugin_cache_newest_shared_library(&plugin_map, change->path);
+					if (result)
+					{
+						plugin_hotreload_generation = plugin_hotreload_generation + 1;
+
+						// We ONLY load plugins that have been loaded explicitly
+						os->io->log("Created: %s", change->path);
+						fck_plugins_hashmap_entry *entry = plugin_map.entries + result - 1;
+						entry->modified = entry->modified - 1; // Little hack ;)
+						if (os->so->is_valid(entry->shared_object))
+						{
+							fck_plugins_api_load(change->path);
+						}
+					}
+					break;
+				}
+				}
 			}
 		}
 	}
@@ -315,12 +328,72 @@ static void fck_plugins_api_root(const char *path)
 	{
 		os->fw->destroy(plugin_watcher);
 	}
+
+	char **paths;
+	const fckc_size_t results = os->glob->directory(path, "*.dll", &paths);
+	for (fckc_size_t index = 0; index < results; index++)
+	{
+		const char* path = paths[index];
+		(void)fck_plugin_cache_newest_shared_library(&plugin_map, path);
+	}
+	os->glob->free(paths);
+
 	plugin_watcher = os->fw->create(plugin_root);
+}
+
+static const char *fck_plugins_loaded(const char *prev)
+{
+	fckc_size_t index = 0;
+	if (prev != NULL)
+	{
+		const fckc_size_t root = to_size_t(&plugin_map.entries[0]);
+		const fckc_size_t at = to_size_t(prev);
+		const fckc_size_t offset = (at - offsetof(fck_plugins_hashmap_entry, path)) - root;
+
+		index = (offset / sizeof(plugin_map.entries[0])) + 1;
+	}
+
+	for (; index < fck_arraysize(plugin_map.entries); index++)
+	{
+		fck_plugins_hashmap_entry *entry = plugin_map.entries + index;
+		if (os->so->is_valid(entry->shared_object))
+		{
+			return entry->path;
+		}
+	}
+	return NULL;
+}
+
+static const char *fck_plugins_unloaded(const char *prev)
+{
+	fckc_size_t index = 0;
+	if (prev != NULL)
+	{
+		const fckc_size_t root = to_size_t(&plugin_map.entries[0]);
+		const fckc_size_t at = to_size_t(prev);
+		const fckc_size_t offset = (at - offsetof(fck_plugins_hashmap_entry, path)) - root;
+
+		index = (offset / sizeof(plugin_map.entries[0])) + 1;
+	}
+
+	for (; index < fck_arraysize(plugin_map.entries); index++)
+	{
+		fck_plugins_hashmap_entry *entry = plugin_map.entries + index;
+		if (entry->path[0] != '\0' && !os->so->is_valid(entry->shared_object))
+		{
+			return entry->path;
+		}
+	}
+	return NULL;
 }
 
 static void fck_plugins_api_shutdown(void);
 static fck_plugins_api plugin_api = {
 	.hotreload = fck_plugins_api_hotreload,
+
+	.loaded = fck_plugins_loaded,
+	.unloaded = fck_plugins_unloaded,
+
 	.root = fck_plugins_api_root,
 	.load = fck_plugins_api_load,
 	.unload = fck_plugins_api_unload,

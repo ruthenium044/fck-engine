@@ -4,6 +4,8 @@
 #include <fckc_apidef.h>
 #include <fckc_inttypes.h>
 
+#define fck_shader_api_name "fck_shader"
+
 #if defined(FCK_SHADER_EXPORT)
 #define FCK_SHADER_API FCK_EXPORT_API
 #else
@@ -77,6 +79,7 @@ typedef struct fck_shader_compiler
 	void (*destroy)(struct fck_shader_compiler *compiler, fck_shader_generic *shader);
 
 	fck_hlsl_object (*create_hlsl_from_file)(struct fck_shader_compiler *compiler, fck_shader_desc *desc, struct fck_file *file);
+	fck_glsl_object(*create_glsl_from_file)(struct fck_shader_compiler* compiler, fck_shader_desc* desc, struct fck_file* file);
 
 	// TODO: Either we are stubborn and say "you need at least ONE compiler to understand a shader object"
 	// or we redesign this API :)
@@ -86,8 +89,13 @@ typedef struct fck_shader_compiler
 	const char *(*entry_point)(fck_shader_generic *shader);
 	const void *(*source)(fck_shader_generic *shader);
 	fckc_size_t (*size)(fck_shader_generic *shader);
-
 } fck_shader_compiler;
+
+typedef struct fck_shader_api
+{
+	fck_shader_compiler (*create)(void);
+	int (*is_ok)(fck_shader_compiler compiler);
+} fck_shader_api;
 
 FCK_SHADER_API fck_shader_compiler fck_shader_compiler_create(void);
 

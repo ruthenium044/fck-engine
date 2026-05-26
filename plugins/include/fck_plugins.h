@@ -9,8 +9,8 @@ typedef struct fck_plugins_api {
 	fckc_u32 (*hotreload)(void);
 
 	// TODO: Nice to list all that shit! :) 
-	const char** (*loaded)(void);
-	const char** (*unloaded)(void);
+	const char* (*loaded)(const char* prev);
+	const char* (*unloaded)(const char* prev);
 
 	void (*root)(const char* path);
 

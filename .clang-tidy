@@ -15,6 +15,7 @@ Checks: >
     bugprone-sizeof-expression,
     bugprone-branch-clone,
     -clang-analyzer-security.insecureAPI.*,
+    -clang-diagnostic-address-of-temporary,
     -clang-diagnostic-reorder-init-list,
     -misc-no-recursion,
     -misc-confusable-identifiers,

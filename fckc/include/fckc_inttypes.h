@@ -11,6 +11,7 @@
 #define fck_alias(original, alias) alias
 
 // Semantics types...
+// I start doubting these
 typedef float fckc_f32;
 typedef double fckc_f64;
 
@@ -31,7 +32,7 @@ typedef uint64_t fckc_u64;
 typedef size_t fckc_size_t;
 typedef uintptr_t fckc_uintptr;
 
-// Prefer these
+// Prefer these - I do not doubt these
 #define to_f32(x) ((fckc_f32)(x))
 #define to_f64(x) ((fckc_f64)(x))
 #define to_u8(x) ((fckc_u8)(x))

@@ -30,6 +30,7 @@ add_subdirectory(input-keyboard)
 add_subdirectory(input-dualsense)
 add_subdirectory(input-text)
 add_subdirectory(render-vk)
+add_subdirectory(shader)
 add_subdirectory(app)
 
 add_subdirectory(plugins)

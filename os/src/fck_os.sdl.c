@@ -243,17 +243,18 @@ static const char* fck_filesystem_local_path(void) {
 	return SDL_GetBasePath();
 }
 
-static fckc_size_t fck_glob_executable(const char *path, const char *pattern, char ***out_paths)
+static fckc_size_t fck_glob_executable(const char *pattern, char ***out_paths)
 {
 	int count = 0;
-	char buffer[4096];
-	const int result = SDL_snprintf(buffer, sizeof(buffer), "%s%s", SDL_GetBasePath(), path);
-	if (result <= 0)
-	{
-		return to_size_t(0);
-	}
+	*out_paths = SDL_GlobDirectory(SDL_GetBasePath(), pattern, 0, &count);
+	return to_size_t(count);
+}
 
-	*out_paths = SDL_GlobDirectory(SDL_GetCurrentDirectory(), pattern, 0, &count);
+static fckc_size_t fck_glob_directory(const char* path, const char* pattern, char*** out_paths)
+{
+	int count = 0;
+
+	*out_paths = SDL_GlobDirectory(path, pattern, 0, &count);
 	return to_size_t(count);
 }
 
@@ -323,6 +324,7 @@ static fck_glob_api glob_api = {
 	.find = fck_glob_find,
 	.match = fck_glob_match,
 	.executable = fck_glob_executable,
+	.directory = fck_glob_directory,
 	.free = fck_glob_free,
 };
 

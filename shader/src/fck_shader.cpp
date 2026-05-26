@@ -8,8 +8,8 @@ extern "C"
 #include <fck_os.h>
 #include <fckc_assert.h>
 #include <kll.h>
-#include <kll_system.h>
 #include <kll_malloc.h>
+#include <kll_system.h>
 }
 #include <shaderc/shaderc.h>
 #include <stdlib.h>
@@ -17,19 +17,19 @@ extern "C"
 
 // We use malloc for now cause lazy!
 
-fck_shader_generic fck_shader_create_generic(struct fck_shader_compiler *compiler, uint32_t lang, fck_shader_desc *desc, void const *source,
-                                             fckc_size_t source_size)
+static fck_shader_generic fck_shader_create_generic(struct fck_shader_compiler *compiler, uint32_t lang, fck_shader_desc *desc,
+                                                    void const *source, fckc_size_t source_size)
 {
 	fck_shader_generic generic;
 	memset(&generic, 0xCF, sizeof(generic));
 	generic.language = lang;
 	generic.desc.type = desc->type;
 
-	fckc_size_t source_len = source_size; // No need for alignment cause first!
-	fckc_size_t file_len = strlen(desc->file);
-	fckc_size_t ep_len = strlen(desc->entry_point);
+	const fckc_size_t source_len = source_size; // No need for alignment cause first!
+	const fckc_size_t file_len = strlen(desc->file);
+	const fckc_size_t ep_len = strlen(desc->entry_point);
 	const fckc_size_t terminator_count = 4;
-	fckc_size_t total_len = file_len + ep_len + source_len + terminator_count;
+	const fckc_size_t total_len = file_len + ep_len + source_len + terminator_count;
 
 	char *total = (char *)malloc(total_len);
 	memset(total, 0, total_len);
@@ -44,10 +44,10 @@ fck_shader_generic fck_shader_create_generic(struct fck_shader_compiler *compile
 	return generic;
 }
 
-fck_spirv_object fck_shader_create_spirv(struct fck_shader_compiler *compiler, fck_shader_generic *shader)
+static fck_spirv_object fck_shader_create_spirv(struct fck_shader_compiler *compiler, fck_shader_generic *shader)
 {
 	// MAPS ONE TO ONE FOR NOW! THIS CAN BREAK!
-	shaderc_shader_kind shader_kind = (shaderc_shader_kind)(fck_shader_type)shader->desc.type;
+	const shaderc_shader_kind shader_kind = (shaderc_shader_kind)(fck_shader_type)shader->desc.type;
 	if (shader->language == FCK_SHADER_SPIRV)
 	{
 		return (fck_spirv_object){};
@@ -74,7 +74,7 @@ fck_spirv_object fck_shader_create_spirv(struct fck_shader_compiler *compiler, f
 			const char *source = shader->source;
 			const char *file = shader->desc.file;
 			const char *entry_point = shader->desc.entry_point;
-			fckc_size_t byte_size = shader->souce_byte_size;
+			const fckc_size_t byte_size = shader->souce_byte_size;
 			shaderc_compile_options_set_source_language(options, lang);
 			result = shaderc_compile_into_spv(shaderc, source, byte_size, shader_kind, file, entry_point, options);
 		}
@@ -87,7 +87,7 @@ fck_spirv_object fck_shader_create_spirv(struct fck_shader_compiler *compiler, f
 			return (fck_spirv_object){};
 		}
 
-		size_t size = shaderc_result_get_length(result);
+		const size_t size = shaderc_result_get_length(result);
 		const char *source = shaderc_result_get_bytes(result);
 
 		fck_spirv_object spirv;
@@ -99,64 +99,76 @@ fck_spirv_object fck_shader_create_spirv(struct fck_shader_compiler *compiler, f
 	return (fck_spirv_object){};
 }
 
-fck_glsl_object fck_shader_create_glsl(struct fck_shader_compiler *compiler, fck_shader_desc *desc, const char *source)
+static fck_glsl_object fck_shader_create_glsl(struct fck_shader_compiler *compiler, fck_shader_desc *desc, const char *source)
 {
 	fck_glsl_object glsl;
 	glsl.generic = fck_shader_create_generic(compiler, FCK_SHADER_GLSL, desc, source, strlen(source));
 	return glsl;
 }
 
-fck_hlsl_object fck_shader_create_hlsl(struct fck_shader_compiler *compiler, fck_shader_desc *desc, const char *source)
+static fck_hlsl_object fck_shader_create_hlsl(struct fck_shader_compiler *compiler, fck_shader_desc *desc, const char *source)
 {
 	fck_hlsl_object hlsl;
 	hlsl.generic = fck_shader_create_generic(compiler, FCK_SHADER_HLSL, desc, source, strlen(source));
 	return hlsl;
 }
 
-fck_hlsl_object fck_shader_create_hlsl_from_file(struct fck_shader_compiler *compiler, fck_shader_desc *desc, fck_file *file)
+static fck_hlsl_object fck_shader_create_hlsl_from_file(struct fck_shader_compiler *compiler, fck_shader_desc *desc, fck_file *file)
 {
-	fckc_size_t size = os->fs->size(*file);
+	const fckc_size_t size = os->fs->size(*file);
 	char *text = (char *)kll_malloc(kll_system, size);
-	fckc_size_t read = os->fs->read(*file, text, size);
+	const fckc_size_t read = os->fs->read(*file, text, size);
 	fck_assert(size == read);
-	text[read] = '\0'; 
+	text[read] = '\0';
 
 	fck_hlsl_object hlsl = compiler->create_hlsl(compiler, desc, text);
 	return hlsl;
 }
 
-void fck_shader_destroy(struct fck_shader_compiler *compiler, fck_shader_generic *shader)
+static fck_glsl_object fck_shader_create_glsl_from_file(struct fck_shader_compiler* compiler, fck_shader_desc* desc, fck_file* file)
+{
+	const fckc_size_t size = os->fs->size(*file);
+	char* text = (char*)kll_malloc(kll_system, size);
+	const fckc_size_t read = os->fs->read(*file, text, size);
+	fck_assert(size == read);
+	text[read] = '\0';
+
+	fck_glsl_object glsl = compiler->create_glsl(compiler, desc, text);
+	return glsl;
+}
+
+static void fck_shader_destroy(struct fck_shader_compiler *compiler, fck_shader_generic *shader)
 {
 	free((void *)shader->source);
 }
 
-void fck_shader_compiler_shutdown(fck_shader_compiler *compiler)
+static void fck_shader_compiler_shutdown(fck_shader_compiler *compiler)
 {
 	shaderc_compiler_t shaderc = (shaderc_compiler_t)compiler->handle;
 	shaderc_compiler_release(shaderc);
 }
 
-fck_shader_type fck_shader_compiler_type(fck_shader_generic *shader)
+static fck_shader_type fck_shader_compiler_type(fck_shader_generic *shader)
 {
 	return (fck_shader_type)shader->desc.type;
 }
-fck_shader_language fck_shader_compiler_language(fck_shader_generic *shader)
+static fck_shader_language fck_shader_compiler_language(fck_shader_generic *shader)
 {
 	return (fck_shader_language)shader->language;
 }
-const char *(fck_shader_compiler_file)(fck_shader_generic * shader)
+static const char *(fck_shader_compiler_file)(fck_shader_generic * shader)
 {
 	return shader->desc.file;
 }
-const char *fck_shader_compiler_entry_point(fck_shader_generic *shader)
+static const char *fck_shader_compiler_entry_point(fck_shader_generic *shader)
 {
 	return shader->desc.entry_point;
 }
-const void *fck_shader_compiler_source(fck_shader_generic *shader)
+static const void *fck_shader_compiler_source(fck_shader_generic *shader)
 {
 	return shader->source;
 }
-fckc_size_t fck_shader_compiler_size(fck_shader_generic *shader)
+static fckc_size_t fck_shader_compiler_size(fck_shader_generic *shader)
 {
 	return shader->souce_byte_size;
 }
@@ -171,6 +183,7 @@ FCK_SHADER_API fck_shader_compiler fck_shader_compiler_create()
 
 	compiler.create_spirv = fck_shader_create_spirv;
 	compiler.create_hlsl_from_file = fck_shader_create_hlsl_from_file;
+	compiler.create_glsl_from_file = fck_shader_create_glsl_from_file;
 	compiler.create_glsl = fck_shader_create_glsl;
 	compiler.create_hlsl = fck_shader_create_hlsl;
 	compiler.destroy = fck_shader_destroy;
@@ -182,4 +195,25 @@ FCK_SHADER_API fck_shader_compiler fck_shader_compiler_create()
 	compiler.source = fck_shader_compiler_source;
 	compiler.size = fck_shader_compiler_size;
 	return compiler;
+}
+
+int fck_shader_api_is_ok(fck_shader_compiler compiler)
+{
+	return compiler.handle != NULL;
+}
+
+static fck_shader_api shader_api{
+	.create = fck_shader_compiler_create,
+	.is_ok = fck_shader_api_is_ok,
+};
+
+#include <fck_apis.h>
+
+extern "C"
+{
+	FCK_EXPORT_API void *fck_shader_load(fck_api_registry *registry, void *old)
+	{
+		registry->add(fck_shader_api_name, &shader_api);
+		return &shader_api;
+	}
 }

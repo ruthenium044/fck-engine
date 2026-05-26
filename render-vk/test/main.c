@@ -85,9 +85,9 @@ fck_test_app_result fck_test_app_app_init(void **app_state, int argc, char **arg
 	fckc_size_t result = app->input->sources(&sources);
 
 	fck_shared_object api_so = os->so->load("fck-render-vk");
-	sht_loader *loader = (sht_loader *)((void *(*)(void *, void *))os->so->symbol(api_so, "fck_load"))(NULL, NULL);
+	sht_render_api *loader = (sht_render_api *)((void *(*)(void *, void *))os->so->symbol(api_so, "fck_load"))(NULL, NULL);
 
-	app->instance = loader->load(SHT_HEADER_VERSION);
+	app->instance = loader->load(sht_header_version);
 	fck_assert(loader->is_ok(app->instance));
 	app->driver = app->instance.vt->start(app->instance, &app->window);
 	fck_assert(app->instance.vt->is_ok(app->driver));

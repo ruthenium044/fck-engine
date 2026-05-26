@@ -26,7 +26,7 @@ static sht_render_pass_vt sht_render_pass_vt_api;
 static sht_swapchain_vt sht_swapchain_vt_api;
 static sht_driver_vt sht_driver_vt_api;
 static sht_instance_vt sht_instance_vt_api;
-static sht_loader sht_loader_api;
+static sht_render_api sht_loader_api;
 
 static VkDescriptorType sht_binding_type_to_vk_desc_type[] = {
 	[SHT_BINDING_NONE] = VK_DESCRIPTOR_TYPE_MAX_ENUM, // Let's fuck things up
@@ -3592,7 +3592,7 @@ sht_bool32 sht_vk_is_ok(sht_instance instance)
 	return instance.handle != NULL;
 }
 
-FCK_EXPORT_API sht_loader *fck_render_vk_load(fck_api_registry *apis, sht_render_api_config *config)
+FCK_EXPORT_API sht_render_api *fck_render_vk_load(fck_api_registry *apis, sht_render_api_config *config)
 {
 	if (apis == NULL)
 	{
@@ -3669,7 +3669,7 @@ static sht_instance_vt sht_instance_vt_api = {
 	.unload = sht_vk_unload,
 };
 
-static sht_loader sht_loader_api = {
+static sht_render_api sht_loader_api = {
 	.load = sht_vk_load,
 	.is_ok = sht_vk_is_ok,
 };

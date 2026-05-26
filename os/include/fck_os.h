@@ -106,11 +106,11 @@ typedef struct fck_filesystem_api
 	fckc_size_t (*write)(fck_file, const void *ptr, fckc_size_t size);
 	fckc_i64 (*flush)(fck_file);
 
-	// Path utilities - Maybe path api? 
+	// Path utilities - Maybe path api?
 	int (*remove)(const char *path);
 	// This might be better as parth of file_info or path_info...
 	fckc_i64 (*modified)(const char *path);
-	const char* (*executable)(void);
+	const char *(*executable)(void);
 
 } fck_file_system_api;
 
@@ -118,7 +118,8 @@ typedef struct fck_glob_api
 {
 	char *(*find)(const char *str, const char *substring);
 	char *(*match)(const char *str, const char *pattern);
-	fckc_size_t (*executable)(const char *path, const char *pattern, char ***out_paths);
+	fckc_size_t (*executable)(const char *pattern, char ***out_paths);
+	fckc_size_t (*directory)(const char *path, const char *pattern, char ***out_paths);
 	void (*free)(char **paths);
 } fck_glob_api;
 
@@ -146,7 +147,7 @@ typedef struct fck_file_watcher_api
 {
 	fck_file_watcher (*create)(const char *path);
 	fckc_size_t (*changes)(fck_file_watcher watcher, fck_file_watcher_event *events, fckc_size_t capacity);
-	// is_valid, exposed to allow users to answer the question: 
+	// is_valid, exposed to allow users to answer the question:
 	// "Ummm... why am I not getting any changes?"
 	int (*is_valid)(fck_file_watcher watcher);
 	void (*destroy)(fck_file_watcher watcher);

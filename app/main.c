@@ -9,6 +9,7 @@
 #include <fckc_assert.h>
 #include <fckc_inttypes.h>
 #include <sht_render.h>
+#include <fck_mouse.h>
 
 #include <stdio.h>
 
@@ -54,23 +55,16 @@ static void load_config(int argc, char **argv)
 	}
 }
 
-// typedef struct fck_solid_vertex
-//{
-//	fckc_f32 position[3];
-//	fckc_f32 color[3];
-//	fckc_f32 uv[2];
-// } fck_solid_vertex;
-
-// const sht_vertex_binding vertex_bindings[] = {
-//	{.format = SHT_FORMAT_R32G32B32_SFLOAT, .offset = offsetof(fck_solid_vertex, position), .location = 0},
-//	{.format = SHT_FORMAT_R32G32B32_SFLOAT, .offset = offsetof(fck_solid_vertex, color), .location = 1},
-//	{.format = SHT_FORMAT_R32G32_SFLOAT, .offset = offsetof(fck_solid_vertex, uv), .location = 2}};
-
 typedef struct app_screen
 {
 	float width;
 	float height;
 } app_screen;
+
+typedef struct app_config
+{
+	fckc_i32 gradient;
+} app_config;
 
 typedef struct app_quad_transform
 {
@@ -158,6 +152,8 @@ int main(int argc, char **argv)
 	sht_bss gpu_data = {0};
 	sht_elements indices = {0};
 
+	app_config config = {.gradient = 0};
+
 	app_quads quads = {0};
 	app_quads_add(&quads, 0.0f, 0.0f);
 	app_quads_add(&quads, 50.0f, 50.0f);
@@ -184,6 +180,7 @@ int main(int argc, char **argv)
 		sht_binding bindings[] = {
 			{.id = 0, .type = SHT_BINDING_UNIFORM, .stages = SHT_STAGE_VERTEX_SHADER},
 			{.id = 1, .type = SHT_BINDING_STORAGE, .stages = SHT_STAGE_VERTEX_SHADER},
+			{.id = 2, .type = SHT_BINDING_UNIFORM, .stages = SHT_STAGE_VERTEX_SHADER},
 		};
 
 		sht_binding_desc binding_desc = {.bindings = bindings, .count = fck_arraysize(bindings)};
@@ -235,6 +232,14 @@ int main(int argc, char **argv)
 					is_running = 0;
 				}
 			}
+			if(e->source->type == fck_input_source_mouse) {
+				if(e->description->id == fck_mouse_left) 
+				{
+					if(e->data.scalar > 0.0f) {
+						config.gradient = !config.gradient;
+					}
+				}
+			}
 		}
 
 		memory->reset(memory->temp);
@@ -262,9 +267,11 @@ int main(int argc, char **argv)
 					.width = (float)extent.width,
 					.height = (float)extent.height,
 				};
-
+				
+				// TODO: This one needs to get replaced with upload_image and upload_buffer
 				driver.vt->bss->upload(gpu_data, 0, sht_upload_params{.data = &screen, .size = sizeof(screen)});
 				driver.vt->bss->upload(gpu_data, 1, sht_upload_params{.data = &quads, .size = sizeof(*quads.transforms) * quads.count});
+				driver.vt->bss->upload(gpu_data, 2, sht_upload_params{ .data = &config, .size = sizeof(config)});
 
 				const sht_render_pass render_pass = command->render_pass->begin(command_buffer, &desc);
 

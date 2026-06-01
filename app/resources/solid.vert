@@ -21,6 +21,12 @@ layout(std430, binding = 1) readonly buffer TransformBuffer {
     QuadTransform transforms[];
 };
 
+layout (binding = 2) uniform Config 
+{
+    int gradient;
+} configuration;
+
+
 out gl_PerVertex 
 {
     vec4 gl_Position;   
@@ -45,8 +51,12 @@ void main()
     QuadTransform transform = transforms[gl_InstanceIndex];
 
 	vec3 pos = POSITIONS[gl_VertexIndex];
-    outColor = COLORS[gl_VertexIndex];
-
+    if(configuration.gradient != 0) {
+        outColor = COLORS[gl_VertexIndex];
+    }
+    else {
+        outColor = COLORS[3];
+    }
     pos.x *= (transform.width * 0.5);
     pos.y *= (transform.height * 0.5);
 

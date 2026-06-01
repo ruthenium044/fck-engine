@@ -15,6 +15,7 @@
 
 #include <fck_shader.h>
 #include <sht_render.h>
+#include <fck_apis.h>
 
 typedef enum fck_test_app_result
 {
@@ -69,23 +70,30 @@ typedef fck_input* (fck_input_load_prototype)(void);
 #define to_fck_input_load(v) (fck_input_load_prototype *)(v)
 #define fck_input_load_name "fck_input_load"
 
+static fck_api_registry* fck_api_registry_load(const char* path)
+{
+	// This badboy needs to get released
+	const fck_shared_object so = os->so->load(path);
+	fck_load_func* loader = (fck_load_func*)os->so->symbol(so, "fck_api_load");
+	fck_api_registry* registry = (fck_api_registry*)loader(NULL, NULL);
+	return registry;
+}
+
 fck_test_app_result fck_test_app_app_init(void **app_state, int argc, char **argv)
 {
+	fck_api_registry* registry = fck_api_registry_load("fck-api.dll");
+
+
 	fck_test_app_application *app = (fck_test_app_application *)kll_malloc(kll_system, sizeof(*app));
 	memset(app, 0, sizeof(*app));
 	*app_state = app;
 
 	app->window = os->win->create("fck-vk", 1400, 600);
 
-	fck_shared_object input_so = os->so->load("fck-input-all.dll");
-	fck_input_load_prototype *input_load = to_fck_input_load(os->so->symbol(input_so, fck_input_load_name));
-	app->input = input_load();
-
-	fck_input_source **sources;
-	fckc_size_t result = app->input->sources(&sources);
-
 	fck_shared_object api_so = os->so->load("fck-render-vk");
-	sht_render_api *loader = (sht_render_api *)((void *(*)(void *, void *))os->so->symbol(api_so, "fck_load"))(NULL, NULL);
+	fck_shared_object shader_so = os->so->load("fck-shader");
+	fck_shader_api* shader_api = (fck_shader_api*)((void* (*)(void*, void*))os->so->symbol(shader_so, "fck_shader_load"))(registry, NULL);
+	sht_render_api *loader = (sht_render_api *)((void *(*)(void *, void *))os->so->symbol(api_so, "fck_render_vk_load"))(registry, NULL);
 
 	app->instance = loader->load(sht_header_version);
 	fck_assert(loader->is_ok(app->instance));
@@ -178,7 +186,7 @@ fck_test_app_result fck_test_app_app_init(void **app_state, int argc, char **arg
 	app->bss = driver.vt->bss->create(driver, &(sht_binding_desc){.bindings = bindings, .count = fck_arraysize(bindings)});
 
 	{
-		fck_shader_compiler compiler = fck_shader_compiler_create();
+		fck_shader_compiler compiler = shader_api->create();
 
 		fck_file vert_file = os->fs->open("hlsl/triangle.vert", "r");
 		fck_shader_desc vert_desc = (fck_shader_desc){FCK_SHADER_VERTEX, "triangle-vert", "main"};
@@ -281,18 +289,18 @@ fck_test_app_result fck_test_app_app_draw(fck_test_app_application *app)
 fck_test_app_result fck_test_app_app_tick(void *app_state)
 {
 	fck_test_app_application *app = (fck_test_app_application *)app_state;
-	fck_input_poll(app->input, e, {
-		if (app->input->is(e->source, "physical-keyboard"))
-		{
-			if (e->description->id == fck_pkey_escape)
-			{
-				if (e->data.scalar > 0.0f)
-				{
-					return FCK_TEST_APP_RESULT_DONE;
-				}
-			}
-		}
-	});
+	//fck_input_poll(app->input, e, {
+	//	if (app->input->is(e->source, "physical-keyboard"))
+	//	{
+	//		if (e->description->id == fck_pkey_escape)
+	//		{
+	//			if (e->data.scalar > 0.0f)
+	//			{
+	//				return FCK_TEST_APP_RESULT_DONE;
+	//			}
+	//		}
+	//	}
+	//});
 
 	fck_test_app_result result = fck_test_app_app_draw(app);
 	return result;

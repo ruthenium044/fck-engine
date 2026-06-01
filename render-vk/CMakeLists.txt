@@ -25,16 +25,16 @@ find_package(shader)
 find_package(Vulkan)
 
 if(APPLE)
-    target_link_libraries(${PROJECT_NAME} PUBLIC fck::render PRIVATE fck::api fck::fckc fck::os fck::kll Vulkan::Vulkan fck::shader fck::hash
+    target_link_libraries(${PROJECT_NAME} PUBLIC fck::render PRIVATE fck::api fck::fckc fck::os fck::kll Vulkan::Vulkan fck::shader-interface fck::hash
         "-framework Metal"
         "-framework MetalKit")
 else()
-    target_link_libraries(${PROJECT_NAME} PUBLIC fck::render PRIVATE fck::api fck::fckc fck::os fck::kll Vulkan::Vulkan fck::shader fck::hash)
+    target_link_libraries(${PROJECT_NAME} PUBLIC fck::render PRIVATE fck::api fck::fckc fck::os fck::kll Vulkan::Vulkan fck::shader-interface fck::hash)
 endif()
 
 
 add_executable(${PROJECT_NAME}-test test/main.c)
-target_link_libraries(${PROJECT_NAME}-test PRIVATE ${PROJECT_NAME} fck::os fck::kll fck::render fck::shader fck::input)
+target_link_libraries(${PROJECT_NAME}-test PRIVATE ${PROJECT_NAME} fck::api fck::os fck::kll fck::render fck::shader-interface fck::input)
 
 set_target_properties(${PROJECT_NAME}-test PROPERTIES
     VS_DEBUGGING_WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"

@@ -29,7 +29,7 @@
 
 #define sht_vk_propagate_on_error(vk_result)                                                                                               \
 	{                                                                                                                                      \
-		VkResult _sht_vk_result_ = (vk_result);                                                                                            \
+		const VkResult _sht_vk_result_ = (vk_result);                                                                                            \
 		if (!sht_vk_success(_sht_vk_result_))                                                                                              \
 		{                                                                                                                                  \
 			return _sht_vk_result_;                                                                                                        \

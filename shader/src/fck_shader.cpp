@@ -3,7 +3,6 @@
 #include <stdio.h>
 extern "C"
 {
-#define FCK_SHADER_EXPORT
 #include "fck_shader.h"
 #include <fck_os.h>
 #include <fckc_assert.h>
@@ -125,10 +124,10 @@ static fck_hlsl_object fck_shader_create_hlsl_from_file(struct fck_shader_compil
 	return hlsl;
 }
 
-static fck_glsl_object fck_shader_create_glsl_from_file(struct fck_shader_compiler* compiler, fck_shader_desc* desc, fck_file* file)
+static fck_glsl_object fck_shader_create_glsl_from_file(struct fck_shader_compiler *compiler, fck_shader_desc *desc, fck_file *file)
 {
 	const fckc_size_t size = os->fs->size(*file);
-	char* text = (char*)kll_malloc(kll_system, size);
+	char *text = (char *)kll_malloc(kll_system, size);
 	const fckc_size_t read = os->fs->read(*file, text, size);
 	fck_assert(size == read);
 	text[read] = '\0';
@@ -173,7 +172,7 @@ static fckc_size_t fck_shader_compiler_size(fck_shader_generic *shader)
 	return shader->souce_byte_size;
 }
 
-FCK_SHADER_API fck_shader_compiler fck_shader_compiler_create()
+static fck_shader_compiler fck_shader_compiler_create(void)
 {
 	shaderc_compiler_t shaderc = shaderc_compiler_initialize();
 
@@ -197,20 +196,19 @@ FCK_SHADER_API fck_shader_compiler fck_shader_compiler_create()
 	return compiler;
 }
 
-int fck_shader_api_is_ok(fck_shader_compiler compiler)
+static int fck_shader_api_is_ok(fck_shader_compiler compiler)
 {
 	return compiler.handle != NULL;
 }
 
-static fck_shader_api shader_api{
-	.create = fck_shader_compiler_create,
-	.is_ok = fck_shader_api_is_ok,
-};
-
-#include <fck_apis.h>
-
 extern "C"
 {
+	#include <fck_apis.h>
+	static fck_shader_api shader_api{
+		.create = fck_shader_compiler_create,
+		.is_ok = fck_shader_api_is_ok,
+	};
+
 	FCK_EXPORT_API void *fck_shader_load(fck_api_registry *registry, void *old)
 	{
 		registry->add(fck_shader_api_name, &shader_api);

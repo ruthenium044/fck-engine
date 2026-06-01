@@ -13,6 +13,7 @@
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_timer.h>
 #include <SDL3/SDL_video.h>
+#include <SDL3/SDL_events.h>
 
 static int fck_shared_object_is_valid(fck_shared_object so)
 {
@@ -134,6 +135,7 @@ static void *fck_window_native(fck_window window, const char *name)
 
 	return NULL;
 }
+
 
 static int fck_clipboard_api_set(const char *text)
 {

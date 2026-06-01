@@ -1,16 +1,9 @@
 #ifndef FCK_SHADER_H_INCLUDED
 #define FCK_SHADER_H_INCLUDED
 
-#include <fckc_apidef.h>
 #include <fckc_inttypes.h>
 
 #define fck_shader_api_name "fck_shader"
-
-#if defined(FCK_SHADER_EXPORT)
-#define FCK_SHADER_API FCK_EXPORT_API
-#else
-#define FCK_SHADER_API FCK_IMPORT_API
-#endif
 
 struct fck_file;
 
@@ -83,6 +76,7 @@ typedef struct fck_shader_compiler
 
 	// TODO: Either we are stubborn and say "you need at least ONE compiler to understand a shader object"
 	// or we redesign this API :)
+	// Why the fuck are the parms pointers?
 	fck_shader_type (*type)(fck_shader_generic *shader);
 	fck_shader_language (*language)(fck_shader_generic *shader);
 	const char *(*file)(fck_shader_generic *shader);
@@ -96,7 +90,5 @@ typedef struct fck_shader_api
 	fck_shader_compiler (*create)(void);
 	int (*is_ok)(fck_shader_compiler compiler);
 } fck_shader_api;
-
-FCK_SHADER_API fck_shader_compiler fck_shader_compiler_create(void);
 
 #endif

@@ -406,6 +406,7 @@ typedef enum sht_binding_type
 {
 	SHT_BINDING_NONE = 0,
 	SHT_BINDING_UNIFORM, // Maybe call this one buffer
+	SHT_BINDING_STORAGE,
 	SHT_BINDING_READ_ONLY_IMAGE,
 	SHT_BINDING_SAMPLER,
 	// TODO: sampler and all that bs
@@ -415,7 +416,7 @@ typedef enum sht_binding_type
 typedef struct sht_binding
 {
 	fck_alias(sht_binding_type, fckc_u32) type;
-	fck_alias(sht_stage_flag, fckc_u32) stages; // Rename this to availability!!!
+	fck_alias(sht_stage_flags, fckc_u32) stages; // Rename this to availability!!!
 	fckc_u32 id;
 } sht_binding;
 
@@ -482,8 +483,11 @@ typedef struct sht_bss_vt
 {
 	sht_bss (*create)(sht_driver driver, sht_binding_desc *desc);
 	// ... Maybe upload_memory vs upload... Idk if this upload function cuts it tbh 
+	// Yup... Fuck the upload_desc structure.
+	// TODO: sht_bool32 (*upload_buffer)(sht_bss bss, void* data, fckc_size_t size, fckc_size_t count, fckc_size_t offset)
+	// TODO: sht_bool32 (*upload_image)(sht_bss bss, sht_image_view* view, sht_sampler* sampler, fckc_size_t count, fck_size_t offset(?))
 	sht_bool32 (*upload)(sht_bss bss, fckc_u32 id, sht_upload_desc *desc);
-	// TODO: This one updates all. It broadcasts...
+	// TODO: This one updates all. It broadcasts... ...
 	//sht_bool32 (*broadcast)(sht_bss bss, fckc_u32 id, sht_upload_desc *desc);
 	void (*destroy)(sht_bss *bss);
 } sht_bss_vt;

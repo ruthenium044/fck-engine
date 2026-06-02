@@ -1,6 +1,7 @@
 #version 450
 
 layout (location = 0) out vec3 outColor;
+layout (location = 1) out vec2 outUv;
 
 layout (binding = 0) uniform Screen 
 {
@@ -75,4 +76,5 @@ void main()
     ndcPos.y = pixelPos.y / (screen.height * 0.5); 
     
     gl_Position = vec4(ndcPos, transform.z + pos.z, 1.0);
+    outUv = inPosition.xy;
 }

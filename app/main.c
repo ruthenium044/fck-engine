@@ -2,6 +2,7 @@
 #include <fck_apis.h>
 #include <fck_hash.h>
 #include <fck_input.h>
+#include <fck_mouse.h>
 #include <fck_os.h>
 #include <fck_pkey.h>
 #include <fck_plugins.h>
@@ -9,7 +10,6 @@
 #include <fckc_assert.h>
 #include <fckc_inttypes.h>
 #include <sht_render.h>
-#include <fck_mouse.h>
 
 #include <stdio.h>
 
@@ -218,6 +218,8 @@ int main(int argc, char **argv)
 	int is_running = 1;
 	while (is_running)
 	{
+		// TODO: Make render-vk hotreloadable :)
+		// How hard can it be?
 		plugins->hotreload();
 
 		fck_input_event events[32] = {0};
@@ -232,10 +234,12 @@ int main(int argc, char **argv)
 					is_running = 0;
 				}
 			}
-			if(e->source->type == fck_input_source_mouse) {
-				if(e->description->id == fck_mouse_left) 
+			if (e->source->type == fck_input_source_mouse)
+			{
+				if (e->description->id == fck_mouse_left)
 				{
-					if(e->data.scalar > 0.0f) {
+					if (e->data.scalar > 0.0f)
+					{
 						config.gradient = !config.gradient;
 					}
 				}
@@ -267,11 +271,26 @@ int main(int argc, char **argv)
 					.width = (float)extent.width,
 					.height = (float)extent.height,
 				};
-				
-				// TODO: This one needs to get replaced with upload_image and upload_buffer
-				driver.vt->bss->upload(gpu_data, 0, sht_upload_params{.data = &screen, .size = sizeof(screen)});
-				driver.vt->bss->upload(gpu_data, 1, sht_upload_params{.data = &quads, .size = sizeof(*quads.transforms) * quads.count});
-				driver.vt->bss->upload(gpu_data, 2, sht_upload_params{ .data = &config, .size = sizeof(config)});
+
+				const sht_buffer_upload_desc screen_upload = {
+					.data = &screen,
+					.size = sizeof(screen),
+					.count = 1,
+				};
+				const sht_buffer_upload_desc quads_upload = {
+					.data = &quads.transforms,
+					.size = sizeof(*quads.transforms),
+					.count = quads.count,
+				};
+				const sht_buffer_upload_desc config_upload = {
+					.data = &config,
+					.size = sizeof(config),
+					.count = 1,
+				};
+
+				driver.vt->bss->upload_buffer(gpu_data, 0, &screen_upload);
+				driver.vt->bss->upload_buffer(gpu_data, 1, &quads_upload);
+				driver.vt->bss->upload_buffer(gpu_data, 2, &config_upload);
 
 				const sht_render_pass render_pass = command->render_pass->begin(command_buffer, &desc);
 

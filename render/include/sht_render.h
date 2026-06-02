@@ -287,6 +287,7 @@ typedef struct sht_memory
 
 	sht_memory_arena objects[2];
 
+	// UUUUH - I think this is only being used internally
 	sht_memory_arena *(*of)(struct sht_memory *mem, sht_heap *buffer);
 
 	sht_buffer (*malloc)(sht_memory_arena *mem, sht_buffer_configuration *config, sht_memory_type memory_type);
@@ -405,10 +406,9 @@ typedef struct sht_sampler
 typedef enum sht_binding_type
 {
 	SHT_BINDING_NONE = 0,
-	SHT_BINDING_UNIFORM, // Maybe call this one buffer
-	SHT_BINDING_STORAGE,
+	SHT_BINDING_UNIFORM, // Maybe this one is not needed if STORAGE can fulfill the same role!!!
+	SHT_BINDING_STORAGE, // Currently only readonly? Feature vertexPipelineStoresAndAtomics enabled? Maybe only relevant for vertex stage 
 	SHT_BINDING_READ_ONLY_IMAGE,
-	SHT_BINDING_SAMPLER,
 	// TODO: sampler and all that bs
 	SHT_BINDING_TYPE_COUNT,
 } sht_binding_type;
@@ -467,26 +467,25 @@ typedef struct sht_render_pass_vt
 	void (*end)(sht_command_buffer command_buffer);
 } sht_render_pass_vt;
 
-// I hope this name won't collide :-(
-typedef struct sht_upload_desc
-{
-	void *data;
+typedef struct sht_buffer_upload_desc {
+	void* data;
 	fckc_size_t size;
+	fckc_size_t count;
+}sht_buffer_upload_desc;
 
+typedef struct sht_image_upload_desc {
 	sht_image_view view;
 	sht_sampler sampler;
-} sht_upload_desc;
-
-#define sht_upload_params &(sht_upload_desc)
+	//fckc_size_t count; // TODO
+}sht_image_upload_desc;
 
 typedef struct sht_bss_vt
 {
 	sht_bss (*create)(sht_driver driver, sht_binding_desc *desc);
 	// ... Maybe upload_memory vs upload... Idk if this upload function cuts it tbh 
 	// Yup... Fuck the upload_desc structure.
-	// TODO: sht_bool32 (*upload_buffer)(sht_bss bss, void* data, fckc_size_t size, fckc_size_t count, fckc_size_t offset)
-	// TODO: sht_bool32 (*upload_image)(sht_bss bss, sht_image_view* view, sht_sampler* sampler, fckc_size_t count, fck_size_t offset(?))
-	sht_bool32 (*upload)(sht_bss bss, fckc_u32 id, sht_upload_desc *desc);
+	sht_bool32 (*upload_buffer)(sht_bss bss, fckc_u32 id, const sht_buffer_upload_desc* desc);
+	sht_bool32 (*upload_image)(sht_bss bss, fckc_u32 id, const sht_image_upload_desc* desc);
 	// TODO: This one updates all. It broadcasts... ...
 	//sht_bool32 (*broadcast)(sht_bss bss, fckc_u32 id, sht_upload_desc *desc);
 	void (*destroy)(sht_bss *bss);

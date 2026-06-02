@@ -24,7 +24,7 @@
 
 // Maybe inline? Then we can share in static builds with unity builds.
 // Meh, I let it happen
-static fck_api_registry* apis;
+static fck_api_registry *apis;
 
 #define sht_invalidate(pointer_to_value) memset((pointer_to_value), 0x00, sizeof(*(pointer_to_value)))
 
@@ -42,7 +42,6 @@ static const VkDescriptorType sht_binding_type_to_vk_desc_type[] = {
 	[SHT_BINDING_STORAGE] = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 	[SHT_BINDING_UNIFORM] = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 	[SHT_BINDING_READ_ONLY_IMAGE] = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-	[SHT_BINDING_SAMPLER] = VK_DESCRIPTOR_TYPE_SAMPLER,
 };
 
 #define VK_LOG(type, msg, ...) os->io->log("[VK_ALLOC][%s] " msg "", type, ##__VA_ARGS__)
@@ -205,14 +204,16 @@ static void sht_vk_descriptor_set_update_buffer(sht_vk_driver *driver, VkDescrip
 	// For every binding point used in a shader there needs to be one
 	// descriptor set matching that binding point
 	VkWriteDescriptorSet write_descriptor_set = {0};
-	
+
+	const VkDescriptorType type = sht_binding_type_to_vk_desc_type[binding->type];
+
 	write_descriptor_set.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	write_descriptor_set.pNext = NULL;
 	write_descriptor_set.dstSet = set;
 	write_descriptor_set.dstBinding = binding->id;
 	write_descriptor_set.dstArrayElement = 0;
 	write_descriptor_set.descriptorCount = 1;
-	write_descriptor_set.descriptorType = sht_binding_type_to_vk_desc_type[binding->type];
+	write_descriptor_set.descriptorType = type;
 	write_descriptor_set.pImageInfo = NULL;
 	write_descriptor_set.pBufferInfo = &buffer_info;
 	write_descriptor_set.pTexelBufferView = NULL;
@@ -2100,7 +2101,8 @@ static void sht_command_buffer_draw_indexed(sht_command_buffer command, sht_draw
 	const fckc_u32 first_instance = params->first_instance;
 	const fckc_u32 instance_count = params->instance_count;
 
-	if(index_count == 0 || instance_count == 0) {
+	if (index_count == 0 || instance_count == 0)
+	{
 		return;
 	}
 
@@ -2619,7 +2621,7 @@ typedef struct sht_wip
 
 static VkResult sht_vk_shader_module_load(sht_vk_driver *driver, fck_shader_desc desc, const char *path, VkShaderModule *shader)
 {
-	fck_shader_api* shader_api = (fck_shader_api*)apis->find(fck_shader_api_name);
+	fck_shader_api *shader_api = (fck_shader_api *)apis->find(fck_shader_api_name);
 	fck_shader_compiler compiler = shader_api->create();
 
 	const fck_file shader_source = os->fs->open(path, "r");
@@ -3286,7 +3288,7 @@ static sht_vk_graphics_pipeline *sht_vk_graphics_pipeline_find(sht_vk_graphics_p
 }
 
 static sht_graphics_pipeline_key sht_vk_graphics_pipeline_storage_add(sht_vk_graphics_pipeline_storage *storage,
-                                                               sht_vk_graphics_pipeline const *pipeline)
+                                                                      sht_vk_graphics_pipeline const *pipeline)
 {
 	if (storage->count >= fck_arraysize(storage->handles) / 2)
 	{
@@ -3365,7 +3367,7 @@ static sht_graphics_pipeline sht_driver_graphics_pipeline_create(sht_driver driv
 {
 	sht_vk_driver *vk_driver = sht_driver_to_vk(driver);
 
-	fck_shader_api* shader_api =  (fck_shader_api*)apis->find(fck_shader_api_name);
+	fck_shader_api *shader_api = (fck_shader_api *)apis->find(fck_shader_api_name);
 
 	// TODO: Do not use extern declared function - Use API
 	fck_shader_compiler compiler = shader_api->create();
@@ -3551,16 +3553,32 @@ static void sht_bss_buffer_resize(sht_memory *mem, sht_buffer_usage_flags usage,
 	memcpy(buffer->cpu, data, size);
 }
 
-static sht_bool32 sht_bss_upload(sht_bss bss, fckc_u32 id, sht_upload_desc *desc)
+static sht_buffer_usage_flags sht_binding_type_to_usage_flags(sht_binding_type type)
 {
+	switch (type)
+	{
+	case SHT_BINDING_UNIFORM:
+		return SHT_BUFFER_USAGE_UNIFORM;
+	case SHT_BINDING_STORAGE:
+		return SHT_BUFFER_USAGE_STORAGE;
+	case SHT_BINDING_NONE:
+	case SHT_BINDING_READ_ONLY_IMAGE:
+	case SHT_BINDING_TYPE_COUNT:
+		break;
+	}
+	return 0;
+}
+
+static sht_bool32 sht_bss_upload_buffer(sht_bss bss, fckc_u32 id, const sht_buffer_upload_desc *desc)
+{
+	// TODO: Less assert, more return false (TODO: Make error code)
+
 	sht_vk_bss *vk_bss = (sht_vk_bss *)bss.handle;
 	sht_vk_driver *driver = (sht_vk_driver *)bss.owner;
 
-	// We cycle the resources correctly internally
 	const fckc_u32 index = driver->swapchain.sync.index;
 	fck_assert(index < SHT_VK_IMAGE_COUNT);
 
-	// VkDescriptorSet *set = set_copies->sets + set_copies->at;
 	VkDescriptorSet *set = &vk_bss->latest[index];
 
 	sht_bss_buffer_backends *buffer_backend = vk_bss->buffer_backends + index;
@@ -3573,31 +3591,35 @@ static sht_bool32 sht_bss_upload(sht_bss bss, fckc_u32 id, sht_upload_desc *desc
 	sht_binding *binding = vk_bss->desc.bindings + at;
 	sht_buffer *buffer = buffer_backend->buffers + at;
 
-	fck_assert(binding->type != SHT_BINDING_NONE);
-	switch ((sht_binding_type)binding->type)
-	{
-	case SHT_BINDING_UNIFORM:
-		if(desc->size == 0) {
-			break;
-		}
-		sht_bss_buffer_resize(&driver->memory, SHT_BUFFER_USAGE_UNIFORM, buffer, desc->data, desc->size);
-		sht_vk_descriptor_set_update_buffer(driver, *set, binding, buffer);
-	case SHT_BINDING_STORAGE:
-		if (desc->size == 0) {
-			break;
-		}
-		sht_bss_buffer_resize(&driver->memory, SHT_BUFFER_USAGE_STORAGE, buffer, desc->data, desc->size);
-		sht_vk_descriptor_set_update_buffer(driver, *set, binding, buffer);
-		break;
-	case SHT_BINDING_READ_ONLY_IMAGE:
-	case SHT_BINDING_SAMPLER:
-		sht_vk_descriptor_set_update_image(driver, *set, binding, desc->view, desc->sampler);
-	case SHT_BINDING_TYPE_COUNT:
-		break;
-	default:
-		return sht_false;
-	}
+	fck_assert(binding->type == SHT_BINDING_UNIFORM || binding->type == SHT_BINDING_STORAGE);
 
+	sht_buffer_usage_flags usage = sht_binding_type_to_usage_flags(binding->type);
+	sht_bss_buffer_resize(&driver->memory, usage, buffer, desc->data, desc->size * desc->count);
+	sht_vk_descriptor_set_update_buffer(driver, *set, binding, buffer);
+	return sht_true;
+}
+
+static sht_bool32 sht_bss_upload_image(sht_bss bss, fckc_u32 id, const sht_image_upload_desc *desc) 
+{
+	// TODO: Less assert, more return false (TODO: Make error code)
+
+	sht_vk_bss* vk_bss = (sht_vk_bss*)bss.handle;
+	sht_vk_driver* driver = (sht_vk_driver*)bss.owner;
+
+	const fckc_u32 index = driver->swapchain.sync.index;
+	fck_assert(index < SHT_VK_IMAGE_COUNT);
+
+	VkDescriptorSet* set = &vk_bss->latest[index];
+
+	const fckc_size_t find = sht_bss_binding_find(vk_bss, id);
+	fck_assert(find); // Crash! MWAH
+	const fckc_size_t at = find - 1;
+	fck_assert(at < sht_vk_bss_binding_capacity);
+
+	sht_binding* binding = vk_bss->desc.bindings + at;
+	fck_assert(binding->type == SHT_BINDING_READ_ONLY_IMAGE);
+
+	sht_vk_descriptor_set_update_image(driver, *set, binding, desc->view, desc->sampler);
 	return sht_true;
 }
 
@@ -3640,7 +3662,8 @@ FCK_EXPORT_API sht_render_api *fck_render_vk_load(fck_api_registry *registry, sh
 
 static sht_bss_vt sht_bss_vt_api = {
 	.create = sht_bss_create,
-	.upload = sht_bss_upload,
+	.upload_buffer = sht_bss_upload_buffer,
+	.upload_image = sht_bss_upload_image,
 	.destroy = sht_bss_destroy,
 };
 

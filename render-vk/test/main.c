@@ -13,9 +13,9 @@
 
 #include <memory.h>
 
+#include <fck_apis.h>
 #include <fck_shader.h>
 #include <sht_render.h>
-#include <fck_apis.h>
 
 typedef enum fck_test_app_result
 {
@@ -66,23 +66,22 @@ typedef struct fck_test_app_application
 	sht_driver driver;
 } fck_test_app_application;
 
-typedef fck_input* (fck_input_load_prototype)(void);
+typedef fck_input *(fck_input_load_prototype)(void);
 #define to_fck_input_load(v) (fck_input_load_prototype *)(v)
 #define fck_input_load_name "fck_input_load"
 
-static fck_api_registry* fck_api_registry_load(const char* path)
+static fck_api_registry *fck_api_registry_load(const char *path)
 {
 	// This badboy needs to get released
 	const fck_shared_object so = os->so->load(path);
-	fck_load_func* loader = (fck_load_func*)os->so->symbol(so, "fck_api_load");
-	fck_api_registry* registry = (fck_api_registry*)loader(NULL, NULL);
+	fck_load_func *loader = (fck_load_func *)os->so->symbol(so, "fck_api_load");
+	fck_api_registry *registry = (fck_api_registry *)loader(NULL, NULL);
 	return registry;
 }
 
 fck_test_app_result fck_test_app_app_init(void **app_state, int argc, char **argv)
 {
-	fck_api_registry* registry = fck_api_registry_load("fck-api.dll");
-
+	fck_api_registry *registry = fck_api_registry_load("fck-api.dll");
 
 	fck_test_app_application *app = (fck_test_app_application *)kll_malloc(kll_system, sizeof(*app));
 	memset(app, 0, sizeof(*app));
@@ -92,7 +91,8 @@ fck_test_app_result fck_test_app_app_init(void **app_state, int argc, char **arg
 
 	fck_shared_object api_so = os->so->load("fck-render-vk");
 	fck_shared_object shader_so = os->so->load("fck-shader");
-	fck_shader_api* shader_api = (fck_shader_api*)((void* (*)(void*, void*))os->so->symbol(shader_so, "fck_shader_load"))(registry, NULL);
+	fck_shader_api *shader_api =
+		(fck_shader_api *)((void *(*)(void *, void *))os->so->symbol(shader_so, "fck_shader_load"))(registry, NULL);
 	sht_render_api *loader = (sht_render_api *)((void *(*)(void *, void *))os->so->symbol(api_so, "fck_render_vk_load"))(registry, NULL);
 
 	app->instance = loader->load(sht_header_version);
@@ -240,8 +240,12 @@ fck_test_app_result fck_test_app_app_draw(fck_test_app_application *app)
 		}
 		return FCK_TEST_APP_RESULT_DONE;
 	}
-	driver.vt->bss->upload(app->bss, 0, sht_upload_params{.data = &app->mvp, .size = sizeof(app->mvp)});
-	driver.vt->bss->upload(app->bss, 1, sht_upload_params{.view = app->texture_view, .sampler = app->sampler});
+
+	const sht_buffer_upload_desc mvp_upload = {.data = &app->mvp, .size = sizeof(app->mvp), .count = 1};
+	driver.vt->bss->upload_buffer(app->bss, 0, &mvp_upload);
+
+	const sht_image_upload_desc image_upload = {.view = app->texture_view, .sampler = app->sampler};
+	driver.vt->bss->upload_image(app->bss, 1, &image_upload);
 
 	sht_viewport viewport;
 	viewport.offset.x = 0.0f;
@@ -289,7 +293,7 @@ fck_test_app_result fck_test_app_app_draw(fck_test_app_application *app)
 fck_test_app_result fck_test_app_app_tick(void *app_state)
 {
 	fck_test_app_application *app = (fck_test_app_application *)app_state;
-	//fck_input_poll(app->input, e, {
+	// fck_input_poll(app->input, e, {
 	//	if (app->input->is(e->source, "physical-keyboard"))
 	//	{
 	//		if (e->description->id == fck_pkey_escape)
@@ -300,7 +304,7 @@ fck_test_app_result fck_test_app_app_tick(void *app_state)
 	//			}
 	//		}
 	//	}
-	//});
+	// });
 
 	fck_test_app_result result = fck_test_app_app_draw(app);
 	return result;

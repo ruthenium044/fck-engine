@@ -407,7 +407,7 @@ typedef enum sht_binding_type
 {
 	SHT_BINDING_NONE = 0,
 	SHT_BINDING_UNIFORM, // Maybe this one is not needed if STORAGE can fulfill the same role!!!
-	SHT_BINDING_STORAGE, // Currently only readonly? Feature vertexPipelineStoresAndAtomics enabled? Maybe only relevant for vertex stage 
+	SHT_BINDING_STORAGE, // Currently only readonly? Feature vertexPipelineStoresAndAtomics enabled? Maybe only relevant for vertex stage
 	SHT_BINDING_READ_ONLY_IMAGE,
 	// TODO: sampler and all that bs
 	SHT_BINDING_TYPE_COUNT,
@@ -416,7 +416,7 @@ typedef enum sht_binding_type
 typedef struct sht_binding
 {
 	fck_alias(sht_binding_type, fckc_u32) type;
-	fck_alias(sht_stage_flags, fckc_u32) stages; // Rename this to availability!!!
+	fck_alias(sht_stage_flags, fckc_u32) stages;
 	fckc_u32 id;
 } sht_binding;
 
@@ -467,27 +467,29 @@ typedef struct sht_render_pass_vt
 	void (*end)(sht_command_buffer command_buffer);
 } sht_render_pass_vt;
 
-typedef struct sht_buffer_upload_desc {
-	void* data;
+typedef struct sht_buffer_upload_desc
+{
+	void *data;
 	fckc_size_t size;
 	fckc_size_t count;
-}sht_buffer_upload_desc;
+} sht_buffer_upload_desc;
 
-typedef struct sht_image_upload_desc {
-	sht_image_view view;
-	sht_sampler sampler;
-	//fckc_size_t count; // TODO
-}sht_image_upload_desc;
+typedef struct sht_image_upload_desc
+{
+	sht_image_view views;
+	sht_sampler samplers;
+	// Cut bindless for now! Not worth it.
+} sht_image_upload_desc;
 
 typedef struct sht_bss_vt
 {
 	sht_bss (*create)(sht_driver driver, sht_binding_desc *desc);
-	// ... Maybe upload_memory vs upload... Idk if this upload function cuts it tbh 
+	// ... Maybe upload_memory vs upload... Idk if this upload function cuts it tbh
 	// Yup... Fuck the upload_desc structure.
-	sht_bool32 (*upload_buffer)(sht_bss bss, fckc_u32 id, const sht_buffer_upload_desc* desc);
-	sht_bool32 (*upload_image)(sht_bss bss, fckc_u32 id, const sht_image_upload_desc* desc);
+	sht_bool32 (*upload_buffer)(sht_bss bss, fckc_u32 id, const sht_buffer_upload_desc *desc);
+	sht_bool32 (*upload_image)(sht_bss bss, fckc_u32 id, const sht_image_upload_desc *desc);
 	// TODO: This one updates all. It broadcasts... ...
-	//sht_bool32 (*broadcast)(sht_bss bss, fckc_u32 id, sht_upload_desc *desc);
+	// sht_bool32 (*broadcast)(sht_bss bss, fckc_u32 id, sht_upload_desc *desc);
 	void (*destroy)(sht_bss *bss);
 } sht_bss_vt;
 
@@ -519,6 +521,7 @@ typedef struct sht_command_buffer_vt
 typedef struct sht_graphics_pipeline_vt
 {
 	sht_graphics_pipeline (*create)(sht_driver driver, sht_bss bss, sht_graphic_desc *desc);
+	sht_bool32 (*is_ok)(sht_graphics_pipeline pipeline);
 	void (*destroy)(sht_graphics_pipeline pipeline);
 	// void (*end)(sht_command_buffer command_buffer);
 } sht_graphics_pipeline_vt;

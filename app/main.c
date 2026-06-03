@@ -11,6 +11,10 @@
 #include <fckc_inttypes.h>
 #include <sht_render.h>
 
+#include <kll.h>
+#include <kll_malloc.h>
+#include <kll_system.h>
+
 #include <stdio.h>
 
 #include <stdlib.h>
@@ -64,6 +68,7 @@ typedef struct app_screen
 typedef struct app_config
 {
 	fckc_i32 gradient;
+	fckc_i32 is_sdf;
 } app_config;
 
 typedef struct app_quad_transform
@@ -74,7 +79,25 @@ typedef struct app_quad_transform
 	float rotation;
 	float width;
 	float height;
+	float scale;
 } app_quad_transform;
+
+typedef struct app_line_transform
+{
+	float sx;
+	float sy;
+	float ex;
+	float ey;
+	float z;
+	float thickness;
+	float scale;
+} app_line_transform;
+
+// This will backlash. Try to keep them the same size, else the stride and all that stuff needs to stay opaque! We are lucky for now :D
+typedef union app_shape_transform {
+	app_quad_transform quad;
+	app_line_transform line;
+} app_shape_transform;
 
 typedef struct app_quads
 {
@@ -85,19 +108,239 @@ typedef struct app_quads
 static void app_quads_add(app_quads *quads, float x, float y)
 {
 	const app_quad_transform init_transform = {
-		.x = 0.0f,
-		.y = 0.0f,
+		.x = x,
+		.y = y,
 		.z = 0.0f,
 		.rotation = 0.0f,
 		.width = 100.0f,
 		.height = 100.0f,
+		.scale = 1.0f,
 	};
 
 	app_quad_transform *transform = quads->transforms + quads->count;
 	*transform = init_transform;
-	transform->x = x;
-	transform->y = y;
 	quads->count = quads->count + 1;
+}
+
+typedef struct app_lines
+{
+	app_line_transform transforms[64];
+	fckc_u32 count;
+} app_lines;
+
+static void app_lines_add(app_lines *quads, float sx, float sy, float ex, float ey, float thickness)
+{
+	const app_line_transform init_transform = {
+		.sx = sx,
+		.sy = sy,
+		.ex = ex,
+		.ey = ey,
+		.z = 0.0f,
+		.thickness = thickness,
+		.scale = 1.0f,
+	};
+
+	app_line_transform *transform = quads->transforms + quads->count;
+	*transform = init_transform;
+	quads->count = quads->count + 1;
+}
+
+typedef enum app_graphics_shape
+{
+	app_shape_quad,
+	app_shape_line,
+	app_shape_count,
+} app_graphics_shape;
+
+static const char *app_graphics_shape_to_string(app_graphics_shape primitive)
+{
+	switch (primitive)
+	{
+	case app_shape_quad:
+		return "app_shape_quad";
+	case app_shape_line:
+		return "app_shape_line";
+	}
+	return "app_shape_unknown";
+}
+
+typedef enum app_graphics_style
+{
+	app_style_solid,
+	app_style_textured,
+	app_style_rounded,
+	app_style_count,
+} app_graphics_style;
+
+static const char *app_graphic_material_to_string(app_graphics_style material)
+{
+	switch (material)
+	{
+	case app_style_solid:
+		return "app_style_solid";
+	case app_style_textured:
+		return "app_style_textured";
+	case app_style_rounded:
+		return "app_style_rounded";
+	}
+	return "app_style_unknown";
+}
+
+static fckc_size_t app_graphic_pipeline_bindings(app_graphics_shape primitive, app_graphics_style material,
+                                                 sht_binding const **out_bindings)
+{
+	switch (primitive)
+	{
+	case app_shape_quad:
+	case app_shape_line:
+		switch (material)
+		{
+		case app_style_solid:
+		case app_style_rounded:
+			static const sht_binding bindings[] = {
+				{.id = 0, .type = SHT_BINDING_UNIFORM, .stages = SHT_STAGE_VERTEX_SHADER},
+				{.id = 1, .type = SHT_BINDING_STORAGE, .stages = SHT_STAGE_VERTEX_SHADER},
+				{.id = 2, .type = SHT_BINDING_UNIFORM, .stages = SHT_STAGE_VERTEX_SHADER},
+				{.id = 3, .type = SHT_BINDING_READ_ONLY_IMAGE, .stages = SHT_STAGE_FRAGMENT_SHADER},
+				// TODO: Configuration binding
+			};
+			*out_bindings = bindings;
+			return fck_arraysize(bindings);
+		case app_style_textured:
+			static const sht_binding textured_bindings[] = {
+				{.id = 0, .type = SHT_BINDING_UNIFORM, .stages = SHT_STAGE_VERTEX_SHADER},
+				{.id = 1, .type = SHT_BINDING_STORAGE, .stages = SHT_STAGE_VERTEX_SHADER},
+				{.id = 2, .type = SHT_BINDING_UNIFORM, .stages = SHT_STAGE_VERTEX_SHADER},
+				{.id = 3, .type = SHT_BINDING_READ_ONLY_IMAGE, .stages = SHT_STAGE_FRAGMENT_SHADER},
+			};
+			*out_bindings = textured_bindings;
+			return fck_arraysize(textured_bindings);
+		}
+		break;
+	}
+	return 0;
+}
+
+typedef struct app_graphic_pipeline
+{
+	sht_graphics_pipeline pipeline;
+	sht_bss bss;
+
+	app_shape_transform *transforms;
+	fckc_u32 count;
+	fckc_u32 capacity;
+} app_graphic_pipeline;
+
+typedef struct app_graphics
+{
+	fck_shader_api *shader;
+	sht_driver driver;
+	app_graphic_pipeline values[app_shape_count][app_style_count];
+} app_graphics;
+
+static void app_graphics_init(app_graphics *graphics, fck_shader_api *shader, sht_driver driver)
+{
+	graphics->shader = shader;
+	graphics->driver = driver;
+}
+
+static void app_graphics_create(app_graphics *pipelines, app_graphics_shape primitive, app_graphics_style material, const char *vertex,
+                                const char *fragment)
+{
+	fck_shader_compiler compiler = pipelines->shader->create();
+	if (!pipelines->shader->is_ok(compiler))
+	{
+		return;
+	}
+
+	app_graphic_pipeline *p = &pipelines->values[primitive][material];
+
+	fck_file vert_file = os->fs->open(vertex, "r");
+	fck_shader_desc vert_desc = (fck_shader_desc){FCK_SHADER_VERTEX, app_graphics_shape_to_string(primitive), "main"};
+
+	fck_file frag_file = os->fs->open(fragment, "r");
+	fck_shader_desc frag_desc = (fck_shader_desc){FCK_SHADER_FRAGMENT, app_graphic_material_to_string(material), "main"};
+	fck_glsl_object vert = {0};
+	fck_glsl_object frag = {0};
+	vert = compiler.create_glsl_from_file(&compiler, &vert_desc, &vert_file);
+	frag = compiler.create_glsl_from_file(&compiler, &frag_desc, &frag_file);
+
+	sht_binding const *bindings;
+	const fckc_size_t binding_count = app_graphic_pipeline_bindings(primitive, material, &bindings);
+
+	sht_binding_desc binding_desc = {.bindings = bindings, .count = binding_count};
+	p->bss = pipelines->driver.vt->bss->create(pipelines->driver, &binding_desc);
+
+	sht_vertex_desc vertex_desc = {
+		.stride = 0,
+		.bindings = NULL,
+		.count = 0,
+	};
+	const sht_raster_desc raster_desc = {
+		.cull_mode = SHT_CULL_MODE_NONE,
+		.topology = SHT_TRIANGLE_LIST,
+		.color = SHT_FORMAT_B8G8R8A8_UNORM,
+		.depth = SHT_FORMAT_UNDEFINED,
+	};
+	sht_graphic_desc graphic_desc = {
+		.fragment = &frag.generic,
+		.vertex = &vert.generic,
+		.vertex_desc = &vertex_desc,
+		.raster = raster_desc,
+	};
+
+	os->fs->close(vert_file);
+	os->fs->close(frag_file);
+
+	p->pipeline = pipelines->driver.vt->graphics_pipeline->create(pipelines->driver, p->bss, &graphic_desc);
+	compiler.destroy(&compiler, &vert.generic);
+	compiler.destroy(&compiler, &frag.generic);
+	compiler.shutdown(&compiler);
+
+	const fckc_size_t capacity = 64;
+	p->transforms = (app_shape_transform *)kll_malloc(kll_system, sizeof(*p->transforms) * capacity);
+	p->capacity = capacity;
+	p->count = 0;
+}
+
+static void app_graphics_add_line(app_graphics *graphics, app_graphics_style material, float sx, float sy, float ex, float ey,
+                                  float thickness)
+{
+	app_graphic_pipeline *g = &graphics->values[app_shape_line][material];
+	fck_assert(g->count < g->capacity);
+
+	const app_line_transform init_transform = {
+		.sx = sx,
+		.sy = sy,
+		.ex = ex,
+		.ey = ey,
+		.z = 0.0f,
+		.thickness = thickness,
+		.scale = 1.0f,
+	};
+
+	app_shape_transform *transform = g->transforms + g->count;
+	transform->line = init_transform;
+	g->count = g->count + 1;
+}
+
+static void app_graphics_add_quad(app_graphics *graphics, app_graphics_style material, float x, float y)
+{
+	app_graphic_pipeline *g = &graphics->values[app_shape_quad][material];
+	fck_assert(g->count < g->capacity);
+
+	const app_quad_transform init_transform = {
+		.x = x,
+		.y = y,
+		.z = 0.0f,
+		.rotation = 0.0f,
+		.width = 100.0f,
+		.height = 100.0f,
+		.scale = 1.0f,
+	};
+	app_shape_transform *transform = g->transforms + g->count;
+	transform->quad = init_transform;
+	g->count = g->count + 1;
 }
 
 int main(int argc, char **argv)
@@ -141,79 +384,62 @@ int main(int argc, char **argv)
 		return 0;
 	}
 
+	sht_graphics_pipeline graphic_pipelines;
+
 	sht_memory *memory = driver.vt->memory(driver);
 	sht_swapchain swapchain = driver.vt->swapchain(driver);
 	sht_command_buffer_vt *command = driver.vt->command_buffer;
-	sht_bss_vt *bss = driver.vt->bss;
 
-	fck_glsl_object vert = {0};
-	fck_glsl_object frag = {0};
-	sht_graphics_pipeline pipeline = {0};
-	sht_bss gpu_data = {0};
 	sht_elements indices = {0};
 
-	app_config config = {.gradient = 0};
-
-	app_quads quads = {0};
-	app_quads_add(&quads, 0.0f, 0.0f);
-	app_quads_add(&quads, 50.0f, 50.0f);
-	app_quads_add(&quads, 200.0f, 200.0f);
-	app_quads_add(&quads, 400.0f, 400.0f);
+	sht_sampler sampler = {0};
+	sht_image texture_image = {0};
+	sht_image_view texture_view = {0};
 
 	{
-		// Ok, All I need is a solid texture pipeline... We only do 2D
-		fck_shader_compiler compiler = shader->create();
-		if (!shader->is_ok(compiler))
-		{
-			return 0;
-		}
+		sampler = driver.vt->create_sampler(driver);
+		texture_image = memory->image->create(memory->bump,
+		                                      &(sht_image_configuration){
+												  .format = SHT_FORMAT_R8G8B8A8_UNORM,
+												  .width = 4,
+												  .height = 1,
+												  .transfer = SHT_TRANSFER_TARGET,
+												  .usage = SHT_IMAGE_USAGE_SAMPLED,
+											  },
+		                                      SHT_MEMORY_GPU);
+		texture_view = memory->image->view(memory->bump, texture_image, SHT_FORMAT_R8G8B8A8_UNORM);
+		
+		fckc_u32 pixels[] = {0xFF0000FF, 0xFF00FF00, 0xFFFF0000, 0xFFFFFFFF};
+		driver.vt->upload_image(driver, &texture_image, pixels, sizeof(pixels));
+	}
 
-		fck_file vert_file = os->fs->open(fck_resource_path "solid.vert", "r");
-		fck_shader_desc vert_desc = (fck_shader_desc){FCK_SHADER_VERTEX, "solid-vert", "main"};
-
-		fck_file frag_file = os->fs->open(fck_resource_path "solid.frag", "r");
-		fck_shader_desc frag_desc = (fck_shader_desc){FCK_SHADER_FRAGMENT, "solid-frag", "main"};
-
-		vert = compiler.create_glsl_from_file(&compiler, &vert_desc, &vert_file);
-		frag = compiler.create_glsl_from_file(&compiler, &frag_desc, &frag_file);
-
-		sht_binding bindings[] = {
-			{.id = 0, .type = SHT_BINDING_UNIFORM, .stages = SHT_STAGE_VERTEX_SHADER},
-			{.id = 1, .type = SHT_BINDING_STORAGE, .stages = SHT_STAGE_VERTEX_SHADER},
-			{.id = 2, .type = SHT_BINDING_UNIFORM, .stages = SHT_STAGE_VERTEX_SHADER},
-		};
-
-		sht_binding_desc binding_desc = {.bindings = bindings, .count = fck_arraysize(bindings)};
-		gpu_data = driver.vt->bss->create(driver, &binding_desc);
-
-		sht_vertex_desc vertex_desc = {
-			.stride = 0,
-			.bindings = NULL,
-			.count = 0,
-		};
-		const sht_raster_desc raster_desc = {
-			.cull_mode = SHT_CULL_MODE_NONE,
-			.topology = SHT_TRIANGLE_LIST,
-			.color = SHT_FORMAT_B8G8R8A8_UNORM,
-			.depth = SHT_FORMAT_UNDEFINED,
-		};
-		sht_graphic_desc graphic_desc = {
-			.fragment = &frag.generic,
-			.vertex = &vert.generic,
-			.vertex_desc = &vertex_desc,
-			.raster = raster_desc,
-		};
-
-		pipeline = driver.vt->graphics_pipeline->create(driver, gpu_data, &graphic_desc);
-		compiler.destroy(&compiler, &vert.generic);
-		compiler.destroy(&compiler, &frag.generic);
-		compiler.shutdown(&compiler);
-
+	{
 		fckc_u32 index_data[] = {0, 1, 2, 1, 3, 2};
 		indices.count = fck_arraysize(index_data);
 		indices.buffer = memory->malloc(memory->bump, &sht_buffer_target(SHT_BUFFER_USAGE_INDEX, sizeof(index_data)), SHT_MEMORY_GPU);
 		driver.vt->upload_buffer(driver, &indices.buffer, index_data, sizeof(index_data));
 	}
+
+	app_graphics graphics = {0};
+	app_graphics_init(&graphics, shader, driver);
+	app_graphics_create(&graphics, app_shape_quad, app_style_solid, fck_resource_path "quad.vert", fck_resource_path "solid.frag");
+	app_graphics_create(&graphics, app_shape_quad, app_style_textured, fck_resource_path "quad.vert", fck_resource_path "textured.frag");
+	app_graphics_create(&graphics, app_shape_quad, app_style_rounded, fck_resource_path "quad.vert", fck_resource_path "round.frag");
+	app_graphics_create(&graphics, app_shape_line, app_style_solid, fck_resource_path "line.vert", fck_resource_path "solid.frag");
+	app_graphics_create(&graphics, app_shape_line, app_style_textured, fck_resource_path "line.vert", fck_resource_path "textured.frag");
+	app_graphics_create(&graphics, app_shape_line, app_style_rounded, fck_resource_path "line.vert", fck_resource_path "round.frag");
+
+	app_graphics_add_quad(&graphics, app_style_textured, 0.0f, 0.0f);
+	app_graphics_add_quad(&graphics, app_style_solid, 300.0f, 0.0f);
+	app_graphics_add_quad(&graphics, app_style_rounded, 500.0f, 0.0f);
+
+	app_graphics_add_line(&graphics, app_style_solid, -50.0f, -50.0f, 50.0f, 50.0f, 16.0f);
+	app_graphics_add_line(&graphics, app_style_solid, 50.0f, -50.0f, -50.0f, 50.0f, 16.0f);
+
+
+	app_graphics_add_line(&graphics, app_style_textured, -300.0f, 0.0f, -350.0f, 100.0f, 24.0f);
+	app_graphics_add_line(&graphics, app_style_rounded, -500.0f, 0.0f, -550.0f, 100.0f, 28.0f);
+
 
 	int is_running = 1;
 	while (is_running)
@@ -238,10 +464,6 @@ int main(int argc, char **argv)
 			{
 				if (e->description->id == fck_mouse_left)
 				{
-					if (e->data.scalar > 0.0f)
-					{
-						config.gradient = !config.gradient;
-					}
 				}
 			}
 		}
@@ -272,26 +494,6 @@ int main(int argc, char **argv)
 					.height = (float)extent.height,
 				};
 
-				const sht_buffer_upload_desc screen_upload = {
-					.data = &screen,
-					.size = sizeof(screen),
-					.count = 1,
-				};
-				const sht_buffer_upload_desc quads_upload = {
-					.data = &quads.transforms,
-					.size = sizeof(*quads.transforms),
-					.count = quads.count,
-				};
-				const sht_buffer_upload_desc config_upload = {
-					.data = &config,
-					.size = sizeof(config),
-					.count = 1,
-				};
-
-				driver.vt->bss->upload_buffer(gpu_data, 0, &screen_upload);
-				driver.vt->bss->upload_buffer(gpu_data, 1, &quads_upload);
-				driver.vt->bss->upload_buffer(gpu_data, 2, &config_upload);
-
 				const sht_render_pass render_pass = command->render_pass->begin(command_buffer, &desc);
 
 				sht_viewport viewport;
@@ -310,18 +512,61 @@ int main(int argc, char **argv)
 					command->viewport(command_buffer, &viewport);
 					command->scissor(command_buffer, &scissor);
 
-					command->bss(command_buffer, gpu_data);
-
-					command->graphics_pipeline(command_buffer, pipeline);
 					command->index_buffer(command_buffer, &indices.buffer, 0);
-					sht_draw_indexed_desc indexed = {
-						.first_index = 0,
-						.first_instance = 0,
-						.index_count = to_u32(indices.count),
-						.instance_count = quads.count,
-						.vertex_offset = 0,
-					};
-					command->draw_indexed(command_buffer, &indexed);
+
+					for (fckc_size_t shape_index = 0; shape_index < app_shape_count; shape_index++)
+					{
+						for (fckc_size_t style_index = 0; style_index < app_style_count; style_index++)
+						{
+							app_graphic_pipeline *graphic = &graphics.values[shape_index][style_index];
+							if (driver.vt->graphics_pipeline->is_ok(graphic->pipeline))
+							{
+								if (graphic->count > 0)
+								{
+									const sht_buffer_upload_desc screen_upload = {
+										.data = &screen,
+										.size = sizeof(screen),
+										.count = 1,
+									};
+									const sht_buffer_upload_desc quads_upload = {
+										.data = graphic->transforms,
+										.size = sizeof(*graphic->transforms),
+										.count = graphic->count,
+									};
+
+									app_config config = { .gradient = 0, .is_sdf = style_index == app_style_rounded };
+
+									const sht_buffer_upload_desc config_upload = {
+										.data = &config,
+										.size = sizeof(config),
+										.count = 1,
+									};
+									const sht_image_upload_desc image_upload = {
+										.views = texture_view,
+										.samplers = sampler,
+									};
+
+									driver.vt->bss->upload_buffer(graphic->bss, 0, &screen_upload);
+									driver.vt->bss->upload_buffer(graphic->bss, 1, &quads_upload);
+									driver.vt->bss->upload_buffer(graphic->bss, 2, &config_upload);
+									driver.vt->bss->upload_image(graphic->bss, 3, &image_upload);
+									
+									command->bss(command_buffer, graphic->bss);
+
+									command->graphics_pipeline(command_buffer, graphic->pipeline);
+
+									sht_draw_indexed_desc indexed = {
+										.first_index = 0,
+										.first_instance = 0,
+										.index_count = to_u32(indices.count),
+										.instance_count = graphic->count,
+										.vertex_offset = 0,
+									};
+									command->draw_indexed(command_buffer, &indexed);
+								}
+							}
+						}
+					}
 
 					command->render_pass->end(command_buffer);
 				}

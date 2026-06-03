@@ -203,10 +203,9 @@ static void sht_vk_descriptor_set_update_buffer(sht_vk_driver *driver, VkDescrip
 	// Update the descriptor set determining the shader binding points
 	// For every binding point used in a shader there needs to be one
 	// descriptor set matching that binding point
-	VkWriteDescriptorSet write_descriptor_set = {0};
-
 	const VkDescriptorType type = sht_binding_type_to_vk_desc_type[binding->type];
 
+	VkWriteDescriptorSet write_descriptor_set = {0};
 	write_descriptor_set.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	write_descriptor_set.pNext = NULL;
 	write_descriptor_set.dstSet = set;
@@ -221,27 +220,32 @@ static void sht_vk_descriptor_set_update_buffer(sht_vk_driver *driver, VkDescrip
 	driver->UpdateDescriptorSets(driver->device, 1, &write_descriptor_set, 0, NULL);
 }
 
-static void sht_vk_descriptor_set_update_image(sht_vk_driver *driver, VkDescriptorSet set, sht_binding *binding, sht_image_view view,
-                                               sht_sampler sampler)
+static void sht_vk_descriptor_set_update_image(sht_vk_driver *driver, VkDescriptorSet set, sht_binding *binding,
+                                               const sht_image_view *views, const sht_sampler *samplers, fckc_size_t count)
 {
 	// The buffer's information is passed using a descriptor info structure
-	VkDescriptorImageInfo image_info = {0};
-	image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	image_info.imageView = (VkImageView)view.gpu;
-	image_info.sampler = (VkSampler)sampler.handle;
+	fck_assert(count <= 32 && "Need more image_infos...");
+
+	VkDescriptorImageInfo image_infos[32]; // For now
+	for (fckc_size_t index = 0; index < count; index++)
+	{
+		VkDescriptorImageInfo *image_info = image_infos + index;
+		image_info->imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		image_info->imageView = (VkImageView)views[index].gpu;
+		image_info->sampler = (VkSampler)samplers[index].handle;
+	}
 	// Update the descriptor set determining the shader binding points
 	// For every binding point used in a shader there needs to be one
 	// descriptor set matching that binding point
 	VkWriteDescriptorSet write_descriptor_set = {0};
-
 	write_descriptor_set.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	write_descriptor_set.pNext = NULL;
 	write_descriptor_set.dstSet = set;
 	write_descriptor_set.dstBinding = binding->id;
 	write_descriptor_set.dstArrayElement = 0;
-	write_descriptor_set.descriptorCount = 1;
 	write_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	write_descriptor_set.pImageInfo = &image_info;
+	write_descriptor_set.pImageInfo = image_infos;
+	write_descriptor_set.descriptorCount = count;
 	write_descriptor_set.pBufferInfo = NULL;
 	write_descriptor_set.pTexelBufferView = NULL;
 
@@ -3438,6 +3442,11 @@ static sht_graphics_pipeline sht_driver_graphics_pipeline_create(sht_driver driv
 	return result;
 }
 
+sht_bool32 sht_driver_graphics_pipeline_is_ok(sht_graphics_pipeline pipeline) {
+	sht_vk_driver* vk_driver = (sht_vk_driver*)pipeline.owner;
+	return vk_driver != NULL;
+}
+
 static void sht_driver_graphics_pipeline_destroy(sht_graphics_pipeline pipeline)
 {
 	sht_vk_driver *vk_driver = (sht_vk_driver *)pipeline.owner;
@@ -3599,27 +3608,28 @@ static sht_bool32 sht_bss_upload_buffer(sht_bss bss, fckc_u32 id, const sht_buff
 	return sht_true;
 }
 
-static sht_bool32 sht_bss_upload_image(sht_bss bss, fckc_u32 id, const sht_image_upload_desc *desc) 
+static sht_bool32 sht_bss_upload_image(sht_bss bss, fckc_u32 id, const sht_image_upload_desc *desc)
 {
 	// TODO: Less assert, more return false (TODO: Make error code)
 
-	sht_vk_bss* vk_bss = (sht_vk_bss*)bss.handle;
-	sht_vk_driver* driver = (sht_vk_driver*)bss.owner;
+	sht_vk_bss *vk_bss = (sht_vk_bss *)bss.handle;
+	sht_vk_driver *driver = (sht_vk_driver *)bss.owner;
 
 	const fckc_u32 index = driver->swapchain.sync.index;
 	fck_assert(index < SHT_VK_IMAGE_COUNT);
 
-	VkDescriptorSet* set = &vk_bss->latest[index];
+	VkDescriptorSet *set = &vk_bss->latest[index];
 
 	const fckc_size_t find = sht_bss_binding_find(vk_bss, id);
 	fck_assert(find); // Crash! MWAH
 	const fckc_size_t at = find - 1;
 	fck_assert(at < sht_vk_bss_binding_capacity);
 
-	sht_binding* binding = vk_bss->desc.bindings + at;
+	sht_binding *binding = vk_bss->desc.bindings + at;
 	fck_assert(binding->type == SHT_BINDING_READ_ONLY_IMAGE);
 
-	sht_vk_descriptor_set_update_image(driver, *set, binding, desc->view, desc->sampler);
+	// We do not allow Array of Samplers/Views for now.
+	sht_vk_descriptor_set_update_image(driver, *set, binding, &desc->views, &desc->samplers, 1);
 	return sht_true;
 }
 
@@ -3686,6 +3696,7 @@ static sht_command_buffer_vt sht_command_buffer_vt_api = {
 
 static sht_graphics_pipeline_vt sht_graphics_pipeline_vt_api = {
 	.create = sht_driver_graphics_pipeline_create,
+	.is_ok = sht_driver_graphics_pipeline_is_ok,
 	.destroy = sht_driver_graphics_pipeline_destroy,
 };
 

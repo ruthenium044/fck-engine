@@ -160,6 +160,8 @@ static const char *app_graphics_shape_to_string(app_graphics_shape primitive)
 		return "app_shape_quad";
 	case app_shape_line:
 		return "app_shape_line";
+	case app_shape_count:
+		return "app_shape_line";
 	}
 	return "app_shape_unknown";
 }
@@ -182,6 +184,8 @@ static const char *app_graphic_material_to_string(app_graphics_style material)
 		return "app_style_textured";
 	case app_style_rounded:
 		return "app_style_rounded";
+	case app_style_count:
+		break;
 	}
 	return "app_style_unknown";
 }
@@ -202,6 +206,7 @@ static fckc_size_t app_graphic_pipeline_bindings(app_graphics_shape primitive, a
 				{.id = 1, .type = SHT_BINDING_STORAGE, .stages = SHT_STAGE_VERTEX_SHADER},
 				{.id = 2, .type = SHT_BINDING_UNIFORM, .stages = SHT_STAGE_VERTEX_SHADER},
 				{.id = 3, .type = SHT_BINDING_READ_ONLY_IMAGE, .stages = SHT_STAGE_FRAGMENT_SHADER},
+				{.id = 5, .type = SHT_BINDING_UNIFORM, .stages = SHT_STAGE_VERTEX_SHADER | SHT_STAGE_FRAGMENT_SHADER},
 				// TODO: Configuration binding
 			};
 			*out_bindings = bindings;
@@ -212,19 +217,91 @@ static fckc_size_t app_graphic_pipeline_bindings(app_graphics_shape primitive, a
 				{.id = 1, .type = SHT_BINDING_STORAGE, .stages = SHT_STAGE_VERTEX_SHADER},
 				{.id = 2, .type = SHT_BINDING_UNIFORM, .stages = SHT_STAGE_VERTEX_SHADER},
 				{.id = 3, .type = SHT_BINDING_READ_ONLY_IMAGE, .stages = SHT_STAGE_FRAGMENT_SHADER},
+				{.id = 5, .type = SHT_BINDING_UNIFORM, .stages = SHT_STAGE_VERTEX_SHADER | SHT_STAGE_FRAGMENT_SHADER},
 			};
 			*out_bindings = textured_bindings;
 			return fck_arraysize(textured_bindings);
+		case app_style_count:
+			break;
 		}
+		break;
+	case app_shape_count:
 		break;
 	}
 	return 0;
+}
+
+typedef struct app_property_string
+{
+	// If there is a need for a longer string, fuck you
+	const char *value;
+} app_property_string;
+
+typedef enum app_property_type
+{
+	// What else do you need for now?
+	app_property_float,
+} app_property_type;
+
+#define app_properties_capacity 16
+
+typedef struct app_properties
+{
+	app_property_string keys[app_properties_capacity];
+	app_property_type types[app_properties_capacity];
+	fckc_size_t offsets[app_properties_capacity];
+	fckc_u8 buffer[sizeof(float) * app_properties_capacity];
+	fckc_size_t size;
+} app_properties;
+
+static void app_property_structure_set_float(app_properties *properties, const char *name, float value)
+{
+	for (fckc_size_t index = 0; index < app_properties_capacity; index++)
+	{
+		app_property_string *key = properties->keys + index;
+		if (key->value == NULL)
+		{
+			key->value = name;
+		}
+		if (strcmp(key->value, name) == 0)
+		{
+			app_property_type *type = properties->types + index;
+			*type = app_property_float;
+
+			// Do not forget alignup later! :)
+			fckc_size_t *offset = properties->offsets + index;
+			*offset = properties->size;
+			properties->size = properties->size + sizeof(value);
+
+			fckc_u8 *dst = properties->buffer + *offset;
+			memcpy(dst, &value, sizeof(value));
+			return;
+		}
+	}
+}
+
+static void app_property_structure_upload(app_properties *properties, sht_driver driver, sht_bss bss)
+{
+	if (properties->size == 0)
+	{
+		return;
+	}
+
+	const sht_buffer_upload_desc upload = {
+		.data = properties->buffer,
+		.size = properties->size,
+		.count = 1,
+	};
+	// TODO: Hardcoded binding!!!
+	driver.vt->bss->upload_buffer(bss, 5, &upload);
 }
 
 typedef struct app_graphic_pipeline
 {
 	sht_graphics_pipeline pipeline;
 	sht_bss bss;
+
+	app_properties properties;
 
 	app_shape_transform *transforms;
 	fckc_u32 count;
@@ -253,7 +330,7 @@ static void app_graphics_create(app_graphics *pipelines, app_graphics_shape prim
 		return;
 	}
 
-	app_graphic_pipeline *p = &pipelines->values[primitive][material];
+	app_graphic_pipeline *gfx = &pipelines->values[primitive][material];
 
 	fck_file vert_file = os->fs->open(vertex, "r");
 	fck_shader_desc vert_desc = (fck_shader_desc){FCK_SHADER_VERTEX, app_graphics_shape_to_string(primitive), "main"};
@@ -269,7 +346,7 @@ static void app_graphics_create(app_graphics *pipelines, app_graphics_shape prim
 	const fckc_size_t binding_count = app_graphic_pipeline_bindings(primitive, material, &bindings);
 
 	sht_binding_desc binding_desc = {.bindings = bindings, .count = binding_count};
-	p->bss = pipelines->driver.vt->bss->create(pipelines->driver, &binding_desc);
+	gfx->bss = pipelines->driver.vt->bss->create(pipelines->driver, &binding_desc);
 
 	sht_vertex_desc vertex_desc = {
 		.stride = 0,
@@ -292,15 +369,15 @@ static void app_graphics_create(app_graphics *pipelines, app_graphics_shape prim
 	os->fs->close(vert_file);
 	os->fs->close(frag_file);
 
-	p->pipeline = pipelines->driver.vt->graphics_pipeline->create(pipelines->driver, p->bss, &graphic_desc);
+	gfx->pipeline = pipelines->driver.vt->graphics_pipeline->create(pipelines->driver, gfx->bss, &graphic_desc);
 	compiler.destroy(&compiler, &vert.generic);
 	compiler.destroy(&compiler, &frag.generic);
 	compiler.shutdown(&compiler);
 
 	const fckc_size_t capacity = 64;
-	p->transforms = (app_shape_transform *)kll_malloc(kll_system, sizeof(*p->transforms) * capacity);
-	p->capacity = capacity;
-	p->count = 0;
+	gfx->transforms = (app_shape_transform *)kll_malloc(kll_system, sizeof(*gfx->transforms) * capacity);
+	gfx->capacity = capacity;
+	gfx->count = 0;
 }
 
 static void app_graphics_add_line(app_graphics *graphics, app_graphics_style material, float sx, float sy, float ex, float ey,
@@ -348,6 +425,13 @@ int main(int argc, char **argv)
 	load_config(argc, argv);
 
 	purge_files("temp-*.dll");
+
+	// app_properties properties = {0};
+	// app_property_structure_set_float(&properties, "r", 0.0f);
+	// app_property_structure_set_float(&properties, "g", 0.0f);
+	// app_property_structure_set_float(&properties, "b", 0.0f);
+	// app_property_structure_set_float(&properties, "a", 0.0f);
+	// app_property_structure_set_float(&properties, "roundness", 0.0f);
 
 	fck_api_registry *registry = fck_api_registry_load("fck-api.dll");
 	fck_plugins_api *plugins = fck_plugins_load(registry, "fck-plugins.dll");
@@ -397,7 +481,7 @@ int main(int argc, char **argv)
 	sht_image_view texture_view = {0};
 
 	{
-		sampler = driver.vt->create_sampler(driver);
+		sampler = driver.vt->create_sampler(driver, sht_filter_linear);
 		texture_image = memory->image->create(memory->bump,
 		                                      &(sht_image_configuration){
 												  .format = SHT_FORMAT_R8G8B8A8_UNORM,
@@ -408,7 +492,7 @@ int main(int argc, char **argv)
 											  },
 		                                      SHT_MEMORY_GPU);
 		texture_view = memory->image->view(memory->bump, texture_image, SHT_FORMAT_R8G8B8A8_UNORM);
-		
+
 		fckc_u32 pixels[] = {0xFF0000FF, 0xFF00FF00, 0xFFFF0000, 0xFFFFFFFF};
 		driver.vt->upload_image(driver, &texture_image, pixels, sizeof(pixels));
 	}
@@ -436,10 +520,16 @@ int main(int argc, char **argv)
 	app_graphics_add_line(&graphics, app_style_solid, -50.0f, -50.0f, 50.0f, 50.0f, 16.0f);
 	app_graphics_add_line(&graphics, app_style_solid, 50.0f, -50.0f, -50.0f, 50.0f, 16.0f);
 
-
 	app_graphics_add_line(&graphics, app_style_textured, -300.0f, 0.0f, -350.0f, 100.0f, 24.0f);
 	app_graphics_add_line(&graphics, app_style_rounded, -500.0f, 0.0f, -550.0f, 100.0f, 28.0f);
 
+	// How do I scale this to vertex and fragment shader stuff...
+	// HMMMMMMM
+	for (fckc_size_t index = 0; index < app_shape_count; index++)
+	{
+		app_properties *properties = &graphics.values[index][app_style_rounded].properties;
+		app_property_structure_set_float(properties, "roundness", 0.5f);
+	}
 
 	int is_running = 1;
 	while (is_running)
@@ -534,7 +624,7 @@ int main(int argc, char **argv)
 										.count = graphic->count,
 									};
 
-									app_config config = { .gradient = 0, .is_sdf = style_index == app_style_rounded };
+									app_config config = {.gradient = 0, .is_sdf = style_index == app_style_rounded};
 
 									const sht_buffer_upload_desc config_upload = {
 										.data = &config,
@@ -550,7 +640,9 @@ int main(int argc, char **argv)
 									driver.vt->bss->upload_buffer(graphic->bss, 1, &quads_upload);
 									driver.vt->bss->upload_buffer(graphic->bss, 2, &config_upload);
 									driver.vt->bss->upload_image(graphic->bss, 3, &image_upload);
-									
+
+									app_property_structure_upload(&graphic->properties, driver, graphic->bss);
+
 									command->bss(command_buffer, graphic->bss);
 
 									command->graphics_pipeline(command_buffer, graphic->pipeline);

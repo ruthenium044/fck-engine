@@ -151,7 +151,7 @@ fck_test_app_result fck_test_app_app_init(void **app_state, int argc, char **arg
 		driver.vt->upload_buffer(driver, &app->indices.buffer, index_data, sizeof(index_data));
 	}
 
-	app->sampler = driver.vt->create_sampler(driver);
+	app->sampler = driver.vt->create_sampler(driver, sht_filter_linear);
 	app->texture_image = mem->image->create(mem->bump,
 	                                        &(sht_image_configuration){
 												.format = SHT_FORMAT_R8G8B8A8_UNORM,

@@ -398,6 +398,12 @@ typedef struct sht_raster_desc
 	sht_format depth;
 } sht_raster_desc;
 
+typedef enum sht_filter
+{
+	sht_filter_nearest,
+	sht_filter_linear,
+} sht_filter;
+
 typedef struct sht_sampler
 {
 	sht_handle *handle;
@@ -537,7 +543,7 @@ typedef struct sht_driver_vt
 	sht_swapchain (*swapchain)(sht_driver driver);
 	sht_memory *(*memory)(sht_driver driver);
 
-	sht_sampler (*create_sampler)(sht_driver driver);
+	sht_sampler (*create_sampler)(sht_driver driver, fck_alias(sht_filter, fckc_u32) filter);
 	void (*destroy_sampler)(sht_driver driver, sht_sampler *sampler);
 	void (*copy_buffers)(sht_driver driver, sht_buffer *dst, sht_buffer *src);
 	void (*upload_buffer)(sht_driver driver, sht_buffer *dst, const void *src, fckc_size_t size);

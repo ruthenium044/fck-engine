@@ -5,10 +5,15 @@ layout (location = 1) in vec2 uv;
 
 layout (location = 0) out vec4 outFragColor;
 
-float sdRoundBox( in vec2 p ) 
+layout (binding = 5) uniform Properties 
+{
+    float roundness;
+} properties;
+
+float sdRoundBox( in vec2 p,  float roundness ) 
 {
 	vec2 si = vec2(0.9, 0.6);
-    vec4 r = vec4(0.5, 0.5, 0.5, 0.5);
+    vec4 r = vec4(roundness, roundness, roundness, roundness);
     r = min(r,min(si.x,si.y));
     
     r.xy = (p.x>0.0)?r.xy : r.zw;
@@ -20,7 +25,7 @@ float sdRoundBox( in vec2 p )
 
 void main() 
 {
-    float d = sdRoundBox(uv);
+    float d = sdRoundBox(uv, properties.roundness);
     if (d > 0.0) {
         discard;
     }

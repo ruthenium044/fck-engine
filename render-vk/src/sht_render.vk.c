@@ -273,15 +273,40 @@ static VkResult sht_vk_descriptor_set_create(sht_vk_driver *driver, VkDescriptor
 	return VK_SUCCESS;
 }
 
-static sht_sampler sht_driver_create_sampler(sht_driver driver)
+static VkFilter sht_sampler_filter_to_vk_filter(sht_filter filter) 
+{
+	switch(filter)
+	{
+		case sht_filter_nearest:
+			return VK_FILTER_NEAREST;
+		case sht_filter_linear:
+			return VK_FILTER_LINEAR;
+	}
+	return VK_FILTER_NEAREST;
+}
+
+static VkSamplerMipmapMode sht_sampler_filter_to_vk_mipmap_mode(sht_filter filter)
+{
+	switch (filter)
+	{
+	case sht_filter_nearest:
+		return VK_SAMPLER_MIPMAP_MODE_NEAREST;
+	case sht_filter_linear:
+		return VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	}
+	return VK_SAMPLER_MIPMAP_MODE_NEAREST;
+}
+
+
+static sht_sampler sht_driver_create_sampler(sht_driver driver, fck_alias(sht_filter, fckc_u32) filter)
 {
 	sht_vk_driver *vk_driver = (sht_vk_driver *)driver.handle;
 	VkSampler sampler;
 
 	VkSamplerCreateInfo info = {0};
 	info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-	info.magFilter = VK_FILTER_NEAREST;
-	info.minFilter = VK_FILTER_NEAREST;
+	info.magFilter = sht_sampler_filter_to_vk_filter(filter);
+	info.minFilter = sht_sampler_filter_to_vk_filter(filter);
 	info.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 	info.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 	info.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
@@ -291,10 +316,10 @@ static sht_sampler sht_driver_create_sampler(sht_driver driver)
 	info.unnormalizedCoordinates = VK_FALSE;
 	info.compareEnable = VK_FALSE;
 	info.compareOp = VK_COMPARE_OP_NEVER;
-	info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+	info.mipmapMode = sht_sampler_filter_to_vk_mipmap_mode(filter);
 	info.mipLodBias = 0.0f;
 	info.minLod = 0.0f;
-	info.maxLod = 0.0f; // Set to mip levels of image
+	info.maxLod = 0.0f; 
 	vk_driver->CreateSampler(vk_driver->device, &info, default_allocation_callbacks, &sampler);
 	return (sht_sampler){.handle = (sht_handle *)sampler};
 }

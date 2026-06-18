@@ -17,6 +17,7 @@
 
 #include <stdio.h>
 
+#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -321,6 +322,643 @@ static void app_graphics_init(app_graphics *graphics, fck_shader_api *shader, sh
 	graphics->driver = driver;
 }
 
+static const char *app_parse_number(const char *begin, const char *end, unsigned long *number)
+{
+	const char *str = begin;
+	while (!isdigit(*str))
+	{
+		str++;
+		if (str == end)
+		{
+			return NULL;
+		}
+	}
+
+	char *after;
+	*number = strtoul(str, &after, 10);
+	// Query error?
+	// Check for ULONG_MAX?
+	// YOLO
+	return after;
+}
+
+typedef enum app_shader_primitive_type
+{
+	app_shader_primitive_none,
+	app_shader_primitive_bool,
+	app_shader_primitive_int,
+	app_shader_primitive_uint,
+	app_shader_primitive_float,
+	app_shader_primitive_double,
+	app_shader_primitive_not_supportd,
+} app_shader_primitive_type;
+
+typedef enum app_shader_token
+{
+	app_shader_identifier = 0,
+	app_shader_brace_open = 1,
+	app_shader_brace_close = 2,
+	app_shader_bracket_open = 3,
+	app_shader_bracket_close = 4,
+	app_shader_paren_open = 5,
+	app_shader_paren_close = 6,
+	app_shader_struct = 7,
+	app_shader_layout = 8,
+	app_shader_uniform = 9,
+	app_shader_readonly = 10,
+	app_shader_shared = 11,
+	app_shader_buffer = 12,
+	app_shader_void = 14,
+	app_shader_semicolon = 15,
+	app_shader_operator = 16,
+	app_shader_constant = 17,
+	app_shader_comma = 18,
+	app_shader_block = 19,
+	app_shader_type = 20,
+	app_shader_binding = 21,
+	app_shader_unknown,
+	app_shader_end_of_source,
+	app_shader_count,
+} app_shader_token;
+
+typedef enum app_shader_token_flags
+{
+	app_shader_token_none = 0,
+	app_shader_token_identifier = 1 << app_shader_identifier,
+	app_shader_token_brace_open = 1 << app_shader_brace_open,
+	app_shader_token_brace_close = 1 << app_shader_brace_close,
+	app_shader_token_bracket_open = 1 << app_shader_bracket_open,
+	app_shader_token_bracket_close = 1 << app_shader_bracket_close,
+	app_shader_token_paren_open = 1 << app_shader_paren_open,
+	app_shader_token_paren_close = 1 << app_shader_paren_close,
+	app_shader_token_struct = 1 << app_shader_struct,
+	app_shader_token_layout = 1 << app_shader_layout,
+	app_shader_token_uniform = 1 << app_shader_uniform,
+	app_shader_token_readonly = 1 << app_shader_readonly,
+	app_shader_token_shared = 1 << app_shader_shared,
+	app_shader_token_buffer = 1 << app_shader_buffer,
+	app_shader_token_void = 1 << app_shader_void,
+	app_shader_token_semicolon = 1 << app_shader_semicolon,
+	app_shader_token_operator = 1 << app_shader_operator,
+	app_shader_token_constant = 1 << app_shader_constant,
+	app_shader_token_comma = 1 << app_shader_comma,
+	app_shader_token_block = 1 << app_shader_block, // TODO: Maybe this should be any? Or text? idk...
+	app_shader_token_type = 1 << app_shader_type,
+	app_shader_token_binding = 1 << app_shader_binding,
+} app_shader_token_flags;
+
+typedef enum app_shader_semantic_type
+{
+	app_shader_semantic_end_of_source = 0,
+	app_shader_semantic_unknown = ~0,
+	app_shader_semantic_brace_block = app_shader_token_brace_open | app_shader_token_block | app_shader_token_brace_close,
+	app_shader_semantic_struct_declaration = app_shader_token_struct | app_shader_token_identifier,
+
+	//
+	app_shader_semantic_struct_definition =
+		app_shader_semantic_struct_declaration | app_shader_token_brace_open | app_shader_token_brace_close,
+
+	app_shader_semantic_layout = app_shader_token_layout | app_shader_token_paren_open | app_shader_token_paren_close,
+
+	//
+	app_shader_semantic_uniform_definition =
+		app_shader_token_uniform | app_shader_token_identifier | app_shader_token_brace_open | app_shader_token_brace_close,
+} app_shader_semantic_type;
+
+// TODO: Maybe kind?
+// TODO: Find out a way how to deal with layout qualifiers! layout(binding = 4) ... (Maybe a mapping?)
+typedef struct app_shader_source_token
+{
+	app_shader_token type;
+	const char *source;
+	fckc_size_t length;
+} app_shader_source_token;
+
+typedef struct app_shader_source_token_reference
+{
+	app_shader_source_token *value;
+} app_shader_source_token_reference;
+
+typedef struct app_shader_source_token_reference_list
+{
+	app_shader_source_token_reference *values;
+	fckc_size_t count;
+} app_shader_source_token_reference_list;
+
+typedef struct app_shader_source
+{
+	app_shader_source_token *tokens;
+	fckc_size_t count;
+
+	// TODO: Compute index?
+	app_shader_source_token_reference_list references[app_shader_count];
+	// TODO: Addsome pointer to pointer magic
+	// Or maybe intrusive shit, idk yet
+} app_shader_source;
+
+static fckc_size_t app_bitcnt(fckc_u32 n)
+{
+	n = n - ((n >> 1) & 0x55555555);
+	n = (n & 0x33333333) + ((n >> 2) & 0x33333333);
+	n = (n + (n >> 4)) & 0x0F0F0F0F;
+	n = n + (n >> 8);
+	n = n + (n >> 16);
+	return (fckc_size_t)(n & 0x3F);
+}
+
+static fckc_size_t app_scope(const app_shader_source *source, fckc_size_t current, app_shader_token close)
+{
+	const app_shader_source_token token = source->tokens[current];
+
+	fckc_size_t skipped = 0;
+
+	for (;;)
+	{
+		const fckc_size_t next = current + skipped + 1;
+		const app_shader_source_token next_token = source->tokens[next];
+		if (next >= source->count)
+		{
+			// Closed by end - will not compile anyway.
+			return next;
+		}
+		if (next_token.type == close)
+		{
+			return next;
+		}
+		skipped = skipped + 1;
+	}
+}
+
+typedef struct app_shader_syntax // (?)
+{
+	// Hmmmm
+	// In between [current:next] we can find member declarations, arguments, and so on
+	const app_shader_source_token *current;
+	const app_shader_source_token *next;
+
+	app_shader_semantic_type type;
+	// Idk if this space is enough
+	char identifier[256];
+} app_shader_syntax;
+
+typedef struct app_shader_member_syntax
+{
+	const app_shader_source_token *type;
+	const app_shader_source_token *next;
+} app_shader_member_syntax;
+
+static void app_shader_declaration(app_shader_syntax *syntax)
+{
+}
+
+static app_shader_semantic_type app_shader_semantic_match(const app_shader_source *source, app_shader_syntax *syntax)
+{
+	fckc_size_t token_count = 0;
+
+	if (syntax->current == NULL)
+	{
+		syntax->current = source->tokens;
+	}
+	else
+	{
+		syntax->current = syntax->next;
+		fck_assert(syntax->current != NULL);
+		fck_assert(syntax->next != NULL);
+	}
+
+	const fckc_size_t current_token_index = syntax->current - source->tokens;
+
+	app_shader_semantic_type semantic = 0;
+	{
+		const app_shader_source_token token = source->tokens[current_token_index];
+		if (token.type == app_shader_end_of_source)
+		{
+			return app_shader_semantic_end_of_source;
+		}
+
+		// We test the waters
+		// We start with testing a struct and then use the largest count
+		// If that does not apply, we go with other grammars
+		// Grammars should be mututally exclusive, though
+		// layout can exist with uniform, with readonly buffer and so on
+		// These extra attributes should get accounted for(?)
+		switch (token.type)
+		{
+		case app_shader_struct:
+			token_count = app_bitcnt(app_shader_semantic_struct_definition);
+			break;
+		case app_shader_layout:
+			token_count = app_bitcnt(app_shader_semantic_layout);
+			break;
+		case app_shader_uniform:
+			token_count = app_bitcnt(app_shader_semantic_uniform_definition);
+			break;
+		default:
+			break;
+		}
+		semantic = 1 << token.type;
+	}
+
+	if (current_token_index + token_count > source->count)
+	{
+		return app_shader_semantic_end_of_source;
+	}
+
+	// Construct a bitmask to get closer to a semantic type
+	fckc_size_t offset = current_token_index + 1;
+	for (fckc_size_t i = 1; i < token_count; i++)
+	{
+		const fckc_size_t current = offset;
+		const app_shader_source_token token = source->tokens[current];
+		semantic = semantic | (1 << token.type);
+
+		// Down here we want to create a "scope"
+		// The content of the scope are opaque for semantic purpose
+		// The content of the scope do not really matter cause it can be anything
+		// open | close -> should mean a content is optional
+		// open | body | close -> should mean content is not optional?
+		fckc_size_t next = offset + 1;
+		switch (token.type)
+		{
+		case app_shader_brace_open:
+			next = app_scope(source, current, app_shader_brace_close);
+			break;
+		case app_shader_paren_open:
+			next = app_scope(source, current, app_shader_paren_close);
+			break;
+		case app_shader_bracket_open:
+			next = app_scope(source, current, app_shader_bracket_close);
+			break;
+		default:
+			break;
+		}
+
+		if (next >= source->count)
+		{
+			return app_shader_semantic_end_of_source;
+		}
+		offset = next;
+	}
+
+	syntax->type = semantic;
+	syntax->identifier[0] = '\0';
+	syntax->next = source->tokens + offset;
+
+	const app_shader_source_token *identifier;
+
+	switch (semantic)
+	{
+	case app_shader_semantic_layout:
+		return app_shader_semantic_layout;
+	case app_shader_semantic_struct_definition:
+	case app_shader_semantic_uniform_definition:
+		// We find the identifier after the struct keyword
+		identifier = &source->tokens[current_token_index + 1];
+		memcpy(syntax->identifier, identifier->source, identifier->length);
+		syntax->identifier[identifier->length] = '\0';
+		return semantic;
+	default:
+		break;
+	}
+	return app_shader_semantic_unknown;
+}
+
+static const char *app_shader_source_skip_space(const char *str)
+{
+	for (;;)
+	{
+		if (*str == '\0')
+		{
+			return str;
+		}
+		if (!isspace(*str))
+		{
+			return str;
+		}
+		str = str + 1;
+	}
+}
+
+static const char *app_shader_source_skip_until_non_number(const char *str)
+{
+	for (;;)
+	{
+		if (*str == '\0')
+		{
+			return str;
+		}
+		if (!isdigit(*str))
+		{
+			if (*str != '.')
+			{
+				return str;
+			}
+		}
+		str = str + 1;
+	}
+}
+
+static int isc_identifier(char c)
+{
+	return isalnum(c) || c == '_';
+}
+
+static const char *app_shader_source_skip_until_non_identifier(const char *str)
+{
+	for (;;)
+	{
+		if (*str == '\0')
+		{
+			return str;
+		}
+		if (!isalnum(*str))
+		{
+			if (*str != '_')
+			{
+				return str;
+			}
+		}
+		str = str + 1;
+	}
+}
+
+// name bad
+static const char *app_shader_source_text_equals(const char *str, const char *end, const char *other)
+{
+	// Excludes null-terminator!
+	const fckc_size_t len = strlen(other);
+	const fckc_size_t distance = (fckc_size_t)end - (fckc_size_t)str;
+
+	if (distance < len)
+	{
+		// This should be correct
+		return NULL;
+	}
+
+	for (fckc_size_t index = 0; index < len; index++)
+	{
+		const char lc = str[index];
+		const char rc = other[index];
+		if (str + index >= end)
+		{
+			return NULL;
+		}
+
+		if (lc != rc)
+		{
+			return NULL;
+		}
+	}
+	// Meh, it just returns the equal part's end
+	return str + len;
+}
+
+static const char *app_shader_source_parse_keyword(const char *current, const char *next, const char *keyword)
+{
+	// We are guaranteed to hit a new token, cool, cool
+	const char *end_of_keyword = app_shader_source_text_equals(current, next, keyword);
+	if (end_of_keyword)
+	{
+		// Null-terminator got our back - We look at the next one
+		if (!isc_identifier(*end_of_keyword))
+		{
+			return end_of_keyword;
+		}
+	}
+	return NULL;
+}
+
+static const char *app_shader_source_token_next(const char *current, app_shader_source_token *out_token)
+{
+	typedef struct app_shader_source_keywords_entry
+	{
+		const char *keyword;
+		app_shader_token token;
+	} app_shader_source_keywords_entry;
+
+	// TODO: Make it some little hash lookup instead! :)
+	const static app_shader_source_keywords_entry keywords[] = {
+		{"struct", app_shader_struct},     //
+		{"float", app_shader_type},        //
+		{"layout", app_shader_layout},     //
+		{"uniform", app_shader_uniform},   //
+		{"readonly", app_shader_readonly}, //
+		{"shared", app_shader_shared},     //
+		{"buffer", app_shader_buffer},     //
+	};
+
+	current = app_shader_source_skip_space(current);
+	// Maybe doing it more per char is a bit better
+	out_token->type = app_shader_unknown;
+	out_token->source = current;
+	out_token->length = 1;
+
+	if (*current == '_' || isalpha(*current))
+	{
+		// idenfitiers cannot start with numbers
+		// Identifier-ish. Probably, idk
+		const char *next = app_shader_source_skip_until_non_identifier(current + 1);
+
+		out_token->type = app_shader_identifier;
+		out_token->length = (fckc_size_t)next - (fckc_size_t)current;
+
+		for (fckc_size_t index = 0; index < fck_arraysize(keywords); index++)
+		{
+			const app_shader_source_keywords_entry *entry = keywords + index;
+			const char *result = app_shader_source_parse_keyword(current, next, entry->keyword);
+			if (result)
+			{
+				// Beyond the keyword, we need to check if it is non identifier text
+				// Else we might be looking at something else. I.e., floattest <- see
+				// This is a float keyword!
+				out_token->type = entry->token;
+				out_token->length = (fckc_size_t)next - (fckc_size_t)current;
+				break;
+			}
+		}
+	}
+	else if (isdigit(*current))
+	{
+		const char *next = app_shader_source_skip_until_non_number(current);
+		out_token->type = app_shader_constant;
+		out_token->length = (fckc_size_t)next - (fckc_size_t)current;
+	}
+	else if (ispunct(*current))
+	{
+		out_token->length = 1;
+		switch (*current)
+		{
+		case '{':
+			out_token->type = app_shader_brace_open;
+			break;
+		case '}':
+			out_token->type = app_shader_brace_close;
+			break;
+		case '(':
+			out_token->type = app_shader_paren_open;
+			break;
+		case ')':
+			out_token->type = app_shader_paren_close;
+			break;
+		case '[':
+			out_token->type = app_shader_bracket_open;
+			break;
+		case ']':
+			out_token->type = app_shader_bracket_close;
+			break;
+		case ';':
+			out_token->type = app_shader_semicolon;
+			break;
+		default:
+			out_token->type = app_shader_operator;
+			break;
+		}
+	}
+	else if (*current == '\0')
+	{
+		// If we fuck up, we just spin on this one. I do not really care tbh
+		out_token->type = app_shader_end_of_source;
+		out_token->length = 0;
+	}
+	return out_token->source + out_token->length;
+}
+
+static void app_shader_source_parse(const char *text, app_shader_source *source)
+{
+	// shared keyword only valid in compute shaders
+	// buffer keyword
+	const char *current = text;
+
+	// Set this whole bad boy to 0
+	memset(source->references, 0, sizeof(source->references));
+	while (*current)
+	{
+		app_shader_source_token dummy;
+		current = app_shader_source_token_next(current, &dummy);
+		source->references[dummy.type].count = source->references[dummy.type].count + 1;
+	}
+
+	source->count = 0;
+	for (fckc_size_t index = 0; index < fck_arraysize(source->references); index++)
+	{
+		app_shader_source_token_reference_list *list = source->references + index;
+		list->values = (app_shader_source_token_reference *)kll_malloc(kll_system, list->count * sizeof(*list->values));
+		source->count = source->count + list->count;
+	}
+
+	source->tokens = (app_shader_source_token *)kll_malloc(kll_system, source->count * sizeof(*source->tokens));
+
+	// Restart that bad boy since we allocated memory
+	current = text;
+
+	fckc_size_t token_entry_index[fck_arraysize(source->references)] = {0};
+
+	fckc_size_t token_index = 0;
+	while (*current)
+	{
+		app_shader_source_token *token = source->tokens + token_index;
+		current = app_shader_source_token_next(current, token);
+
+		app_shader_source_token_reference_list *list = source->references + token->type;
+		app_shader_source_token_reference *reference = list->values + token_entry_index[token->type];
+		reference->value = token;
+
+		token_entry_index[token->type] = token_entry_index[token->type] + 1;
+		token_index = token_index + 1;
+	}
+}
+
+static void app_parse_variables(const char *open, const char *close)
+{
+	const char *current = open + 1;
+	while (current < close)
+	{
+		const char *semicolon = strchr(current, ';');
+		if (semicolon > close)
+		{
+			return;
+		}
+		current = semicolon + 1;
+	}
+}
+
+static void app_parse_shader_properties(const char *source)
+{
+	const char layout_token[] = "layout";
+	const char binding_token[] = "binding";
+	const char uniform_token[] = "uniform";
+
+	const char *eos = source + strlen(source);
+	const char *current = source;
+	while (current < eos)
+	{
+		const char *layout = strstr(current, layout_token);
+		if (layout == NULL)
+		{
+			// No layout anywhere.
+			return;
+		}
+
+		const char *preempt_semicolon = strchr(layout, ';');
+		if (preempt_semicolon == NULL)
+		{
+			// No semicolon left - Broken
+			return;
+		}
+
+		const char *binding_open = strchr(layout + sizeof(layout_token), '(');
+		if (binding_open == NULL)
+		{
+			// No '(' left... Non-sense to keep going
+			return;
+		}
+		const char *binding_close = strchr(binding_open + 1, ')');
+		if (binding_close == NULL)
+		{
+			// No '(' left... Non-sense to keep going
+			return;
+		}
+		current = binding_close + 1;
+
+		const char *binding = strstr(binding_open, binding_token);
+		if (binding <= binding_open || binding > binding_close)
+		{
+			continue;
+		}
+		const char *binding_assignmet = strchr(binding + sizeof(binding_token), '=');
+		if (binding_assignmet <= binding_open || binding_assignmet > binding_close)
+		{
+			continue;
+		}
+		unsigned long binding_index = to_i32(~0LLU);
+		const char *binding_index_end = app_parse_number(binding_assignmet, binding_close, &binding_index);
+
+		// We now know we are in a binding block. Let's take a pivot to an end. This is just any end
+		const char *uniform = strstr(binding_index_end, uniform_token);
+		if (uniform == NULL || uniform > preempt_semicolon)
+		{
+			continue;
+		}
+
+		const char *block_open = strchr(uniform + sizeof(uniform_token), '{');
+		if (block_open == NULL || block_open > preempt_semicolon)
+		{
+			continue;
+		}
+		const char *block_close = strchr(block_open + 1, '}');
+		if (block_close == NULL)
+		{
+			// The match did absolutely fail
+			return;
+		}
+
+		// Scan and save eveyrthing within this blocK!
+		app_parse_variables(block_open, block_close);
+
+		const char *semicolon = strchr(block_close + 1, ';');
+	}
+}
+
 static void app_graphics_create(app_graphics *pipelines, app_graphics_shape primitive, app_graphics_style material, const char *vertex,
                                 const char *fragment)
 {
@@ -341,6 +979,45 @@ static void app_graphics_create(app_graphics *pipelines, app_graphics_shape prim
 	fck_glsl_object frag = {0};
 	vert = compiler.create_glsl_from_file(&compiler, &vert_desc, &vert_file);
 	frag = compiler.create_glsl_from_file(&compiler, &frag_desc, &frag_file);
+
+	app_shader_source shader_source = {0};
+	app_shader_source_parse(vert.generic.source, &shader_source);
+
+	app_shader_syntax syntax = {0};
+	while (app_shader_semantic_match(&shader_source, &syntax))
+	{
+		if (syntax.type == app_shader_semantic_struct_definition)
+		{
+			os->io->log("struct %s", syntax.identifier);
+		}
+		if (syntax.type == app_shader_semantic_uniform_definition)
+		{
+			os->io->log("uniform %s", syntax.identifier);
+		}
+	}
+
+	// for (fckc_size_t index = 0; index < shader_source.count; index++)
+	//{
+	//	const app_shader_source_token token = shader_source.tokens[index];
+	//	if (token.type == app_shader_layout)
+	//	{
+	//		const app_shader_source_token paren_open = shader_source.tokens[index + 1];
+
+	//		os->io->log("%s", token.source);
+	//	}
+	//	else if (token.type == app_shader_struct)
+	//	{
+	//		app_shader_syntax syntax = {0};
+	//		app_shader_semantic_type semantic_type = app_shader_semantic_match(&shader_source, &syntax);
+	//		(void)semantic_type;
+	//	}
+	//}
+
+	// TODO: Rules
+	// paren open and paren close count need to be the same
+	// block open and block close count need to be the same
+	//
+	// app_parse_shader_properties(frag.generic.source);
 
 	sht_binding const *bindings;
 	const fckc_size_t binding_count = app_graphic_pipeline_bindings(primitive, material, &bindings);
@@ -454,7 +1131,7 @@ int main(int argc, char **argv)
 	sht_render_api *render = (sht_render_api *)registry->find(sht_render_api_name);
 	fck_shader_api *shader = (fck_shader_api *)registry->find(fck_shader_api_name);
 
-	fck_window window = os->win->create("Test", 1920, 1080);
+	fck_window window = os->win->create("Test", 1280, 720);
 
 	const sht_instance instance = render->load(sht_header_version);
 	if (!render->is_ok(instance))

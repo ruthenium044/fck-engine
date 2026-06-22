@@ -7,6 +7,8 @@ project(fck-app)
 
 add_executable(${PROJECT_NAME})
 target_sources(${PROJECT_NAME} PRIVATE "main.c")
+target_sources(${PROJECT_NAME} PRIVATE "reflection.c")
+target_sources(${PROJECT_NAME} PRIVATE "reflection.h")
 
 find_package(api)
 find_package(os)

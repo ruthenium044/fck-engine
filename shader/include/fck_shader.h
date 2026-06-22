@@ -15,18 +15,18 @@ typedef enum fck_shader_language
 	FCK_SHADER_SPIRV,
 } fck_shader_language;
 
-typedef enum fck_shader_type
+typedef enum fck_shader_stage_type
 {
 	FCK_SHADER_VERTEX = 0,
 	FCK_SHADER_FRAGMENT = 1,
 	FCK_SHADER_COMPUTE = 2,
 
 	FCK_SHADER_PIXEL = FCK_SHADER_FRAGMENT,
-} fck_shader_type;
+} fck_shader_stage_type;
 
 typedef struct fck_shader_desc
 {
-	fck_alias(fck_shader_type, fckc_u32) type;
+	fck_alias(fck_shader_stage_type, fckc_u32) type;
 
 	// idk if all as null-terminated strings is wise... we will see!
 	const char *file;
@@ -77,7 +77,7 @@ typedef struct fck_shader_compiler
 	// TODO: Either we are stubborn and say "you need at least ONE compiler to understand a shader object"
 	// or we redesign this API :)
 	// Why the fuck are the parms pointers?
-	fck_shader_type (*type)(fck_shader_generic *shader);
+	fck_shader_stage_type (*type)(fck_shader_generic *shader);
 	fck_shader_language (*language)(fck_shader_generic *shader);
 	const char *(*file)(fck_shader_generic *shader);
 	const char *(*entry_point)(fck_shader_generic *shader);

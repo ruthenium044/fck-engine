@@ -6,7 +6,6 @@
 #include <fck_input.h>
 #include <kll.h>
 #include <kll_malloc.h>
-#include <kll_system.h>
 
 #include <fckc_assert.h>
 #include <fckc_inttypes.h>
@@ -83,7 +82,7 @@ fck_test_app_result fck_test_app_app_init(void **app_state, int argc, char **arg
 {
 	fck_api_registry *registry = fck_api_registry_load("fck-api.dll");
 
-	fck_test_app_application *app = (fck_test_app_application *)kll_malloc(kll_system, sizeof(*app));
+	fck_test_app_application *app = (fck_test_app_application *)kll_malloc(kll->system, sizeof(*app));
 	memset(app, 0, sizeof(*app));
 	*app_state = app;
 

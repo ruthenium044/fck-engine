@@ -8,7 +8,6 @@ extern "C"
 #include <fckc_assert.h>
 #include <kll.h>
 #include <kll_malloc.h>
-#include <kll_system.h>
 }
 #include <shaderc/shaderc.h>
 #include <stdlib.h>
@@ -46,7 +45,7 @@ static fck_shader_generic fck_shader_create_generic(struct fck_shader_compiler *
 static fck_spirv_object fck_shader_create_spirv(struct fck_shader_compiler *compiler, fck_shader_generic *shader)
 {
 	// MAPS ONE TO ONE FOR NOW! THIS CAN BREAK!
-	const shaderc_shader_kind shader_kind = (shaderc_shader_kind)(fck_shader_type)shader->desc.type;
+	const shaderc_shader_kind shader_kind = (shaderc_shader_kind)(fck_shader_stage_type)shader->desc.type;
 	if (shader->language == FCK_SHADER_SPIRV)
 	{
 		return (fck_spirv_object){};
@@ -115,7 +114,7 @@ static fck_hlsl_object fck_shader_create_hlsl(struct fck_shader_compiler *compil
 static fck_hlsl_object fck_shader_create_hlsl_from_file(struct fck_shader_compiler *compiler, fck_shader_desc *desc, fck_file *file)
 {
 	const fckc_size_t size = os->fs->size(*file);
-	char *text = (char *)kll_malloc(kll_system, size);
+	char *text = (char *)kll_malloc(kll->system, size);
 	const fckc_size_t read = os->fs->read(*file, text, size);
 	fck_assert(size == read);
 	text[read] = '\0';
@@ -127,7 +126,7 @@ static fck_hlsl_object fck_shader_create_hlsl_from_file(struct fck_shader_compil
 static fck_glsl_object fck_shader_create_glsl_from_file(struct fck_shader_compiler *compiler, fck_shader_desc *desc, fck_file *file)
 {
 	const fckc_size_t size = os->fs->size(*file);
-	char *text = (char *)kll_malloc(kll_system, size);
+	char *text = (char *)kll_malloc(kll->system, size);
 	const fckc_size_t read = os->fs->read(*file, text, size);
 	fck_assert(size == read);
 	text[read] = '\0';
@@ -147,9 +146,9 @@ static void fck_shader_compiler_shutdown(fck_shader_compiler *compiler)
 	shaderc_compiler_release(shaderc);
 }
 
-static fck_shader_type fck_shader_compiler_type(fck_shader_generic *shader)
+static fck_shader_stage_type fck_shader_compiler_type(fck_shader_generic *shader)
 {
-	return (fck_shader_type)shader->desc.type;
+	return (fck_shader_stage_type)shader->desc.type;
 }
 static fck_shader_language fck_shader_compiler_language(fck_shader_generic *shader)
 {

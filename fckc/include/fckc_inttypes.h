@@ -3,8 +3,8 @@
 #ifndef FCKC_INTTYPES_H_INCLUDED
 #define FCKC_INTTYPES_H_INCLUDED
 
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #define fck_arraysize(array) (sizeof(array) / sizeof((array)[0]))
 
@@ -58,17 +58,23 @@ typedef uintptr_t fckc_uintptr;
 #endif
 
 #ifndef alignof
-#define alignof(type)                                                                                                                      \
-	((size_t)((char *)&((struct {                                                                                                          \
-				  char c;                                                                                                                  \
-				  type t;                                                                                                                  \
-			  } *)0)                                                                                                                       \
-	              ->t))
+// The issue with this shit here is that alignof behaves slightly different
+// The fallback using offsetof actually does not allow passing in non-type input
+// while the compiler extensions do...
+#if defined(__GNUC__) || defined(__clang__)
+#define alignof(type) __alignof__(type)
+#elif defined(_MSC_VER)
+#define alignof(type) __alignof(type)
+#else
+#define alignof(type) offsetof(struct { char c; type t; }, t)
 #endif
+#endif
+
+#define ALIGNOF_C99(type) offsetof(struct { char c; type t; }, t)
 
 #define fckc_align(offset, align) (((offset) + (align) - 1) & ~((align) - 1))
 
-#define fckc_concat_implementation(x, y) x ## y
+#define fckc_concat_implementation(x, y) x##y
 #define fckc_concat(x, y) fckc_concat_implementation(x, y)
 #define fckc_pad(n) char fckc_concat(_padding_, __LINE__)[n]
 

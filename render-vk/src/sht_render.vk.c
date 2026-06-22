@@ -11,7 +11,6 @@
 #include <fck_hash.h>
 #include <kll.h>
 #include <kll_malloc.h>
-#include <kll_system.h>
 
 #include <fck_apis.h>
 #include <fckc_inttypes.h>
@@ -49,7 +48,7 @@ static const VkDescriptorType sht_binding_type_to_vk_desc_type[] = {
 static void *VKAPI_PTR sht_vk_default_allocation(void *userdata, size_t size, size_t alignment, VkSystemAllocationScope scope)
 {
 	(void)userdata;
-	void *ptr = kll_malloc(kll_system, size);
+	void *ptr = kll_malloc(kll->system, size);
 	VK_LOG("ALLOC", "Size: %zu, Align: %zu, Scope: %d -> Addr: %p", size, alignment, scope, ptr);
 	return ptr;
 }
@@ -59,7 +58,7 @@ static void *VKAPI_PTR sht_vk_default_reallocation(void *userdata, void *pOrigin
 {
 	(void)userdata;
 	(void)alignment;
-	void *ptr = kll_realloc(kll_system, pOriginal, size);
+	void *ptr = kll_realloc(kll->system, pOriginal, size);
 	VK_LOG("REALLOC", "Old: %p, New Size: %zu, Scope: %d -> New Addr: %p", pOriginal, size, scope, ptr);
 	return ptr;
 }
@@ -70,7 +69,7 @@ static void VKAPI_PTR sht_vk_default_free(void *userdata, void *pMemory)
 	if (pMemory)
 	{
 		VK_LOG("FREE", "Addr: %p", pMemory);
-		kll_free(kll_system, pMemory);
+		kll_free(kll->system, pMemory);
 	}
 }
 
@@ -1503,7 +1502,7 @@ static VkResult sht_vk_swapchain_init(sht_vk_swapchain *swapchain, sht_vk_driver
 	fckc_u32 format_count;
 	sht_vk_crash(gpu->GetPhysicalDeviceSurfaceFormatsKHR(gpu->device, surface, &format_count, NULL));
 
-	VkSurfaceFormatKHR *formats = (VkSurfaceFormatKHR *)kll_malloc(kll_system, format_count * sizeof(VkSurfaceFormatKHR));
+	VkSurfaceFormatKHR *formats = (VkSurfaceFormatKHR *)kll_malloc(kll->system, format_count * sizeof(VkSurfaceFormatKHR));
 	sht_vk_crash(gpu->GetPhysicalDeviceSurfaceFormatsKHR(gpu->device, surface, &format_count, formats));
 	fck_assert(format_count >= 1); // That would be fucking weird, lol
 
@@ -1520,7 +1519,7 @@ static VkResult sht_vk_swapchain_init(sht_vk_swapchain *swapchain, sht_vk_driver
 	{
 		format = formats[0].format;
 	}
-	kll_free(kll_system, formats);
+	kll_free(kll->system, formats);
 
 	VkSurfaceCapabilitiesKHR surface_capabilities;
 	sht_vk_crash(gpu->GetPhysicalDeviceSurfaceCapabilitiesKHR(gpu->device, surface, &surface_capabilities));
@@ -2656,7 +2655,7 @@ static VkResult sht_vk_shader_module_load(sht_vk_driver *driver, fck_shader_desc
 	const fck_file shader_source = os->fs->open(path, "r");
 
 	const fckc_size_t size = os->fs->size(shader_source);
-	char *text = (char *)kll_malloc(kll_system, size);
+	char *text = (char *)kll_malloc(kll->system, size);
 	os->fs->read(shader_source, text, size);
 
 	fck_hlsl_object hlsl = compiler.create_hlsl(&compiler, &desc, text);
@@ -3660,8 +3659,8 @@ static sht_bool32 sht_bss_upload_image(sht_bss bss, fckc_u32 id, const sht_image
 
 static sht_instance sht_vk_load(fckc_u32 version)
 {
-	sht_vk_instance *vk = kll_malloc(kll_system, sizeof(*vk));
-	vk->allocator = kll_system;
+	sht_vk_instance *vk = kll_malloc(kll->system, sizeof(*vk));
+	vk->allocator = kll->system;
 	vk->name = "sht-vulkan";
 	sht_vk_crash(sht_vk_instance_init(vk));
 

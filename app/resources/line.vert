@@ -18,6 +18,7 @@ struct LineTransform {
     float z;        
     float thickness;
     float scale;
+    float unused;
 };
 
 layout(std430, binding = 1) readonly buffer TransformBuffer {

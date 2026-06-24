@@ -23,6 +23,18 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define NK_INCLUDE_FIXED_TYPES
+#define NK_INCLUDE_STANDARD_IO
+#define NK_INCLUDE_STANDARD_VARARGS
+#define NK_INCLUDE_DEFAULT_ALLOCATOR
+#define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
+#define NK_INCLUDE_FONT_BAKING
+#define NK_INCLUDE_DEFAULT_FONT
+#define NK_KEYSTATE_BASED_INPUT
+#define NK_UINT_DRAW_INDEX
+#define NK_IMPLEMENTATION
+#include "nuklear.h"
+
 static void purge_files(const char *pattern)
 {
 	char **paths;
@@ -74,6 +86,18 @@ typedef struct app_config
 	fckc_i32 is_sdf;
 } app_config;
 
+typedef struct app_vertex_transform
+{
+	float x;
+	float y;
+	float u;
+	float v;
+	float r;
+	float g;
+	float b;
+	float a;
+} app_vertex_transform;
+
 typedef struct app_quad_transform
 {
 	float x;
@@ -83,6 +107,7 @@ typedef struct app_quad_transform
 	float width;
 	float height;
 	float scale;
+	float unused;
 } app_quad_transform;
 
 typedef struct app_line_transform
@@ -94,10 +119,12 @@ typedef struct app_line_transform
 	float z;
 	float thickness;
 	float scale;
+	float unused;
 } app_line_transform;
 
 // This will backlash. Try to keep them the same size, else the stride and all that stuff needs to stay opaque! We are lucky for now :D
 typedef union app_shape_transform {
+	app_vertex_transform vertex;
 	app_quad_transform quad;
 	app_line_transform line;
 } app_shape_transform;
@@ -341,6 +368,7 @@ typedef struct app_graphic_pipeline
 	sht_graphics_pipeline pipeline;
 	sht_bss bss;
 
+	// Rework properties
 	app_properties properties;
 
 	app_shape_transform *transforms;
@@ -354,6 +382,133 @@ typedef struct app_graphics
 	sht_driver driver;
 	app_graphic_pipeline values[app_shape_count][app_style_count];
 } app_graphics;
+
+static fckc_size_t app_bindings_add(sht_stage_flags stage, const fck_glsl_reflection_variable *var, sht_binding *bindings,
+                                    fckc_size_t count, fckc_size_t capacity)
+{
+	fck_assert(var->binding >= 0);
+	const fck_glsl_reflection_type *type = var->type;
+
+	for (fckc_size_t index = 0; index < count; index++)
+	{
+		sht_binding *binding = bindings + index;
+		if (binding->id == var->binding)
+		{
+			binding->stages = binding->stages | stage;
+			return count;
+		}
+	}
+
+	sht_binding *binding = bindings + count;
+	if (sht_test(var->qualifiers, fck_glsl_reflection_declaration_qualifier_uniform))
+	{
+		fck_assert(count < capacity);
+		binding->id = var->binding;
+		binding->stages = stage;
+		binding->type = SHT_BINDING_UNIFORM;
+		if (glsl_reflection->is(type, "sampler2D"))
+		{
+			binding->type = SHT_BINDING_READ_ONLY_IMAGE;
+		}
+		count = count + 1;
+	}
+	if (sht_test(var->qualifiers, fck_glsl_reflection_declaration_qualifier_buffer))
+	{
+		fck_assert(count < capacity);
+		binding->id = var->binding;
+		binding->stages = stage;
+		binding->type = SHT_BINDING_STORAGE;
+		count = count + 1;
+	}
+	return count;
+}
+
+static void app_graphic_pipeline_create(fck_shader_api *shader, app_graphic_pipeline *gfx, sht_driver driver, const char *vertex_name,
+                                        const char *vertex, const char *fragment_name, const char *fragment)
+{
+	fck_shader_compiler compiler = shader->create();
+
+	fck_file vert_file = os->fs->open(vertex, "r");
+	fck_shader_desc vert_desc = (fck_shader_desc){FCK_SHADER_VERTEX, vertex_name, "main"};
+
+	fck_file frag_file = os->fs->open(fragment, "r");
+	fck_shader_desc frag_desc = (fck_shader_desc){FCK_SHADER_FRAGMENT, fragment_name, "main"};
+	fck_glsl_object vert = {0};
+	fck_glsl_object frag = {0};
+	vert = compiler.create_glsl_from_file(&compiler, &vert_desc, &vert_file);
+	frag = compiler.create_glsl_from_file(&compiler, &frag_desc, &frag_file);
+
+	// Setup Reflection
+	const fckc_size_t bindings_capacity = 16;
+	sht_binding bindings[bindings_capacity];
+	fckc_size_t bindings_count = 0;
+
+	{
+		struct fck_glsl_reflection *reflection = glsl_reflection->reflect(vert.generic.source, fck_glsl_reflection_global);
+		const fck_glsl_reflection_type *global = glsl_reflection->type_of(reflection, fck_glsl_reflection_global);
+		const fck_glsl_reflection_variable *current = global->first;
+		while (current)
+		{
+			if (current->binding >= 0)
+			{
+				bindings_count = app_bindings_add(SHT_STAGE_VERTEX_SHADER, current, bindings, bindings_count, bindings_capacity);
+			}
+			current = current->next;
+		}
+		glsl_reflection->free(reflection);
+	}
+	{
+		struct fck_glsl_reflection *reflection = glsl_reflection->reflect(frag.generic.source, fck_glsl_reflection_global);
+		const fck_glsl_reflection_type *global = glsl_reflection->type_of(reflection, fck_glsl_reflection_global);
+		const fck_glsl_reflection_variable *current = global->first;
+		while (current)
+		{
+			if (current->binding >= 0)
+			{
+				bindings_count = app_bindings_add(SHT_STAGE_FRAGMENT_SHADER, current, bindings, bindings_count, bindings_capacity);
+			}
+			current = current->next;
+		}
+		glsl_reflection->free(reflection);
+	}
+
+	// sht_binding const *bindings;
+	sht_binding_desc binding_desc = {.bindings = bindings, .count = bindings_count};
+	gfx->bss = driver.vt->bss->create(driver, &binding_desc);
+
+	// TODO: Deprecate
+	sht_vertex_desc vertex_desc = {
+		.stride = 0,
+		.bindings = NULL,
+		.count = 0,
+	};
+	const sht_raster_desc raster_desc = {
+		.cull_mode = SHT_CULL_MODE_NONE,
+		.topology = SHT_TRIANGLE_LIST,
+		.color = SHT_FORMAT_B8G8R8A8_UNORM,
+		.depth = SHT_FORMAT_UNDEFINED, // SHT_FORMAT_D16_UNORM,
+	};
+	sht_graphic_desc graphic_desc = {
+		.fragment = &frag.generic,
+		.vertex = &vert.generic,
+		.vertex_desc = &vertex_desc,
+		.raster = raster_desc,
+	};
+
+	os->fs->close(vert_file);
+	os->fs->close(frag_file);
+
+	gfx->pipeline = driver.vt->graphics_pipeline->create(driver, gfx->bss, &graphic_desc);
+
+	const fckc_size_t capacity = 64;
+	gfx->transforms = (app_shape_transform *)kll_malloc(kll->system, sizeof(*gfx->transforms) * capacity);
+	gfx->capacity = capacity;
+	gfx->count = 0;
+
+	compiler.destroy(&compiler, &vert.generic);
+	compiler.destroy(&compiler, &frag.generic);
+	compiler.shutdown(&compiler);
+}
 
 static void app_graphics_init(app_graphics *graphics, fck_shader_api *shader, sht_driver driver)
 {
@@ -388,6 +543,7 @@ static void app_graphics_create(app_graphics *pipelines, app_graphics_shape prim
 	sht_binding_desc binding_desc = {.bindings = bindings, .count = binding_count};
 	gfx->bss = pipelines->driver.vt->bss->create(pipelines->driver, &binding_desc);
 
+	// TODO: Deprecate
 	sht_vertex_desc vertex_desc = {
 		.stride = 0,
 		.bindings = NULL,
@@ -419,19 +575,19 @@ static void app_graphics_create(app_graphics *pipelines, app_graphics_shape prim
 	// Setup Reflection
 	{
 		struct fck_glsl_reflection *reflection = glsl_reflection->reflect(frag.generic.source, fck_glsl_reflection_global);
-		const fck_glsl_reflection_type *global_type = glsl_reflection->type_of(reflection, fck_glsl_reflection_global);
+		const fck_glsl_reflection_type *global = glsl_reflection->type_of(reflection, fck_glsl_reflection_global);
 		const fck_glsl_reflection_type *float_type = glsl_reflection->type_of(reflection, "float");
 		const fck_glsl_reflection_type *int_type = glsl_reflection->type_of(reflection, "int");
-		const fck_glsl_reflection_type* sampler2D_type = glsl_reflection->type_of(reflection, "sampler2D");
+		const fck_glsl_reflection_type *sampler2D_type = glsl_reflection->type_of(reflection, "sampler2D");
 
 		gfx->strings = kll->arena->create(kll->system, 256);
 
-		const fck_glsl_reflection_variable *current = global_type->first;
+		const fck_glsl_reflection_variable *current = global->first;
 		while (current)
 		{
-			if (current->type->binding >= 0)
+			if (current->binding >= 0)
 			{
-				os->io->log("Binding: %d -- Type: %s - Name: %s", current->type->binding, current->type->name, current->name);
+				os->io->log("Binding: %d -- Type: %s - Name: %s", current->binding, current->type->name, current->name);
 				const fck_glsl_reflection_variable *child_current = current->type->first;
 				while (child_current)
 				{
@@ -507,18 +663,241 @@ static void app_graphics_add_quad(app_graphics *graphics, app_graphics_style mat
 	g->count = g->count + 1;
 }
 
+typedef struct app_nuklear
+{
+	struct nk_font_atlas atlas;
+	struct nk_font *default_font;
+	struct nk_draw_null_texture null_texture;
+
+	struct nk_buffer commands;
+	struct nk_context *ctx;
+
+	sht_buffer indices;
+	sht_sampler sampler;
+	sht_image font_image;
+	sht_image_view font_view;
+	app_graphic_pipeline gfx;
+
+	fckc_u64 time_last_frame;
+} app_nuklear;
+
+static sht_image app_nuklear_bake_font(sht_driver driver, const void *pixels, sht_format format, int width, int height)
+{
+	sht_memory *memory = driver.vt->memory(driver);
+	sht_image_configuration config = {
+		.format = format,
+		.height = to_u32(height),
+		.width = to_u32(width),
+		.transfer = SHT_TRANSFER_TARGET,
+		.usage = SHT_IMAGE_USAGE_SAMPLED,
+	};
+
+	sht_image image = memory->image->create(memory->bump, &config, SHT_MEMORY_GPU);
+	if (!memory->image->is_ok(&image))
+	{
+		return image;
+	}
+	const fckc_size_t size = (fckc_size_t)width * height * 4;
+	driver.vt->upload_image(driver, &image, pixels, size);
+	return image;
+}
+
+static void app_nuklear_init(app_nuklear *nk, sht_driver driver, fck_shader_api *shader)
+{
+	sht_memory *memory = driver.vt->memory(driver);
+
+	sht_buffer_configuration config = sht_buffer_retained(SHT_BUFFER_USAGE_INDEX, sizeof(fckc_u32) * 4096);
+	nk->indices = memory->malloc(memory->bump, &config, SHT_MEMORY_CPU);
+
+	nk->sampler = driver.vt->create_sampler(driver, sht_filter_linear);
+
+	nk->ctx = (struct nk_context *)kll_malloc(kll->system, sizeof(*nk->ctx));
+	nk_init_default(nk->ctx, &nk->default_font->handle);
+	nk->ctx->clip.userdata = nk_handle_ptr(0);
+
+	nk_font_atlas_init_default(&nk->atlas);
+	nk_font_atlas_begin(&nk->atlas);
+
+	const struct nk_font_config font_config = nk_font_config(0);
+	nk->default_font = nk_font_atlas_add_default(&nk->atlas, 13, &font_config);
+
+	int default_font_width, default_font_height;
+
+	const void *default_font_pixels = nk_font_atlas_bake(&nk->atlas, &default_font_width, &default_font_height, NK_FONT_ATLAS_RGBA32);
+
+	const sht_format font_format = SHT_FORMAT_R8G8B8A8_UNORM;
+	nk->font_image = app_nuklear_bake_font(driver, default_font_pixels, font_format, default_font_width, default_font_height);
+	nk->font_view = memory->image->view(memory->bump, nk->font_image, font_format);
+
+	nk_font_atlas_end(&nk->atlas, nk_handle_ptr(&nk->font_view), &nk->null_texture);
+
+	nk_style_set_font(nk->ctx, &nk->default_font->handle);
+
+	nk_buffer_init_default(&nk->commands);
+
+	app_graphic_pipeline_create(shader, &nk->gfx, driver, "nuklear-vertex", fck_resource_path "vertex.vert", "nuklear-fragment",
+	                            fck_resource_path "fragment.frag");
+}
+
+static void nuklear_example(struct nk_context *ctx)
+{
+	/* init gui state */
+
+	enum
+	{
+		EASY,
+		HARD
+	};
+	static int op = EASY;
+	static float value = 0.6f;
+	static int i = 20;
+
+	if (nk_begin(ctx, "Show", nk_rect(50, 50, 220, 220), NK_WINDOW_BORDER | NK_WINDOW_MOVABLE | NK_WINDOW_CLOSABLE))
+	{
+		/* fixed widget pixel width */
+		nk_layout_row_static(ctx, 30, 80, 1);
+		if (nk_button_label(ctx, "button"))
+		{
+			/* event handling */
+		}
+
+		/* fixed widget window ratio width */
+		nk_layout_row_dynamic(ctx, 30, 2);
+		if (nk_option_label(ctx, "easy", op == EASY))
+			op = EASY;
+		if (nk_option_label(ctx, "hard", op == HARD))
+			op = HARD;
+
+		/* custom widget pixel width */
+		nk_layout_row_begin(ctx, NK_STATIC, 30, 2);
+		{
+			nk_layout_row_push(ctx, 50);
+			nk_label(ctx, "Volume:", NK_TEXT_LEFT);
+			nk_layout_row_push(ctx, 110);
+			nk_slider_float(ctx, 0, &value, 1.0f, 0.1f);
+		}
+		nk_layout_row_end(ctx);
+	}
+	nk_end(ctx);
+}
+
+static void app_nuklear_draw(app_nuklear *nk, sht_driver driver, sht_command_buffer buffer)
+{
+	nuklear_example(nk->ctx);
+
+	fckc_u64 now = os->chrono->ms();
+	nk->ctx->delta_time_seconds = (float)(now - nk->time_last_frame) / 1000;
+	nk->time_last_frame = now;
+
+	sht_command_buffer_vt *command = driver.vt->command_buffer;
+
+	static const struct nk_draw_vertex_layout_element vertex_layout[] = {
+		{NK_VERTEX_POSITION, NK_FORMAT_FLOAT, offsetof(struct app_vertex_transform, x)},
+		{NK_VERTEX_TEXCOORD, NK_FORMAT_FLOAT, offsetof(struct app_vertex_transform, u)},
+		{NK_VERTEX_COLOR, NK_FORMAT_R32G32B32A32_FLOAT, offsetof(struct app_vertex_transform, r)},
+		{NK_VERTEX_LAYOUT_END}};
+
+	struct nk_convert_config config;
+
+	NK_MEMSET(&config, 0, sizeof(config));
+	config.vertex_layout = vertex_layout;
+	config.vertex_size = sizeof(app_vertex_transform);
+	config.vertex_alignment = alignof(app_vertex_transform);
+	config.tex_null = nk->null_texture;
+	config.circle_segment_count = 22;
+	config.curve_segment_count = 22;
+	config.arc_segment_count = 22;
+	config.global_alpha = 1.0f;
+	config.shape_AA = NK_ANTI_ALIASING_OFF;
+	config.line_AA = NK_ANTI_ALIASING_OFF;
+
+	struct nk_buffer vertices, elements;
+	nk_buffer_init_default(&vertices);
+	nk_buffer_init_default(&elements);
+	nk_convert(nk->ctx, &nk->commands, &vertices, &elements, &config);
+
+	const app_vertex_transform *vertex_transforms = (const app_vertex_transform *)nk_buffer_memory_const(&vertices);
+	const void *indices = nk_buffer_memory_const(&elements);
+	memcpy(nk->indices.cpu, indices, elements.needed);
+
+	const sht_swapchain swapchain = driver.vt->swapchain(driver);
+	const sht_extent extent = swapchain.vt->extent(swapchain);
+
+	const float dpi = swapchain.vt->scale(swapchain);
+	fckc_f32 projection[16] = {
+		2.0f,  0.0f,  0.0f,  0.0f, //
+		0.0f,  2.0f,  0.0f,  0.0f, //
+		0.0f,  0.0f,  -1.0f, 0.0f, //
+		-1.0f, -1.0f, 0.0f,  1.0f, //
+	};
+	projection[0] /= (extent.width / dpi);
+	projection[5] /= (extent.height / dpi);
+
+	{
+		const app_screen screen = {
+			.width = (float)extent.width,
+			.height = (float)extent.height,
+		};
+		const sht_buffer_upload_desc screen_upload = {
+			.data = &screen,
+			.size = sizeof(screen),
+			.count = 1,
+		};
+
+		const sht_buffer_upload_desc vertices_upload = {
+			.data = vertex_transforms,
+			.size = sizeof(*vertex_transforms),
+			.count = vertices.needed / sizeof(*vertex_transforms),
+		};
+
+		const sht_image_upload_desc font_upload = {
+			.samplers = nk->sampler,
+			.views = nk->font_view,
+		};
+
+		driver.vt->bss->upload_buffer(nk->gfx.bss, 0, &screen_upload);
+		driver.vt->bss->upload_buffer(nk->gfx.bss, 1, &vertices_upload);
+		driver.vt->bss->upload_image(nk->gfx.bss, 2, &font_upload);
+
+		command->bss(buffer, nk->gfx.bss);
+
+		command->graphics_pipeline(buffer, nk->gfx.pipeline);
+		command->index_buffer(buffer, &nk->indices, 0);
+
+		const struct nk_draw_command *cmd;
+		fckc_u32 index_offset = 0;
+		nk_draw_foreach(cmd, nk->ctx, &nk->commands)
+		{
+			if (!cmd->elem_count && !cmd->texture.ptr)
+				continue;
+
+			// driver->vt->bss->upload(ui->bss, 1, sht_upload_params{.view = ui->font.view, .sampler = ui->sampler});
+
+			float x = cmd->clip_rect.x;
+			float y = cmd->clip_rect.y;
+			/*sht_scissor scissor = (sht_scissor){.offset = {x, y}, .extent = {cmd->clip_rect.w * dpi, cmd->clip_rect.h * dpi}};
+			command->scissor(buffer, &scissor);*/
+			command->draw_indexed(buffer, &(sht_draw_indexed_desc){
+											  .first_index = index_offset,
+											  .index_count = cmd->elem_count,
+											  .instance_count = 1,
+											  .first_instance = 0,
+											  .vertex_offset = 0,
+										  });
+			index_offset = index_offset + cmd->elem_count;
+		}
+		nk_buffer_free(&vertices);
+		nk_buffer_free(&elements);
+		nk_clear(nk->ctx);
+		nk_buffer_clear(&nk->commands);
+	}
+}
+
 int main(int argc, char **argv)
 {
 	load_config(argc, argv);
 
 	purge_files("temp-*.dll");
-
-	// app_properties properties = {0};
-	// app_property_structure_set_float(&properties, "r", 0.0f);
-	// app_property_structure_set_float(&properties, "g", 0.0f);
-	// app_property_structure_set_float(&properties, "b", 0.0f);
-	// app_property_structure_set_float(&properties, "a", 0.0f);
-	// app_property_structure_set_float(&properties, "roundness", 0.0f);
 
 	fck_api_registry *registry = fck_api_registry_load("fck-api.dll");
 	fck_plugins_api *plugins = fck_plugins_load(registry, "fck-plugins.dll");
@@ -554,12 +933,14 @@ int main(int argc, char **argv)
 	{
 		return 0;
 	}
-
-	sht_graphics_pipeline graphic_pipelines;
-
 	sht_memory *memory = driver.vt->memory(driver);
 	sht_swapchain swapchain = driver.vt->swapchain(driver);
 	sht_command_buffer_vt *command = driver.vt->command_buffer;
+
+	app_nuklear nk;
+	app_nuklear_init(&nk, driver, shader);
+
+	sht_graphics_pipeline graphic_pipelines;
 
 	sht_elements indices = {0};
 
@@ -583,6 +964,22 @@ int main(int argc, char **argv)
 		fckc_u32 pixels[] = {0xFF0000FF, 0xFF00FF00, 0xFFFF0000, 0xFFFFFFFF};
 		driver.vt->upload_image(driver, &texture_image, pixels, sizeof(pixels));
 	}
+
+	// sht_image depth_image = {0};
+	// sht_image_view depth_view = {0};
+	//{
+	//	sht_extent extent = swapchain.vt->extent(swapchain);
+	//	sht_image_configuration config = (sht_image_configuration){
+	//		.format = SHT_FORMAT_D16_UNORM,
+	//		.width = extent.width,
+	//		.height = extent.height,
+	//		.transfer = SHT_TRANSFER_RETAINED,
+	//		.usage = SHT_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT,
+	//	};
+
+	//	depth_image = memory->image->create(memory->bump, &config, SHT_MEMORY_GPU);
+	//	depth_view = memory->image->view(memory->bump, depth_image, SHT_FORMAT_UNDEFINED);
+	//}
 
 	{
 		fckc_u32 index_data[] = {0, 1, 2, 1, 3, 2};
@@ -651,19 +1048,14 @@ int main(int argc, char **argv)
 		const sht_image_view color_target = swapchain.vt->wait_and_acquire(swapchain, &frame_index);
 		if (swapchain.vt->is_ok(swapchain, frame_index))
 		{
-			sht_extent extent = swapchain.vt->extent(swapchain);
+			const sht_extent extent = swapchain.vt->extent(swapchain);
 
 			const sht_command_buffer command_buffer = command->acquire(driver, frame_index);
 			if (command->is_ok(command_buffer))
 			{
 				sht_render_desc desc = {
-					.colour =
-						{
-							.view = color_target,
-							.load_op = SHT_CLEAR,
-							.store_op = SHT_STORE,
-							.clear_value = {0.0f, 0.0f, 0.2f, 1.0f},
-						},
+					.colour = {.view = color_target, .load_op = SHT_CLEAR, .store_op = SHT_STORE, .clear_value = {0.0f, 0.0f, 0.2f, 1.0f}},
+					//.depth = {.view = depth_view, .load_op = SHT_CLEAR, .store_op = SHT_DONT_CARE, .clear_value = 0.0f},
 				};
 
 				app_screen screen = {
@@ -746,6 +1138,8 @@ int main(int argc, char **argv)
 							}
 						}
 					}
+
+					app_nuklear_draw(&nk, driver, command_buffer);
 
 					command->render_pass->end(command_buffer);
 				}

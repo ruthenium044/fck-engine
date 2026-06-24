@@ -475,7 +475,7 @@ typedef struct sht_render_pass_vt
 
 typedef struct sht_buffer_upload_desc
 {
-	void *data;
+	const void *data;
 	fckc_size_t size;
 	fckc_size_t count;
 } sht_buffer_upload_desc;

@@ -103,9 +103,8 @@ typedef struct fck_glsl_reflection_iterator
 	fckc_size_t end_index; // Prevents the iterator from bleeding out of a nested scope
 } fck_glsl_reflection_iterator;
 
-
-static fckc_size_t fck_glsl_reflection_scope(const fck_glsl_reflection_source *source, fckc_size_t current, fck_glsl_reflection_token open_tok,
-                                         fck_glsl_reflection_token close_tok)
+static fckc_size_t fck_glsl_reflection_scope(const fck_glsl_reflection_source *source, fckc_size_t current,
+                                             fck_glsl_reflection_token open_tok, fck_glsl_reflection_token close_tok)
 {
 	fckc_size_t depth = 1;
 	fckc_size_t next = current + 1;
@@ -322,13 +321,15 @@ static fck_glsl_reflection_iterator fck_glsl_reflection_iterate_begin(const fck_
 	return iter;
 }
 
-static fck_glsl_reflection_iterator fck_glsl_reflection_iterate_scope(const fck_glsl_reflection_source *source, fckc_size_t start, fckc_size_t end)
+static fck_glsl_reflection_iterator fck_glsl_reflection_iterate_scope(const fck_glsl_reflection_source *source, fckc_size_t start,
+                                                                      fckc_size_t end)
 {
 	fck_glsl_reflection_iterator iter = {source, start, end};
 	return iter;
 }
 
-static const fck_glsl_reflection_source_token *fck_glsl_token_at(const fck_glsl_reflection_source *source, fckc_size_t index, fckc_size_t end_limit)
+static const fck_glsl_reflection_source_token *fck_glsl_token_at(const fck_glsl_reflection_source *source, fckc_size_t index,
+                                                                 fckc_size_t end_limit)
 {
 	if (index >= source->count || index >= end_limit)
 		return NULL;
@@ -356,7 +357,8 @@ static int fck_glsl_reflection_iterate_declarations(fck_glsl_reflection_iterator
 			const fck_glsl_reflection_source_token *next = fck_glsl_token_at(src, next_idx, limit);
 			if (next && next->type == fck_glsl_reflection_paren_open)
 			{
-				const fckc_size_t close_idx = fck_glsl_reflection_scope(src, next_idx, fck_glsl_reflection_paren_open, fck_glsl_reflection_paren_close);
+				const fckc_size_t close_idx =
+					fck_glsl_reflection_scope(src, next_idx, fck_glsl_reflection_paren_open, fck_glsl_reflection_paren_close);
 				for (fckc_size_t i = next_idx + 1; i < close_idx; i++)
 				{
 					const fck_glsl_reflection_source_token *inner = fck_glsl_token_at(src, i, limit);
@@ -436,7 +438,8 @@ static int fck_glsl_reflection_iterate_declarations(fck_glsl_reflection_iterator
 			if (brace && brace->type == fck_glsl_reflection_brace_open)
 			{
 				out_decl->body_start_index = brace_idx + 1;
-				out_decl->body_end_index = fck_glsl_reflection_scope(src, brace_idx, fck_glsl_reflection_brace_open, fck_glsl_reflection_brace_close);
+				out_decl->body_end_index =
+					fck_glsl_reflection_scope(src, brace_idx, fck_glsl_reflection_brace_open, fck_glsl_reflection_brace_close);
 			}
 
 			const fck_glsl_reflection_source_token *after_brace = fck_glsl_token_at(src, out_decl->body_end_index + 1, limit);
@@ -457,8 +460,8 @@ static int fck_glsl_reflection_iterate_declarations(fck_glsl_reflection_iterator
 			{
 				out_decl->kind = fck_glsl_reflection_declaration_kind_interface_block;
 				out_decl->body_start_index = iter->current_index + 2;
-				out_decl->body_end_index =
-					fck_glsl_reflection_scope(src, iter->current_index + 1, fck_glsl_reflection_brace_open, fck_glsl_reflection_brace_close);
+				out_decl->body_end_index = fck_glsl_reflection_scope(src, iter->current_index + 1, fck_glsl_reflection_brace_open,
+				                                                     fck_glsl_reflection_brace_close);
 
 				const fck_glsl_reflection_source_token *after_brace = fck_glsl_token_at(src, out_decl->body_end_index + 1, limit);
 				if (after_brace && after_brace->type == fck_glsl_reflection_identifier)
@@ -558,7 +561,7 @@ static fck_glsl_reflection_type *fck_glsl_reflection_find_type(fck_glsl_reflecti
 }
 
 static fck_glsl_reflection_type *fck_glsl_reflection_declare_type(fck_glsl_reflection *reflection, const char *name,
-                                                                     const fck_glsl_reflection_type **current)
+                                                                  const fck_glsl_reflection_type **current)
 {
 	const fckc_u64 hash = to_u64(fck_hash(name, strlen(name)));
 	const fckc_u64 size = reflection->types_capacity;
@@ -576,8 +579,6 @@ static fck_glsl_reflection_type *fck_glsl_reflection_declare_type(fck_glsl_refle
 		{
 			type->name = kll_format(reflection->names_arena, name);
 			type->first = NULL;
-			type->qualifiers = fck_glsl_reflection_declaration_qualifier_none;
-			type->binding = -1;
 			return type;
 		}
 		if (strcmp(type->name, name) == 0)
@@ -594,8 +595,8 @@ static fck_glsl_reflection_type *fck_glsl_reflection_declare_type(fck_glsl_refle
 }
 
 static fck_glsl_reflection_variable *fck_glsl_reflection_add_field(fck_glsl_reflection *reflection, fck_glsl_reflection_type *owner,
-                                                                      const fck_glsl_reflection_type *type, const char *name,
-                                                                      fck_glsl_reflection_variable *last)
+                                                                   const fck_glsl_reflection_type *type, const char *name,
+                                                                   fck_glsl_reflection_variable *last)
 {
 	const fckc_size_t size = sizeof(fck_glsl_reflection_variable);
 	fck_glsl_reflection_variable *variable = (fck_glsl_reflection_variable *)kll_malloc(reflection->variables_arena, size);
@@ -603,6 +604,8 @@ static fck_glsl_reflection_variable *fck_glsl_reflection_add_field(fck_glsl_refl
 	variable->type = type;
 	variable->name = kll_format(reflection->names_arena, name);
 	variable->next = NULL;
+	variable->binding = -1;
+	variable->qualifiers = fck_glsl_reflection_declaration_qualifier_none;
 
 	if (last == NULL)
 	{
@@ -684,7 +687,7 @@ static const char *fck_glsl_reflection_source_token_to_string(const fck_glsl_ref
 }
 
 static void fck_glsl_reflection_reflect_scope(fck_glsl_reflection *reflection, fck_glsl_reflection_type *owner,
-                                          fck_glsl_reflection_iterator *iter, int indent)
+                                              fck_glsl_reflection_iterator *iter, int indent)
 {
 	fck_glsl_reflection_declaration decl;
 	fck_glsl_reflection_variable *last = NULL;
@@ -696,15 +699,16 @@ static void fck_glsl_reflection_reflect_scope(fck_glsl_reflection *reflection, f
 		// Print formatting
 		switch (decl.kind)
 		{
-		/*case fck_glsl_reflection_declaration_kind_function: {
-			 //TODO: Fix it up to handle function declaration and definitions
-		}*/
-		break;
+			/*case fck_glsl_reflection_declaration_kind_function: {
+			     //TODO: Fix it up to handle function declaration and definitions
+			}*/
+			break;
 		case fck_glsl_reflection_declaration_kind_interface_block:
 		case fck_glsl_reflection_declaration_kind_struct: {
 			if (decl.type_name)
 			{
-				fck_glsl_reflection_iterator scope = fck_glsl_reflection_iterate_scope(iter->source, decl.body_start_index, decl.body_end_index);
+				fck_glsl_reflection_iterator scope =
+					fck_glsl_reflection_iterate_scope(iter->source, decl.body_start_index, decl.body_end_index);
 				const char *source = fck_glsl_reflection_source_token_to_string(decl.type_name, name_buffer, sizeof(name_buffer));
 				if (source)
 				{
@@ -712,8 +716,6 @@ static void fck_glsl_reflection_reflect_scope(fck_glsl_reflection *reflection, f
 					fck_glsl_reflection_type *result = fck_glsl_reflection_declare_type(reflection, name_buffer, &custom_type);
 					if (result)
 					{
-						result->qualifiers = decl.qualifiers;
-						result->binding = decl.layout_binding;
 						fck_glsl_reflection_reflect_scope(reflection, result, &scope, indent + 1);
 
 						if (decl.identifier)
@@ -725,6 +727,8 @@ static void fck_glsl_reflection_reflect_scope(fck_glsl_reflection *reflection, f
 						{
 							last = fck_glsl_reflection_add_field(reflection, owner, custom_type, "", last);
 						}
+						last->qualifiers = decl.qualifiers;
+						last->binding = decl.layout_binding;
 					}
 				}
 				// Consume inner index cause we want to skip the scope! :)
@@ -738,16 +742,16 @@ static void fck_glsl_reflection_reflect_scope(fck_glsl_reflection *reflection, f
 			if (source)
 			{
 				const fck_glsl_reflection_type *type;
-				fck_glsl_reflection_type* result = fck_glsl_reflection_declare_type(reflection, source, &type);
+				fck_glsl_reflection_type *result = fck_glsl_reflection_declare_type(reflection, source, &type);
 				if (result)
 				{
-					result->qualifiers = decl.qualifiers;
-					result->binding = decl.layout_binding;
-					// Since it is a variable, there should not be a scope... right? 
+					// Since it is a variable, there should not be a scope... right?
 				}
 
 				source = fck_glsl_reflection_source_token_to_string(decl.identifier, name_buffer, sizeof(name_buffer));
 				last = fck_glsl_reflection_add_field(reflection, owner, type, source, last);
+				last->binding = decl.layout_binding;
+				last->qualifiers = decl.qualifiers;
 			}
 		}
 		break;
@@ -785,10 +789,21 @@ static void fck_glsl_reflection_api_free(fck_glsl_reflection *reflection)
 	fck_glsl_reflection_reflecton_free(shader_reflection);
 }
 
+static int fck_glsl_reflection_api_is(const fck_glsl_reflection_type *type, const char *name)
+{
+	if(type == NULL) 
+	{
+		return 0;
+	}
+
+	return strcmp(type->name, name) == 0;
+}
+
 static fck_glsl_reflection_api glsl_reflection_api = {
 	.reflect = fck_glsl_reflection_api_reflect,
 	.type_of = fck_glsl_reflection_api_type_of,
 	.free = fck_glsl_reflection_api_free,
+	.is = fck_glsl_reflection_api_is,
 };
 
 fck_glsl_reflection_api *glsl_reflection = &glsl_reflection_api;

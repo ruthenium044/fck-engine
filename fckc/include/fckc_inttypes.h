@@ -82,6 +82,7 @@ typedef uintptr_t fckc_uintptr;
 #define fck_megabytes(x) ((fckc_size_t)(x) * 1024UL * 1024UL)
 #define fck_gigabytes(x) ((fckc_size_t)(x) * 1024UL * 1024UL * 1024UL)
 
+// Rename to fck_test
 #define sht_test(mask, flag) (((mask) & (flag)) == (flag))
 
 #endif // !FCKC_INTTYPES_H_INCLUDED

@@ -1567,7 +1567,7 @@ static VkResult sht_vk_swapchain_init(sht_vk_swapchain *swapchain, sht_vk_driver
 		VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR,
 		VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR,
 	};
-	for (fckc_u32 i = 0; i < sizeof(alpha_flags) / sizeof(alpha_flags[0]); i++)
+	for (fckc_u32 i = 0; i < fck_arraysize(alpha_flags); i++)
 	{
 		if (surface_capabilities.supportedCompositeAlpha & alpha_flags[i])
 		{
@@ -2754,12 +2754,13 @@ static VkPipelineRasterizationStateCreateInfo sht_vk_raster_state()
 static VkPipelineColorBlendAttachmentState sht_vk_color_blend_attachment_state()
 {
 	VkPipelineColorBlendAttachmentState blend_attachment_state;
-	blend_attachment_state.colorWriteMask = 0xF;
-	blend_attachment_state.blendEnable = VK_FALSE;
-	blend_attachment_state.srcColorBlendFactor = VK_BLEND_FACTOR_ZERO;
-	blend_attachment_state.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
+	const int color_mask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+	blend_attachment_state.colorWriteMask = color_mask;
+	blend_attachment_state.blendEnable = VK_TRUE;
+	blend_attachment_state.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+	blend_attachment_state.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
 	blend_attachment_state.colorBlendOp = VK_BLEND_OP_ADD;
-	blend_attachment_state.srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+	blend_attachment_state.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
 	blend_attachment_state.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
 	blend_attachment_state.alphaBlendOp = VK_BLEND_OP_ADD;
 	return blend_attachment_state;
@@ -2866,7 +2867,7 @@ static VkPipelineVertexInputStateCreateInfo sht_vk_vertex_input_state(VkVertexIn
 	return vertex_input_state_create_info;
 }
 
-VkResult sht_vk_graphics_pipeline_create(sht_vk_driver *driver, VkRenderPass render_pass, VkDescriptorSetLayout *set_layouts,
+static VkResult sht_vk_graphics_pipeline_create(sht_vk_driver *driver, VkRenderPass render_pass, VkDescriptorSetLayout *set_layouts,
                                          VkPipelineLayout pipeline_layout, fckc_size_t count,
                                          VkPipelineShaderStageCreateInfo *shader_create_infos, fckc_size_t shader_count,
                                          sht_vertex_desc *vertex_desc, sht_vk_graphics_pipeline *graphics_pipeline)

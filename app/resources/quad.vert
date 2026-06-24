@@ -18,6 +18,7 @@ struct QuadTransform {
     float width;  
     float height;
     float scale;
+    float unused;
 };
 
 layout(std430, binding = 1) readonly buffer TransformBuffer {

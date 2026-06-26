@@ -37,6 +37,8 @@ void main()
     vec2 ndcPos;
     ndcPos.x = pos.x / (screen.width * 0.5);
     ndcPos.y = pos.y / (screen.height * 0.5); 
+    ndcPos.x = ndcPos.x - 1.0;
+    ndcPos.y = ndcPos.y - 1.0; 
 
     gl_Position = vec4(ndcPos, 0.0, 1.0);
 

@@ -10,6 +10,7 @@ target_sources(${PROJECT_NAME} PRIVATE "main.c")
 target_sources(${PROJECT_NAME} PRIVATE "reflection.c")
 target_sources(${PROJECT_NAME} PRIVATE "reflection.h")
 target_sources(${PROJECT_NAME} PRIVATE "nuklear.h")
+target_sources(${PROJECT_NAME} PRIVATE "nuklear_overview_demo.inl")
 
 find_package(api)
 find_package(os)

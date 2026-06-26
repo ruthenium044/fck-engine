@@ -272,14 +272,14 @@ static VkResult sht_vk_descriptor_set_create(sht_vk_driver *driver, VkDescriptor
 	return VK_SUCCESS;
 }
 
-static VkFilter sht_sampler_filter_to_vk_filter(sht_filter filter) 
+static VkFilter sht_sampler_filter_to_vk_filter(sht_filter filter)
 {
-	switch(filter)
+	switch (filter)
 	{
-		case sht_filter_nearest:
-			return VK_FILTER_NEAREST;
-		case sht_filter_linear:
-			return VK_FILTER_LINEAR;
+	case sht_filter_nearest:
+		return VK_FILTER_NEAREST;
+	case sht_filter_linear:
+		return VK_FILTER_LINEAR;
 	}
 	return VK_FILTER_NEAREST;
 }
@@ -295,7 +295,6 @@ static VkSamplerMipmapMode sht_sampler_filter_to_vk_mipmap_mode(sht_filter filte
 	}
 	return VK_SAMPLER_MIPMAP_MODE_NEAREST;
 }
-
 
 static sht_sampler sht_driver_create_sampler(sht_driver driver, fck_alias(sht_filter, fckc_u32) filter)
 {
@@ -318,7 +317,7 @@ static sht_sampler sht_driver_create_sampler(sht_driver driver, fck_alias(sht_fi
 	info.mipmapMode = sht_sampler_filter_to_vk_mipmap_mode(filter);
 	info.mipLodBias = 0.0f;
 	info.minLod = 0.0f;
-	info.maxLod = 0.0f; 
+	info.maxLod = 0.0f;
 	vk_driver->CreateSampler(vk_driver->device, &info, default_allocation_callbacks, &sampler);
 	return (sht_sampler){.handle = (sht_handle *)sampler};
 }
@@ -401,6 +400,23 @@ static VkResult sht_vk_instance_init(sht_vk_instance *vk)
 	createInfo.pfnUserCallback = sht_vk_debug_callback;
 	createInfo.pUserData = NULL;
 	instance_create_info.pNext = (const void *)&createInfo;
+
+	{
+		//VkBool32 validateSync = VK_TRUE;
+
+		//VkLayerSettingEXT syncSetting = {0};
+		//syncSetting.pLayerName = "VK_LAYER_KHRONOS_validation";
+		//syncSetting.pSettingName = "validate_sync";
+		//syncSetting.type = VK_LAYER_SETTING_TYPE_BOOL32_EXT;
+		//syncSetting.valueCount = 1;
+		//syncSetting.pValues = &validateSync;
+
+		//VkLayerSettingsCreateInfoEXT layerSettingsCreateInfo = {0};
+		//layerSettingsCreateInfo.sType = VK_STRUCTURE_TYPE_LAYER_SETTINGS_CREATE_INFO_EXT;
+		//layerSettingsCreateInfo.settingCount = 1;
+		//layerSettingsCreateInfo.pSettings = &syncSetting;
+		//createInfo.pNext = &layerSettingsCreateInfo;
+	}
 
 	return sht_vk_error(vk->CreateInstance(&instance_create_info, default_allocation_callbacks, &vk->instance));
 }
@@ -2868,9 +2884,9 @@ static VkPipelineVertexInputStateCreateInfo sht_vk_vertex_input_state(VkVertexIn
 }
 
 static VkResult sht_vk_graphics_pipeline_create(sht_vk_driver *driver, VkRenderPass render_pass, VkDescriptorSetLayout *set_layouts,
-                                         VkPipelineLayout pipeline_layout, fckc_size_t count,
-                                         VkPipelineShaderStageCreateInfo *shader_create_infos, fckc_size_t shader_count,
-                                         sht_vertex_desc *vertex_desc, sht_vk_graphics_pipeline *graphics_pipeline)
+                                                VkPipelineLayout pipeline_layout, fckc_size_t count,
+                                                VkPipelineShaderStageCreateInfo *shader_create_infos, fckc_size_t shader_count,
+                                                sht_vertex_desc *vertex_desc, sht_vk_graphics_pipeline *graphics_pipeline)
 {
 	// Create the graphics pipeline used in this example
 	// Vulkan uses the concept of rendering pipelines to encapsulate fixed states, replacing OpenGL's complex state machine
@@ -3467,8 +3483,9 @@ static sht_graphics_pipeline sht_driver_graphics_pipeline_create(sht_driver driv
 	return result;
 }
 
-sht_bool32 sht_driver_graphics_pipeline_is_ok(sht_graphics_pipeline pipeline) {
-	sht_vk_driver* vk_driver = (sht_vk_driver*)pipeline.owner;
+sht_bool32 sht_driver_graphics_pipeline_is_ok(sht_graphics_pipeline pipeline)
+{
+	sht_vk_driver *vk_driver = (sht_vk_driver *)pipeline.owner;
 	return vk_driver != NULL;
 }
 

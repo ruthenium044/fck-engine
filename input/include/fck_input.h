@@ -48,7 +48,8 @@ typedef struct fck_input_description
 	const char *name;
 } fck_input_description;
 
-// TODO: Revise
+// TODO: Revise - I hate the name, I hate the access, I hate quite a lot about this one
+// I do like unicode though
 typedef union fck_input_data {
 	float scalar;
 	float floats[2];
@@ -90,6 +91,7 @@ typedef struct fck_input_source
 	 * }
 	 */
 	// TODO: Evaluate if fckc_size_t (*state)(fckc_u64 owner, fck_input_state *states, fckc_size_t size); or the current one
+	// TODO: I need to seriously revise this shit lol
 	fckc_size_t (*states)(fckc_u64 owner, fckc_u32 *ids, fck_input_data *states, fckc_size_t size);
 
 	// Maybe push makes sense...

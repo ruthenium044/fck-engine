@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
+# TODO: fck-input-coure
 project(fck-input-all)
 
 include_guard(GLOBAL)

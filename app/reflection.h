@@ -2,7 +2,8 @@
 #ifndef FCK_REFLECTION_H_INCLUDED
 #define FCK_REFLECTION_H_INCLUDED
 
-#define fck_glsl_reflection_api_name "fck_shader"
+// Maybeee
+#define fck_glsl_reflection_api_name "fck_glsl_reflection"
 #define fck_glsl_reflection_global ""
 
 typedef enum fck_glsl_reflection_declaration_qualifier

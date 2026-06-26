@@ -34,6 +34,471 @@
 #define NK_UINT_DRAW_INDEX
 #define NK_IMPLEMENTATION
 #include "nuklear.h"
+#include "nuklear_overview_demo.inl"
+
+static struct nk_color fck_ui_cached_colour_table[NK_COLOR_COUNT];
+
+enum fck_theme
+{
+	THEME_BLACK,
+	THEME_WHITE,
+	THEME_RED,
+	THEME_BLUE,
+	THEME_DARK,
+	THEME_DRACULA,
+	THEME_CATPPUCCIN_LATTE,
+	THEME_CATPPUCCIN_FRAPPE,
+	THEME_CATPPUCCIN_MACCHIATO,
+	THEME_CATPPUCCIN_MOCHA
+};
+
+struct nk_color *fck_ui_set_style(struct nk_context *ctx, enum fck_theme theme)
+{
+	if (theme == THEME_WHITE)
+	{
+		fck_ui_cached_colour_table[NK_COLOR_TEXT] = nk_rgba(70, 70, 70, 255);
+		fck_ui_cached_colour_table[NK_COLOR_WINDOW] = nk_rgba(175, 175, 175, 255);
+		fck_ui_cached_colour_table[NK_COLOR_HEADER] = nk_rgba(175, 175, 175, 255);
+		fck_ui_cached_colour_table[NK_COLOR_BORDER] = nk_rgba(0, 0, 0, 255);
+		fck_ui_cached_colour_table[NK_COLOR_BUTTON] = nk_rgba(185, 185, 185, 255);
+		fck_ui_cached_colour_table[NK_COLOR_BUTTON_HOVER] = nk_rgba(170, 170, 170, 255);
+		fck_ui_cached_colour_table[NK_COLOR_BUTTON_ACTIVE] = nk_rgba(160, 160, 160, 255);
+		fck_ui_cached_colour_table[NK_COLOR_TOGGLE] = nk_rgba(150, 150, 150, 255);
+		fck_ui_cached_colour_table[NK_COLOR_TOGGLE_HOVER] = nk_rgba(120, 120, 120, 255);
+		fck_ui_cached_colour_table[NK_COLOR_TOGGLE_CURSOR] = nk_rgba(175, 175, 175, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SELECT] = nk_rgba(190, 190, 190, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SELECT_ACTIVE] = nk_rgba(175, 175, 175, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SLIDER] = nk_rgba(190, 190, 190, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR] = nk_rgba(80, 80, 80, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_HOVER] = nk_rgba(70, 70, 70, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_ACTIVE] = nk_rgba(60, 60, 60, 255);
+		fck_ui_cached_colour_table[NK_COLOR_PROPERTY] = nk_rgba(175, 175, 175, 255);
+		fck_ui_cached_colour_table[NK_COLOR_EDIT] = nk_rgba(150, 150, 150, 255);
+		fck_ui_cached_colour_table[NK_COLOR_EDIT_CURSOR] = nk_rgba(0, 0, 0, 255);
+		fck_ui_cached_colour_table[NK_COLOR_COMBO] = nk_rgba(175, 175, 175, 255);
+		fck_ui_cached_colour_table[NK_COLOR_CHART] = nk_rgba(160, 160, 160, 255);
+		fck_ui_cached_colour_table[NK_COLOR_CHART_COLOR] = nk_rgba(45, 45, 45, 255);
+		fck_ui_cached_colour_table[NK_COLOR_CHART_COLOR_HIGHLIGHT] = nk_rgba(255, 0, 0, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SCROLLBAR] = nk_rgba(180, 180, 180, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SCROLLBAR_CURSOR] = nk_rgba(140, 140, 140, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SCROLLBAR_CURSOR_HOVER] = nk_rgba(150, 150, 150, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SCROLLBAR_CURSOR_ACTIVE] = nk_rgba(160, 160, 160, 255);
+		fck_ui_cached_colour_table[NK_COLOR_TAB_HEADER] = nk_rgba(180, 180, 180, 255);
+		fck_ui_cached_colour_table[NK_COLOR_KNOB] = fck_ui_cached_colour_table[NK_COLOR_SLIDER];
+		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR];
+		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_HOVER] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_HOVER];
+		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_ACTIVE] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_ACTIVE];
+		nk_style_from_table(ctx, fck_ui_cached_colour_table);
+	}
+	else if (theme == THEME_RED)
+	{
+		fck_ui_cached_colour_table[NK_COLOR_TEXT] = nk_rgba(190, 190, 190, 255);
+		fck_ui_cached_colour_table[NK_COLOR_WINDOW] = nk_rgba(30, 33, 40, 215);
+		fck_ui_cached_colour_table[NK_COLOR_HEADER] = nk_rgba(181, 45, 69, 220);
+		fck_ui_cached_colour_table[NK_COLOR_BORDER] = nk_rgba(51, 55, 67, 255);
+		fck_ui_cached_colour_table[NK_COLOR_BUTTON] = nk_rgba(181, 45, 69, 255);
+		fck_ui_cached_colour_table[NK_COLOR_BUTTON_HOVER] = nk_rgba(190, 50, 70, 255);
+		fck_ui_cached_colour_table[NK_COLOR_BUTTON_ACTIVE] = nk_rgba(195, 55, 75, 255);
+		fck_ui_cached_colour_table[NK_COLOR_TOGGLE] = nk_rgba(51, 55, 67, 255);
+		fck_ui_cached_colour_table[NK_COLOR_TOGGLE_HOVER] = nk_rgba(45, 60, 60, 255);
+		fck_ui_cached_colour_table[NK_COLOR_TOGGLE_CURSOR] = nk_rgba(181, 45, 69, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SELECT] = nk_rgba(51, 55, 67, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SELECT_ACTIVE] = nk_rgba(181, 45, 69, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SLIDER] = nk_rgba(51, 55, 67, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR] = nk_rgba(181, 45, 69, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_HOVER] = nk_rgba(186, 50, 74, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_ACTIVE] = nk_rgba(191, 55, 79, 255);
+		fck_ui_cached_colour_table[NK_COLOR_PROPERTY] = nk_rgba(51, 55, 67, 255);
+		fck_ui_cached_colour_table[NK_COLOR_EDIT] = nk_rgba(51, 55, 67, 225);
+		fck_ui_cached_colour_table[NK_COLOR_EDIT_CURSOR] = nk_rgba(190, 190, 190, 255);
+		fck_ui_cached_colour_table[NK_COLOR_COMBO] = nk_rgba(51, 55, 67, 255);
+		fck_ui_cached_colour_table[NK_COLOR_CHART] = nk_rgba(51, 55, 67, 255);
+		fck_ui_cached_colour_table[NK_COLOR_CHART_COLOR] = nk_rgba(170, 40, 60, 255);
+		fck_ui_cached_colour_table[NK_COLOR_CHART_COLOR_HIGHLIGHT] = nk_rgba(255, 0, 0, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SCROLLBAR] = nk_rgba(30, 33, 40, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SCROLLBAR_CURSOR] = nk_rgba(64, 84, 95, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SCROLLBAR_CURSOR_HOVER] = nk_rgba(70, 90, 100, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SCROLLBAR_CURSOR_ACTIVE] = nk_rgba(75, 95, 105, 255);
+		fck_ui_cached_colour_table[NK_COLOR_TAB_HEADER] = nk_rgba(181, 45, 69, 220);
+		fck_ui_cached_colour_table[NK_COLOR_KNOB] = fck_ui_cached_colour_table[NK_COLOR_SLIDER];
+		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR];
+		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_HOVER] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_HOVER];
+		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_ACTIVE] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_ACTIVE];
+		nk_style_from_table(ctx, fck_ui_cached_colour_table);
+	}
+	else if (theme == THEME_BLUE)
+	{
+		fck_ui_cached_colour_table[NK_COLOR_TEXT] = nk_rgba(20, 20, 20, 255);
+		fck_ui_cached_colour_table[NK_COLOR_WINDOW] = nk_rgba(202, 212, 214, 215);
+		fck_ui_cached_colour_table[NK_COLOR_HEADER] = nk_rgba(137, 182, 224, 220);
+		fck_ui_cached_colour_table[NK_COLOR_BORDER] = nk_rgba(140, 159, 173, 255);
+		fck_ui_cached_colour_table[NK_COLOR_BUTTON] = nk_rgba(137, 182, 224, 255);
+		fck_ui_cached_colour_table[NK_COLOR_BUTTON_HOVER] = nk_rgba(142, 187, 229, 255);
+		fck_ui_cached_colour_table[NK_COLOR_BUTTON_ACTIVE] = nk_rgba(147, 192, 234, 255);
+		fck_ui_cached_colour_table[NK_COLOR_TOGGLE] = nk_rgba(177, 210, 210, 255);
+		fck_ui_cached_colour_table[NK_COLOR_TOGGLE_HOVER] = nk_rgba(182, 215, 215, 255);
+		fck_ui_cached_colour_table[NK_COLOR_TOGGLE_CURSOR] = nk_rgba(137, 182, 224, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SELECT] = nk_rgba(177, 210, 210, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SELECT_ACTIVE] = nk_rgba(137, 182, 224, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SLIDER] = nk_rgba(177, 210, 210, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR] = nk_rgba(137, 182, 224, 245);
+		fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_HOVER] = nk_rgba(142, 188, 229, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_ACTIVE] = nk_rgba(147, 193, 234, 255);
+		fck_ui_cached_colour_table[NK_COLOR_PROPERTY] = nk_rgba(210, 210, 210, 255);
+		fck_ui_cached_colour_table[NK_COLOR_EDIT] = nk_rgba(210, 210, 210, 225);
+		fck_ui_cached_colour_table[NK_COLOR_EDIT_CURSOR] = nk_rgba(20, 20, 20, 255);
+		fck_ui_cached_colour_table[NK_COLOR_COMBO] = nk_rgba(210, 210, 210, 255);
+		fck_ui_cached_colour_table[NK_COLOR_CHART] = nk_rgba(210, 210, 210, 255);
+		fck_ui_cached_colour_table[NK_COLOR_CHART_COLOR] = nk_rgba(137, 182, 224, 255);
+		fck_ui_cached_colour_table[NK_COLOR_CHART_COLOR_HIGHLIGHT] = nk_rgba(255, 0, 0, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SCROLLBAR] = nk_rgba(190, 200, 200, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SCROLLBAR_CURSOR] = nk_rgba(64, 84, 95, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SCROLLBAR_CURSOR_HOVER] = nk_rgba(70, 90, 100, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SCROLLBAR_CURSOR_ACTIVE] = nk_rgba(75, 95, 105, 255);
+		fck_ui_cached_colour_table[NK_COLOR_TAB_HEADER] = nk_rgba(156, 193, 220, 255);
+		fck_ui_cached_colour_table[NK_COLOR_KNOB] = fck_ui_cached_colour_table[NK_COLOR_SLIDER];
+		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR];
+		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_HOVER] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_HOVER];
+		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_ACTIVE] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_ACTIVE];
+		nk_style_from_table(ctx, fck_ui_cached_colour_table);
+	}
+	else if (theme == THEME_DARK)
+	{
+		fck_ui_cached_colour_table[NK_COLOR_TEXT] = nk_rgba(210, 210, 210, 255);
+		fck_ui_cached_colour_table[NK_COLOR_WINDOW] = nk_rgba(57, 67, 71, 215);
+		fck_ui_cached_colour_table[NK_COLOR_HEADER] = nk_rgba(51, 51, 56, 220);
+		fck_ui_cached_colour_table[NK_COLOR_BORDER] = nk_rgba(46, 46, 46, 255);
+		fck_ui_cached_colour_table[NK_COLOR_BUTTON] = nk_rgba(48, 83, 111, 255);
+		fck_ui_cached_colour_table[NK_COLOR_BUTTON_HOVER] = nk_rgba(58, 93, 121, 255);
+		fck_ui_cached_colour_table[NK_COLOR_BUTTON_ACTIVE] = nk_rgba(63, 98, 126, 255);
+		fck_ui_cached_colour_table[NK_COLOR_TOGGLE] = nk_rgba(50, 58, 61, 255);
+		fck_ui_cached_colour_table[NK_COLOR_TOGGLE_HOVER] = nk_rgba(45, 53, 56, 255);
+		fck_ui_cached_colour_table[NK_COLOR_TOGGLE_CURSOR] = nk_rgba(48, 83, 111, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SELECT] = nk_rgba(57, 67, 61, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SELECT_ACTIVE] = nk_rgba(48, 83, 111, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SLIDER] = nk_rgba(50, 58, 61, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR] = nk_rgba(48, 83, 111, 245);
+		fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_HOVER] = nk_rgba(53, 88, 116, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_ACTIVE] = nk_rgba(58, 93, 121, 255);
+		fck_ui_cached_colour_table[NK_COLOR_PROPERTY] = nk_rgba(50, 58, 61, 255);
+		fck_ui_cached_colour_table[NK_COLOR_EDIT] = nk_rgba(50, 58, 61, 225);
+		fck_ui_cached_colour_table[NK_COLOR_EDIT_CURSOR] = nk_rgba(210, 210, 210, 255);
+		fck_ui_cached_colour_table[NK_COLOR_COMBO] = nk_rgba(50, 58, 61, 255);
+		fck_ui_cached_colour_table[NK_COLOR_CHART] = nk_rgba(50, 58, 61, 255);
+		fck_ui_cached_colour_table[NK_COLOR_CHART_COLOR] = nk_rgba(48, 83, 111, 255);
+		fck_ui_cached_colour_table[NK_COLOR_CHART_COLOR_HIGHLIGHT] = nk_rgba(255, 0, 0, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SCROLLBAR] = nk_rgba(50, 58, 61, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SCROLLBAR_CURSOR] = nk_rgba(48, 83, 111, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SCROLLBAR_CURSOR_HOVER] = nk_rgba(53, 88, 116, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SCROLLBAR_CURSOR_ACTIVE] = nk_rgba(58, 93, 121, 255);
+		fck_ui_cached_colour_table[NK_COLOR_TAB_HEADER] = nk_rgba(48, 83, 111, 255);
+		fck_ui_cached_colour_table[NK_COLOR_KNOB] = fck_ui_cached_colour_table[NK_COLOR_SLIDER];
+		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR];
+		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_HOVER] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_HOVER];
+		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_ACTIVE] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_ACTIVE];
+		nk_style_from_table(ctx, fck_ui_cached_colour_table);
+	}
+	else if (theme == THEME_DRACULA)
+	{
+		struct nk_color background = nk_rgba(40, 42, 54, 255);
+		struct nk_color currentline = nk_rgba(68, 71, 90, 255);
+		struct nk_color foreground = nk_rgba(248, 248, 242, 255);
+		struct nk_color comment = nk_rgba(98, 114, 164, 255);
+		/* struct nk_color cyan = nk_rgba(139, 233, 253, 255); */
+		/* struct nk_color green = nk_rgba(80, 250, 123, 255); */
+		/* struct nk_color orange = nk_rgba(255, 184, 108, 255); */
+		struct nk_color pink = nk_rgba(255, 121, 198, 255);
+		struct nk_color purple = nk_rgba(189, 147, 249, 255);
+		/* struct nk_color red = nk_rgba(255, 85, 85, 255); */
+		/* struct nk_color yellow = nk_rgba(241, 250, 140, 255); */
+		fck_ui_cached_colour_table[NK_COLOR_TEXT] = foreground;
+		fck_ui_cached_colour_table[NK_COLOR_WINDOW] = background;
+		fck_ui_cached_colour_table[NK_COLOR_HEADER] = currentline;
+		fck_ui_cached_colour_table[NK_COLOR_BORDER] = currentline;
+		fck_ui_cached_colour_table[NK_COLOR_BUTTON] = currentline;
+		fck_ui_cached_colour_table[NK_COLOR_BUTTON_HOVER] = comment;
+		fck_ui_cached_colour_table[NK_COLOR_BUTTON_ACTIVE] = purple;
+		fck_ui_cached_colour_table[NK_COLOR_TOGGLE] = currentline;
+		fck_ui_cached_colour_table[NK_COLOR_TOGGLE_HOVER] = comment;
+		fck_ui_cached_colour_table[NK_COLOR_TOGGLE_CURSOR] = pink;
+		fck_ui_cached_colour_table[NK_COLOR_SELECT] = currentline;
+		fck_ui_cached_colour_table[NK_COLOR_SELECT_ACTIVE] = comment;
+		fck_ui_cached_colour_table[NK_COLOR_SLIDER] = background;
+		fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR] = currentline;
+		fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_HOVER] = comment;
+		fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_ACTIVE] = comment;
+		fck_ui_cached_colour_table[NK_COLOR_PROPERTY] = currentline;
+		fck_ui_cached_colour_table[NK_COLOR_EDIT] = currentline;
+		fck_ui_cached_colour_table[NK_COLOR_EDIT_CURSOR] = foreground;
+		fck_ui_cached_colour_table[NK_COLOR_COMBO] = currentline;
+		fck_ui_cached_colour_table[NK_COLOR_CHART] = currentline;
+		fck_ui_cached_colour_table[NK_COLOR_CHART_COLOR] = comment;
+		fck_ui_cached_colour_table[NK_COLOR_CHART_COLOR_HIGHLIGHT] = purple;
+		fck_ui_cached_colour_table[NK_COLOR_SCROLLBAR] = background;
+		fck_ui_cached_colour_table[NK_COLOR_SCROLLBAR_CURSOR] = currentline;
+		fck_ui_cached_colour_table[NK_COLOR_SCROLLBAR_CURSOR_HOVER] = comment;
+		fck_ui_cached_colour_table[NK_COLOR_SCROLLBAR_CURSOR_ACTIVE] = purple;
+		fck_ui_cached_colour_table[NK_COLOR_TAB_HEADER] = currentline;
+		fck_ui_cached_colour_table[NK_COLOR_KNOB] = fck_ui_cached_colour_table[NK_COLOR_SLIDER];
+		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR];
+		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_HOVER] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_HOVER];
+		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_ACTIVE] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_ACTIVE];
+		nk_style_from_table(ctx, fck_ui_cached_colour_table);
+	}
+	else if (theme == THEME_CATPPUCCIN_LATTE)
+	{
+		/*struct nk_color rosewater = nk_rgba(220, 138, 120, 255);*/
+		/*struct nk_color flamingo = nk_rgba(221, 120, 120, 255);*/
+		struct nk_color pink = nk_rgba(234, 118, 203, 255);
+		struct nk_color mauve = nk_rgba(136, 57, 239, 255);
+		/*struct nk_color red = nk_rgba(210, 15, 57, 255);*/
+		/*struct nk_color maroon = nk_rgba(230, 69, 83, 255);*/
+		/*struct nk_color peach = nk_rgba(254, 100, 11, 255);*/
+		struct nk_color yellow = nk_rgba(223, 142, 29, 255);
+		/*struct nk_color green = nk_rgba(64, 160, 43, 255);*/
+		struct nk_color teal = nk_rgba(23, 146, 153, 255);
+		/*struct nk_color sky = nk_rgba(4, 165, 229, 255);*/
+		/*struct nk_color sapphire = nk_rgba(32, 159, 181, 255);*/
+		/*struct nk_color blue = nk_rgba(30, 102, 245, 255);*/
+		/*struct nk_color lavender = nk_rgba(114, 135, 253, 255);*/
+		struct nk_color text = nk_rgba(76, 79, 105, 255);
+		/*struct nk_color subtext1 = nk_rgba(92, 95, 119, 255);*/
+		/*struct nk_color subtext0 = nk_rgba(108, 111, 133, 255);*/
+		struct nk_color overlay2 = nk_rgba(124, 127, 147, 55);
+		/*struct nk_color overlay1 = nk_rgba(140, 143, 161, 255);*/
+		struct nk_color overlay0 = nk_rgba(156, 160, 176, 255);
+		struct nk_color surface2 = nk_rgba(172, 176, 190, 255);
+		struct nk_color surface1 = nk_rgba(188, 192, 204, 255);
+		struct nk_color surface0 = nk_rgba(204, 208, 218, 255);
+		struct nk_color base = nk_rgba(239, 241, 245, 255);
+		struct nk_color mantle = nk_rgba(230, 233, 239, 255);
+		/*struct nk_color crust = nk_rgba(220, 224, 232, 255);*/
+		fck_ui_cached_colour_table[NK_COLOR_TEXT] = text;
+		fck_ui_cached_colour_table[NK_COLOR_WINDOW] = base;
+		fck_ui_cached_colour_table[NK_COLOR_HEADER] = mantle;
+		fck_ui_cached_colour_table[NK_COLOR_BORDER] = mantle;
+		fck_ui_cached_colour_table[NK_COLOR_BUTTON] = surface0;
+		fck_ui_cached_colour_table[NK_COLOR_BUTTON_HOVER] = overlay2;
+		fck_ui_cached_colour_table[NK_COLOR_BUTTON_ACTIVE] = overlay0;
+		fck_ui_cached_colour_table[NK_COLOR_TOGGLE] = surface2;
+		fck_ui_cached_colour_table[NK_COLOR_TOGGLE_HOVER] = overlay2;
+		fck_ui_cached_colour_table[NK_COLOR_TOGGLE_CURSOR] = yellow;
+		fck_ui_cached_colour_table[NK_COLOR_SELECT] = surface0;
+		fck_ui_cached_colour_table[NK_COLOR_SELECT_ACTIVE] = overlay0;
+		fck_ui_cached_colour_table[NK_COLOR_SLIDER] = surface1;
+		fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR] = teal;
+		fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_HOVER] = teal;
+		fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_ACTIVE] = teal;
+		fck_ui_cached_colour_table[NK_COLOR_PROPERTY] = surface0;
+		fck_ui_cached_colour_table[NK_COLOR_EDIT] = surface0;
+		fck_ui_cached_colour_table[NK_COLOR_EDIT_CURSOR] = mauve;
+		fck_ui_cached_colour_table[NK_COLOR_COMBO] = surface0;
+		fck_ui_cached_colour_table[NK_COLOR_CHART] = surface0;
+		fck_ui_cached_colour_table[NK_COLOR_CHART_COLOR] = teal;
+		fck_ui_cached_colour_table[NK_COLOR_CHART_COLOR_HIGHLIGHT] = mauve;
+		fck_ui_cached_colour_table[NK_COLOR_SCROLLBAR] = surface0;
+		fck_ui_cached_colour_table[NK_COLOR_SCROLLBAR_CURSOR] = overlay0;
+		fck_ui_cached_colour_table[NK_COLOR_SCROLLBAR_CURSOR_HOVER] = mauve;
+		fck_ui_cached_colour_table[NK_COLOR_SCROLLBAR_CURSOR_ACTIVE] = mauve;
+		fck_ui_cached_colour_table[NK_COLOR_TAB_HEADER] = surface0;
+		fck_ui_cached_colour_table[NK_COLOR_KNOB] = fck_ui_cached_colour_table[NK_COLOR_SLIDER];
+		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR] = pink;
+		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_HOVER] = pink;
+		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_ACTIVE] = pink;
+		nk_style_from_table(ctx, fck_ui_cached_colour_table);
+	}
+	else if (theme == THEME_CATPPUCCIN_FRAPPE)
+	{
+		/*struct nk_color rosewater = nk_rgba(242, 213, 207, 255);*/
+		/*struct nk_color flamingo = nk_rgba(238, 190, 190, 255);*/
+		struct nk_color pink = nk_rgba(244, 184, 228, 255);
+		/*struct nk_color mauve = nk_rgba(202, 158, 230, 255);*/
+		/*struct nk_color red = nk_rgba(231, 130, 132, 255);*/
+		/*struct nk_color maroon = nk_rgba(234, 153, 156, 255);*/
+		/*struct nk_color peach = nk_rgba(239, 159, 118, 255);*/
+		/*struct nk_color yellow = nk_rgba(229, 200, 144, 255);*/
+		struct nk_color green = nk_rgba(166, 209, 137, 255);
+		/*struct nk_color teal = nk_rgba(129, 200, 190, 255);*/
+		/*struct nk_color sky = nk_rgba(153, 209, 219, 255);*/
+		/*struct nk_color sapphire = nk_rgba(133, 193, 220, 255);*/
+		/*struct nk_color blue = nk_rgba(140, 170, 238, 255);*/
+		struct nk_color lavender = nk_rgba(186, 187, 241, 255);
+		struct nk_color text = nk_rgba(198, 208, 245, 255);
+		/*struct nk_color subtext1 = nk_rgba(181, 191, 226, 255);*/
+		/*struct nk_color subtext0 = nk_rgba(165, 173, 206, 255);*/
+		struct nk_color overlay2 = nk_rgba(148, 156, 187, 255);
+		struct nk_color overlay1 = nk_rgba(131, 139, 167, 255);
+		struct nk_color overlay0 = nk_rgba(115, 121, 148, 255);
+		struct nk_color surface2 = nk_rgba(98, 104, 128, 255);
+		struct nk_color surface1 = nk_rgba(81, 87, 109, 255);
+		struct nk_color surface0 = nk_rgba(65, 69, 89, 255);
+		struct nk_color base = nk_rgba(48, 52, 70, 255);
+		struct nk_color mantle = nk_rgba(41, 44, 60, 255);
+		/*struct nk_color crust = nk_rgba(35, 38, 52, 255);*/
+		fck_ui_cached_colour_table[NK_COLOR_TEXT] = text;
+		fck_ui_cached_colour_table[NK_COLOR_WINDOW] = base;
+		fck_ui_cached_colour_table[NK_COLOR_HEADER] = mantle;
+		fck_ui_cached_colour_table[NK_COLOR_BORDER] = mantle;
+		fck_ui_cached_colour_table[NK_COLOR_BUTTON] = surface0;
+		fck_ui_cached_colour_table[NK_COLOR_BUTTON_HOVER] = overlay1;
+		fck_ui_cached_colour_table[NK_COLOR_BUTTON_ACTIVE] = overlay0;
+		fck_ui_cached_colour_table[NK_COLOR_TOGGLE] = surface2;
+		fck_ui_cached_colour_table[NK_COLOR_TOGGLE_HOVER] = overlay2;
+		fck_ui_cached_colour_table[NK_COLOR_TOGGLE_CURSOR] = pink;
+		fck_ui_cached_colour_table[NK_COLOR_SELECT] = surface0;
+		fck_ui_cached_colour_table[NK_COLOR_SELECT_ACTIVE] = overlay0;
+		fck_ui_cached_colour_table[NK_COLOR_SLIDER] = surface1;
+		fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR] = green;
+		fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_HOVER] = green;
+		fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_ACTIVE] = green;
+		fck_ui_cached_colour_table[NK_COLOR_PROPERTY] = surface0;
+		fck_ui_cached_colour_table[NK_COLOR_EDIT] = surface0;
+		fck_ui_cached_colour_table[NK_COLOR_EDIT_CURSOR] = pink;
+		fck_ui_cached_colour_table[NK_COLOR_COMBO] = surface0;
+		fck_ui_cached_colour_table[NK_COLOR_CHART] = surface0;
+		fck_ui_cached_colour_table[NK_COLOR_CHART_COLOR] = lavender;
+		fck_ui_cached_colour_table[NK_COLOR_CHART_COLOR_HIGHLIGHT] = pink;
+		fck_ui_cached_colour_table[NK_COLOR_SCROLLBAR] = surface0;
+		fck_ui_cached_colour_table[NK_COLOR_SCROLLBAR_CURSOR] = overlay0;
+		fck_ui_cached_colour_table[NK_COLOR_SCROLLBAR_CURSOR_HOVER] = lavender;
+		fck_ui_cached_colour_table[NK_COLOR_SCROLLBAR_CURSOR_ACTIVE] = lavender;
+		fck_ui_cached_colour_table[NK_COLOR_TAB_HEADER] = surface0;
+		fck_ui_cached_colour_table[NK_COLOR_KNOB] = fck_ui_cached_colour_table[NK_COLOR_SLIDER];
+		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR] = pink;
+		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_HOVER] = pink;
+		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_ACTIVE] = pink;
+		nk_style_from_table(ctx, fck_ui_cached_colour_table);
+	}
+	else if (theme == THEME_CATPPUCCIN_MACCHIATO)
+	{
+		/*struct nk_color rosewater = nk_rgba(244, 219, 214, 255);*/
+		/*struct nk_color flamingo = nk_rgba(240, 198, 198, 255);*/
+		struct nk_color pink = nk_rgba(245, 189, 230, 255);
+		/*struct nk_color mauve = nk_rgba(198, 160, 246, 255);*/
+		/*struct nk_color red = nk_rgba(237, 135, 150, 255);*/
+		/*struct nk_color maroon = nk_rgba(238, 153, 160, 255);*/
+		/*struct nk_color peach = nk_rgba(245, 169, 127, 255);*/
+		struct nk_color yellow = nk_rgba(238, 212, 159, 255);
+		struct nk_color green = nk_rgba(166, 218, 149, 255);
+		/*struct nk_color teal = nk_rgba(139, 213, 202, 255);*/
+		/*struct nk_color sky = nk_rgba(145, 215, 227, 255);*/
+		/*struct nk_color sapphire = nk_rgba(125, 196, 228, 255);*/
+		/*struct nk_color blue = nk_rgba(138, 173, 244, 255);*/
+		struct nk_color lavender = nk_rgba(183, 189, 248, 255);
+		struct nk_color text = nk_rgba(202, 211, 245, 255);
+		/*struct nk_color subtext1 = nk_rgba(184, 192, 224, 255);*/
+		/*struct nk_color subtext0 = nk_rgba(165, 173, 203, 255);*/
+		struct nk_color overlay2 = nk_rgba(147, 154, 183, 255);
+		struct nk_color overlay1 = nk_rgba(128, 135, 162, 255);
+		struct nk_color overlay0 = nk_rgba(110, 115, 141, 255);
+		struct nk_color surface2 = nk_rgba(91, 96, 120, 255);
+		struct nk_color surface1 = nk_rgba(73, 77, 100, 255);
+		struct nk_color surface0 = nk_rgba(54, 58, 79, 255);
+		struct nk_color base = nk_rgba(36, 39, 58, 255);
+		struct nk_color mantle = nk_rgba(30, 32, 48, 255);
+		/*struct nk_color crust = nk_rgba(24, 25, 38, 255);*/
+		fck_ui_cached_colour_table[NK_COLOR_TEXT] = text;
+		fck_ui_cached_colour_table[NK_COLOR_WINDOW] = base;
+		fck_ui_cached_colour_table[NK_COLOR_HEADER] = mantle;
+		fck_ui_cached_colour_table[NK_COLOR_BORDER] = mantle;
+		fck_ui_cached_colour_table[NK_COLOR_BUTTON] = surface0;
+		fck_ui_cached_colour_table[NK_COLOR_BUTTON_HOVER] = overlay1;
+		fck_ui_cached_colour_table[NK_COLOR_BUTTON_ACTIVE] = overlay0;
+		fck_ui_cached_colour_table[NK_COLOR_TOGGLE] = surface2;
+		fck_ui_cached_colour_table[NK_COLOR_TOGGLE_HOVER] = overlay2;
+		fck_ui_cached_colour_table[NK_COLOR_TOGGLE_CURSOR] = yellow;
+		fck_ui_cached_colour_table[NK_COLOR_SELECT] = surface0;
+		fck_ui_cached_colour_table[NK_COLOR_SELECT_ACTIVE] = overlay0;
+		fck_ui_cached_colour_table[NK_COLOR_SLIDER] = surface1;
+		fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR] = green;
+		fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_HOVER] = green;
+		fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_ACTIVE] = green;
+		fck_ui_cached_colour_table[NK_COLOR_PROPERTY] = surface0;
+		fck_ui_cached_colour_table[NK_COLOR_EDIT] = surface0;
+		fck_ui_cached_colour_table[NK_COLOR_EDIT_CURSOR] = pink;
+		fck_ui_cached_colour_table[NK_COLOR_COMBO] = surface0;
+		fck_ui_cached_colour_table[NK_COLOR_CHART] = surface0;
+		fck_ui_cached_colour_table[NK_COLOR_CHART_COLOR] = lavender;
+		fck_ui_cached_colour_table[NK_COLOR_CHART_COLOR_HIGHLIGHT] = yellow;
+		fck_ui_cached_colour_table[NK_COLOR_SCROLLBAR] = surface0;
+		fck_ui_cached_colour_table[NK_COLOR_SCROLLBAR_CURSOR] = overlay0;
+		fck_ui_cached_colour_table[NK_COLOR_SCROLLBAR_CURSOR_HOVER] = lavender;
+		fck_ui_cached_colour_table[NK_COLOR_SCROLLBAR_CURSOR_ACTIVE] = lavender;
+		fck_ui_cached_colour_table[NK_COLOR_TAB_HEADER] = surface0;
+		fck_ui_cached_colour_table[NK_COLOR_KNOB] = fck_ui_cached_colour_table[NK_COLOR_SLIDER];
+		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR] = pink;
+		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_HOVER] = pink;
+		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_ACTIVE] = pink;
+		nk_style_from_table(ctx, fck_ui_cached_colour_table);
+	}
+	else if (theme == THEME_CATPPUCCIN_MOCHA)
+	{
+		/*struct nk_color rosewater = nk_rgba(245, 224, 220, 255);*/
+		/*struct nk_color flamingo = nk_rgba(242, 205, 205, 255);*/
+		struct nk_color pink = nk_rgba(245, 194, 231, 255);
+		/*struct nk_color mauve = nk_rgba(203, 166, 247, 255);*/
+		/*struct nk_color red = nk_rgba(243, 139, 168, 255);*/
+		/*struct nk_color maroon = nk_rgba(235, 160, 172, 255);*/
+		/*struct nk_color peach = nk_rgba(250, 179, 135, 255);*/
+		/*struct nk_color yellow = nk_rgba(249, 226, 175, 255);*/
+		struct nk_color green = nk_rgba(166, 227, 161, 255);
+		/*struct nk_color teal = nk_rgba(148, 226, 213, 255);*/
+		/*struct nk_color sky = nk_rgba(137, 220, 235, 255);*/
+		/*struct nk_color sapphire = nk_rgba(116, 199, 236, 255);*/
+		/*struct nk_color blue = nk_rgba(137, 180, 250, 255);*/
+		struct nk_color lavender = nk_rgba(180, 190, 254, 255);
+		struct nk_color text = nk_rgba(205, 214, 244, 255);
+		/*struct nk_color subtext1 = nk_rgba(186, 194, 222, 255);*/
+		/*struct nk_color subtext0 = nk_rgba(166, 173, 200, 255);*/
+		struct nk_color overlay2 = nk_rgba(147, 153, 178, 255);
+		struct nk_color overlay1 = nk_rgba(127, 132, 156, 255);
+		struct nk_color overlay0 = nk_rgba(108, 112, 134, 255);
+		struct nk_color surface2 = nk_rgba(88, 91, 112, 255);
+		struct nk_color surface1 = nk_rgba(69, 71, 90, 255);
+		struct nk_color surface0 = nk_rgba(49, 50, 68, 255);
+		struct nk_color base = nk_rgba(30, 30, 46, 255);
+		struct nk_color mantle = nk_rgba(24, 24, 37, 255);
+		/*struct nk_color crust = nk_rgba(17, 17, 27, 255);*/
+		fck_ui_cached_colour_table[NK_COLOR_TEXT] = text;
+		fck_ui_cached_colour_table[NK_COLOR_WINDOW] = base;
+		fck_ui_cached_colour_table[NK_COLOR_HEADER] = mantle;
+		fck_ui_cached_colour_table[NK_COLOR_BORDER] = mantle;
+		fck_ui_cached_colour_table[NK_COLOR_BUTTON] = surface0;
+		fck_ui_cached_colour_table[NK_COLOR_BUTTON_HOVER] = overlay1;
+		fck_ui_cached_colour_table[NK_COLOR_BUTTON_ACTIVE] = overlay0;
+		fck_ui_cached_colour_table[NK_COLOR_TOGGLE] = surface2;
+		fck_ui_cached_colour_table[NK_COLOR_TOGGLE_HOVER] = overlay2;
+		fck_ui_cached_colour_table[NK_COLOR_TOGGLE_CURSOR] = lavender;
+		fck_ui_cached_colour_table[NK_COLOR_SELECT] = surface0;
+		fck_ui_cached_colour_table[NK_COLOR_SELECT_ACTIVE] = overlay0;
+		fck_ui_cached_colour_table[NK_COLOR_SLIDER] = surface1;
+		fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR] = green;
+		fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_HOVER] = green;
+		fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_ACTIVE] = green;
+		fck_ui_cached_colour_table[NK_COLOR_PROPERTY] = surface0;
+		fck_ui_cached_colour_table[NK_COLOR_EDIT] = surface0;
+		fck_ui_cached_colour_table[NK_COLOR_EDIT_CURSOR] = lavender;
+		fck_ui_cached_colour_table[NK_COLOR_COMBO] = surface0;
+		fck_ui_cached_colour_table[NK_COLOR_CHART] = surface0;
+		fck_ui_cached_colour_table[NK_COLOR_CHART_COLOR] = lavender;
+		fck_ui_cached_colour_table[NK_COLOR_CHART_COLOR_HIGHLIGHT] = pink;
+		fck_ui_cached_colour_table[NK_COLOR_SCROLLBAR] = surface0;
+		fck_ui_cached_colour_table[NK_COLOR_SCROLLBAR_CURSOR] = overlay0;
+		fck_ui_cached_colour_table[NK_COLOR_SCROLLBAR_CURSOR_HOVER] = lavender;
+		fck_ui_cached_colour_table[NK_COLOR_SCROLLBAR_CURSOR_ACTIVE] = pink;
+		fck_ui_cached_colour_table[NK_COLOR_TAB_HEADER] = surface0;
+		fck_ui_cached_colour_table[NK_COLOR_KNOB] = fck_ui_cached_colour_table[NK_COLOR_SLIDER];
+		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR] = pink;
+		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_HOVER] = pink;
+		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_ACTIVE] = pink;
+		nk_style_from_table(ctx, fck_ui_cached_colour_table);
+	}
+	else
+	{
+		nk_style_default(ctx);
+	}
+	return fck_ui_cached_colour_table;
+}
 
 static void purge_files(const char *pattern)
 {
@@ -572,52 +1037,6 @@ static void app_graphics_create(app_graphics *pipelines, app_graphics_shape prim
 	gfx->capacity = capacity;
 	gfx->count = 0;
 
-	// Setup Reflection
-	{
-		struct fck_glsl_reflection *reflection = glsl_reflection->reflect(frag.generic.source, fck_glsl_reflection_global);
-		const fck_glsl_reflection_type *global = glsl_reflection->type_of(reflection, fck_glsl_reflection_global);
-		const fck_glsl_reflection_type *float_type = glsl_reflection->type_of(reflection, "float");
-		const fck_glsl_reflection_type *int_type = glsl_reflection->type_of(reflection, "int");
-		const fck_glsl_reflection_type *sampler2D_type = glsl_reflection->type_of(reflection, "sampler2D");
-
-		gfx->strings = kll->arena->create(kll->system, 256);
-
-		const fck_glsl_reflection_variable *current = global->first;
-		while (current)
-		{
-			if (current->binding >= 0)
-			{
-				os->io->log("Binding: %d -- Type: %s - Name: %s", current->binding, current->type->name, current->name);
-				const fck_glsl_reflection_variable *child_current = current->type->first;
-				while (child_current)
-				{
-					const fck_glsl_reflection_variable *child = child_current;
-					child_current = child_current->next;
-
-					if (child->type == float_type)
-					{
-						const char *name = kll_format(gfx->strings, child->name);
-						app_property_structure_set_float(&gfx->properties, name, 0.0f);
-						continue;
-					}
-					if (child->type == int_type)
-					{
-						const char *name = kll_format(gfx->strings, child->name);
-						app_property_structure_set_int(&gfx->properties, name, 0);
-						continue;
-					}
-				}
-			}
-			else
-			{
-				os->io->log("Type: %s - Name: %s", current->type->name, current->name);
-			}
-
-			current = current->next;
-		}
-		glsl_reflection->free(reflection);
-	}
-
 	compiler.destroy(&compiler, &vert.generic);
 	compiler.destroy(&compiler, &frag.generic);
 	compiler.shutdown(&compiler);
@@ -672,7 +1091,7 @@ typedef struct app_nuklear
 	struct nk_buffer commands;
 	struct nk_context *ctx;
 
-	sht_buffer indices;
+	sht_buffer indices[4];
 	sht_sampler sampler;
 	sht_image font_image;
 	sht_image_view font_view;
@@ -707,7 +1126,10 @@ static void app_nuklear_init(app_nuklear *nk, sht_driver driver, fck_shader_api 
 	sht_memory *memory = driver.vt->memory(driver);
 
 	sht_buffer_configuration config = sht_buffer_retained(SHT_BUFFER_USAGE_INDEX, sizeof(fckc_u32) * 4096);
-	nk->indices = memory->malloc(memory->bump, &config, SHT_MEMORY_CPU);
+	nk->indices[0] = memory->malloc(memory->bump, &config, SHT_MEMORY_CPU);
+	nk->indices[1] = memory->malloc(memory->bump, &config, SHT_MEMORY_CPU);
+	nk->indices[2] = memory->malloc(memory->bump, &config, SHT_MEMORY_CPU);
+	nk->indices[3] = memory->malloc(memory->bump, &config, SHT_MEMORY_CPU);
 
 	nk->sampler = driver.vt->create_sampler(driver, sht_filter_linear);
 
@@ -752,14 +1174,16 @@ static void nuklear_example(struct nk_context *ctx)
 	static float value = 0.6f;
 	static int i = 20;
 
-	if (nk_begin(ctx, "Show", nk_rect(50, 50, 220, 220), NK_WINDOW_BORDER | NK_WINDOW_MOVABLE | NK_WINDOW_CLOSABLE))
+	if (nk_begin(ctx, "Show", nk_rect(0, 0, 220, 220), NK_WINDOW_BORDER | NK_WINDOW_MOVABLE | NK_WINDOW_CLOSABLE))
 	{
 		/* fixed widget pixel width */
 		nk_layout_row_static(ctx, 30, 80, 1);
 		if (nk_button_label(ctx, "button"))
 		{
+			os->io->log("Press");
 			/* event handling */
 		}
+		nk_window_set_size(ctx, "Show", nk_vec2(200 + (int)(value * 600.0f), 220 + (int)(value * 600.0f)));
 
 		/* fixed widget window ratio width */
 		nk_layout_row_dynamic(ctx, 30, 2);
@@ -781,10 +1205,8 @@ static void nuklear_example(struct nk_context *ctx)
 	nk_end(ctx);
 }
 
-static void app_nuklear_draw(app_nuklear *nk, sht_driver driver, sht_command_buffer buffer)
+static void app_nuklear_draw(app_nuklear *nk, sht_driver driver, sht_command_buffer buffer, fckc_u32 frame_index)
 {
-	nuklear_example(nk->ctx);
-
 	fckc_u64 now = os->chrono->ms();
 	nk->ctx->delta_time_seconds = (float)(now - nk->time_last_frame) / 1000;
 	nk->time_last_frame = now;
@@ -813,25 +1235,16 @@ static void app_nuklear_draw(app_nuklear *nk, sht_driver driver, sht_command_buf
 
 	struct nk_buffer vertices, elements;
 	nk_buffer_init_default(&vertices);
-	nk_buffer_init_default(&elements);
+
+	const sht_buffer index_buffer = nk->indices[frame_index];
+	nk_buffer_init_fixed(&elements, index_buffer.cpu, index_buffer.size);
+
 	nk_convert(nk->ctx, &nk->commands, &vertices, &elements, &config);
 
 	const app_vertex_transform *vertex_transforms = (const app_vertex_transform *)nk_buffer_memory_const(&vertices);
-	const void *indices = nk_buffer_memory_const(&elements);
-	memcpy(nk->indices.cpu, indices, elements.needed);
 
 	const sht_swapchain swapchain = driver.vt->swapchain(driver);
 	const sht_extent extent = swapchain.vt->extent(swapchain);
-
-	const float dpi = swapchain.vt->scale(swapchain);
-	fckc_f32 projection[16] = {
-		2.0f,  0.0f,  0.0f,  0.0f, //
-		0.0f,  2.0f,  0.0f,  0.0f, //
-		0.0f,  0.0f,  -1.0f, 0.0f, //
-		-1.0f, -1.0f, 0.0f,  1.0f, //
-	};
-	projection[0] /= (extent.width / dpi);
-	projection[5] /= (extent.height / dpi);
 
 	{
 		const app_screen screen = {
@@ -858,11 +1271,11 @@ static void app_nuklear_draw(app_nuklear *nk, sht_driver driver, sht_command_buf
 		driver.vt->bss->upload_buffer(nk->gfx.bss, 0, &screen_upload);
 		driver.vt->bss->upload_buffer(nk->gfx.bss, 1, &vertices_upload);
 		driver.vt->bss->upload_image(nk->gfx.bss, 2, &font_upload);
-
 		command->bss(buffer, nk->gfx.bss);
 
 		command->graphics_pipeline(buffer, nk->gfx.pipeline);
-		command->index_buffer(buffer, &nk->indices, 0);
+		// Dynamic geometry updates indices and vertices each frame
+		command->index_buffer(buffer, &nk->indices[frame_index], 0);
 
 		const struct nk_draw_command *cmd;
 		fckc_u32 index_offset = 0;
@@ -873,10 +1286,15 @@ static void app_nuklear_draw(app_nuklear *nk, sht_driver driver, sht_command_buf
 
 			// driver->vt->bss->upload(ui->bss, 1, sht_upload_params{.view = ui->font.view, .sampler = ui->sampler});
 
-			float x = cmd->clip_rect.x;
-			float y = cmd->clip_rect.y;
-			/*sht_scissor scissor = (sht_scissor){.offset = {x, y}, .extent = {cmd->clip_rect.w * dpi, cmd->clip_rect.h * dpi}};
-			command->scissor(buffer, &scissor);*/
+			sht_scissor scissor;
+			scissor.offset.x = to_u32(NK_MAX(cmd->clip_rect.x, 0.f));
+			scissor.offset.y = to_u32(NK_MAX(cmd->clip_rect.y, 0.f));
+			scissor.extent.width = to_u32(cmd->clip_rect.w);
+			scissor.extent.height = to_u32(cmd->clip_rect.h);
+
+			// float x = cmd->clip_rect.x;
+			// float y = cmd->clip_rect.y;
+			command->scissor(buffer, &scissor);
 			command->draw_indexed(buffer, &(sht_draw_indexed_desc){
 											  .first_index = index_offset,
 											  .index_count = cmd->elem_count,
@@ -919,8 +1337,24 @@ int main(int argc, char **argv)
 	fck_input *input = (fck_input *)registry->find(fck_input_api_name);
 	sht_render_api *render = (sht_render_api *)registry->find(sht_render_api_name);
 	fck_shader_api *shader = (fck_shader_api *)registry->find(fck_shader_api_name);
+	fck_input_source *mouse = NULL;
+	{
+		fck_input_source **sources;
+		fckc_size_t count = input->sources(&sources);
+		for (fckc_size_t index = 0; index < count; index++)
+		{
+			fck_input_source *source = sources[index];
+			if (source->type == fck_input_source_mouse)
+			{
+				mouse = source;
+				break;
+			}
+		}
+	}
+	fck_assert(mouse);
 
 	fck_window window = os->win->create("Test", 1280, 720);
+	os->win->text_input_start(window);
 
 	const sht_instance instance = render->load(sht_header_version);
 	if (!render->is_ok(instance))
@@ -939,6 +1373,7 @@ int main(int argc, char **argv)
 
 	app_nuklear nk;
 	app_nuklear_init(&nk, driver, shader);
+	fck_ui_set_style(nk.ctx, THEME_RED);
 
 	sht_graphics_pipeline graphic_pipelines;
 
@@ -1022,6 +1457,8 @@ int main(int argc, char **argv)
 		// How hard can it be?
 		plugins->hotreload();
 
+		nk_input_begin(nk.ctx);
+
 		fck_input_event events[32] = {0};
 		const fckc_size_t result = input->events(events, fck_arraysize(events));
 		for (fckc_size_t index = 0; index < result; index++)
@@ -1033,14 +1470,32 @@ int main(int argc, char **argv)
 				{
 					is_running = 0;
 				}
+				continue;
 			}
-			if (e->source->type == fck_input_source_mouse)
+
+			if (e->source->type == fck_input_source_text)
 			{
-				if (e->description->id == fck_mouse_left)
-				{
-				}
+				nk_input_unicode(nk.ctx, e->data.unicode);
+				continue;
 			}
 		}
+
+		{
+			fckc_u32 ids[] = {fck_mouse_left, fck_mouse_middle, fck_mouse_right, fck_mouse_position};
+			fck_input_data states[fck_arraysize(ids)];
+			const fckc_size_t result = mouse->states(0, ids, states, fck_arraysize(ids));
+			fck_input_data *left = states + 0;
+			fck_input_data *middle = states + 1;
+			fck_input_data *right = states + 2;
+			fck_input_data *position = states + 3;
+			nk_input_button(nk.ctx, NK_BUTTON_LEFT, nk.ctx->input.mouse.pos.x, nk.ctx->input.mouse.pos.y, left->scalar > 0.0f);
+			nk_input_button(nk.ctx, NK_BUTTON_MIDDLE, position->floats[0], position->floats[1], middle->scalar > 0.0f);
+			nk_input_button(nk.ctx, NK_BUTTON_RIGHT, position->floats[0], position->floats[1], right->scalar > 0.0f);
+			nk_input_motion(nk.ctx, position->floats[0], position->floats[1]);
+		}
+		nk_input_end(nk.ctx);
+
+		nk_demo_overview(nk.ctx);
 
 		memory->reset(memory->temp);
 
@@ -1139,13 +1594,15 @@ int main(int argc, char **argv)
 						}
 					}
 
-					app_nuklear_draw(&nk, driver, command_buffer);
+					app_nuklear_draw(&nk, driver, command_buffer, frame_index);
 
 					command->render_pass->end(command_buffer);
 				}
 				command->submit(command_buffer, SHT_QUEUE_GRAPHIC);
 			}
 		}
+
+		// driver.vt->idle(driver);
 	}
 
 	plugins->shutdown();

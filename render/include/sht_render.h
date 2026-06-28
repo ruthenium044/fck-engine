@@ -24,7 +24,7 @@ typedef struct sht_render_api_config
 } sht_render_api_config;
 
 // I do not fucking care if higher
-#define SHT_VK_IMAGE_COUNT 4
+#define sht_frame_count 4
 
 typedef fckc_u32 sht_bool32;
 #define sht_true 1
@@ -36,11 +36,11 @@ typedef fckc_u64 sht_id;
 
 typedef enum sht_queue_type
 {
-	SHT_QUEUE_GRAPHIC,
-	SHT_QUEUE_PRESENT,
-	SHT_QUEUE_TRANSFER,
-	SHT_QUEUE_COMPUTE,
-	SHT_QUEUE_COUNT,
+	sht_queue_graphic,
+	sht_queue_present,
+	sht_queue_transfer,
+	sht_queue_compute,
+	sht_queue_count,
 } sht_queue_type;
 
 typedef struct sht_offset
@@ -76,81 +76,81 @@ typedef struct sht_scissor
 
 typedef enum sht_memory_type
 {
-	SHT_MEMORY_GPU,
-	SHT_MEMORY_CPU,
-	SHT_MEMORY_COUNT
+	sht_memory_gpu,
+	sht_memory_cpu,
+	sht_memory_count
 } sht_memory_type;
 
 typedef enum sht_transfer_flags
 {
-	SHT_TRANSFER_RETAINED = 0x00,
-	SHT_TRANSFER_SOURCE = 0x01,
-	SHT_TRANSFER_TARGET = 0x02,
+	sht_transfer_retained = 0x00,
+	sht_trasnfer_source = 0x01,
+	sht_transfer_target = 0x02,
 } sht_transfer_flags;
 
 typedef enum sht_buffer_usage_flags
 {
-	SHT_BUFFER_USAGE_UNIFORM = 0x0000001,
-	SHT_BUFFER_USAGE_STORAGE = 0x0000002,
-	SHT_BUFFER_USAGE_INDEX = 0x0000004,
-	SHT_BUFFER_USAGE_VERTEX = 0x0000008,
-	SHT_BUFFER_USAGE_INDIRECT = 0x0000010,
+	sht_buffer_usage_uniform = 0x0000001,
+	sht_buffer_usage_storage = 0x0000002,
+	sht_buffer_usage_index = 0x0000004,
+	sht_buffer_usage_vertex = 0x0000008,
+	sht_buffer_usage_indirect = 0x0000010,
 } sht_buffer_usage_flags;
 
 typedef enum sht_image_usage_flags
 {
-	SHT_IMAGE_USAGE_SAMPLED = 0x00000001,
-	SHT_IMAGE_USAGE_STORAGE = 0x00000002,
-	SHT_IMAGE_USAGE_COLOR_ATTACHMENT = 0x00000004,
-	SHT_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT = 0x00000008,
-	SHT_IMAGE_USAGE_INPUT_ATTACHMENT = 0x00000010,
+	sht_image_usage_sampled = 0x00000001,
+	sht_image_usage_storage = 0x00000002,
+	sht_image_usage_color_attachment = 0x00000004,
+	sht_image_usage_depth_stencil_attachment = 0x00000008,
+	sht_image_usage_input_attachment = 0x00000010,
 	// SHT_IMAGE_USAGE_TRANSIENT_ATTACHMENT = 0x00000010, // Not now!
 } sht_image_usage_flags;
 
 typedef enum sht_memory_access_operation
 {
-	SHT_LOAD = 0,
-	SHT_STORE = 0,
-	SHT_DONT_CARE = 1, // Maybe, discard?
-	SHT_CLEAR = 2,
+	sht_load = 0,
+	sht_store = 0,
+	sht_dont_care = 1, // Maybe, discard?
+	sht_clear = 2,
 } sht_memory_access_operation;
 
 typedef enum sht_layout_type
 {
-	SHT_LAYOUT_UNDEFINED = 0,
-	SHT_LAYOUT_GENERAL = 1,
-	SHT_LAYOUT_COLOR_ATTACHMENT = 2,
-	SHT_LAYOUT_DEPTH_STENCIL_ATTACHMENT = 3,
-	SHT_LAYOUT_DEPTH_STENCIL_READ_ONLY = 4,
-	SHT_LAYOUT_SHADER_READ_ONLY = 5,
-	SHT_LAYOUT_PRESENT = 1000001002,
+	sht_layout_undefined = 0,
+	sht_layout_general = 1,
+	sht_layout_color_attachment = 2,
+	sht_layout_depth_stencil_attachment = 3,
+	sht_layout_depth_stencil_read_only = 4,
+	sht_layout_shader_read_only = 5,
+	sht_layout_present = 1000001002,
 } sht_layout_type;
 
 typedef enum sht_stage_flags
 {
-	SHT_STAGE_VERTEX_SHADER = 0x00000001,
-	SHT_STAGE_FRAGMENT_SHADER = 0x00000002,
+	sht_stage_vertex_shader = 0x00000001,
+	sht_stage_fragment_shader = 0x00000002,
 } sht_stage_flags;
 
 typedef enum sht_access_flags
 {
-	SHT_ACCESS_INDIRECT_COMMAND_READ = 0x00000001,
-	SHT_ACCESS_INDEX_READ = 0x00000002,
-	SHT_ACCESS_VERTEX_ATTRIBUTE_READ = 0x00000004,
-	SHT_ACCESS_UNIFORM_READ = 0x00000008,
-	SHT_ACCESS_INPUT_ATTACHMENT_READ = 0x00000010,
-	SHT_ACCESS_SHADER_READ = 0x00000020,
-	SHT_ACCESS_SHADER_WRITE = 0x00000040,
-	SHT_ACCESS_COLOR_ATTACHMENT_READ = 0x00000080,
-	SHT_ACCESS_COLOR_ATTACHMENT_WRITE = 0x00000100,
-	SHT_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ = 0x00000200,
-	SHT_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE = 0x00000400,
-	SHT_ACCESS_TRANSFER_READ = 0x00000800,
-	SHT_ACCESS_TRANSFER_WRITE = 0x00001000,
-	SHT_ACCESS_HOST_READ = 0x00002000,
-	SHT_ACCESS_HOST_WRITE = 0x00004000,
-	SHT_ACCESS_MEMORY_READ = 0x00008000,
-	SHT_ACCESS_MEMORY_WRITE = 0x00010000,
+	sht_access_indirect_command_read = 0x00000001,
+	sht_access_index_read = 0x00000002,
+	sht_access_vertex_attribute_read = 0x00000004,
+	sht_access_uniform_read = 0x00000008,
+	sht_access_input_attachment_Read = 0x00000010,
+	sht_access_shader_read = 0x00000020,
+	sht_access_shader_write = 0x00000040,
+	sht_access_color_attachment_read = 0x00000080,
+	sht_access_color_attachment_write = 0x00000100,
+	sht_access_depth_stencil_attachment_read = 0x00000200,
+	sht_access_depth_stencil_attachment_write = 0x00000400,
+	sht_access_transfer_read = 0x00000800,
+	sht_access_transfer_write = 0x00001000,
+	sht_access_host_read = 0x00002000,
+	sht_access_host_write = 0x00004000,
+	sht_access_memory_read = 0x00008000,
+	sht_access_memory_write = 0x00010000,
 } sht_access_flags;
 
 typedef struct sht_buffer_configuration
@@ -163,35 +163,35 @@ typedef struct sht_buffer_configuration
 #define sht_buffer_source(usage_flags, memory_size)                                                                                        \
 	(sht_buffer_configuration)                                                                                                             \
 	{                                                                                                                                      \
-		.transfer = SHT_TRANSFER_SOURCE, .usage = (usage_flags), .size = (memory_size)                                                     \
+		.transfer = sht_trasnfer_source, .usage = (usage_flags), .size = (memory_size)                                                     \
 	}
 
 #define sht_buffer_target(usage_flags, memory_size)                                                                                        \
 	(sht_buffer_configuration)                                                                                                             \
 	{                                                                                                                                      \
-		.transfer = SHT_TRANSFER_TARGET, .usage = (usage_flags), .size = (memory_size)                                                     \
+		.transfer = sht_transfer_target, .usage = (usage_flags), .size = (memory_size)                                                     \
 	}
 
 #define sht_buffer_retained(usage_flags, memory_size)                                                                                      \
 	(sht_buffer_configuration)                                                                                                             \
 	{                                                                                                                                      \
-		.transfer = SHT_TRANSFER_RETAINED, .usage = (usage_flags), .size = (memory_size)                                                   \
+		.transfer = sht_transfer_retained, .usage = (usage_flags), .size = (memory_size)                                                   \
 	}
 
 typedef enum sht_format
 {
 	// Rename them into something friendlier!
-	SHT_FORMAT_UNDEFINED = 0,
-	SHT_FORMAT_R8G8B8A8_UNORM = 1,
-	SHT_FORMAT_R8G8B8A8_SRGB = 2,
-	SHT_FORMAT_B8G8R8A8_UNORM = 3,
-	SHT_FORMAT_B8G8R8A8_SRGB = 4,
-	SHT_FORMAT_D16_UNORM = 5,
+	sht_format_undefined = 0,
+	sht_format_r8g8b8a8_unorm = 1,
+	sht_format_r8g8b8a8_srgb = 2,
+	sht_format_b8g8r8a8_unorm = 3,
+	sht_format_b8g8r8a8_srgb = 4,
+	sht_format_d16_unorm = 5,
 
-	SHT_FORMAT_R32_SFLOAT = 418,
-	SHT_FORMAT_R32G32_SFLOAT = 419,
-	SHT_FORMAT_R32G32B32_SFLOAT = 420,
-	SHT_FORMAT_R32G32B32A32_SFLOAT = 421,
+	sht_format_r32_sfloat = 418,
+	sht_format_r32_G32_sfloat = 419,
+	sht_format_r32g32b32_sfloat = 420,
+	sht_format_r32g32b32a32_sfloat = 421,
 } sht_format;
 
 typedef struct sht_vertex_binding
@@ -258,15 +258,15 @@ typedef struct sht_memory_arena
 {
 	sht_handle *owner;
 
-	void *cpu[SHT_MEMORY_COUNT];
-	fckc_size_t offset[SHT_MEMORY_COUNT];
-	fckc_size_t capacity[SHT_MEMORY_COUNT];
-	sht_heap *heaps[SHT_MEMORY_COUNT];
+	void *cpu[sht_memory_count];
+	fckc_size_t offset[sht_memory_count];
+	fckc_size_t capacity[sht_memory_count];
+	sht_heap *heaps[sht_memory_count];
 } sht_memory_arena;
 
 typedef struct sht_memory_image
 {
-	sht_image (*create)(sht_memory_arena *mem, sht_image_configuration *config, sht_memory_type memory_type);
+	sht_image (*create)(sht_memory_arena *mem, const sht_image_configuration *config, sht_memory_type memory_type);
 	void (*destroy)(sht_memory_arena *mem, sht_image *image);
 
 	sht_bool32 (*is_ok)(sht_image *image);
@@ -306,10 +306,10 @@ typedef struct sht_swapchain
 
 typedef enum sht_swapchain_state
 {
-	SHT_SWAPCHAIN_FIRST_INDEX = 0,
-	SHT_SWAPCHAIN_LAST_INDEX = 127,
-	SHT_SWAPCHAIN_ISSUES = 1 << 31,
-	SHT_SWAPCHAIN_NEEDS_RESIZE = SHT_SWAPCHAIN_ISSUES | 1,
+	sht_swapchain_first_index = 0,
+	sht_swapchain_last_index = 127,
+	sht_swapchain_issues = 1 << 31,
+	sht_swapchain_needs_resize = sht_swapchain_issues | 1,
 } sht_swapchain_state;
 
 typedef struct sht_swapchain_vt
@@ -378,15 +378,15 @@ typedef struct sht_render_desc
 
 typedef enum sht_topology_type
 {
-	SHT_TRIANGLE_LIST,
+	sht_triangle_list,
 } sht_topology_type;
 
 typedef enum sht_cull_mode_flags
 {
-	SHT_CULL_MODE_NONE = 0x0,
-	SHT_CULL_MODE_FRONT = 0x1,
-	SHT_CULL_MODE_BACK = 0x2,
-	SHT_CULL_MODE_BOTH = 0x3,
+	sht_cull_mode_none = 0x0,
+	sht_cull_mode_front = 0x1,
+	sht_cull_mode_back = 0x2,
+	sht_cull_mode_both = 0x3,
 } sht_cull_mode_flags;
 
 typedef struct sht_raster_desc
@@ -411,12 +411,12 @@ typedef struct sht_sampler
 
 typedef enum sht_binding_type
 {
-	SHT_BINDING_NONE = 0,
-	SHT_BINDING_UNIFORM, // Maybe this one is not needed if STORAGE can fulfill the same role!!!
-	SHT_BINDING_STORAGE, // Currently only readonly? Feature vertexPipelineStoresAndAtomics enabled? Maybe only relevant for vertex stage
-	SHT_BINDING_READ_ONLY_IMAGE,
+	sht_binding_none = 0,
+	sht_binding_uniform, // Maybe this one is not needed if STORAGE can fulfill the same role!!!
+	sht_binding_storage, // Currently only readonly? Feature vertexPipelineStoresAndAtomics enabled? Maybe only relevant for vertex stage
+	sht_binding_readonly_image,
 	// TODO: sampler and all that bs
-	SHT_BINDING_TYPE_COUNT,
+	sht_binding_count,
 } sht_binding_type;
 
 typedef struct sht_binding
@@ -518,7 +518,7 @@ typedef struct sht_command_buffer_vt
 	void (*index_buffer)(sht_command_buffer command, sht_buffer *index_buffer, fckc_u64 offset);
 	void (*bss)(sht_command_buffer command, sht_bss bss);
 
-	void (*draw_indexed)(sht_command_buffer command, sht_draw_indexed_desc *params);
+	void (*draw_indexed)(sht_command_buffer command, const sht_draw_indexed_desc *params);
 
 	sht_render_pass_vt *render_pass;
 

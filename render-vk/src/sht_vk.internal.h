@@ -70,8 +70,8 @@ typedef struct sht_vk_queues
 {
 	struct sht_vk_gpu *gpu;
 	
-	fckc_u32 family[SHT_QUEUE_COUNT];
-	fckc_u32 primary[SHT_QUEUE_COUNT];
+	fckc_u32 family[sht_queue_count];
+	fckc_u32 primary[sht_queue_count];
 
 	sht_vk_declare(QueueSubmit);
 	sht_vk_declare(QueuePresentKHR);
@@ -111,11 +111,11 @@ typedef struct sht_vk_common_sync_resources
 {
 	// sht_vk_driver *driver; // Might not be needed
 
-	VkFence wait_fences[SHT_VK_IMAGE_COUNT];
-	VkSemaphore graphics_completed[SHT_VK_IMAGE_COUNT];
-	VkSemaphore presentation_completed[SHT_VK_IMAGE_COUNT];
+	VkFence wait_fences[sht_frame_count];
+	VkSemaphore graphics_completed[sht_frame_count];
+	VkSemaphore presentation_completed[sht_frame_count];
 
-	fckc_u32 frame_index_to_swapchain_image_index[SHT_VK_IMAGE_COUNT];
+	fckc_u32 frame_index_to_swapchain_image_index[sht_frame_count];
 	fckc_u32 index;
 } sht_vk_common_sync_resources;
 
@@ -146,7 +146,7 @@ typedef struct sht_vk_command
 	struct sht_vk_driver *driver;
 
 	VkCommandPool pool;
-	VkCommandBuffer buffers[SHT_VK_IMAGE_COUNT];
+	VkCommandBuffer buffers[sht_frame_count];
 
 	// Present, transfer, copy??? We will see!
 
@@ -295,7 +295,7 @@ typedef struct sht_vk_descriptor_pool_storage_entry
 {
 	VkDescriptorSetLayout layout;
 	VkPipelineLayout pipeline_layout;
-	VkDescriptorPool dynamic_pools[SHT_VK_IMAGE_COUNT];
+	VkDescriptorPool dynamic_pools[sht_frame_count];
 	VkDescriptorPool constant_pool;
 
 	fckc_u32 ref_count;
@@ -315,7 +315,7 @@ typedef struct sht_vk_bss_node
 typedef struct sht_vk_bss_nodes
 {
 	// TODO: Maybe embed tagged info in here!
-	sht_vk_bss_node values[SHT_VK_IMAGE_COUNT];
+	sht_vk_bss_node values[sht_frame_count];
 } sht_vk_bss_nodes;
 
 typedef struct sht_vk_bss
@@ -331,9 +331,9 @@ typedef struct sht_vk_bss
 	sht_vk_descriptor_pool_storage_key pool_storage_key;
 	// sht_vk_descriptor_set_copies copies[SHT_VK_IMAGE_COUNT];
 	//  VkDescriptorSet sets[SHT_VK_IMAGE_COUNT];
-	VkDescriptorSet latest[SHT_VK_IMAGE_COUNT];
-	VkDescriptorSet baselines[SHT_VK_IMAGE_COUNT];
-	sht_bss_buffer_backends buffer_backends[SHT_VK_IMAGE_COUNT];
+	VkDescriptorSet latest[sht_frame_count];
+	VkDescriptorSet baselines[sht_frame_count];
+	sht_bss_buffer_backends buffer_backends[sht_frame_count];
 } sht_vk_bss;
 
 typedef struct sht_vk_bss_storage

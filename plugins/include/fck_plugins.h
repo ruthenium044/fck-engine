@@ -3,7 +3,7 @@
 
 #include <fckc_inttypes.h>
 
-#define fck_plugins_api_name "fck_plugins"
+#define fck_plugins_api_name "fck-plugins"
 
 typedef struct fck_plugins_api {
 	fckc_u32 (*hotreload)(void);

@@ -18,6 +18,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <fck_png.h>
+
 #include "reflection.h"
 
 #include "fck_gfx.h"
@@ -68,6 +70,41 @@ typedef struct app_screen
 	float height;
 } app_screen;
 
+static sht_image app_load_image(sht_driver driver, const void *pixels, sht_format format, int width, int height)
+{
+	sht_memory *memory = driver.vt->memory(driver);
+	const sht_image_configuration config = {
+		.format = format,
+		.height = to_u32(height),
+		.width = to_u32(width),
+		.transfer = sht_transfer_target,
+		.usage = sht_image_usage_sampled,
+	};
+
+	sht_image image = memory->image->create(memory->bump, &config, sht_memory_gpu);
+	if (!memory->image->is_ok(&image))
+	{
+		return image;
+	}
+	const fckc_size_t size = (fckc_size_t)width * height * 4;
+	driver.vt->upload_image(driver, &image, pixels, size);
+	return image;
+}
+
+// From GLSL
+typedef struct QuadTransform
+{
+	float x;
+	float y;
+	float z;
+	float rotation;
+	float width;
+	float height;
+	float scale;
+	int horizontal_index;
+	int vertical_index;
+} QuadTransform;
+
 int main(int argc, char **argv)
 {
 	load_config(argc, argv);
@@ -94,6 +131,8 @@ int main(int argc, char **argv)
 	fck_input *input = (fck_input *)registry->find(fck_input_api_name);
 	sht_render_api *render = (sht_render_api *)registry->find(sht_render_api_name);
 	fck_shader_api *shader = (fck_shader_api *)registry->find(fck_shader_api_name);
+	fck_png_api *png = (fck_png_api *)registry->find(fck_png_api_name);
+
 	fck_input_source *mouse = NULL;
 	{
 		fck_input_source **sources;
@@ -214,7 +253,7 @@ int main(int argc, char **argv)
 	sht_image_view texture_view = {0};
 
 	{
-		sampler = driver.vt->create_sampler(driver, sht_filter_linear);
+		sampler = driver.vt->create_sampler(driver, sht_filter_nearest);
 		const sht_image_configuration config = {
 			.format = sht_format_r8g8b8a8_unorm,
 			.width = 4,
@@ -229,6 +268,14 @@ int main(int argc, char **argv)
 		driver.vt->upload_image(driver, &texture_image, pixels, sizeof(pixels));
 	}
 
+	const fck_png bird_png = png->load(fck_resource_path "bird-sheet.png");
+	const sht_image bird_image = app_load_image(driver, bird_png.data, sht_format_r8g8b8a8_unorm, bird_png.width, bird_png.height);
+	const sht_image_view bird_image_view = memory->image->view(memory->bump, bird_image, sht_format_r8g8b8a8_unorm);
+
+	const fck_gfx_shader vertex_shader = {.name = "vertex", .path = fck_resource_path "sprite.vert"};
+	const fck_gfx_shader fragment_shader = {.name = "textured", .path = fck_resource_path "textured.frag"};
+	const fck_gfx_create_info create_info = {.vertex = &vertex_shader, .fragment = &fragment_shader};
+	fck_gfx bird_gfx = gfx->create(kll->system, &driver, shader, &create_info);
 	// sht_image depth_image = {0};
 	// sht_image_view depth_view = {0};
 	//{
@@ -253,9 +300,31 @@ int main(int argc, char **argv)
 		driver.vt->upload_buffer(driver, &indices.buffer, index_data, sizeof(index_data));
 	}
 
+	QuadTransform bird_transforms[] = {{.x = -100.0f, .y = -100.0f, .scale = 1.0f, .width = 256.0f, .height = 256.0f, .vertical_index = 0},
+	                                   {.x = 200.0f, .y = 200.0f, .scale = 1.0f, .width = 256.0f, .height = 256.0f, .vertical_index = 2},
+	                                   {.x = -100, .y = 200.0f, .scale = 1.0f, .width = 256.0f, .height = 256.0f, .vertical_index = 9},
+	                                   {.x = 200, .y = -100.0f, .scale = 1.0f, .width = 256.0f, .height = 256.0f, .vertical_index = 11}};
+
+	fckc_u64 time_point = os->chrono->ms();
+
+	fckc_u64 accumulator = 0;
+
 	int is_running = 1;
 	while (is_running)
 	{
+		const fckc_u64 now = os->chrono->ms();
+		const fckc_u64 delta = now - time_point;
+		time_point = now;
+
+		accumulator = accumulator + delta;
+		if (accumulator >= 160)
+		{
+			accumulator = accumulator - 160;
+			for (fckc_size_t index = 0; index < fck_arraysize(bird_transforms); index++)
+			{
+				bird_transforms[index].horizontal_index = (bird_transforms[index].horizontal_index + 1) % 4;
+			}
+		}
 		// TODO: Make render-vk hotreloadable :)
 		// How hard can it be?
 		plugins->hotreload();
@@ -336,8 +405,32 @@ int main(int argc, char **argv)
 					command->viewport(command_buffer, &viewport);
 					command->scissor(command_buffer, &scissor);
 
-					// command->index_buffer(command_buffer, &indices.buffer, 0);
+					command->index_buffer(command_buffer, &indices.buffer, 0);
 
+					sht_bss *bss = gfx->bss(bird_gfx);
+					sht_graphics_pipeline *pipeline = gfx->pipeline(bird_gfx);
+
+					const sht_buffer_upload_desc screen_upload = {.data = &screen, .size = sizeof(screen), .count = 1};
+					const sht_buffer_upload_desc transform_upload = {
+						.data = &bird_transforms, .size = sizeof(*bird_transforms), .count = fck_arraysize(bird_transforms)};
+					const sht_image_upload_desc image_upload = {.samplers = sampler, .views = bird_image_view};
+
+					driver.vt->bss->upload_buffer(*bss, 0, &screen_upload);
+					driver.vt->bss->upload_buffer(*bss, 1, &transform_upload);
+					driver.vt->bss->upload_image(*bss, 3, &image_upload);
+					command->bss(command_buffer, *bss);
+
+					command->graphics_pipeline(command_buffer, *pipeline);
+
+					const sht_draw_indexed_desc desc = {
+						.first_index = 0,
+						.index_count = to_u32(indices.count),
+						.instance_count = fck_arraysize(bird_transforms),
+						.first_instance = 0,
+						.vertex_offset = 0,
+					};
+
+					command->draw_indexed(command_buffer, &desc);
 					nk->present(view, &command_buffer, frame_index);
 
 					command->render_pass->end(command_buffer);

@@ -18,12 +18,16 @@ struct QuadTransform {
     float width;  
     float height;
     float scale;
-    float unused;
+    int horizontal_index;
+    int vertical_index;
 };
+
 
 layout(std430, binding = 1) readonly buffer TransformBuffer {
     QuadTransform transforms[];
 };
+
+layout (binding = 3) uniform sampler2D texSampler;
 
 out gl_PerVertex 
 {
@@ -53,6 +57,9 @@ const vec2 UVS[4] = vec2[](
 
 void main() 
 {
+    vec2 spriteSize = vec2(32.0f, 32.0f);
+    ivec2 texSize = textureSize(texSampler, 0);
+
     QuadTransform transform = transforms[gl_InstanceIndex];
 
 	vec3 pos = POSITIONS[gl_VertexIndex];
@@ -77,24 +84,12 @@ void main()
 
     transform.scale = max(transform.scale, 0.001);
 
+    vec2 maxIndices = vec2(texSize) / spriteSize;
+    float clampedXIndex = clamp(float(transform.horizontal_index), 0.0, maxIndices.x - 1.0);
+    float clampedYIndex = clamp(float(transform.vertical_index), 0.0, maxIndices.y - 1.0);
+    vec2 spriteOffsetPixels = vec2(clampedXIndex, clampedYIndex) * spriteSize;
+    vec2 localPixelUV = UVS[gl_VertexIndex] * spriteSize;
+    outUv = (spriteOffsetPixels + localPixelUV) / vec2(texSize);
+
     outColor = COLORS[3];
-    outUv = UVS[gl_VertexIndex] / transform.scale;
-
-
-    //if(configuration.gradient != 0) 
-    //{
-    //outColor = COLORS[gl_VertexIndex];
-    //}
-    //else 
-    //{
-    //}
-    //
-    //if(configuration.is_sdf != 0) 
-    //{
-    //    outUv = ((UVS[gl_VertexIndex] * 2.0) - 1.0) / transform.scale;
-    //} 
-    //else 
-    //{
-    //}
-
 }

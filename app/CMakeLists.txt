@@ -25,6 +25,7 @@ find_package(input)
 find_package(plugins)
 find_package(render)
 find_package(shader)
+find_package(png)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::hash)
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::os)
@@ -32,6 +33,8 @@ target_link_libraries(${PROJECT_NAME} PRIVATE fck::kll)
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::input)
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::api-interface)
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::plugins-interface)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::png-interface)
+# Should this be fck::render-interface? 
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::render)
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::shader-interface)
 

@@ -3,7 +3,7 @@
 
 #include <fckc_inttypes.h>
 
-#define fck_api_registry_name "fck_api_registry"
+#define fck_api_registry_name "fck-api-registry"
 
 typedef struct fck_api_registry
 {

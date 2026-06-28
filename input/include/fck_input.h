@@ -3,8 +3,8 @@
 
 #include <fckc_inttypes.h>
 
-#define fck_input_api_name "fck_input"
-#define fck_input_source_name "fck_input_source"
+#define fck_input_api_name "fck-input"
+#define fck_input_source_name "fck-input-source"
 
 typedef enum fck_input_source_type
 {

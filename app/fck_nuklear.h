@@ -101,6 +101,7 @@ struct fck_shader_api;
 struct fck_input;
 struct sht_command_buffer;
 
+// TODO: fck_nk should have an arena so we can create hamburger and pie items through it
 typedef struct fck_nuklear_api
 {
 	// TODO: HMMM, window from driver is also an option

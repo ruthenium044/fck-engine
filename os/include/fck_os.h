@@ -39,6 +39,14 @@ typedef struct fck_window
 	void *handle;
 } fck_window;
 
+typedef struct fck_window_configuration
+{
+	float title_bar_height;
+	float resize_line_width;
+	float menu_area_width;
+	float button_area_width;
+} fck_window_configuration;
+
 typedef struct fck_window_api
 {
 	fck_window (*create)(const char *name, int w, int h);
@@ -52,6 +60,12 @@ typedef struct fck_window_api
 	// HWDN and HINSTANCE on windows
 	// or NSWindow on MacOS
 	void *(*native)(fck_window window, const char *name);
+
+	// Hmm, I do not hate the style of this
+	// win->configure(window, NULL) -> Does not set
+	// win->configure(window, &config) -> Sets
+	const fck_window_configuration *(*configuration)(fck_window window, const fck_window_configuration *config);
+	const char *(*title)(fck_window window, const char *title);
 
 	// Wonky, but ok
 	int (*text_input_start)(fck_window window);

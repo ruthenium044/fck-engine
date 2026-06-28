@@ -1,8 +1,8 @@
-#include <stdio.h>
-#include <math.h>
-#include <string.h>
 #include <limits.h> /* INT_MAX */
-#include <time.h>   /* struct tm, localtime */
+#include <math.h>
+#include <stdio.h>
+#include <string.h>
+#include <time.h> /* struct tm, localtime */
 
 static int nk_demo_overview(struct nk_context *ctx)
 {
@@ -10,7 +10,7 @@ static int nk_demo_overview(struct nk_context *ctx)
 	static nk_bool show_menu = nk_true;
 	static nk_flags window_flags =
 		NK_WINDOW_TITLE | NK_WINDOW_BORDER | NK_WINDOW_SCALABLE | NK_WINDOW_MOVABLE | NK_WINDOW_MINIMIZABLE | NK_WINDOW_SCROLL_AUTO_HIDE;
-	nk_flags actual_window_flags = 0;
+	nk_flags actual_window_flags = window_flags;
 
 	/* widget flags */
 	static nk_bool disable_widgets = nk_false;
@@ -29,7 +29,7 @@ static int nk_demo_overview(struct nk_context *ctx)
 
 	/* window flags */
 	ctx->style.window.header.align = header_align;
-	if (nk_begin(ctx, "Overview", nk_rect(0, 0, 1280, 720), actual_window_flags))
+	//if (nk_begin(ctx, "Overview", nk_rect(0, 72, 1280, 720), actual_window_flags))
 	{
 		if (show_menu)
 		{
@@ -1478,6 +1478,6 @@ static int nk_demo_overview(struct nk_context *ctx)
 		if (disable_widgets)
 			nk_widget_disable_end(ctx);
 	}
-	nk_end(ctx);
+	//nk_end(ctx);
 	return !nk_window_is_closed(ctx, "Overview");
 }

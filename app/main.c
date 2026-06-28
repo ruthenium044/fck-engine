@@ -38,23 +38,24 @@
 
 static struct nk_color fck_ui_cached_colour_table[NK_COLOR_COUNT];
 
-enum fck_theme
+typedef enum fck_nuklear_theme
 {
-	THEME_BLACK,
-	THEME_WHITE,
-	THEME_RED,
-	THEME_BLUE,
-	THEME_DARK,
-	THEME_DRACULA,
-	THEME_CATPPUCCIN_LATTE,
-	THEME_CATPPUCCIN_FRAPPE,
-	THEME_CATPPUCCIN_MACCHIATO,
-	THEME_CATPPUCCIN_MOCHA
-};
+	fck_nk_theme_black,
+	fck_nk_theme_white,
+	fck_nk_theme_ruta,
+	fck_nk_theme_red,
+	fck_nk_theme_blue,
+	fck_nk_theme_dark,
+	fck_nk_theme_dracula,
+	fck_nk_theme_latte,
+	fck_nk_theme_frappe,
+	fck_nk_theme_macchiato,
+	fck_nk_theme_mocha
+} fck_nuklear_theme;
 
-struct nk_color *fck_ui_set_style(struct nk_context *ctx, enum fck_theme theme)
+static struct nk_color *fck_ui_set_style(struct nk_context *ctx, enum fck_nuklear_theme theme)
 {
-	if (theme == THEME_WHITE)
+	if (theme == fck_nk_theme_white)
 	{
 		fck_ui_cached_colour_table[NK_COLOR_TEXT] = nk_rgba(70, 70, 70, 255);
 		fck_ui_cached_colour_table[NK_COLOR_WINDOW] = nk_rgba(175, 175, 175, 255);
@@ -90,7 +91,47 @@ struct nk_color *fck_ui_set_style(struct nk_context *ctx, enum fck_theme theme)
 		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_ACTIVE] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_ACTIVE];
 		nk_style_from_table(ctx, fck_ui_cached_colour_table);
 	}
-	else if (theme == THEME_RED)
+	else if (theme == fck_nk_theme_ruta)
+	{
+		struct nk_color secondary = nk_rgba(75, 140, 0, 255);
+		struct nk_color secondary_highlight = nk_rgba(95, 178, 0, 255);
+		struct nk_color secondary_clicked = nk_rgba(115, 216, 0, 255);
+
+		fck_ui_cached_colour_table[NK_COLOR_TEXT] = nk_rgba(210, 210, 210, 255);
+		fck_ui_cached_colour_table[NK_COLOR_WINDOW] = nk_rgba(30, 33, 40, 215);
+		fck_ui_cached_colour_table[NK_COLOR_HEADER] = secondary;
+		fck_ui_cached_colour_table[NK_COLOR_BORDER] = nk_rgba(51, 55, 67, 255);
+		fck_ui_cached_colour_table[NK_COLOR_BUTTON] = secondary;
+		fck_ui_cached_colour_table[NK_COLOR_BUTTON_HOVER] = secondary_highlight;
+		fck_ui_cached_colour_table[NK_COLOR_BUTTON_ACTIVE] = secondary_clicked;
+		fck_ui_cached_colour_table[NK_COLOR_TOGGLE] = nk_rgba(51, 55, 67, 255);
+		fck_ui_cached_colour_table[NK_COLOR_TOGGLE_HOVER] = secondary_highlight;
+		fck_ui_cached_colour_table[NK_COLOR_TOGGLE_CURSOR] = secondary;
+		fck_ui_cached_colour_table[NK_COLOR_SELECT] = nk_rgba(51, 55, 67, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SELECT_ACTIVE] = secondary;
+		fck_ui_cached_colour_table[NK_COLOR_SLIDER] = nk_rgba(51, 55, 67, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR] = secondary;
+		fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_HOVER] = secondary_highlight;
+		fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_ACTIVE] = secondary_clicked;
+		fck_ui_cached_colour_table[NK_COLOR_PROPERTY] = nk_rgba(51, 55, 67, 255);
+		fck_ui_cached_colour_table[NK_COLOR_EDIT] = nk_rgba(51, 55, 67, 225);
+		fck_ui_cached_colour_table[NK_COLOR_EDIT_CURSOR] = nk_rgba(190, 190, 190, 255);
+		fck_ui_cached_colour_table[NK_COLOR_COMBO] = nk_rgba(51, 55, 67, 255);
+		fck_ui_cached_colour_table[NK_COLOR_CHART] = nk_rgba(51, 55, 67, 255);
+		fck_ui_cached_colour_table[NK_COLOR_CHART_COLOR] = secondary;
+		fck_ui_cached_colour_table[NK_COLOR_CHART_COLOR_HIGHLIGHT] = secondary_highlight;
+		fck_ui_cached_colour_table[NK_COLOR_SCROLLBAR] = nk_rgba(30, 33, 40, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SCROLLBAR_CURSOR] = nk_rgba(64, 84, 95, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SCROLLBAR_CURSOR_HOVER] = nk_rgba(70, 90, 100, 255);
+		fck_ui_cached_colour_table[NK_COLOR_SCROLLBAR_CURSOR_ACTIVE] = nk_rgba(75, 95, 105, 255);
+		fck_ui_cached_colour_table[NK_COLOR_TAB_HEADER] = secondary;
+		fck_ui_cached_colour_table[NK_COLOR_KNOB] = fck_ui_cached_colour_table[NK_COLOR_SLIDER];
+		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR];
+		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_HOVER] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_HOVER];
+		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_ACTIVE] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_ACTIVE];
+		nk_style_from_table(ctx, fck_ui_cached_colour_table);
+	}
+	else if (theme == fck_nk_theme_red)
 	{
 		fck_ui_cached_colour_table[NK_COLOR_TEXT] = nk_rgba(190, 190, 190, 255);
 		fck_ui_cached_colour_table[NK_COLOR_WINDOW] = nk_rgba(30, 33, 40, 215);
@@ -126,7 +167,7 @@ struct nk_color *fck_ui_set_style(struct nk_context *ctx, enum fck_theme theme)
 		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_ACTIVE] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_ACTIVE];
 		nk_style_from_table(ctx, fck_ui_cached_colour_table);
 	}
-	else if (theme == THEME_BLUE)
+	else if (theme == fck_nk_theme_blue)
 	{
 		fck_ui_cached_colour_table[NK_COLOR_TEXT] = nk_rgba(20, 20, 20, 255);
 		fck_ui_cached_colour_table[NK_COLOR_WINDOW] = nk_rgba(202, 212, 214, 215);
@@ -162,7 +203,7 @@ struct nk_color *fck_ui_set_style(struct nk_context *ctx, enum fck_theme theme)
 		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_ACTIVE] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_ACTIVE];
 		nk_style_from_table(ctx, fck_ui_cached_colour_table);
 	}
-	else if (theme == THEME_DARK)
+	else if (theme == fck_nk_theme_dark)
 	{
 		fck_ui_cached_colour_table[NK_COLOR_TEXT] = nk_rgba(210, 210, 210, 255);
 		fck_ui_cached_colour_table[NK_COLOR_WINDOW] = nk_rgba(57, 67, 71, 215);
@@ -198,7 +239,7 @@ struct nk_color *fck_ui_set_style(struct nk_context *ctx, enum fck_theme theme)
 		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_ACTIVE] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_ACTIVE];
 		nk_style_from_table(ctx, fck_ui_cached_colour_table);
 	}
-	else if (theme == THEME_DRACULA)
+	else if (theme == fck_nk_theme_dracula)
 	{
 		struct nk_color background = nk_rgba(40, 42, 54, 255);
 		struct nk_color currentline = nk_rgba(68, 71, 90, 255);
@@ -245,7 +286,7 @@ struct nk_color *fck_ui_set_style(struct nk_context *ctx, enum fck_theme theme)
 		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_ACTIVE] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_ACTIVE];
 		nk_style_from_table(ctx, fck_ui_cached_colour_table);
 	}
-	else if (theme == THEME_CATPPUCCIN_LATTE)
+	else if (theme == fck_nk_theme_latte)
 	{
 		/*struct nk_color rosewater = nk_rgba(220, 138, 120, 255);*/
 		/*struct nk_color flamingo = nk_rgba(221, 120, 120, 255);*/
@@ -307,7 +348,7 @@ struct nk_color *fck_ui_set_style(struct nk_context *ctx, enum fck_theme theme)
 		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_ACTIVE] = pink;
 		nk_style_from_table(ctx, fck_ui_cached_colour_table);
 	}
-	else if (theme == THEME_CATPPUCCIN_FRAPPE)
+	else if (theme == fck_nk_theme_frappe)
 	{
 		/*struct nk_color rosewater = nk_rgba(242, 213, 207, 255);*/
 		/*struct nk_color flamingo = nk_rgba(238, 190, 190, 255);*/
@@ -369,7 +410,7 @@ struct nk_color *fck_ui_set_style(struct nk_context *ctx, enum fck_theme theme)
 		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_ACTIVE] = pink;
 		nk_style_from_table(ctx, fck_ui_cached_colour_table);
 	}
-	else if (theme == THEME_CATPPUCCIN_MACCHIATO)
+	else if (theme == fck_nk_theme_macchiato)
 	{
 		/*struct nk_color rosewater = nk_rgba(244, 219, 214, 255);*/
 		/*struct nk_color flamingo = nk_rgba(240, 198, 198, 255);*/
@@ -431,7 +472,7 @@ struct nk_color *fck_ui_set_style(struct nk_context *ctx, enum fck_theme theme)
 		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_ACTIVE] = pink;
 		nk_style_from_table(ctx, fck_ui_cached_colour_table);
 	}
-	else if (theme == THEME_CATPPUCCIN_MOCHA)
+	else if (theme == fck_nk_theme_mocha)
 	{
 		/*struct nk_color rosewater = nk_rgba(245, 224, 220, 255);*/
 		/*struct nk_color flamingo = nk_rgba(242, 205, 205, 255);*/
@@ -1082,7 +1123,7 @@ static void app_graphics_add_quad(app_graphics *graphics, app_graphics_style mat
 	g->count = g->count + 1;
 }
 
-typedef struct app_nuklear
+typedef struct app_nk
 {
 	struct nk_font_atlas atlas;
 	struct nk_font *default_font;
@@ -1098,9 +1139,9 @@ typedef struct app_nuklear
 	app_graphic_pipeline gfx;
 
 	fckc_u64 time_last_frame;
-} app_nuklear;
+} app_nk;
 
-static sht_image app_nuklear_bake_font(sht_driver driver, const void *pixels, sht_format format, int width, int height)
+static sht_image app_nk_bake_font(sht_driver driver, const void *pixels, sht_format format, int width, int height)
 {
 	sht_memory *memory = driver.vt->memory(driver);
 	sht_image_configuration config = {
@@ -1121,11 +1162,11 @@ static sht_image app_nuklear_bake_font(sht_driver driver, const void *pixels, sh
 	return image;
 }
 
-static void app_nuklear_init(app_nuklear *nk, sht_driver driver, fck_shader_api *shader)
+static void app_nk_init(app_nk *nk, sht_driver driver, fck_shader_api *shader)
 {
 	sht_memory *memory = driver.vt->memory(driver);
 
-	sht_buffer_configuration config = sht_buffer_retained(SHT_BUFFER_USAGE_INDEX, sizeof(fckc_u32) * 4096);
+	sht_buffer_configuration config = sht_buffer_retained(SHT_BUFFER_USAGE_INDEX, fck_megabytes(1));
 	nk->indices[0] = memory->malloc(memory->bump, &config, SHT_MEMORY_CPU);
 	nk->indices[1] = memory->malloc(memory->bump, &config, SHT_MEMORY_CPU);
 	nk->indices[2] = memory->malloc(memory->bump, &config, SHT_MEMORY_CPU);
@@ -1148,7 +1189,7 @@ static void app_nuklear_init(app_nuklear *nk, sht_driver driver, fck_shader_api 
 	const void *default_font_pixels = nk_font_atlas_bake(&nk->atlas, &default_font_width, &default_font_height, NK_FONT_ATLAS_RGBA32);
 
 	const sht_format font_format = SHT_FORMAT_R8G8B8A8_UNORM;
-	nk->font_image = app_nuklear_bake_font(driver, default_font_pixels, font_format, default_font_width, default_font_height);
+	nk->font_image = app_nk_bake_font(driver, default_font_pixels, font_format, default_font_width, default_font_height);
 	nk->font_view = memory->image->view(memory->bump, nk->font_image, font_format);
 
 	nk_font_atlas_end(&nk->atlas, nk_handle_ptr(&nk->font_view), &nk->null_texture);
@@ -1205,7 +1246,7 @@ static void nuklear_example(struct nk_context *ctx)
 	nk_end(ctx);
 }
 
-static void app_nuklear_draw(app_nuklear *nk, sht_driver driver, sht_command_buffer buffer, fckc_u32 frame_index)
+static void app_nk_draw(app_nk *nk, sht_driver driver, sht_command_buffer buffer, fckc_u32 frame_index)
 {
 	fckc_u64 now = os->chrono->ms();
 	nk->ctx->delta_time_seconds = (float)(now - nk->time_last_frame) / 1000;
@@ -1239,7 +1280,19 @@ static void app_nuklear_draw(app_nuklear *nk, sht_driver driver, sht_command_buf
 	const sht_buffer index_buffer = nk->indices[frame_index];
 	nk_buffer_init_fixed(&elements, index_buffer.cpu, index_buffer.size);
 
-	nk_convert(nk->ctx, &nk->commands, &vertices, &elements, &config);
+	const nk_flags result = nk_convert(nk->ctx, &nk->commands, &vertices, &elements, &config);
+	if (sht_test(result, NK_CONVERT_COMMAND_BUFFER_FULL))
+	{
+		os->io->log("Nuklear GUI Command Buffer full!");
+	}
+	if (sht_test(result, NK_CONVERT_VERTEX_BUFFER_FULL))
+	{
+		os->io->log("Nuklear GUI Vertex Buffer full!");
+	}
+	if (sht_test(result, NK_CONVERT_ELEMENT_BUFFER_FULL))
+	{
+		os->io->log("Nuklear GUI Element Buffer full!");
+	}
 
 	const app_vertex_transform *vertex_transforms = (const app_vertex_transform *)nk_buffer_memory_const(&vertices);
 
@@ -1306,8 +1359,506 @@ static void app_nuklear_draw(app_nuklear *nk, sht_driver driver, sht_command_buf
 		}
 		nk_buffer_free(&vertices);
 		nk_buffer_free(&elements);
-		nk_clear(nk->ctx);
-		nk_buffer_clear(&nk->commands);
+	}
+}
+
+typedef enum app_nk_menu_item_type
+{
+	app_nk_menu_item_bool,
+	app_nk_menu_item_button,
+} app_nk_menu_item_type;
+
+struct app_nk_menu_item;
+typedef struct app_nk_menu_item
+{
+	struct app_nk_menu_item *next;
+	const char *name;
+	app_nk_menu_item_type type;
+	int value;
+} app_nk_menu_item;
+
+struct app_nk_pie_item;
+typedef struct app_nk_pie_item
+{
+	struct app_nk_pie_item *next;
+	struct app_nk_pie_item *parent;
+
+	struct app_nk_pie_item *child_items;
+	struct app_nk_pie_item *child_items_last;
+
+	const char *name;
+	int value;
+} app_nk_pie_item;
+
+static int app_nk_menu_item_happend(app_nk_menu_item *item)
+{
+	int value = item->value;
+	if (item->type == app_nk_menu_item_button)
+	{
+		item->value = 0;
+	}
+	return value;
+}
+
+static int app_nk_pie_item_happend(app_nk_pie_item *item)
+{
+	int value = item->value;
+	item->value = 0;
+	return value;
+}
+
+typedef struct app_nk_os_window_state
+{
+	fckc_u32 minimise : 1;
+	fckc_u32 close : 1;
+	fckc_u32 menu : 1;
+	fckc_u32 body : 1;
+	fckc_u32 pie : 1;
+} app_nk_os_window_state;
+
+typedef struct app_nk_os_window
+{
+	fck_window window;
+	struct nk_context *ctx;
+
+	app_nk_menu_item *menu_items;
+	app_nk_menu_item *menu_items_last;
+
+	struct nk_vec2 pie_position;
+	app_nk_pie_item *last_hovered;
+	app_nk_pie_item *pie_items;
+	app_nk_pie_item *pie_items_last;
+
+	app_nk_os_window_state state;
+} app_nk_os_window;
+
+static app_nk_os_window app_nk_os_window_create(fck_window window, struct nk_context *ctx)
+{
+	app_nk_os_window os_window = {.window = window, .ctx = ctx};
+	return os_window;
+}
+
+static void app_nk_os_window_add_menu_item(app_nk_os_window *window, app_nk_menu_item *menu_item)
+{
+	fck_assert(menu_item->next == NULL);
+
+	if (window->menu_items == NULL)
+	{
+		window->menu_items = menu_item;
+		window->menu_items_last = menu_item;
+	}
+	else
+	{
+		window->menu_items_last->next = menu_item;
+		window->menu_items_last = menu_item;
+	}
+}
+
+static void app_nk_os_window_add_pie_item(app_nk_os_window *window, app_nk_pie_item *pie_item)
+{
+	fck_assert(pie_item->next == NULL);
+
+	if (window->pie_items == NULL)
+	{
+		window->pie_items = pie_item;
+		window->pie_items_last = pie_item;
+	}
+	else
+	{
+		window->pie_items_last->next = pie_item;
+		window->pie_items_last = pie_item;
+	}
+}
+
+static void app_nk_pie_item_add_child(app_nk_pie_item *pie_item, app_nk_pie_item *child_item)
+{
+	fck_assert(child_item->next == NULL);
+
+	child_item->parent = pie_item;
+
+	if (pie_item->child_items == NULL)
+	{
+		pie_item->child_items = child_item;
+		pie_item->child_items_last = child_item;
+	}
+	else
+	{
+		pie_item->child_items_last->next = child_item;
+		pie_item->child_items_last = child_item;
+	}
+}
+
+static app_nk_pie_item *app_nk_pie_item_is_part_of(app_nk_pie_item *item, app_nk_pie_item *target)
+{
+	app_nk_pie_item *current = item;
+	while (current)
+	{
+		if (current == target)
+		{
+			return current;
+		}
+		current = current->parent;
+	}
+	return NULL;
+}
+
+static app_nk_pie_item *app_nk_os_window_pie_fan(app_nk_os_window *os_window, app_nk_pie_item *active, app_nk_pie_item *pie_items,
+                                                 struct nk_vec2 center, float offset_angle, float angle_step, float radius_offset,
+                                                 float radius)
+{
+	int count = 0;
+	app_nk_pie_item *current = pie_items;
+	while (current)
+	{
+		count = count + 1;
+		current = current->next;
+	}
+
+	struct nk_context *ctx = os_window->ctx;
+	struct nk_input *input = &ctx->input;
+	const struct nk_vec2 mouse_pos = input->mouse.pos;
+
+	const float dx = mouse_pos.x - center.x;
+	const float dy = mouse_pos.y - center.y;
+
+	const float dist = sqrt(dx * dx + dy * dy);
+	int hovered = -1;
+
+	app_nk_pie_item *current_hovered = NULL;
+
+	angle_step = angle_step / (float)count;
+	if (dist > radius_offset && dist < radius)
+	{
+		float mouse_angle = nk_atan2(dy, dx);
+		if (mouse_angle < 0.0f)
+		{
+			mouse_angle += 2.0f * NK_PI;
+		}
+		mouse_angle = mouse_angle - offset_angle;
+		hovered = (int)(mouse_angle / angle_step);
+	}
+
+	int index = 0;
+	current = pie_items;
+	while (current)
+	{
+		const float start_angle = offset_angle + ((float)index * angle_step);
+
+		struct nk_color slice_color = nk_rgba(45, 45, 45, 230);
+
+		if (hovered == -1)
+		{
+			if (app_nk_pie_item_is_part_of(os_window->last_hovered, current))
+			{
+				struct app_nk_pie_item *children = current->child_items;
+				if (children)
+				{
+					struct app_nk_pie_item *result = app_nk_os_window_pie_fan(os_window, os_window->last_hovered, children, center,
+					                                                          start_angle, angle_step, radius, radius * 1.25f);
+					if (result)
+					{
+						current_hovered = result;
+					}
+				}
+			}
+		}
+
+		if (index == hovered)
+		{
+			current_hovered = current;
+			slice_color = nk_rgba(0, 150, 255, 255);
+			struct app_nk_pie_item *children = current->child_items;
+			if (children)
+			{
+				// Preview Children
+				app_nk_os_window_pie_fan(os_window, active, children, center, start_angle, angle_step, radius, radius * 1.25f);
+			}
+		}
+
+		struct nk_command_buffer *canvas = nk_window_get_canvas(os_window->ctx);
+		nk_fill_arc(canvas, center.x, center.y, radius, start_angle, start_angle + angle_step, slice_color);
+		nk_stroke_arc(canvas, center.x, center.y, radius, start_angle, start_angle + angle_step, 1.5f, nk_rgba(100, 100, 100, 255));
+
+		float text_angle = start_angle + (angle_step / 2.0f);
+		const struct nk_user_font *font = ctx->style.font;
+		struct nk_vec2 text_pos;
+		text_pos.x = center.x + (((radius_offset * 0.35) + (radius * 0.65f)) * nk_cos(text_angle));
+		text_pos.y = center.y + (((radius_offset * 0.35) + (radius * 0.65f)) * nk_sin(text_angle));
+
+		float text_width = font->width(font->userdata, font->height, current->name, nk_strlen(current->name));
+		text_pos.x -= text_width / 2.0f;
+		text_pos.y -= font->height / 2.0f;
+
+		nk_draw_text(canvas, nk_rect(text_pos.x, text_pos.y, text_width, font->height), current->name, nk_strlen(current->name), font,
+		             nk_rgba(0, 0, 0, 0), nk_rgba(255, 255, 255, 255));
+
+		index = index + 1;
+		current = current->next;
+	}
+
+	return current_hovered;
+}
+
+static app_nk_pie_item *app_nk_os_window_pie(app_nk_os_window *os_window, float radius)
+{
+	struct nk_context *ctx = os_window->ctx;
+
+	struct nk_command_buffer *canvas = nk_window_get_canvas(ctx);
+	struct nk_input *input = &ctx->input;
+
+	if (!nk_input_is_mouse_released(input, NK_BUTTON_RIGHT))
+	{
+		if (!nk_input_is_mouse_down(input, NK_BUTTON_RIGHT))
+		{
+			app_nk_pie_item* selected = os_window->last_hovered;
+			os_window->last_hovered = NULL;
+			os_window->state.pie = 0;
+			return selected;
+		}
+	}
+
+	if (os_window->state.pie == 0)
+	{
+		os_window->pie_position = input->mouse.pos;
+	}
+	os_window->state.pie = 1;
+
+	const struct nk_vec2 center = os_window->pie_position;
+	app_nk_pie_item *pie_items = os_window->pie_items;
+	if (pie_items == NULL)
+	{
+		return NULL;
+	}
+
+	int count = 0;
+	app_nk_pie_item *current = pie_items;
+	while (current)
+	{
+		count = count + 1;
+		current = current->next;
+	}
+
+	const float angle_step = (2.0f * NK_PI) / (float)count;
+	const struct nk_vec2 mouse_pos = input->mouse.pos;
+
+	const float dx = mouse_pos.x - center.x;
+	const float dy = mouse_pos.y - center.y;
+	const float dist = sqrt(dx * dx + dy * dy);
+
+	int hovered = -1;
+	if (dist > 15.0f && dist < radius)
+	{
+		float mouse_angle = nk_atan2(dy, dx);
+		if (mouse_angle < 0.0f)
+		{
+			mouse_angle += 2.0f * NK_PI;
+		}
+		hovered = (int)((mouse_angle + (angle_step / 2.0f)) / angle_step) % count;
+	}
+
+	app_nk_pie_item *selected = NULL;
+	app_nk_pie_item *current_hovered = NULL;
+	current = pie_items;
+	int index = 0;
+	while (current)
+	{
+		float start_angle = ((float)index * angle_step) - (angle_step / 2.0f);
+		if (hovered == -1)
+		{
+			if (app_nk_pie_item_is_part_of(os_window->last_hovered, current))
+			{
+				struct app_nk_pie_item *children = current->child_items;
+				if (children)
+				{
+					struct app_nk_pie_item *result = app_nk_os_window_pie_fan(os_window, os_window->last_hovered, children, center,
+					                                                          start_angle, angle_step, radius, radius * 1.5f);
+					if (result)
+					{
+						current_hovered = result;
+					}
+				}
+			}
+		}
+
+		struct nk_color slice_color = nk_rgba(45, 45, 45, 230);
+		if (index == hovered)
+		{
+			slice_color = nk_rgba(0, 150, 255, 255);
+
+			/*if (nk_input_is_mouse_released(input, NK_BUTTON_RIGHT))
+			{
+				selected = current;
+			}*/
+
+			struct app_nk_pie_item *children = current->child_items;
+			if (children)
+			{
+				// Preview Children
+				app_nk_os_window_pie_fan(os_window, current, children, center, start_angle, angle_step, radius, radius * 1.5f);
+			}
+			current_hovered = current;
+		}
+
+		{
+
+			float text_angle = start_angle + (angle_step / 2.0f);
+			const struct nk_user_font *font = ctx->style.font;
+			struct nk_vec2 text_pos;
+			text_pos.x = center.x + (radius * 0.65f) * nk_cos(text_angle);
+			text_pos.y = center.y + (radius * 0.65f) * nk_sin(text_angle);
+
+			nk_fill_arc(canvas, center.x, center.y, radius, start_angle, start_angle + angle_step, slice_color);
+			nk_stroke_arc(canvas, center.x, center.y, radius, start_angle, start_angle + angle_step, 1.5f, nk_rgba(100, 100, 100, 255));
+
+			float text_width = font->width(font->userdata, font->height, current->name, nk_strlen(current->name));
+
+			text_pos.x -= text_width / 2.0f;
+			text_pos.y -= font->height / 2.0f;
+
+			nk_draw_text(canvas, nk_rect(text_pos.x, text_pos.y, text_width, font->height), current->name, nk_strlen(current->name), font,
+			             nk_rgba(0, 0, 0, 0), nk_rgba(255, 255, 255, 255));
+		}
+		index = index + 1;
+		current = current->next;
+	}
+
+	os_window->last_hovered = current_hovered;
+
+	nk_fill_circle(canvas, nk_rect(center.x - 15.0f, center.y - 15.0f, 30.0f, 30.0f), nk_rgba(30, 30, 30, 255));
+	nk_stroke_circle(canvas, nk_rect(center.x - 15.0f, center.y - 15.0f, 30.0f, 30.0f), 1.5f, nk_rgba(100, 100, 100, 255));
+	return selected;
+}
+
+static int app_nk_os_window_begin(app_nk_os_window *os_window)
+{
+	const fck_window window = os_window->window;
+	struct nk_context *ctx = os_window->ctx;
+	app_nk_menu_item *menu_items = os_window->menu_items;
+
+	const char *title = os->win->title(window, NULL);
+
+	int window_width, window_height;
+	os->win->size(window, &window_width, &window_height);
+
+	const fck_window_configuration *configuration = os->win->configuration(window, NULL);
+
+	nk_style_push_style_item(ctx, &ctx->style.window.fixed_background, ctx->style.button.normal);
+	nk_style_push_vec2(ctx, &ctx->style.window.padding, nk_vec2(0, 0));
+	nk_style_push_vec2(ctx, &ctx->style.window.group_padding, nk_vec2(0, 0));
+	nk_style_push_vec2(ctx, &ctx->style.window.spacing, nk_vec2(0, 0));
+
+	os_window->state.menu = 0;
+	os_window->state.close = 0;
+	os_window->state.minimise = 0;
+
+	if (nk_begin(ctx, "Window Header", nk_rect(0, 0, window_width, configuration->title_bar_height),
+	             NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BACKGROUND))
+	{
+		nk_style_push_float(ctx, &ctx->style.button.rounding, 0.0f);
+		nk_style_push_float(ctx, &ctx->style.button.border, 0.0f);
+
+		const float menu_button_width = configuration->menu_area_width / 2.0f;
+		const float button_width = configuration->button_area_width / 2.0f;
+		nk_layout_row_template_begin(ctx, configuration->title_bar_height);
+		nk_layout_row_template_push_static(ctx, menu_button_width);
+		nk_layout_row_template_push_static(ctx, menu_button_width);
+		nk_layout_row_template_push_dynamic(ctx);
+		nk_layout_row_template_push_static(ctx, button_width);
+		nk_layout_row_template_push_static(ctx, button_width);
+		nk_layout_row_template_end(ctx);
+
+		// Pretend the menu button is a normal button
+		const struct nk_style_button menu_button_style = ctx->style.menu_button;
+		ctx->style.menu_button = ctx->style.button;
+
+		nk_style_push_vec2(ctx, &ctx->style.menu_button.padding, nk_vec2(7.5f, 10.0f));
+		if (nk_menu_begin_symbol(ctx, "Window Header Menu", NK_SYMBOL_HAMBURGER, nk_vec2(120, 200)))
+		{
+			nk_layout_row_dynamic(ctx, 25, 1);
+			app_nk_menu_item *current = menu_items;
+			while (current)
+			{
+				switch (current->type)
+				{
+				case app_nk_menu_item_bool: {
+
+					const struct nk_style_button contextual_button_style = ctx->style.contextual_button;
+					if (current->value)
+					{
+						ctx->style.contextual_button = ctx->style.menu_button;
+					}
+					if (nk_menu_item_label(ctx, current->name, NK_TEXT_LEFT))
+					{
+						current->value = !current->value;
+					}
+					ctx->style.contextual_button = contextual_button_style;
+				}
+				break;
+				case app_nk_menu_item_button:
+					current->value = to_int(nk_menu_item_label(ctx, current->name, NK_TEXT_LEFT));
+					break;
+				}
+				current = current->next;
+			}
+			os_window->state.menu = 1;
+			nk_menu_end(ctx);
+		}
+		nk_style_pop_vec2(ctx);
+
+		nk_style_push_vec2(ctx, &ctx->style.button.padding, nk_vec2(12.5f, 12.5f));
+		const enum nk_symbol_type symbol = os_window->state.body ? NK_SYMBOL_TRIANGLE_DOWN : NK_SYMBOL_TRIANGLE_UP_OUTLINE;
+		if (nk_button_symbol(ctx, symbol))
+		{
+			os_window->state.body = ~os_window->state.body;
+		}
+		nk_style_pop_vec2(ctx);
+
+		ctx->style.menu_button = menu_button_style;
+
+		nk_label(ctx, title, NK_TEXT_ALIGN_CENTERED | NK_TEXT_ALIGN_MIDDLE);
+
+		if (nk_button_symbol(ctx, NK_SYMBOL_MINUS))
+		{
+			os_window->state.minimise = 1;
+		}
+
+		if (nk_button_symbol(ctx, NK_SYMBOL_X))
+		{
+			os_window->state.close = 1;
+		}
+		nk_style_pop_float(ctx);
+		nk_style_pop_float(ctx);
+
+		nk_end(ctx);
+	}
+	nk_style_pop_vec2(ctx);
+	nk_style_pop_vec2(ctx);
+	nk_style_pop_vec2(ctx);
+	nk_style_pop_style_item(ctx);
+
+	const int height = window_height - configuration->title_bar_height;
+	if (os_window->state.body)
+	{
+		if (os_window->state.menu)
+		{
+			// NOTE: This resets the input so it does not interfere with the body's nk_window
+			nk_input_begin(os_window->ctx);
+			nk_input_end(os_window->ctx);
+		}
+		if (nk_begin(ctx, "Window Body", nk_rect(0, configuration->title_bar_height, window_width, height), NK_WINDOW_BACKGROUND))
+		{
+			return os_window->state.body;
+		}
+		// We should not end up here
+	}
+	return os_window->state.body;
+}
+
+static void app_nk_os_window_end(app_nk_os_window *os_window)
+{
+	if (os_window->state.body)
+	{
+		nk_end(os_window->ctx);
 	}
 }
 
@@ -1340,7 +1891,7 @@ int main(int argc, char **argv)
 	fck_input_source *mouse = NULL;
 	{
 		fck_input_source **sources;
-		fckc_size_t count = input->sources(&sources);
+		const fckc_size_t count = input->sources(&sources);
 		for (fckc_size_t index = 0; index < count; index++)
 		{
 			fck_input_source *source = sources[index];
@@ -1353,8 +1904,20 @@ int main(int argc, char **argv)
 	}
 	fck_assert(mouse);
 
-	fck_window window = os->win->create("Test", 1280, 720);
-	os->win->text_input_start(window);
+	fck_window window = os->win->create("Vulkan Test Application", 1280, 720);
+	int window_width, window_height;
+	os->win->size(window, &window_width, &window_height);
+
+	const fck_window_configuration config = {
+		.title_bar_height = 35.0f,
+		.resize_line_width = 8.0f,
+		.menu_area_width = 35.0f * 2.0f,
+		.button_area_width = 35.0f * 2.0f,
+	};
+	os->win->configuration(window, &config);
+
+	// We have to do this a bit smarter... Maybe not now
+	// os->win->text_input_start(window);
 
 	const sht_instance instance = render->load(sht_header_version);
 	if (!render->is_ok(instance))
@@ -1371,9 +1934,71 @@ int main(int argc, char **argv)
 	sht_swapchain swapchain = driver.vt->swapchain(driver);
 	sht_command_buffer_vt *command = driver.vt->command_buffer;
 
-	app_nuklear nk;
-	app_nuklear_init(&nk, driver, shader);
-	fck_ui_set_style(nk.ctx, THEME_RED);
+	app_nk nk;
+	app_nk_init(&nk, driver, shader);
+	fck_ui_set_style(nk.ctx, fck_nk_theme_ruta);
+
+	app_nk_menu_item help_menu_item = {
+		.type = app_nk_menu_item_button,
+		.name = "Help",
+	};
+	app_nk_menu_item about_menu_item = {
+		.type = app_nk_menu_item_button,
+		.name = "About",
+	};
+	app_nk_menu_item setting_menu_item = {
+		.type = app_nk_menu_item_bool,
+		.name = "Setting",
+	};
+
+	app_nk_pie_item copy_pie_item = {
+		.name = "Copy",
+	};
+	app_nk_pie_item paste_pie_item = {
+		.name = "Paste",
+	};
+	app_nk_pie_item duplicate_pie_item = {
+		.name = "Duplicate",
+	};
+	app_nk_pie_item delete_pie_item = {
+		.name = "Delete",
+	};
+	app_nk_pie_item properties_pie_item = {
+		.name = "Properties",
+	};
+
+	app_nk_pie_item properties_child0_pie_item = {
+		.name = "Extra",
+	};
+
+	app_nk_pie_item properties_child_child_pie_item = {
+		.name = "X",
+	};
+
+	app_nk_pie_item properties_child_child_child_pie_item = {
+		.name = "X",
+	};
+
+	app_nk_pie_item properties_child1_pie_item = {
+		.name = "Extra",
+	};
+
+	app_nk_os_window nk_os_window = app_nk_os_window_create(window, nk.ctx);
+	app_nk_os_window_add_menu_item(&nk_os_window, &help_menu_item);
+	app_nk_os_window_add_menu_item(&nk_os_window, &about_menu_item);
+	app_nk_os_window_add_menu_item(&nk_os_window, &setting_menu_item);
+
+	app_nk_os_window_add_pie_item(&nk_os_window, &copy_pie_item);
+	app_nk_os_window_add_pie_item(&nk_os_window, &paste_pie_item);
+	app_nk_os_window_add_pie_item(&nk_os_window, &duplicate_pie_item);
+	app_nk_os_window_add_pie_item(&nk_os_window, &delete_pie_item);
+	app_nk_os_window_add_pie_item(&nk_os_window, &properties_pie_item);
+
+	app_nk_pie_item_add_child(&properties_pie_item, &properties_child0_pie_item);
+	app_nk_pie_item_add_child(&properties_pie_item, &properties_child1_pie_item);
+
+	app_nk_pie_item_add_child(&properties_child0_pie_item, &properties_child_child_pie_item);
+	app_nk_pie_item_add_child(&properties_child_child_pie_item, &properties_child_child_child_pie_item);
 
 	sht_graphics_pipeline graphic_pipelines;
 
@@ -1466,9 +2091,29 @@ int main(int argc, char **argv)
 			fck_input_event *e = events + index;
 			if (e->source->type == fck_input_source_keyboard)
 			{
-				if (e->description->id == fck_pkey_escape)
+				switch (e->description->id)
 				{
+				case fck_pkey_escape:
 					is_running = 0;
+					break;
+				case fck_pkey_return:
+					nk_input_key(nk.ctx, NK_KEY_ENTER, e->data.scalar > 0.0f);
+					break;
+				default:
+					break;
+				}
+				continue;
+			}
+
+			if (e->source->type == fck_input_source_mouse)
+			{
+				switch (e->description->id)
+				{
+				case fck_mouse_wheel:
+					nk_input_scroll(nk.ctx, nk_vec2(e->data.floats[0], e->data.floats[1]));
+					break;
+				default:
+					break;
 				}
 				continue;
 			}
@@ -1481,21 +2126,61 @@ int main(int argc, char **argv)
 		}
 
 		{
-			fckc_u32 ids[] = {fck_mouse_left, fck_mouse_middle, fck_mouse_right, fck_mouse_position};
+			fckc_u32 ids[] = {fck_mouse_left, fck_mouse_middle, fck_mouse_right, fck_mouse_position, fck_mouse_wheel};
 			fck_input_data states[fck_arraysize(ids)];
 			const fckc_size_t result = mouse->states(0, ids, states, fck_arraysize(ids));
 			fck_input_data *left = states + 0;
 			fck_input_data *middle = states + 1;
 			fck_input_data *right = states + 2;
 			fck_input_data *position = states + 3;
+			fck_input_data *wheel = states + 4;
 			nk_input_button(nk.ctx, NK_BUTTON_LEFT, nk.ctx->input.mouse.pos.x, nk.ctx->input.mouse.pos.y, left->scalar > 0.0f);
 			nk_input_button(nk.ctx, NK_BUTTON_MIDDLE, position->floats[0], position->floats[1], middle->scalar > 0.0f);
+			nk_input_button(nk.ctx, NK_BUTTON_RIGHT, position->floats[0], position->floats[1], right->scalar > 0.0f);
 			nk_input_button(nk.ctx, NK_BUTTON_RIGHT, position->floats[0], position->floats[1], right->scalar > 0.0f);
 			nk_input_motion(nk.ctx, position->floats[0], position->floats[1]);
 		}
 		nk_input_end(nk.ctx);
 
-		nk_demo_overview(nk.ctx);
+		nk_clear(nk.ctx);
+		nk_buffer_clear(&nk.commands);
+
+		{
+			if (app_nk_os_window_begin(&nk_os_window))
+			{
+				app_nk_pie_item* item = app_nk_os_window_pie(&nk_os_window, 160.0f);
+				if (item)
+				{
+					os->io->log("Pressed: %s", item->name);
+					item->value = 1;
+				}
+				// nk_demo_overview(nk.ctx);
+			}
+			app_nk_os_window_end(&nk_os_window);
+
+			if (app_nk_pie_item_happend(&copy_pie_item))
+			{
+				os->io->log("Copy!");
+			}
+			if (app_nk_menu_item_happend(&setting_menu_item))
+			{
+				os->io->log("On");
+			}
+
+			if (app_nk_menu_item_happend(&about_menu_item))
+			{
+				os->io->log("Made by David");
+			}
+			if (app_nk_menu_item_happend(&setting_menu_item))
+			{
+				os->io->log("On");
+			}
+
+			if (nk_os_window.state.close)
+			{
+				is_running = 0;
+			}
+		}
 
 		memory->reset(memory->temp);
 
@@ -1594,14 +2279,13 @@ int main(int argc, char **argv)
 						}
 					}
 
-					app_nuklear_draw(&nk, driver, command_buffer, frame_index);
+					app_nk_draw(&nk, driver, command_buffer, frame_index);
 
 					command->render_pass->end(command_buffer);
 				}
 				command->submit(command_buffer, SHT_QUEUE_GRAPHIC);
 			}
 		}
-
 		// driver.vt->idle(driver);
 	}
 

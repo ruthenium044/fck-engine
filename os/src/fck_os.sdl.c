@@ -4,6 +4,7 @@
 #include <fckc_inttypes.h>
 
 #include <SDL3/SDL_clipboard.h>
+#include <SDL3/SDL_events.h>
 #include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_iostream.h>
 #include <SDL3/SDL_keyboard.h>
@@ -13,7 +14,6 @@
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_timer.h>
 #include <SDL3/SDL_video.h>
-#include <SDL3/SDL_events.h>
 
 static int fck_shared_object_is_valid(fck_shared_object so)
 {
@@ -75,15 +75,105 @@ static fck_shared_object_api so_api = {
 	.is_valid = fck_shared_object_is_valid,
 };
 
+typedef struct fck_sdl_window
+{
+	SDL_Window *value;
+	// Making these smarter would be awesome
+	fck_window_configuration config;
+} fck_sdl_window;
+
+static SDL_Window *to_sdl_window(fck_window window)
+{
+	fck_sdl_window *sdl = (fck_sdl_window *)window.handle;
+	return (SDL_Window *)sdl->value;
+}
+
+static SDL_HitTestResult fck_custom_hit_test(SDL_Window *win, const SDL_Point *area, void *data)
+{
+	fck_sdl_window *sdl = (fck_sdl_window *)data;
+
+	int w, h;
+	SDL_GetWindowSize(win, &w, &h);
+
+	const int title_bar_height = to_int(sdl->config.title_bar_height);
+	const int resize_border = to_int(sdl->config.resize_line_width);
+	const int button_zone = to_int(sdl->config.button_area_width);
+	const int menu_zone = to_int(sdl->config.menu_area_width);
+
+	if (area->y < resize_border)
+	{
+		if (area->x < resize_border)
+		{
+			return SDL_HITTEST_RESIZE_TOPLEFT;
+		}
+		if (area->x > w - resize_border)
+		{
+			return SDL_HITTEST_RESIZE_TOPRIGHT;
+		}
+		return SDL_HITTEST_RESIZE_TOP;
+	}
+	if (area->y > h - resize_border)
+	{
+		if (area->x < resize_border)
+		{
+			return SDL_HITTEST_RESIZE_BOTTOMLEFT;
+		}
+		if (area->x > w - resize_border)
+		{
+			return SDL_HITTEST_RESIZE_BOTTOMRIGHT;
+		}
+		return SDL_HITTEST_RESIZE_BOTTOM;
+	}
+	if (area->x < resize_border)
+	{
+		return SDL_HITTEST_RESIZE_LEFT;
+	}
+	if (area->x > w - resize_border)
+	{
+		return SDL_HITTEST_RESIZE_RIGHT;
+	}
+	if (area->y < title_bar_height && area->x < (w - button_zone) && area->x > menu_zone)
+	{
+		return SDL_HITTEST_DRAGGABLE;
+	}
+
+	return SDL_HITTEST_NORMAL;
+}
+
+static const fck_window_configuration *fck_window_api_configuration(fck_window window, const fck_window_configuration *config)
+{
+	fck_sdl_window *sdl = (fck_sdl_window *)window.handle;
+	if (config)
+	{
+		sdl->config = *config;
+	}
+	return &sdl->config;
+}
+
 static fck_window fck_window_api_create(const char *name, int w, int h)
 {
-	SDL_Window *window = SDL_CreateWindow(name, w, h, SDL_WINDOW_RESIZABLE);
-	return (fck_window){.handle = window};
+	fck_sdl_window *sdl = (fck_sdl_window *)SDL_malloc(sizeof(*sdl));
+	sdl->value = SDL_CreateWindow(name, w, h, SDL_WINDOW_RESIZABLE | SDL_WINDOW_BORDERLESS);
+	sdl->config.title_bar_height = 30.0f;
+	sdl->config.resize_line_width = 8.0f;
+	sdl->config.button_area_width = 30.0f;
+	SDL_SetWindowHitTest(sdl->value, fck_custom_hit_test, sdl);
+	return (fck_window){.handle = sdl};
+}
+
+const char *fck_window_api_title(fck_window window, const char *title)
+{
+	if (title)
+	{
+		SDL_SetWindowTitle(to_sdl_window(window), title);
+	}
+	return SDL_GetWindowTitle(to_sdl_window(window));
 }
 
 static void fck_window_api_destroy(fck_window window)
 {
-	SDL_DestroyWindow((SDL_Window *)window.handle);
+	SDL_DestroyWindow(to_sdl_window(window));
+	SDL_free(window.handle);
 }
 
 static int fck_window_api_is_valid(fck_window window)
@@ -93,22 +183,22 @@ static int fck_window_api_is_valid(fck_window window)
 
 static int fck_window_api_resize(fck_window window, int width, int height)
 {
-	return (int)SDL_SetWindowSize((SDL_Window *)window.handle, width, height);
+	return (int)SDL_SetWindowSize(to_sdl_window(window), width, height);
 }
 
 static int fck_window_api_text_input_start(fck_window window)
 {
-	return (int)SDL_StartTextInput((SDL_Window *)window.handle);
+	return (int)SDL_StartTextInput(to_sdl_window(window));
 }
 
 static int fck_window_api_text_input_stop(fck_window window)
 {
-	return (int)SDL_StopTextInput((SDL_Window *)window.handle);
+	return (int)SDL_StopTextInput(to_sdl_window(window));
 }
 
 static int fck_window_api_size(fck_window window, int *width, int *height)
 {
-	return (int)SDL_GetWindowSize((SDL_Window *)window.handle, width, height);
+	return (int)SDL_GetWindowSize(to_sdl_window(window), width, height);
 }
 
 static void *fck_window_native(fck_window window, const char *name)
@@ -119,23 +209,22 @@ static void *fck_window_native(fck_window window, const char *name)
 	}
 	if (!SDL_strcmp(name, "win32.window"))
 	{
-		const SDL_PropertiesID properties = SDL_GetWindowProperties((SDL_Window *)window.handle);
+		const SDL_PropertiesID properties = SDL_GetWindowProperties(to_sdl_window(window));
 		return SDL_GetPointerProperty(properties, SDL_PROP_WINDOW_WIN32_HWND_POINTER, NULL);
 	}
 	if (!SDL_strcmp(name, "win32.instance"))
 	{
-		const SDL_PropertiesID properties = SDL_GetWindowProperties((SDL_Window *)window.handle);
+		const SDL_PropertiesID properties = SDL_GetWindowProperties(to_sdl_window(window));
 		return SDL_GetPointerProperty(properties, SDL_PROP_WINDOW_WIN32_INSTANCE_POINTER, NULL);
 	}
 	if (!SDL_strcmp(name, "macos.window"))
 	{
-		const SDL_PropertiesID properties = SDL_GetWindowProperties((SDL_Window *)window.handle);
+		const SDL_PropertiesID properties = SDL_GetWindowProperties(to_sdl_window(window));
 		return SDL_GetPointerProperty(properties, SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, NULL);
 	}
 
 	return NULL;
 }
-
 
 static int fck_clipboard_api_set(const char *text)
 {
@@ -241,7 +330,8 @@ static int fck_filesystem_remove(const char *path)
 	return 0;
 }
 
-static const char* fck_filesystem_local_path(void) {
+static const char *fck_filesystem_local_path(void)
+{
 	return SDL_GetBasePath();
 }
 
@@ -252,7 +342,7 @@ static fckc_size_t fck_glob_executable(const char *pattern, char ***out_paths)
 	return to_size_t(count);
 }
 
-static fckc_size_t fck_glob_directory(const char* path, const char* pattern, char*** out_paths)
+static fckc_size_t fck_glob_directory(const char *path, const char *pattern, char ***out_paths)
 {
 	int count = 0;
 
@@ -359,6 +449,8 @@ static fck_window_api window_api = {
 	.size = fck_window_api_size,
 	.resize = fck_window_api_resize,
 	.native = fck_window_native,
+	.title = fck_window_api_title,
+	.configuration = fck_window_api_configuration,
 	.text_input_start = fck_window_api_text_input_start,
 	.text_input_stop = fck_window_api_text_input_stop,
 };
@@ -467,7 +559,7 @@ fckc_size_t fck_file_watcher_changes(fck_file_watcher watcher, fck_file_watcher_
 			/*const DWORD error = GetLastError();
 			if (error == ERROR_IO_INCOMPLETE)
 			{
-				return 0;
+			    return 0;
 			}*/
 			return 0;
 		}

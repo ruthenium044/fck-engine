@@ -118,7 +118,7 @@ static fckc_size_t fck_input_mouse_events(fck_input_event *events, fckc_size_t s
 			// Maybe we should log errors...
 			break;
 		}
-
+		
 		for (fckc_size_t index = 0; index < to_size_t(result); index++)
 		{
 			const SDL_Event *e = sdl_events + index;

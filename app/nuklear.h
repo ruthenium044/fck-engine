@@ -23268,7 +23268,7 @@ nk_tree_base(struct nk_context* ctx, enum nk_tree_type type,
     struct nk_image* img, const char* title, enum nk_collapse_states initial_state,
     const char* hash, int len, int line)
 {
-    struct nk_window* win = ctx->current;
+    struct nk_windownk_tree_base* win = ctx->current;
     int title_len = 0;
     nk_hash tree_hash = 0;
     nk_uint* state = 0;

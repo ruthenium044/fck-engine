@@ -25,6 +25,8 @@
 #include "fck_gfx.h"
 #include "fck_nuklear.h"
 
+#pragma optimize("", off)
+
 static void purge_files(const char *pattern)
 {
 	char **paths;
@@ -68,6 +70,7 @@ typedef struct app_screen
 {
 	float width;
 	float height;
+	float texture_chunk_size;
 } app_screen;
 
 static sht_image app_load_image(sht_driver driver, const void *pixels, sht_format format, int width, int height)
@@ -92,7 +95,7 @@ static sht_image app_load_image(sht_driver driver, const void *pixels, sht_forma
 }
 
 // From GLSL
-typedef struct QuadTransform
+typedef struct app_sprite_transform
 {
 	float x;
 	float y;
@@ -103,7 +106,7 @@ typedef struct QuadTransform
 	float scale;
 	int horizontal_index;
 	int vertical_index;
-} QuadTransform;
+} app_sprite_transform;
 
 int main(int argc, char **argv)
 {
@@ -244,8 +247,6 @@ int main(int argc, char **argv)
 	nk->pie->add_child(&properties_child0_pie_item, &properties_child_child_pie_item);
 	nk->pie->add_child(&properties_child_child_pie_item, &properties_child_child_child_pie_item);
 
-	sht_graphics_pipeline graphic_pipelines;
-
 	sht_elements indices = {0};
 
 	sht_sampler sampler = {0};
@@ -275,7 +276,8 @@ int main(int argc, char **argv)
 	const fck_gfx_shader vertex_shader = {.name = "vertex", .path = fck_resource_path "sprite.vert"};
 	const fck_gfx_shader fragment_shader = {.name = "textured", .path = fck_resource_path "textured.frag"};
 	const fck_gfx_create_info create_info = {.vertex = &vertex_shader, .fragment = &fragment_shader};
-	fck_gfx bird_gfx = gfx->create(kll->system, &driver, shader, &create_info);
+	const fck_gfx bird_gfx = gfx->create(kll->system, &driver, shader, &create_info);
+
 	// sht_image depth_image = {0};
 	// sht_image_view depth_view = {0};
 	//{
@@ -300,10 +302,11 @@ int main(int argc, char **argv)
 		driver.vt->upload_buffer(driver, &indices.buffer, index_data, sizeof(index_data));
 	}
 
-	QuadTransform bird_transforms[] = {{.x = -100.0f, .y = -100.0f, .scale = 1.0f, .width = 256.0f, .height = 256.0f, .vertical_index = 0},
-	                                   {.x = 200.0f, .y = 200.0f, .scale = 1.0f, .width = 256.0f, .height = 256.0f, .vertical_index = 2},
-	                                   {.x = -100, .y = 200.0f, .scale = 1.0f, .width = 256.0f, .height = 256.0f, .vertical_index = 9},
-	                                   {.x = 200, .y = -100.0f, .scale = 1.0f, .width = 256.0f, .height = 256.0f, .vertical_index = 11}};
+	app_sprite_transform bird_transforms[] = {
+		{.x = -100.0f, .y = -100.0f, .scale = 1.0f, .width = 256.0f, .height = 256.0f, .vertical_index = 0},
+		{.x = 200.0f, .y = 200.0f, .scale = 1.0f, .width = 256.0f, .height = 256.0f, .vertical_index = 2},
+		{.x = -100, .y = 200.0f, .scale = 1.0f, .width = 256.0f, .height = 256.0f, .vertical_index = 9},
+		{.x = 200, .y = -100.0f, .scale = 1.0f, .width = 256.0f, .height = 256.0f, .vertical_index = 11}};
 
 	fckc_u64 time_point = os->chrono->ms();
 
@@ -331,7 +334,7 @@ int main(int argc, char **argv)
 
 		nk->input->begin(view);
 
-		fck_input_event events[32] = {0};
+		fck_input_event events[128] = {0};
 		const fckc_size_t result = input->events(events, fck_arraysize(events));
 		for (fckc_size_t index = 0; index < result; index++)
 		{
@@ -349,12 +352,48 @@ int main(int argc, char **argv)
 				continue;
 			}
 		}
+
 		nk->input->events(view, events, result);
 		nk->input->end(view);
 
 		{
 			if (nk->begin(view))
 			{
+				nk->panel->begin(view, 300.0f);
+				{
+					for (fckc_size_t index = 0; index < fck_arraysize(bird_transforms); index++)
+					{
+						if (nk->panel->push(view, "Bird %d", index))
+						{
+							app_sprite_transform *bird = bird_transforms + index;
+							bird->x = nk->property->f32(view, "x", -1280.0f, bird->x, 1280.0f, 1.0f);
+							bird->y = nk->property->f32(view, "y", -720.0f, bird->y, 720.0f, 1.0f);
+							bird->z = nk->property->f32(view, "z", -1.0f, bird->z, 1.0f, 1.0f);
+							bird->width = nk->property->f32(view, "width", 0.0f, bird->width, 126.0f, 4.0f);
+							bird->height = nk->property->f32(view, "height", 0.0f, bird->height, 126.0f, 4.0f);
+							bird->rotation = nk->property->f32(view, "rotation", 0.0f, bird->rotation, 360.0f, 1.0f);
+							bird->scale = nk->property->f32(view, "scale", 1.0f, bird->scale, 100.0f, 1.0f);
+							bird->horizontal_index = nk->property->i32(view, "horizontal index", 0, bird->horizontal_index, 10, 1);
+							bird->vertical_index = nk->property->i32(view, "vertical index", 0, bird->vertical_index, 10, 1);
+							nk->panel->pop(view);
+						}
+					}
+				}
+				nk->panel->end(view);
+
+				{
+					const fck_nk_colour on = {0, 255, 0, 255};
+					const fck_nk_colour off = {255, 0, 0, 255};
+					fckc_size_t index;
+					for (index = 0; index < fck_arraysize(bird_transforms); index++)
+					{
+						app_sprite_transform *bird = bird_transforms + index;
+						if (nk->control_point(view, bird, &bird->x, &bird->y, 16.0f, 2.0f, on, off))
+						{
+							// break;
+						}
+					}
+				}
 				nk->pie->execute(view, &pie, 125.0f);
 			}
 			nk->end(view);
@@ -385,6 +424,7 @@ int main(int argc, char **argv)
 				const app_screen screen = {
 					.width = (float)extent.width,
 					.height = (float)extent.height,
+					.texture_chunk_size = 32.0f,
 				};
 
 				const sht_render_pass render_pass = command->render_pass->begin(command_buffer, &desc);

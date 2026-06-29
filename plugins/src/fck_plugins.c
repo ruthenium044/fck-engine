@@ -198,7 +198,6 @@ static void *fck_plugin_load_shared_library(fck_plugins_hashmap *map, fck_api_re
 			os->so->unload(so);
 			return NULL;
 		}
-
 		fck_load_func *load = (fck_load_func *)symbol;
 		// If the returned API is a value equal to the old one (which can be NULL)
 		// We decide that we unload what we just loaded because we failed hot-reloading

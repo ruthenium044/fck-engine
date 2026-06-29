@@ -21,6 +21,22 @@ typedef enum fck_nuklear_theme
 	fck_nk_theme_mocha
 } fck_nuklear_theme;
 
+typedef struct fck_nk_rect
+{
+	float x;
+	float y;
+	float w;
+	float h;
+} fck_nk_rect;
+
+typedef struct fck_nk_colour
+{
+	fckc_u8 r;
+	fckc_u8 g;
+	fckc_u8 b;
+	fckc_u8 a;
+} fck_nk_colour;
+
 typedef struct fck_nk
 {
 	void *handle;
@@ -101,6 +117,22 @@ struct fck_shader_api;
 struct fck_input;
 struct sht_command_buffer;
 
+typedef struct fck_nuklear_proeprty_api
+{
+	fckc_f32 (*f32)(fck_nk nk, const char *name, fckc_f32 min, fckc_f32 val, fckc_f32 max, fckc_f32 step);
+	fckc_i32 (*i32)(fck_nk nk, const char* name, fckc_i32 min, fckc_i32 val, fckc_i32 max, fckc_i32 step);
+} fck_nuklear_proeprty_api;
+
+typedef struct fck_nuklear_panel_api
+{
+	void (*begin)(fck_nk nk, float ratio);
+	void (*end)(fck_nk nk);
+
+	// Maybe fmt?
+	int (*push)(fck_nk nk, const char *fmt, ...);
+	void (*pop)(fck_nk nk);
+} fck_nuklear_panel_api;
+
 // TODO: fck_nk should have an arena so we can create hamburger and pie items through it
 typedef struct fck_nuklear_api
 {
@@ -109,11 +141,16 @@ typedef struct fck_nuklear_api
 	fck_nuklear_hamburger_api *hamburger;
 	fck_nuklear_input_api *input;
 	fck_nuklear_pie_api *pie;
+	fck_nuklear_panel_api *panel;
+	fck_nuklear_proeprty_api *property;
 
 	int (*begin)(fck_nk nk);
 	void (*end)(fck_nk nk);
 
 	void (*theme)(fck_nk nk, fck_nuklear_theme theme);
+
+	int (*control_point)(fck_nk nk, const void *pointer, float *x, float *y, float size, float hover_scale, fck_nk_colour on,
+	                     fck_nk_colour off);
 
 	fck_nk_control (*control)(fck_nk nk);
 

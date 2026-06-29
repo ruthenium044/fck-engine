@@ -401,23 +401,6 @@ static VkResult sht_vk_instance_init(sht_vk_instance *vk)
 	createInfo.pUserData = NULL;
 	instance_create_info.pNext = (const void *)&createInfo;
 
-	{
-		// VkBool32 validateSync = VK_TRUE;
-
-		// VkLayerSettingEXT syncSetting = {0};
-		// syncSetting.pLayerName = "VK_LAYER_KHRONOS_validation";
-		// syncSetting.pSettingName = "validate_sync";
-		// syncSetting.type = VK_LAYER_SETTING_TYPE_BOOL32_EXT;
-		// syncSetting.valueCount = 1;
-		// syncSetting.pValues = &validateSync;
-
-		// VkLayerSettingsCreateInfoEXT layerSettingsCreateInfo = {0};
-		// layerSettingsCreateInfo.sType = VK_STRUCTURE_TYPE_LAYER_SETTINGS_CREATE_INFO_EXT;
-		// layerSettingsCreateInfo.settingCount = 1;
-		// layerSettingsCreateInfo.pSettings = &syncSetting;
-		// createInfo.pNext = &layerSettingsCreateInfo;
-	}
-
 	return sht_vk_error(vk->CreateInstance(&instance_create_info, default_allocation_callbacks, &vk->instance));
 }
 

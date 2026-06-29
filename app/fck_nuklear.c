@@ -19,6 +19,7 @@
 #include <fckc_assert.h>
 #include <fckc_inttypes.h>
 
+#include <fck_hash.h>
 #include <fck_input.h>
 #include <fck_mouse.h>
 #include <fck_pkey.h>
@@ -29,6 +30,8 @@
 
 #include "fck_gfx.h"
 
+#include <stdarg.h>
+#include <stdio.h>
 #include <string.h>
 
 typedef struct fck_nk_screen
@@ -55,11 +58,25 @@ typedef struct fck_nk_hamburger
 	fck_nk_hamburger_item *items_last;
 } fck_nk_hamburger;
 
+// TODO: Revisit this and make it better... Not now though
+typedef struct fck_nk_control_state
+{
+	const void *current;
+} fck_nk_control_state;
+
+typedef struct fck_nk_panel_state
+{
+	nk_bool open;
+} fck_nk_panel_state;
+
 typedef struct fck_nk_os_window
 {
 	fck_window window;
 	fck_nk_hamburger burger;
 	fck_nk_control control;
+	fck_nk_panel_state panel;
+
+	fck_nk_control_state control_point;
 } fck_nk_os_window;
 
 typedef struct fck_nk_internal
@@ -338,7 +355,8 @@ static int fck_nk_api_begin(fck_nk nke)
 			nk_input_begin(ctx);
 			nk_input_end(ctx);
 		}
-		if (nk_begin(ctx, "Window Body", nk_rect(0, configuration->title_bar_height, window_width, height), NK_WINDOW_BACKGROUND))
+		const nk_flags body_flags = NK_WINDOW_BACKGROUND | NK_WINDOW_NO_SCROLLBAR;
+		if (nk_begin(ctx, "Window Body", nk_rect(0, configuration->title_bar_height, window_width, height), body_flags))
 		{
 			return os_window->control.body;
 		}
@@ -574,6 +592,125 @@ static void fck_nk_api_theme(fck_nk nk, fck_nuklear_theme theme)
 	fck_ui_set_style(nk_internal->ctx, theme);
 }
 
+static int fck_nk_api_control_point(fck_nk nk, const void *pointer, float *x, float *y, float size, float hover_scale, fck_nk_colour on,
+                                    fck_nk_colour off)
+{
+	// Since this nuklear implementation moves everything around, it is on said implementation to fix it
+	fck_nk_internal *nk_internal = (fck_nk_internal *)nk.handle;
+
+	int window_width = 0;
+	int window_height = 0;
+	os->win->size(nk_internal->os.window, &window_width, &window_height);
+
+	const float ox = (window_width * 0.5f);
+	const float oy = (window_height * 0.5f);
+
+	const float px = *x + ox - (size * 0.5f);
+	const float py = *y + oy - (size * 0.5f);
+
+	struct nk_rect r = nk_rect(px, py, size, size);
+
+	const struct nk_input *input = &nk_internal->ctx->input;
+
+	const float scaled_size = size * hover_scale;
+	const float spx = *x + ox - (scaled_size * 0.5f);
+	const float spy = *y + oy - (scaled_size * 0.5f);
+
+	const struct nk_rect sr = nk_rect(spx, spy, scaled_size, scaled_size);
+
+	const fck_nk_colour *select = &off;
+	if (nk_input_is_mouse_hovering_rect(input, sr) || NK_INBOX(input->mouse.prev.x, input->mouse.prev.y, sr.x, sr.y, sr.w, sr.h))
+	{
+		if (nk_internal->os.control_point.current == NULL)
+		{
+			r.x = *x + ox - (scaled_size * 0.5f);
+			r.y = *y + oy - (scaled_size * 0.5f);
+			r.w = r.h = scaled_size;
+		}
+
+		if ((nk_internal->os.control_point.current == NULL && nk_input_is_mouse_down(input, NK_BUTTON_LEFT) ||
+		     nk_internal->os.control_point.current == pointer))
+		{
+			nk_internal->os.control_point.current = pointer;
+
+			select = &on;
+			*x = input->mouse.pos.x - ox;
+			*y = input->mouse.pos.y - oy;
+		}
+	}
+
+	const struct nk_color c = nk_rgba(select->r, select->g, select->b, select->a);
+	struct nk_command_buffer *canvas = nk_window_get_canvas(nk_internal->ctx);
+	if (nk_internal->os.control_point.current == NULL || nk_internal->os.control_point.current == pointer)
+	{
+		nk_stroke_rect(canvas, sr, 0.0f, 2.0f, c);
+	}
+	nk_fill_rect(canvas, r, 0.0f, c);
+	return select == &on;
+}
+
+static void fck_nk_panel_api_begin(fck_nk nk, float width)
+{
+	fck_nk_internal *nk_internal = (fck_nk_internal *)nk.handle;
+
+	struct nk_context *ctx = nk_internal->ctx;
+
+	const struct nk_vec2 size = nk_window_get_size(ctx);
+
+	const float ratios[] = {width, size.x - width};
+	nk_layout_row(ctx, NK_STATIC, size.y, 2, ratios);
+
+	nk_internal->os.panel.open = nk_group_begin(ctx, "LeftPanel", NK_WINDOW_BORDER);
+}
+
+static int fck_nk_panel_menu_api_push(fck_nk nk, const char *fmt, ...)
+{
+	fck_nk_internal *nk_internal = (fck_nk_internal *)nk.handle;
+	struct nk_context *ctx = nk_internal->ctx;
+
+	char buffer[256]; /* Adjust this size if you expect massive names */
+	int unique_id;
+	va_list args;
+
+	va_start(args, fmt);
+	vsnprintf(buffer, sizeof(buffer), fmt, args);
+	va_end(args);
+
+	return nk_tree_push_hashed(ctx, NK_TREE_TAB, buffer, NK_MINIMIZED, NULL, 0, 0);
+}
+
+static void fck_nk_panel_menu_api_pop(fck_nk nk)
+{
+	fck_nk_internal *nk_internal = (fck_nk_internal *)nk.handle;
+	struct nk_context *ctx = nk_internal->ctx;
+	nk_tree_pop(ctx);
+}
+
+static fckc_f32 fck_nuklear_proeprty_api_f32(fck_nk nk, const char *name, fckc_f32 min, fckc_f32 val, fckc_f32 max, fckc_f32 step)
+{
+	fck_nk_internal *nk_internal = (fck_nk_internal *)nk.handle;
+	struct nk_context *ctx = nk_internal->ctx;
+	return nk_propertyf(ctx, name, min, val, max, step, 0.05f);
+}
+
+static fckc_i32 fck_nuklear_proeprty_api_i32(fck_nk nk, const char* name, fckc_i32 min, fckc_i32 val, fckc_i32 max, fckc_i32 step)
+{
+	fck_nk_internal* nk_internal = (fck_nk_internal*)nk.handle;
+	struct nk_context* ctx = nk_internal->ctx;
+	return nk_propertyi(ctx, name, min, val, max, step, 0.05f);
+}
+
+static void fck_nk_panel_api_end(fck_nk nk)
+{
+	fck_nk_internal *nk_internal = (fck_nk_internal *)nk.handle;
+	struct nk_context *ctx = nk_internal->ctx;
+	if (nk_internal->os.panel.open)
+	{
+		nk_group_end(ctx);
+	}
+	nk_spacer(ctx);
+}
+
 static fck_nk_control fck_nk_api_control(fck_nk nk)
 {
 	fck_nk_internal *nk_internal = (fck_nk_internal *)nk.handle;
@@ -583,6 +720,12 @@ static fck_nk_control fck_nk_api_control(fck_nk nk)
 static void fck_nk_input_api_end(fck_nk nk)
 {
 	fck_nk_internal *nk_internal = (fck_nk_internal *)nk.handle;
+
+	if (!nk_input_is_mouse_down(&nk_internal->ctx->input, NK_BUTTON_LEFT))
+	{
+		nk_internal->os.control_point.current = NULL;
+	}
+
 	nk_input_end(nk_internal->ctx);
 	nk_clear(nk_internal->ctx);
 	nk_buffer_clear(&nk_internal->commands);
@@ -875,16 +1018,31 @@ static fck_nuklear_input_api nuklear_input_api = {
 	.events = fck_nk_input_api_events,
 };
 
+static fck_nuklear_panel_api nuklear_panel_api = {
+	.begin = fck_nk_panel_api_begin,
+	.end = fck_nk_panel_api_end,
+	.push = fck_nk_panel_menu_api_push,
+	.pop = fck_nk_panel_menu_api_pop,
+};
+
+static fck_nuklear_proeprty_api nuklear_property_api = {
+	.f32 = fck_nuklear_proeprty_api_f32,
+	.i32 = fck_nuklear_proeprty_api_i32,
+};
+
 static fck_nuklear_api nuklear_api = {
 	.begin = fck_nk_api_begin,
 	.end = fck_nk_api_end,
 	.create = fck_nk_api_create,
 	.present = fck_nk_api_present,
 	.theme = fck_nk_api_theme,
+	.control_point = fck_nk_api_control_point,
 	.control = fck_nk_api_control,
 	.input = &nuklear_input_api,
 	.hamburger = &nuklear_hamburger_api,
 	.pie = &nuklear_pie_api,
+	.panel = &nuklear_panel_api,
+	.property = &nuklear_property_api,
 };
 
 fck_nuklear_api *nk = &nuklear_api;

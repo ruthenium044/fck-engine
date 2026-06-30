@@ -1,7 +1,7 @@
 #ifndef FCK_GFX_H_INCLUDED
 #define FCK_GFX_H_INCLUDED
 
-#define fck_gfx_api_name "fck_gfx"
+#define fck_gfx_api_name "fck-gfx"
 
 typedef struct fck_gfx
 {
@@ -33,12 +33,11 @@ typedef struct fck_gfx_create_info
 typedef struct fck_gfx_api
 {
 	// TODO: Destroy
-	struct fck_gfx (*create)(struct kll_allocator *allocator, struct sht_driver *driver, struct fck_shader_api *shader,
-	                          const fck_gfx_create_info *info);
+	void *_;
+
+	struct fck_gfx (*create)(struct kll_allocator *allocator, struct sht_driver *driver, const fck_gfx_create_info *info);
 	struct sht_bss *(*bss)(fck_gfx gfx);
 	struct sht_graphics_pipeline *(*pipeline)(fck_gfx gfx);
 } fck_gfx_api;
-
-extern fck_gfx_api *gfx;
 
 #endif // !FCK_GFX_H_INCLUDED

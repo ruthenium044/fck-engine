@@ -9,19 +9,20 @@ struct fck_file;
 
 typedef enum fck_shader_language
 {
-	FCK_SHADER_NONE,
-	FCK_SHADER_GLSL,
-	FCK_SHADER_HLSL,
-	FCK_SHADER_SPIRV,
+	fck_shader_none,
+	fck_shader_glsl,
+	fck_shader_hlsl,
+	fck_shader_spirv,
 } fck_shader_language;
 
 typedef enum fck_shader_stage_type
 {
-	FCK_SHADER_VERTEX = 0,
-	FCK_SHADER_FRAGMENT = 1,
-	FCK_SHADER_COMPUTE = 2,
+	fck_shader_vertex = 0,
+	fck_shader_fragment = 1,
+	fck_shader_compute = 2,
 
-	FCK_SHADER_PIXEL = FCK_SHADER_FRAGMENT,
+	// For whoever prefers that
+	fck_shader_pixel = fck_shader_fragment,
 } fck_shader_stage_type;
 
 typedef struct fck_shader_desc

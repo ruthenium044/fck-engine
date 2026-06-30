@@ -20,10 +20,8 @@
 
 #include <fck_png.h>
 
-#include "reflection.h"
-
-#include "fck_gfx.h"
-#include "fck_nuklear.h"
+#include <fck_gfx.h>
+#include <fck_nuklear.h>
 
 #pragma optimize("", off)
 
@@ -135,6 +133,8 @@ int main(int argc, char **argv)
 	sht_render_api *render = (sht_render_api *)registry->find(sht_render_api_name);
 	fck_shader_api *shader = (fck_shader_api *)registry->find(fck_shader_api_name);
 	fck_png_api *png = (fck_png_api *)registry->find(fck_png_api_name);
+	fck_nuklear_api *nk = (fck_nuklear_api *)registry->find(fck_nuklear_api_name);
+	fck_gfx_api *gfx = (fck_gfx_api *)registry->find(fck_gfx_api_name);
 
 	fck_input_source *mouse = NULL;
 	{
@@ -158,7 +158,7 @@ int main(int argc, char **argv)
 
 	const fck_window_configuration config = {
 		.title_bar_height = 35.0f,
-		.resize_line_width = 8.0f,
+		.resize_line_width = 4.0f,
 		.menu_area_width = 35.0f * 2.0f,
 		.button_area_width = 35.0f * 2.0f,
 	};
@@ -182,7 +182,7 @@ int main(int argc, char **argv)
 	const sht_swapchain swapchain = driver.vt->swapchain(driver);
 	sht_command_buffer_vt *command = driver.vt->command_buffer;
 
-	const fck_nk view = nk->create(kll->system, &window, &driver, shader);
+	const fck_nk view = nk->create(kll->system, &window, &driver);
 	nk->theme(view, fck_nk_theme_ruta);
 
 	fck_nk_hamburger_item help_menu_item = {
@@ -269,31 +269,31 @@ int main(int argc, char **argv)
 		driver.vt->upload_image(driver, &texture_image, pixels, sizeof(pixels));
 	}
 
-	const fck_png bird_png = png->load(fck_resource_path "bird-sheet.png");
+	fck_png bird_png = png->load(fck_resource_path "bird-sheet.png");
+	fck_png items_png = png->load(fck_resource_path "items-sheet.png");
 	const sht_image bird_image = app_load_image(driver, bird_png.data, sht_format_r8g8b8a8_unorm, bird_png.width, bird_png.height);
 	const sht_image_view bird_image_view = memory->image->view(memory->bump, bird_image, sht_format_r8g8b8a8_unorm);
 
 	const fck_gfx_shader vertex_shader = {.name = "vertex", .path = fck_resource_path "sprite.vert"};
 	const fck_gfx_shader fragment_shader = {.name = "textured", .path = fck_resource_path "textured.frag"};
 	const fck_gfx_create_info create_info = {.vertex = &vertex_shader, .fragment = &fragment_shader};
-	const fck_gfx bird_gfx = gfx->create(kll->system, &driver, shader, &create_info);
+	const fck_gfx bird_gfx = gfx->create(kll->system, &driver, &create_info);
 
-	// sht_image depth_image = {0};
-	// sht_image_view depth_view = {0};
-	//{
-	//	sht_extent extent = swapchain.vt->extent(swapchain);
-	//	sht_image_configuration config = (sht_image_configuration){
-	//		.format = SHT_FORMAT_D16_UNORM,
-	//		.width = extent.width,
-	//		.height = extent.height,
-	//		.transfer = SHT_TRANSFER_RETAINED,
-	//		.usage = SHT_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT,
-	//	};
+	sht_image depth_image = {0};
+	sht_image_view depth_view = {0};
+	{
+		sht_extent extent = swapchain.vt->extent(swapchain);
+		sht_image_configuration config = (sht_image_configuration){
+			.format = sht_format_d16_unorm,
+			.width = extent.width,
+			.height = extent.height,
+			.transfer = sht_transfer_retained,
+			.usage = sht_image_usage_depth_stencil_attachment,
+		};
 
-	//	depth_image = memory->image->create(memory->bump, &config,
-	// SHT_MEMORY_GPU); 	depth_view = memory->image->view(memory->bump,
-	// depth_image, SHT_FORMAT_UNDEFINED);
-	//}
+		depth_image = memory->image->create(memory->bump, &config, sht_memory_gpu);
+		depth_view = memory->image->view(memory->bump, depth_image, sht_format_undefined);
+	}
 
 	{
 		fckc_u32 index_data[] = {0, 1, 2, 1, 3, 2};
@@ -319,15 +319,15 @@ int main(int argc, char **argv)
 		const fckc_u64 delta = now - time_point;
 		time_point = now;
 
-		accumulator = accumulator + delta;
+		/*accumulator = accumulator + delta;
 		if (accumulator >= 160)
 		{
-			accumulator = accumulator - 160;
-			for (fckc_size_t index = 0; index < fck_arraysize(bird_transforms); index++)
-			{
-				bird_transforms[index].horizontal_index = (bird_transforms[index].horizontal_index + 1) % 4;
-			}
-		}
+		    accumulator = accumulator - 160;
+		    for (fckc_size_t index = 0; index < fck_arraysize(bird_transforms); index++)
+		    {
+		        bird_transforms[index].horizontal_index = (bird_transforms[index].horizontal_index + 1) % 4;
+		    }
+		}*/
 		// TODO: Make render-vk hotreloadable :)
 		// How hard can it be?
 		plugins->hotreload();
@@ -359,24 +359,28 @@ int main(int argc, char **argv)
 		{
 			if (nk->begin(view))
 			{
-				nk->panel->begin(view, 300.0f);
+				nk->panel->begin(view, "Inspector", 300.0f);
 				{
-					for (fckc_size_t index = 0; index < fck_arraysize(bird_transforms); index++)
+					if (nk->panel->push(view, "Birds %d", fck_arraysize(bird_transforms)))
 					{
-						if (nk->panel->push(view, "Bird %d", index))
+						for (fckc_size_t index = 0; index < fck_arraysize(bird_transforms); index++)
 						{
-							app_sprite_transform *bird = bird_transforms + index;
-							bird->x = nk->property->f32(view, "x", -1280.0f, bird->x, 1280.0f, 1.0f);
-							bird->y = nk->property->f32(view, "y", -720.0f, bird->y, 720.0f, 1.0f);
-							bird->z = nk->property->f32(view, "z", -1.0f, bird->z, 1.0f, 1.0f);
-							bird->width = nk->property->f32(view, "width", 0.0f, bird->width, 126.0f, 4.0f);
-							bird->height = nk->property->f32(view, "height", 0.0f, bird->height, 126.0f, 4.0f);
-							bird->rotation = nk->property->f32(view, "rotation", 0.0f, bird->rotation, 360.0f, 1.0f);
-							bird->scale = nk->property->f32(view, "scale", 1.0f, bird->scale, 100.0f, 1.0f);
-							bird->horizontal_index = nk->property->i32(view, "horizontal index", 0, bird->horizontal_index, 10, 1);
-							bird->vertical_index = nk->property->i32(view, "vertical index", 0, bird->vertical_index, 10, 1);
-							nk->panel->pop(view);
+							if (nk->panel->push(view, "Bird %d", index))
+							{
+								app_sprite_transform *bird = bird_transforms + index;
+								bird->x = nk->property->f32(view, "x", -1280.0f, bird->x, 1280.0f, 1.0f);
+								bird->y = nk->property->f32(view, "y", -720.0f, bird->y, 720.0f, 1.0f);
+								bird->z = nk->property->f32(view, "z", 0.0f, bird->z, 1.0f, 0.1f);
+								bird->width = nk->property->f32(view, "width", 0.0f, bird->width, 256.0f, 4.0f);
+								bird->height = nk->property->f32(view, "height", 0.0f, bird->height, 256.0f, 4.0f);
+								bird->rotation = nk->property->f32(view, "rotation", 0.0f, bird->rotation, 360.0f, 1.0f);
+								bird->scale = nk->property->f32(view, "scale", 1.0f, bird->scale, 100.0f, 1.0f);
+								bird->horizontal_index = nk->property->i32(view, "horizontal index", 0, bird->horizontal_index, 10, 1);
+								bird->vertical_index = nk->property->i32(view, "vertical index", 0, bird->vertical_index, 10, 1);
+								nk->panel->pop(view);
+							}
 						}
+						nk->panel->pop(view);
 					}
 				}
 				nk->panel->end(view);
@@ -415,19 +419,11 @@ int main(int argc, char **argv)
 			const sht_command_buffer command_buffer = command->acquire(driver, frame_index);
 			if (command->is_ok(command_buffer))
 			{
-				sht_render_desc desc = {
-					.colour = {.view = color_target, .load_op = sht_clear, .store_op = sht_store, .clear_value = {0.0f, 0.0f, 0.2f, 1.0f}},
-					//.depth = {.view = depth_view, .load_op = SHT_CLEAR, .store_op =
-				    // SHT_DONT_CARE, .clear_value = 0.0f},
-				};
-
 				const app_screen screen = {
 					.width = (float)extent.width,
 					.height = (float)extent.height,
 					.texture_chunk_size = 32.0f,
 				};
-
-				const sht_render_pass render_pass = command->render_pass->begin(command_buffer, &desc);
 
 				sht_viewport viewport;
 				viewport.offset.x = 0.0f;
@@ -440,6 +436,12 @@ int main(int argc, char **argv)
 				scissor.offset.y = 0;
 				scissor.extent = viewport.extent = swapchain.vt->extent(swapchain);
 
+				sht_render_desc desc = {
+					.colour = {.view = color_target, .load_op = sht_clear, .store_op = sht_store, .clear_value = {0.0f, 0.0f, 0.2f, 1.0f}},
+					//.depth = {.view = depth_view, .load_op = sht_clear, .store_op = sht_dont_care, .clear_value = 1.0f},
+				};
+
+				const sht_render_pass render_pass = command->render_pass->begin(command_buffer, &desc);
 				if (command->render_pass->is_ok(render_pass))
 				{
 					command->viewport(command_buffer, &viewport);
@@ -452,7 +454,10 @@ int main(int argc, char **argv)
 
 					const sht_buffer_upload_desc screen_upload = {.data = &screen, .size = sizeof(screen), .count = 1};
 					const sht_buffer_upload_desc transform_upload = {
-						.data = &bird_transforms, .size = sizeof(*bird_transforms), .count = fck_arraysize(bird_transforms)};
+						.data = &bird_transforms,
+						.size = sizeof(*bird_transforms),
+						.count = fck_arraysize(bird_transforms),
+					};
 					const sht_image_upload_desc image_upload = {.samplers = sampler, .views = bird_image_view};
 
 					driver.vt->bss->upload_buffer(*bss, 0, &screen_upload);
@@ -475,6 +480,7 @@ int main(int argc, char **argv)
 
 					command->render_pass->end(command_buffer);
 				}
+
 				command->submit(command_buffer, sht_queue_graphic);
 			}
 		}

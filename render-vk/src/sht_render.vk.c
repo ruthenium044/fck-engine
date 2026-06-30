@@ -2569,7 +2569,8 @@ static VkResult sht_vk_render_pass_create(sht_vk_driver *driver, sht_vk_render_p
 		attachment->storeOp = sht_vk_store_op_from_op(desc->colour.store_op);
 		attachment->stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		attachment->stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		attachment->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		// TODO: we technically have to do this for finalLayout too
+		attachment->initialLayout = desc->colour.load_op == sht_clear ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 		attachment->finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
 		VkSubpassDependency *dependency = &dependencies[dependency_count++];
@@ -2681,7 +2682,7 @@ static VkResult sht_vk_shader_module_create(fck_shader_compiler *compiler, sht_v
                                             VkShaderModule *shader)
 {
 	VkResult result;
-	if (compiler->language(generic) != FCK_SHADER_SPIRV)
+	if (compiler->language(generic) != fck_shader_spirv)
 	{
 		fck_spirv_object spirv = compiler->create_spirv(compiler, generic);
 
@@ -2817,7 +2818,7 @@ static VkPipelineDepthStencilStateCreateInfo sht_vk_depth_stencil_state()
 	depth_stencil_create_info.maxDepthBounds = 0.0f;
 	depth_stencil_create_info.depthTestEnable = VK_TRUE;
 	depth_stencil_create_info.depthWriteEnable = VK_TRUE;
-	depth_stencil_create_info.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+	depth_stencil_create_info.depthCompareOp = VK_COMPARE_OP_LESS;
 	depth_stencil_create_info.depthBoundsTestEnable = VK_FALSE;
 	depth_stencil_create_info.back.failOp = VK_STENCIL_OP_KEEP;
 	depth_stencil_create_info.back.passOp = VK_STENCIL_OP_KEEP;

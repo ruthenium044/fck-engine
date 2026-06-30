@@ -33,6 +33,9 @@ add_subdirectory(render-vk)
 add_subdirectory(shader)
 add_subdirectory(app)
 add_subdirectory(png)
+add_subdirectory(glsl-reflection)
+add_subdirectory(gfx)
+add_subdirectory(nuklear)
 
 add_subdirectory(plugins)
 

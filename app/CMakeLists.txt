@@ -7,15 +7,6 @@ project(fck-app)
 
 add_executable(${PROJECT_NAME})
 target_sources(${PROJECT_NAME} PRIVATE "main.c")
-target_sources(${PROJECT_NAME} PRIVATE "reflection.c")
-target_sources(${PROJECT_NAME} PRIVATE "reflection.h")
-target_sources(${PROJECT_NAME} PRIVATE "nuklear.h")
-target_sources(${PROJECT_NAME} PRIVATE "fck_nuklear.h")
-target_sources(${PROJECT_NAME} PRIVATE "fck_nuklear.c")
-target_sources(${PROJECT_NAME} PRIVATE "fck_gfx.h")
-target_sources(${PROJECT_NAME} PRIVATE "fck_gfx.c")
-
-target_sources(${PROJECT_NAME} PRIVATE "nuklear_overview_demo.inl")
 
 find_package(api)
 find_package(os)
@@ -26,6 +17,8 @@ find_package(plugins)
 find_package(render)
 find_package(shader)
 find_package(png)
+find_package(gfx)
+find_package(nuklear)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::hash)
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::os)
@@ -33,10 +26,12 @@ target_link_libraries(${PROJECT_NAME} PRIVATE fck::kll)
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::input)
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::api-interface)
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::plugins-interface)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::nuklear-interface)
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::png-interface)
 # Should this be fck::render-interface? 
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::render)
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::shader-interface)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::gfx-interface)
 
 # this needs to get substituted well...
 target_compile_definitions(${PROJECT_NAME} PRIVATE

@@ -4,7 +4,7 @@
 #include <fckc_inttypes.h>
 
 // Even if I move away from nuklear, I will keep close to its API
-#define fck_nuklear_api_name "fck_nuklear"
+#define fck_nuklear_api_name "fck-nuklear"
 
 typedef enum fck_nuklear_theme
 {
@@ -125,7 +125,7 @@ typedef struct fck_nuklear_proeprty_api
 
 typedef struct fck_nuklear_panel_api
 {
-	void (*begin)(fck_nk nk, float ratio);
+	void (*begin)(fck_nk nk, const char* name, float ratio);
 	void (*end)(fck_nk nk);
 
 	// Maybe fmt?
@@ -137,7 +137,7 @@ typedef struct fck_nuklear_panel_api
 typedef struct fck_nuklear_api
 {
 	// TODO: HMMM, window from driver is also an option
-	fck_nk (*create)(struct kll_allocator *allocator, struct fck_window *window, struct sht_driver *driver, struct fck_shader_api *shader);
+	fck_nk (*create)(struct kll_allocator *allocator, struct fck_window *window, struct sht_driver *driver);
 	fck_nuklear_hamburger_api *hamburger;
 	fck_nuklear_input_api *input;
 	fck_nuklear_pie_api *pie;
@@ -157,7 +157,5 @@ typedef struct fck_nuklear_api
 	// Hm.. Not sure if hugging the driver and then having a pointer to command buffer is ok
 	void (*present)(fck_nk nk, const struct sht_command_buffer *buffer, fckc_u32 frame_index);
 } fck_nuklear_api;
-
-extern fck_nuklear_api *nk;
 
 #endif // !FCK_NUKLEAR_H_INCLUDED

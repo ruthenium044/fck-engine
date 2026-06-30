@@ -188,10 +188,10 @@ fck_test_app_result fck_test_app_app_init(void **app_state, int argc, char **arg
 		fck_shader_compiler compiler = shader_api->create();
 
 		fck_file vert_file = os->fs->open("hlsl/triangle.vert", "r");
-		fck_shader_desc vert_desc = (fck_shader_desc){FCK_SHADER_VERTEX, "triangle-vert", "main"};
+		fck_shader_desc vert_desc = (fck_shader_desc){fck_shader_vertex, "triangle-vert", "main"};
 
 		fck_file frag_file = os->fs->open("hlsl/triangle.frag", "r");
-		fck_shader_desc frag_desc = (fck_shader_desc){FCK_SHADER_FRAGMENT, "triangle-frag", "main"};
+		fck_shader_desc frag_desc = (fck_shader_desc){fck_shader_fragment, "triangle-frag", "main"};
 
 		fck_hlsl_object vert = compiler.create_hlsl_from_file(&compiler, &vert_desc, &vert_file);
 		fck_hlsl_object frag = compiler.create_hlsl_from_file(&compiler, &frag_desc, &frag_file);

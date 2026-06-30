@@ -3,7 +3,7 @@
 #define FCK_REFLECTION_H_INCLUDED
 
 // Maybeee
-#define fck_glsl_reflection_api_name "fck_glsl_reflection"
+#define fck_glsl_reflection_api_name "fck-glsl-reflection"
 #define fck_glsl_reflection_global ""
 
 typedef enum fck_glsl_reflection_declaration_qualifier
@@ -36,6 +36,7 @@ typedef struct fck_glsl_reflection_variable
 	// We should collect the bindings somehow else!
 	// This way we can also react to the scoped and unscoped interface blocks
 	int binding;
+	// TODO: Layout and location!!!
 	fck_glsl_reflection_declaration_qualifier qualifiers;
 	const fck_glsl_reflection_type *type;
 	const char *name;
@@ -50,7 +51,5 @@ typedef struct fck_glsl_reflection_api
 	int (*is)(const fck_glsl_reflection_type* type, const char* name);
 	void (*free)(struct fck_glsl_reflection *reflection);
 } fck_glsl_reflection_api;
-
-extern fck_glsl_reflection_api *glsl_reflection;
 
 #endif // !FCK_REFLECTION_H_INCLUDED

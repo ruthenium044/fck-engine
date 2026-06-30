@@ -2,7 +2,7 @@
 #include "fck_gfx.h"
 
 // TODO
-#include "reflection.h"
+#include <fck_glsl_reflection.h>
 
 #include <fck_os.h>
 #include <fck_shader.h>
@@ -17,6 +17,10 @@
 
 #include <stddef.h>
 
+#include <fck_apis.h>
+
+static fck_api_registry *apis;
+
 typedef struct fck_gfx_internal
 {
 	sht_graphics_pipeline pipeline;
@@ -24,7 +28,7 @@ typedef struct fck_gfx_internal
 } fck_gfx_internal;
 
 static fckc_size_t fck_gfx_bindings_add(sht_stage_flags stage, const fck_glsl_reflection_variable *var, sht_binding *bindings,
-                                         fckc_size_t count, fckc_size_t capacity)
+                                        fckc_size_t count, fckc_size_t capacity)
 {
 	fck_assert(var->binding >= 0);
 	const fck_glsl_reflection_type *type = var->type;
@@ -38,6 +42,8 @@ static fckc_size_t fck_gfx_bindings_add(sht_stage_flags stage, const fck_glsl_re
 			return count;
 		}
 	}
+
+	fck_glsl_reflection_api *glsl_reflection = (fck_glsl_reflection_api *)apis->find(fck_glsl_reflection_api_name);
 
 	sht_binding *binding = bindings + count;
 	if (sht_test(var->qualifiers, fck_glsl_reflection_declaration_qualifier_uniform))
@@ -63,10 +69,12 @@ static fckc_size_t fck_gfx_bindings_add(sht_stage_flags stage, const fck_glsl_re
 	return count;
 }
 
-static struct fck_gfx fck_gfx_api_create(kll_allocator *allocator, sht_driver *driver, fck_shader_api *shader,
-                                         const fck_gfx_create_info *info)
+static struct fck_gfx fck_gfx_api_create(kll_allocator *allocator, sht_driver *driver, const fck_gfx_create_info *info)
 {
 	fck_gfx_internal *gfx = (fck_gfx_internal *)kll_malloc(allocator, sizeof(*gfx));
+
+	fck_shader_api *shader = (fck_shader_api *)apis->find(fck_shader_api_name);
+
 	fck_shader_compiler compiler = shader->create();
 
 	const char *vertex = info->vertex->path;
@@ -76,10 +84,10 @@ static struct fck_gfx fck_gfx_api_create(kll_allocator *allocator, sht_driver *d
 	const char *fragment_name = info->fragment->name;
 
 	fck_file vert_file = os->fs->open(vertex, "r");
-	fck_shader_desc vert_desc = (fck_shader_desc){FCK_SHADER_VERTEX, vertex_name, "main"};
+	fck_shader_desc vert_desc = (fck_shader_desc){fck_shader_vertex, vertex_name, "main"};
 
 	fck_file frag_file = os->fs->open(fragment, "r");
-	fck_shader_desc frag_desc = (fck_shader_desc){FCK_SHADER_FRAGMENT, fragment_name, "main"};
+	fck_shader_desc frag_desc = (fck_shader_desc){fck_shader_fragment, fragment_name, "main"};
 	fck_glsl_object vert = {0};
 	fck_glsl_object frag = {0};
 	vert = compiler.create_glsl_from_file(&compiler, &vert_desc, &vert_file);
@@ -90,7 +98,9 @@ static struct fck_gfx fck_gfx_api_create(kll_allocator *allocator, sht_driver *d
 	sht_binding bindings[bindings_capacity];
 	fckc_size_t bindings_count = 0;
 
+	fck_glsl_reflection_api *glsl_reflection = (fck_glsl_reflection_api *)apis->find(fck_glsl_reflection_api_name);
 	{
+
 		struct fck_glsl_reflection *reflection = glsl_reflection->reflect(vert.generic.source, fck_glsl_reflection_global);
 		const fck_glsl_reflection_type *global = glsl_reflection->type_of(reflection, fck_glsl_reflection_global);
 		const fck_glsl_reflection_variable *current = global->first;
@@ -133,7 +143,7 @@ static struct fck_gfx fck_gfx_api_create(kll_allocator *allocator, sht_driver *d
 		.cull_mode = sht_cull_mode_none,
 		.topology = sht_triangle_list,
 		.color = sht_format_b8g8r8a8_unorm,
-		.depth = sht_format_undefined, // SHT_FORMAT_D16_UNORM,
+		.depth = sht_format_undefined, // sht_format_d16_unorm,
 	};
 	sht_graphic_desc graphic_desc = {
 		.fragment = &frag.generic,
@@ -155,13 +165,13 @@ static struct fck_gfx fck_gfx_api_create(kll_allocator *allocator, sht_driver *d
 
 static struct sht_bss *fck_gfx_api_bss(fck_gfx gfx)
 {
-	fck_gfx_internal* gfx_internal = (fck_gfx_internal*)gfx.handle;
+	fck_gfx_internal *gfx_internal = (fck_gfx_internal *)gfx.handle;
 	return &gfx_internal->bss;
 }
 
 static struct sht_graphics_pipeline *fck_gfx_api_pipeline(fck_gfx gfx)
 {
-	fck_gfx_internal* gfx_internal = (fck_gfx_internal*)gfx.handle;
+	fck_gfx_internal *gfx_internal = (fck_gfx_internal *)gfx.handle;
 	return &gfx_internal->pipeline;
 }
 
@@ -171,4 +181,9 @@ static fck_gfx_api gfx_api = {
 	.pipeline = fck_gfx_api_pipeline,
 };
 
-fck_gfx_api *gfx = &gfx_api;
+FCK_EXPORT_API fck_gfx_api *fck_gfx_load(fck_api_registry *registry, void *old)
+{
+	apis = registry;
+	registry->add(fck_gfx_api_name, &gfx_api);
+	return &gfx_api;
+}

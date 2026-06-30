@@ -19,6 +19,7 @@
 #include <fckc_assert.h>
 #include <fckc_inttypes.h>
 
+#include <fck_apis.h>
 #include <fck_hash.h>
 #include <fck_input.h>
 #include <fck_mouse.h>
@@ -33,6 +34,8 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+
+static fck_api_registry *apis;
 
 typedef struct fck_nk_screen
 {
@@ -64,8 +67,24 @@ typedef struct fck_nk_control_state
 	const void *current;
 } fck_nk_control_state;
 
+struct fck_nk_panel_item;
+typedef struct fck_nk_panel_item
+{
+	fck_hash_int hash;
+	char name[420];
+
+	struct fck_nk_panel_item *next;
+} fck_nk_panel_item;
+
 typedef struct fck_nk_panel_state
 {
+	// TODO: Over-engineer this
+	fck_nk_panel_item *root;
+	fck_nk_panel_item *active;
+
+	fck_nk_panel_item items[32];
+	fckc_size_t items_count;
+
 	nk_bool open;
 } fck_nk_panel_state;
 
@@ -101,6 +120,48 @@ typedef struct fck_nk_internal
 	fckc_u64 time_last_frame;
 } fck_nk_internal;
 
+static fck_nk_panel_item *fck_nk_panel_state_find(fck_nk_panel_state *state, const char *name)
+{
+	const fckc_size_t len = strlen(name);
+	const fck_hash_int hash = fck_hash(name, len);
+	for (fckc_size_t index = 0; index < fck_arraysize(state->items); index++)
+	{
+		const fck_hash_int slot = (slot + index) % fck_arraysize(state->items);
+		fck_nk_panel_item *item = state->items + slot;
+		if (item->hash == 0)
+		{
+			item->hash = hash;
+			memcpy(item->name, name, len);
+			item->name[len] = 0;
+
+			if (state->root == NULL)
+			{
+				state->root = item;
+			}
+			else
+			{
+				fck_nk_panel_item *current = state->root;
+				for (;;)
+				{
+					if (current->next == NULL)
+					{
+						current->next = item;
+						break;
+					}
+				}
+			}
+
+			return item;
+		}
+
+		if (item->hash == hash && strcmp(item->name, name) == 0)
+		{
+			return item;
+		}
+	}
+	return NULL;
+}
+
 static sht_image fck_nk_bake_font(sht_driver driver, const void *pixels, sht_format format, int width, int height)
 {
 	sht_memory *memory = driver.vt->memory(driver);
@@ -128,7 +189,7 @@ static fck_nk_os_window fck_nk_os_window_create(fck_window window)
 	return os_window;
 }
 
-static fck_nk fck_nk_api_create(kll_allocator *allocator, fck_window *window, sht_driver *driver, fck_shader_api *shader)
+static fck_nk fck_nk_api_create(kll_allocator *allocator, fck_window *window, sht_driver *driver)
 {
 	sht_memory *memory = driver->vt->memory(*driver);
 
@@ -174,12 +235,12 @@ static fck_nk fck_nk_api_create(kll_allocator *allocator, fck_window *window, sh
 
 	const fck_gfx_shader vertex = {
 		.name = "nuklear-vertex",
-		.path = fck_resource_path "vertex.vert",
+		.path = fck_nuklear_resource_path "vertex.vert",
 	};
 
 	const fck_gfx_shader fragment = {
 		.name = "nuklear-fragment",
-		.path = fck_resource_path "fragment.frag",
+		.path = fck_nuklear_resource_path "fragment.frag",
 	};
 
 	const fck_gfx_create_info create_info = {
@@ -187,7 +248,9 @@ static fck_nk fck_nk_api_create(kll_allocator *allocator, fck_window *window, sh
 		.fragment = &fragment,
 	};
 
-	nk->gfx = gfx->create(kll->system, driver, shader, &create_info);
+	fck_gfx_api *gfx = (fck_gfx_api *)apis->find(fck_gfx_api_name);
+
+	nk->gfx = gfx->create(kll->system, driver, &create_info);
 	return (fck_nk){.handle = nk};
 }
 
@@ -448,15 +511,12 @@ static void fck_nk_api_present(fck_nk nke, const struct sht_command_buffer *buff
 			.count = vertices.needed / sizeof(*vertex_transforms),
 		};
 
-		const sht_image_upload_desc font_upload = {
-			.samplers = nk->sampler,
-			.views = nk->font_view,
-		};
+		fck_gfx_api *gfx = (fck_gfx_api *)apis->find(fck_gfx_api_name);
 
 		sht_bss *bss = gfx->bss(nk->gfx);
 		driver->vt->bss->upload_buffer(*bss, 0, &screen_upload);
 		driver->vt->bss->upload_buffer(*bss, 1, &vertices_upload);
-		driver->vt->bss->upload_image(*bss, 2, &font_upload);
+		// driver->vt->bss->upload_image(*bss, 2, &font_upload);
 		command->bss(*buffer, *bss);
 
 		sht_graphics_pipeline *pipeline = gfx->pipeline(nk->gfx);
@@ -471,7 +531,15 @@ static void fck_nk_api_present(fck_nk nke, const struct sht_command_buffer *buff
 		{
 			if (!cmd->elem_count && !cmd->texture.ptr)
 				continue;
+			fck_assert(cmd->texture.ptr);
 
+			const sht_image_upload_desc font_upload = {
+				.samplers = nk->sampler,
+				.views = *(sht_image_view *)cmd->texture.ptr,
+			};
+
+			driver->vt->bss->upload_image(*bss, 2, &font_upload);
+			command->bss(*buffer, *bss);
 			// driver->vt->bss->upload(ui->bss, 1, sht_upload_params{.view =
 			// ui->font.view, .sampler = ui->sampler});
 
@@ -649,18 +717,45 @@ static int fck_nk_api_control_point(fck_nk nk, const void *pointer, float *x, fl
 	return select == &on;
 }
 
-static void fck_nk_panel_api_begin(fck_nk nk, float width)
+static void fck_nk_panel_api_begin(fck_nk nk, const char *name, float width)
 {
 	fck_nk_internal *nk_internal = (fck_nk_internal *)nk.handle;
+	fck_nk_panel_state *state = &nk_internal->os.panel;
 
 	struct nk_context *ctx = nk_internal->ctx;
 
 	const struct nk_vec2 size = nk_window_get_size(ctx);
 
-	const float ratios[] = {width, size.x - width};
-	nk_layout_row(ctx, NK_STATIC, size.y, 2, ratios);
+	const float tab_size = 48.0f;
+	const float widths[] = {/*tab_size,*/ width, size.x - width - tab_size};
+	nk_layout_row(ctx, NK_STATIC, size.y, fck_arraysize(widths), widths);
 
-	nk_internal->os.panel.open = nk_group_begin(ctx, "LeftPanel", NK_WINDOW_BORDER);
+	// Lazily Add
+	// fck_nk_panel_item *item = fck_nk_panel_state_find(state, name);
+
+	// if (nk_group_begin(ctx, item->name, NK_WINDOW_BORDER))
+	//{
+	//	nk_layout_row_static(ctx, tab_size, tab_size, 1);
+	//	fck_nk_panel_item *current = state->root;
+	//	while (current)
+	//	{
+	//		nk_button_label(ctx, current->name);
+	//		current = current->next;
+	//	}
+	//	nk_group_end(ctx);
+	// }
+	state->open = nk_group_begin(ctx, name, NK_WINDOW_BORDER);
+}
+
+static void fck_nk_panel_api_end(fck_nk nk)
+{
+	fck_nk_internal *nk_internal = (fck_nk_internal *)nk.handle;
+	struct nk_context *ctx = nk_internal->ctx;
+	if (nk_internal->os.panel.open)
+	{
+		nk_group_end(ctx);
+	}
+	nk_spacer(ctx);
 }
 
 static int fck_nk_panel_menu_api_push(fck_nk nk, const char *fmt, ...)
@@ -690,25 +785,14 @@ static fckc_f32 fck_nuklear_proeprty_api_f32(fck_nk nk, const char *name, fckc_f
 {
 	fck_nk_internal *nk_internal = (fck_nk_internal *)nk.handle;
 	struct nk_context *ctx = nk_internal->ctx;
-	return nk_propertyf(ctx, name, min, val, max, step, 0.05f);
+	return nk_propertyf(ctx, name, min, val, max, step, 0.5f);
 }
 
-static fckc_i32 fck_nuklear_proeprty_api_i32(fck_nk nk, const char* name, fckc_i32 min, fckc_i32 val, fckc_i32 max, fckc_i32 step)
-{
-	fck_nk_internal* nk_internal = (fck_nk_internal*)nk.handle;
-	struct nk_context* ctx = nk_internal->ctx;
-	return nk_propertyi(ctx, name, min, val, max, step, 0.05f);
-}
-
-static void fck_nk_panel_api_end(fck_nk nk)
+static fckc_i32 fck_nuklear_proeprty_api_i32(fck_nk nk, const char *name, fckc_i32 min, fckc_i32 val, fckc_i32 max, fckc_i32 step)
 {
 	fck_nk_internal *nk_internal = (fck_nk_internal *)nk.handle;
 	struct nk_context *ctx = nk_internal->ctx;
-	if (nk_internal->os.panel.open)
-	{
-		nk_group_end(ctx);
-	}
-	nk_spacer(ctx);
+	return nk_propertyi(ctx, name, min, val, max, step, 0.5f);
 }
 
 static fck_nk_control fck_nk_api_control(fck_nk nk)
@@ -1045,7 +1129,12 @@ static fck_nuklear_api nuklear_api = {
 	.property = &nuklear_property_api,
 };
 
-fck_nuklear_api *nk = &nuklear_api;
+FCK_EXPORT_API fck_nuklear_api *fck_nuklear_load(fck_api_registry *registry, void *old)
+{
+	apis = registry;
+	registry->add(fck_nuklear_api_name, &nuklear_api);
+	return &nuklear_api;
+}
 
 // Let's keep this mess at the bottom :D
 static struct nk_color fck_ui_cached_colour_table[NK_COLOR_COUNT];

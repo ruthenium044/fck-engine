@@ -46,12 +46,12 @@ static fck_spirv_object fck_shader_create_spirv(struct fck_shader_compiler *comp
 {
 	// MAPS ONE TO ONE FOR NOW! THIS CAN BREAK!
 	const shaderc_shader_kind shader_kind = (shaderc_shader_kind)(fck_shader_stage_type)shader->desc.type;
-	if (shader->language == FCK_SHADER_SPIRV)
+	if (shader->language == fck_shader_spirv)
 	{
 		return (fck_spirv_object){};
 	}
 	// TODO: Make this pretty :)
-	if (shader->language == FCK_SHADER_GLSL || shader->language == FCK_SHADER_HLSL)
+	if (shader->language == fck_shader_glsl || shader->language == fck_shader_hlsl)
 	{
 		shaderc_compiler_t shaderc = (shaderc_compiler_t)compiler->handle;
 		shaderc_compilation_result_t result;
@@ -60,10 +60,10 @@ static fck_spirv_object fck_shader_create_spirv(struct fck_shader_compiler *comp
 		shaderc_source_language lang;
 		switch (shader->language)
 		{
-		case FCK_SHADER_GLSL:
+		case fck_shader_glsl:
 			lang = shaderc_source_language_glsl;
 			break;
-		case FCK_SHADER_HLSL:
+		case fck_shader_hlsl:
 			lang = shaderc_source_language_hlsl;
 			break;
 		}
@@ -89,7 +89,7 @@ static fck_spirv_object fck_shader_create_spirv(struct fck_shader_compiler *comp
 		const char *source = shaderc_result_get_bytes(result);
 
 		fck_spirv_object spirv;
-		spirv.generic = fck_shader_create_generic(compiler, FCK_SHADER_SPIRV, &shader->desc, source, size);
+		spirv.generic = fck_shader_create_generic(compiler, fck_shader_spirv, &shader->desc, source, size);
 		shaderc_result_release(result);
 		return spirv;
 	}
@@ -100,14 +100,14 @@ static fck_spirv_object fck_shader_create_spirv(struct fck_shader_compiler *comp
 static fck_glsl_object fck_shader_create_glsl(struct fck_shader_compiler *compiler, fck_shader_desc *desc, const char *source)
 {
 	fck_glsl_object glsl;
-	glsl.generic = fck_shader_create_generic(compiler, FCK_SHADER_GLSL, desc, source, strlen(source));
+	glsl.generic = fck_shader_create_generic(compiler, fck_shader_glsl, desc, source, strlen(source));
 	return glsl;
 }
 
 static fck_hlsl_object fck_shader_create_hlsl(struct fck_shader_compiler *compiler, fck_shader_desc *desc, const char *source)
 {
 	fck_hlsl_object hlsl;
-	hlsl.generic = fck_shader_create_generic(compiler, FCK_SHADER_HLSL, desc, source, strlen(source));
+	hlsl.generic = fck_shader_create_generic(compiler, fck_shader_hlsl, desc, source, strlen(source));
 	return hlsl;
 }
 

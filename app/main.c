@@ -230,6 +230,14 @@ int main(int argc, char **argv)
 		.name = "Extra",
 	};
 
+	fck_nk_pie_item properties_add_item = {
+		.name = "Add",
+	};
+
+	fck_nk_pie_item properties_add_bird_item = {
+		.name = "Bird",
+	};
+
 	nk->hamburger->push(view, &help_menu_item);
 	nk->hamburger->push(view, &about_menu_item);
 	nk->hamburger->push(view, &setting_menu_item);
@@ -240,6 +248,9 @@ int main(int argc, char **argv)
 	nk->pie->push(&pie, &duplicate_pie_item);
 	nk->pie->push(&pie, &delete_pie_item);
 	nk->pie->push(&pie, &properties_pie_item);
+
+	nk->pie->push(&pie, &properties_add_item);
+	nk->pie->add_child(&properties_add_item, &properties_add_bird_item);
 
 	nk->pie->add_child(&properties_pie_item, &properties_child0_pie_item);
 	nk->pie->add_child(&properties_pie_item, &properties_child1_pie_item);
@@ -302,7 +313,8 @@ int main(int argc, char **argv)
 		driver.vt->upload_buffer(driver, &indices.buffer, index_data, sizeof(index_data));
 	}
 
-	app_sprite_transform bird_transforms[] = {
+	fckc_u32 bird_transforms_count = 0;
+	app_sprite_transform bird_transforms[64] = {
 		{.x = -100.0f, .y = -100.0f, .scale = 1.0f, .width = 256.0f, .height = 256.0f, .vertical_index = 0},
 		{.x = 200.0f, .y = 200.0f, .scale = 1.0f, .width = 256.0f, .height = 256.0f, .vertical_index = 2},
 		{.x = -100, .y = 200.0f, .scale = 1.0f, .width = 256.0f, .height = 256.0f, .vertical_index = 9},
@@ -361,25 +373,26 @@ int main(int argc, char **argv)
 			{
 				nk->panel->begin(view, "Inspector", 300.0f);
 				{
-					if (nk->panel->push(view, "Birds %d", fck_arraysize(bird_transforms)))
+					if (nk->panel->push(view, "Birds %d", bird_transforms_count))
 					{
-						for (fckc_size_t index = 0; index < fck_arraysize(bird_transforms); index++)
+						for (fckc_size_t index = 0; index < bird_transforms_count; index++)
 						{
 							if (nk->panel->push(view, "Bird %d", index))
 							{
 								app_sprite_transform *bird = bird_transforms + index;
-								bird->x = nk->property->f32(view, "x", -1280.0f, bird->x, 1280.0f, 1.0f);
-								bird->y = nk->property->f32(view, "y", -720.0f, bird->y, 720.0f, 1.0f);
-								bird->z = nk->property->f32(view, "z", 0.0f, bird->z, 1.0f, 0.1f);
-								bird->width = nk->property->f32(view, "width", 0.0f, bird->width, 256.0f, 4.0f);
-								bird->height = nk->property->f32(view, "height", 0.0f, bird->height, 256.0f, 4.0f);
-								bird->rotation = nk->property->f32(view, "rotation", 0.0f, bird->rotation, 360.0f, 1.0f);
-								bird->scale = nk->property->f32(view, "scale", 1.0f, bird->scale, 100.0f, 1.0f);
-								bird->horizontal_index = nk->property->i32(view, "horizontal index", 0, bird->horizontal_index, 10, 1);
-								bird->vertical_index = nk->property->i32(view, "vertical index", 0, bird->vertical_index, 10, 1);
+								bird->x = nk->elements->f32(view, "x", -1280.0f, bird->x, 1280.0f, 1.0f);
+								bird->y = nk->elements->f32(view, "y", -720.0f, bird->y, 720.0f, 1.0f);
+								bird->z = nk->elements->f32(view, "z", 0.0f, bird->z, 1.0f, 0.1f);
+								bird->width = nk->elements->f32(view, "width", 0.0f, bird->width, 256.0f, 4.0f);
+								bird->height = nk->elements->f32(view, "height", 0.0f, bird->height, 256.0f, 4.0f);
+								bird->rotation = nk->elements->f32(view, "rotation", 0.0f, bird->rotation, 360.0f, 1.0f);
+								bird->scale = nk->elements->f32(view, "scale", 1.0f, bird->scale, 100.0f, 1.0f);
+								bird->horizontal_index = nk->elements->i32(view, "horizontal index", 0, bird->horizontal_index, 10, 1);
+								bird->vertical_index = nk->elements->i32(view, "vertical index", 0, bird->vertical_index, 10, 1);
 								nk->panel->pop(view);
 							}
 						}
+
 						nk->panel->pop(view);
 					}
 				}
@@ -389,7 +402,7 @@ int main(int argc, char **argv)
 					const fck_nk_colour on = {0, 255, 0, 255};
 					const fck_nk_colour off = {255, 0, 0, 255};
 					fckc_size_t index;
-					for (index = 0; index < fck_arraysize(bird_transforms); index++)
+					for (index = 0; index < bird_transforms_count; index++)
 					{
 						app_sprite_transform *bird = bird_transforms + index;
 						if (nk->control_point(view, bird, &bird->x, &bird->y, 16.0f, 2.0f, on, off))
@@ -407,6 +420,22 @@ int main(int argc, char **argv)
 			{
 				is_running = 0;
 			}
+		}
+
+		if (nk->pie->happened(&properties_add_bird_item))
+		{
+			os->io->log("Create Bird");
+			app_sprite_transform *transform = bird_transforms + bird_transforms_count;
+			const app_sprite_transform baseline = {
+				.x = pie.x,
+				.y = pie.y,
+				.scale = 1.0f,
+				.width = 256.0f,
+				.height = 256.0f,
+			};
+			*transform = baseline;
+			nk->to_world(view, &transform->x, &transform->y);
+			bird_transforms_count = bird_transforms_count + 1;
 		}
 
 		memory->reset(memory->temp);
@@ -447,35 +476,39 @@ int main(int argc, char **argv)
 					command->viewport(command_buffer, &viewport);
 					command->scissor(command_buffer, &scissor);
 
-					command->index_buffer(command_buffer, &indices.buffer, 0);
+					if (bird_transforms_count > 0)
+					{
+						command->index_buffer(command_buffer, &indices.buffer, 0);
 
-					sht_bss *bss = gfx->bss(bird_gfx);
-					sht_graphics_pipeline *pipeline = gfx->pipeline(bird_gfx);
+						sht_bss *bss = gfx->bss(bird_gfx);
+						sht_graphics_pipeline *pipeline = gfx->pipeline(bird_gfx);
 
-					const sht_buffer_upload_desc screen_upload = {.data = &screen, .size = sizeof(screen), .count = 1};
-					const sht_buffer_upload_desc transform_upload = {
-						.data = &bird_transforms,
-						.size = sizeof(*bird_transforms),
-						.count = fck_arraysize(bird_transforms),
-					};
-					const sht_image_upload_desc image_upload = {.samplers = sampler, .views = bird_image_view};
+						const sht_buffer_upload_desc screen_upload = {.data = &screen, .size = sizeof(screen), .count = 1};
+						const sht_buffer_upload_desc transform_upload = {
+							.data = &bird_transforms,
+							.size = sizeof(*bird_transforms),
+							.count = bird_transforms_count,
+						};
+						const sht_image_upload_desc image_upload = {.samplers = sampler, .views = bird_image_view};
 
-					driver.vt->bss->upload_buffer(*bss, 0, &screen_upload);
-					driver.vt->bss->upload_buffer(*bss, 1, &transform_upload);
-					driver.vt->bss->upload_image(*bss, 3, &image_upload);
-					command->bss(command_buffer, *bss);
+						driver.vt->bss->upload_buffer(*bss, 0, &screen_upload);
+						driver.vt->bss->upload_buffer(*bss, 1, &transform_upload);
+						driver.vt->bss->upload_image(*bss, 3, &image_upload);
+						command->bss(command_buffer, *bss);
 
-					command->graphics_pipeline(command_buffer, *pipeline);
+						command->graphics_pipeline(command_buffer, *pipeline);
 
-					const sht_draw_indexed_desc desc = {
-						.first_index = 0,
-						.index_count = to_u32(indices.count),
-						.instance_count = fck_arraysize(bird_transforms),
-						.first_instance = 0,
-						.vertex_offset = 0,
-					};
+						const sht_draw_indexed_desc desc = {
+							.first_index = 0,
+							.index_count = to_u32(indices.count),
+							.instance_count = bird_transforms_count,
+							.first_instance = 0,
+							.vertex_offset = 0,
+						};
 
-					command->draw_indexed(command_buffer, &desc);
+						command->draw_indexed(command_buffer, &desc);
+					}
+
 					nk->present(view, &command_buffer, frame_index);
 
 					command->render_pass->end(command_buffer);

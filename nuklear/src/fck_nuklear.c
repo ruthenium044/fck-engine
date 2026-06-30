@@ -660,6 +660,24 @@ static void fck_nk_api_theme(fck_nk nk, fck_nuklear_theme theme)
 	fck_ui_set_style(nk_internal->ctx, theme);
 }
 
+static int fck_nk_api_to_world(fck_nk nk, float *x, float *y)
+{
+	fck_nk_internal *nk_internal = (fck_nk_internal *)nk.handle;
+
+	int window_width = 0;
+	int window_height = 0;
+	os->win->size(nk_internal->os.window, &window_width, &window_height);
+
+	const float ox = (window_width * 0.5f);
+	const float oy = (window_height * 0.5f);
+
+	const float px = *x - ox;
+	const float py = *y - oy;
+
+	*x = px;
+	*y = py;
+}
+
 static int fck_nk_api_control_point(fck_nk nk, const void *pointer, float *x, float *y, float size, float hover_scale, fck_nk_colour on,
                                     fck_nk_colour off)
 {
@@ -781,18 +799,25 @@ static void fck_nk_panel_menu_api_pop(fck_nk nk)
 	nk_tree_pop(ctx);
 }
 
-static fckc_f32 fck_nuklear_proeprty_api_f32(fck_nk nk, const char *name, fckc_f32 min, fckc_f32 val, fckc_f32 max, fckc_f32 step)
+static fckc_f32 fck_nuklear_elements_api_f32(fck_nk nk, const char *name, fckc_f32 min, fckc_f32 val, fckc_f32 max, fckc_f32 step)
 {
 	fck_nk_internal *nk_internal = (fck_nk_internal *)nk.handle;
 	struct nk_context *ctx = nk_internal->ctx;
 	return nk_propertyf(ctx, name, min, val, max, step, 0.5f);
 }
 
-static fckc_i32 fck_nuklear_proeprty_api_i32(fck_nk nk, const char *name, fckc_i32 min, fckc_i32 val, fckc_i32 max, fckc_i32 step)
+static fckc_i32 fck_nuklear_elements_api_i32(fck_nk nk, const char *name, fckc_i32 min, fckc_i32 val, fckc_i32 max, fckc_i32 step)
 {
 	fck_nk_internal *nk_internal = (fck_nk_internal *)nk.handle;
 	struct nk_context *ctx = nk_internal->ctx;
 	return nk_propertyi(ctx, name, min, val, max, step, 0.5f);
+}
+
+static int fck_nuklear_elements_api_button(fck_nk nk, const char *title)
+{
+	fck_nk_internal *nk_internal = (fck_nk_internal *)nk.handle;
+	struct nk_context *ctx = nk_internal->ctx;
+	return nk_button_label(ctx, title);
 }
 
 static fck_nk_control fck_nk_api_control(fck_nk nk)
@@ -1086,6 +1111,13 @@ static const fck_nk_pie_item *fck_nk_pie_api_execute(fck_nk nk, fck_nk_pie *pie,
 	return selected;
 }
 
+static int fck_nk_pie_api_happened(fck_nk_pie_item *item)
+{
+	const int value = item->value;
+	item->value = 0;
+	return value;
+}
+
 static fck_nuklear_hamburger_api nuklear_hamburger_api = {
 	.push = fck_nk_hamburger_api_push,
 };
@@ -1094,6 +1126,7 @@ static fck_nuklear_pie_api nuklear_pie_api = {
 	.push = fck_nk_pie_api_push,
 	.add_child = fck_nk_pie_api_add_child,
 	.execute = fck_nk_pie_api_execute,
+	.happened = fck_nk_pie_api_happened,
 };
 
 static fck_nuklear_input_api nuklear_input_api = {
@@ -1109,9 +1142,10 @@ static fck_nuklear_panel_api nuklear_panel_api = {
 	.pop = fck_nk_panel_menu_api_pop,
 };
 
-static fck_nuklear_proeprty_api nuklear_property_api = {
-	.f32 = fck_nuklear_proeprty_api_f32,
-	.i32 = fck_nuklear_proeprty_api_i32,
+static fck_nuklear_elements_api nuklear_property_api = {
+	.f32 = fck_nuklear_elements_api_f32,
+	.i32 = fck_nuklear_elements_api_i32,
+	.button = fck_nuklear_elements_api_button,
 };
 
 static fck_nuklear_api nuklear_api = {
@@ -1121,12 +1155,13 @@ static fck_nuklear_api nuklear_api = {
 	.present = fck_nk_api_present,
 	.theme = fck_nk_api_theme,
 	.control_point = fck_nk_api_control_point,
+	.to_world = fck_nk_api_to_world,
 	.control = fck_nk_api_control,
 	.input = &nuklear_input_api,
 	.hamburger = &nuklear_hamburger_api,
 	.pie = &nuklear_pie_api,
 	.panel = &nuklear_panel_api,
-	.property = &nuklear_property_api,
+	.elements = &nuklear_property_api,
 };
 
 FCK_EXPORT_API fck_nuklear_api *fck_nuklear_load(fck_api_registry *registry, void *old)

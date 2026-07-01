@@ -61,10 +61,20 @@ typedef struct fck_nk_hamburger
 	fck_nk_hamburger_item *items_last;
 } fck_nk_hamburger;
 
+typedef struct fck_nk_selection
+{
+	// TODO: We need to be able to "click through"
+	const void *pointer;
+	struct nk_rect rect;
+} fck_nk_selection;
+
 // TODO: Revisit this and make it better... Not now though
 typedef struct fck_nk_control_state
 {
-	const void *current;
+	const void *point;
+	const void *last_hovered;
+
+	fck_nk_selection selection;
 } fck_nk_control_state;
 
 struct fck_nk_panel_item;
@@ -88,14 +98,22 @@ typedef struct fck_nk_panel_state
 	nk_bool open;
 } fck_nk_panel_state;
 
+typedef enum fck_nk_os_group_type
+{
+	fck_nk_os_group_panel,
+	fck_nk_os_group_canvas,
+	fck_nk_os_group_count,
+} fck_nk_os_group_type;
+
 typedef struct fck_nk_os_window
 {
 	fck_window window;
 	fck_nk_hamburger burger;
 	fck_nk_control control;
+
 	fck_nk_panel_state panel;
 
-	fck_nk_control_state control_point;
+	fck_nk_control_state control_state;
 } fck_nk_os_window;
 
 typedef struct fck_nk_internal
@@ -427,14 +445,33 @@ static int fck_nk_api_begin(fck_nk nke)
 	}
 	return os_window->control.body;
 }
+
 static void fck_nk_api_end(fck_nk nke)
 {
 	fck_nk_internal *nk = (fck_nk_internal *)nke.handle;
 
 	if (nk->os.control.body)
 	{
+		const struct nk_input *input = &nk->ctx->input;
+		if (!nk_input_is_mouse_down(input, NK_BUTTON_LEFT))
+		{
+			nk->os.control_state.point = NULL;
+		}
+		if (input->mouse.pos.x > nk->ctx->current->layout->max_x)
+		{
+			if (nk_input_is_mouse_down(input, NK_BUTTON_LEFT))
+			{
+				if (nk->os.control_state.last_hovered == NULL)
+				{
+					nk->os.control_state.selection.pointer = NULL;
+					nk->os.control_state.selection.rect = nk_rect(0, 0, 0, 0);
+				}
+			}
+		}
+
 		nk_end(nk->ctx);
 	}
+	nk->os.control_state.last_hovered = NULL;
 }
 
 static void fck_nk_api_present(fck_nk nke, const struct sht_command_buffer *buffer, fckc_u32 frame_index)
@@ -676,6 +713,26 @@ static int fck_nk_api_to_world(fck_nk nk, float *x, float *y)
 
 	*x = px;
 	*y = py;
+	return 1;
+}
+
+static int fck_nk_api_to_nuklear(fck_nk nk, float *x, float *y)
+{
+	fck_nk_internal *nk_internal = (fck_nk_internal *)nk.handle;
+
+	int window_width = 0;
+	int window_height = 0;
+	os->win->size(nk_internal->os.window, &window_width, &window_height);
+
+	const float ox = (window_width * 0.5f);
+	const float oy = (window_height * 0.5f);
+
+	const float px = *x + ox;
+	const float py = *y + oy;
+
+	*x = px;
+	*y = py;
+	return 1;
 }
 
 static int fck_nk_api_control_point(fck_nk nk, const void *pointer, float *x, float *y, float size, float hover_scale, fck_nk_colour on,
@@ -688,51 +745,105 @@ static int fck_nk_api_control_point(fck_nk nk, const void *pointer, float *x, fl
 	int window_height = 0;
 	os->win->size(nk_internal->os.window, &window_width, &window_height);
 
-	const float ox = (window_width * 0.5f);
-	const float oy = (window_height * 0.5f);
-
-	const float px = *x + ox - (size * 0.5f);
-	const float py = *y + oy - (size * 0.5f);
+	float px = *x - (size * 0.5f);
+	float py = *y - (size * 0.5f);
+	fck_nk_api_to_nuklear(nk, &px, &py);
 
 	struct nk_rect r = nk_rect(px, py, size, size);
 
 	const struct nk_input *input = &nk_internal->ctx->input;
 
 	const float scaled_size = size * hover_scale;
-	const float spx = *x + ox - (scaled_size * 0.5f);
-	const float spy = *y + oy - (scaled_size * 0.5f);
+	float spx = *x - (scaled_size * 0.5f);
+	float spy = *y - (scaled_size * 0.5f);
+	fck_nk_api_to_nuklear(nk, &spx, &spy);
 
 	const struct nk_rect sr = nk_rect(spx, spy, scaled_size, scaled_size);
 
 	const fck_nk_colour *select = &off;
 	if (nk_input_is_mouse_hovering_rect(input, sr) || NK_INBOX(input->mouse.prev.x, input->mouse.prev.y, sr.x, sr.y, sr.w, sr.h))
 	{
-		if (nk_internal->os.control_point.current == NULL)
+		if (nk_internal->os.control_state.point == NULL)
 		{
-			r.x = *x + ox - (scaled_size * 0.5f);
-			r.y = *y + oy - (scaled_size * 0.5f);
+			r.x = spx;
+			r.y = spy;
 			r.w = r.h = scaled_size;
 		}
 
-		if ((nk_internal->os.control_point.current == NULL && nk_input_is_mouse_down(input, NK_BUTTON_LEFT) ||
-		     nk_internal->os.control_point.current == pointer))
+		if ((nk_internal->os.control_state.point == NULL && nk_input_is_mouse_down(input, NK_BUTTON_LEFT) ||
+		     nk_internal->os.control_state.point == pointer))
 		{
-			nk_internal->os.control_point.current = pointer;
+			nk_internal->os.control_state.point = pointer;
 
 			select = &on;
-			*x = input->mouse.pos.x - ox;
-			*y = input->mouse.pos.y - oy;
+			*x = input->mouse.pos.x;
+			*y = input->mouse.pos.y;
+			fck_nk_api_to_world(nk, x, y);
 		}
 	}
 
 	const struct nk_color c = nk_rgba(select->r, select->g, select->b, select->a);
 	struct nk_command_buffer *canvas = nk_window_get_canvas(nk_internal->ctx);
-	if (nk_internal->os.control_point.current == NULL || nk_internal->os.control_point.current == pointer)
+	if (nk_internal->os.control_state.point == NULL || nk_internal->os.control_state.point == pointer)
 	{
 		nk_stroke_rect(canvas, sr, 0.0f, 2.0f, c);
 	}
 	nk_fill_rect(canvas, r, 0.0f, c);
 	return select == &on;
+}
+
+static int fck_nk_api_select(fck_nk nk, const void *pointer, float x, float y, float w, float h, fck_nk_colour on)
+{
+	fck_nk_internal *nk_internal = (fck_nk_internal *)nk.handle;
+
+	int window_width = 0;
+	int window_height = 0;
+	os->win->size(nk_internal->os.window, &window_width, &window_height);
+
+	fck_nk_api_to_nuklear(nk, &x, &y);
+
+	const struct nk_input *input = &nk_internal->ctx->input;
+
+	const struct nk_rect rect = nk_rect(x - (w * 0.5f), y - (h * 0.5f), w, h);
+	const struct nk_color c = nk_rgba(on.r, on.g, on.b, on.a);
+	struct nk_command_buffer *canvas = nk_window_get_canvas(nk_internal->ctx);
+	if (nk_input_is_mouse_hovering_rect(input, rect))
+	{
+		nk_internal->os.control_state.last_hovered = pointer;
+
+		if (nk_internal->os.control_state.selection.pointer != pointer)
+		{
+			const struct nk_rect other = nk_internal->os.control_state.selection.rect;
+			if (NK_INTERSECT(rect.x, rect.y, rect.w, rect.h, other.x, other.y, other.w, other.h))
+			{
+				if (NK_INBOX(input->mouse.pos.x, input->mouse.pos.y, other.x, other.y, other.w, other.h))
+				{
+					return 0;
+				}
+			}
+
+			const struct nk_rect smallest = nk_rect(x - (w * 0.33f), y - (h * 0.33f), w * 0.66f, h * 0.66f);
+			const struct nk_rect middle = nk_rect(x - (w * 0.42f), y - (h * 0.42f), w * 0.84f, h * 0.84f);
+
+			nk_stroke_rect(canvas, smallest, 0.0f, 1.0f, c);
+			nk_stroke_rect(canvas, middle, 0.0f, 1.0f, c);
+			nk_stroke_rect(canvas, rect, 0.0f, 1.0f, c);
+
+			if (nk_input_is_mouse_pressed(input, NK_BUTTON_LEFT))
+			{
+				nk_internal->os.control_state.selection.pointer = pointer;
+				nk_internal->os.control_state.selection.rect = rect;
+			}
+		}
+	}
+
+	if (pointer == nk_internal->os.control_state.selection.pointer)
+	{
+		nk_stroke_rect(canvas, rect, 0.0f, 2.0f, c);
+		return 1;
+	}
+
+	return 0;
 }
 
 static void fck_nk_panel_api_begin(fck_nk nk, const char *name, float width)
@@ -744,10 +855,14 @@ static void fck_nk_panel_api_begin(fck_nk nk, const char *name, float width)
 
 	const struct nk_vec2 size = nk_window_get_size(ctx);
 
-	const float tab_size = 48.0f;
-	const float widths[] = {/*tab_size,*/ width, size.x - width - tab_size};
-	nk_layout_row(ctx, NK_STATIC, size.y, fck_arraysize(widths), widths);
+	// This might benefit from ACTUALLY being a window...
+	// But then the API is tough cause we cannot start TWO windows and then END two windows :/
 
+	// const float tab_size = 48.0f;
+	// const float widths[] = {/*tab_size,*/ width, size.x - width};
+	// widths[fck_nk_os_group_panel] = width;
+	// widths[fck_nk_os_group_canvas] = size.x - width;
+	nk_layout_row_static(ctx, size.y, width, 1);
 	// Lazily Add
 	// fck_nk_panel_item *item = fck_nk_panel_state_find(state, name);
 
@@ -773,7 +888,6 @@ static void fck_nk_panel_api_end(fck_nk nk)
 	{
 		nk_group_end(ctx);
 	}
-	nk_spacer(ctx);
 }
 
 static int fck_nk_panel_menu_api_push(fck_nk nk, const char *fmt, ...)
@@ -829,11 +943,6 @@ static fck_nk_control fck_nk_api_control(fck_nk nk)
 static void fck_nk_input_api_end(fck_nk nk)
 {
 	fck_nk_internal *nk_internal = (fck_nk_internal *)nk.handle;
-
-	if (!nk_input_is_mouse_down(&nk_internal->ctx->input, NK_BUTTON_LEFT))
-	{
-		nk_internal->os.control_point.current = NULL;
-	}
 
 	nk_input_end(nk_internal->ctx);
 	nk_clear(nk_internal->ctx);
@@ -1155,6 +1264,7 @@ static fck_nuklear_api nuklear_api = {
 	.present = fck_nk_api_present,
 	.theme = fck_nk_api_theme,
 	.control_point = fck_nk_api_control_point,
+	.select = fck_nk_api_select,
 	.to_world = fck_nk_api_to_world,
 	.control = fck_nk_api_control,
 	.input = &nuklear_input_api,

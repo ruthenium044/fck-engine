@@ -293,11 +293,11 @@ int main(int argc, char **argv)
 	sht_image depth_image = {0};
 	sht_image_view depth_view = {0};
 	{
-		sht_extent extent = swapchain.vt->extent(swapchain);
-		sht_image_configuration config = (sht_image_configuration){
+		const sht_extent extent = swapchain.vt->extent(swapchain);
+		const sht_image_configuration config = (sht_image_configuration){
 			.format = sht_format_d16_unorm,
-			.width = extent.width,
-			.height = extent.height,
+			.width = to_u32(extent.width),
+			.height = to_u32(extent.height),
 			.transfer = sht_transfer_retained,
 			.usage = sht_image_usage_depth_stencil_attachment,
 		};
@@ -405,12 +405,16 @@ int main(int argc, char **argv)
 					for (index = 0; index < bird_transforms_count; index++)
 					{
 						app_sprite_transform *bird = bird_transforms + index;
+						if (nk->select(view, bird, bird->x, bird->y, bird->width, bird->height, on))
+						{
+						}
 						if (nk->control_point(view, bird, &bird->x, &bird->y, 16.0f, 2.0f, on, off))
 						{
 							// break;
 						}
 					}
 				}
+				// TODO: Pie api is clunky, we should create pies through nk and then pie can reference upward!
 				nk->pie->execute(view, &pie, 125.0f);
 			}
 			nk->end(view);
@@ -426,6 +430,7 @@ int main(int argc, char **argv)
 		{
 			os->io->log("Create Bird");
 			app_sprite_transform *transform = bird_transforms + bird_transforms_count;
+			// Pie api is a bit clunky
 			const app_sprite_transform baseline = {
 				.x = pie.x,
 				.y = pie.y,

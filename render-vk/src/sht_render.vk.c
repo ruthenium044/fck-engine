@@ -1542,7 +1542,8 @@ static VkResult sht_vk_swapchain_init(sht_vk_swapchain *swapchain, sht_vk_driver
 	fck_assert(present_modes_count >= 1);
 
 	// The FIFO present mode is guaranteed by the spec to be supported
-	const VkPresentModeKHR swapchain_present_mode = VK_PRESENT_MODE_FIFO_KHR; // we can also use queried present modes
+	// FIFO can also be the most sluggish one (at least on my device) We need to find a good selection method here!
+	const VkPresentModeKHR swapchain_present_mode = VK_PRESENT_MODE_MAILBOX_KHR; // we can also use queried present modes
 
 	// Determine the number of VkImage's to use in the swap chain.
 	// We need to acquire only 1 presentable image at at time.

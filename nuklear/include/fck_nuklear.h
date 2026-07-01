@@ -100,7 +100,7 @@ typedef struct fck_nuklear_pie_api
 	void (*add_child)(fck_nk_pie_item *item, fck_nk_pie_item *child);
 	const fck_nk_pie_item *(*execute)(fck_nk nk, fck_nk_pie *pie, float radius);
 
-	int (*happened)(fck_nk_pie_item* item);
+	int (*happened)(fck_nk_pie_item *item);
 } fck_nuklear_pie_api;
 
 struct fck_input_event;
@@ -122,14 +122,14 @@ struct sht_command_buffer;
 typedef struct fck_nuklear_elements_api
 {
 	fckc_f32 (*f32)(fck_nk nk, const char *name, fckc_f32 min, fckc_f32 val, fckc_f32 max, fckc_f32 step);
-	fckc_i32 (*i32)(fck_nk nk, const char* name, fckc_i32 min, fckc_i32 val, fckc_i32 max, fckc_i32 step);
+	fckc_i32 (*i32)(fck_nk nk, const char *name, fckc_i32 min, fckc_i32 val, fckc_i32 max, fckc_i32 step);
 
-	int (*button)(fck_nk nk, const char* title);
+	int (*button)(fck_nk nk, const char *title);
 } fck_nuklear_elements_api;
 
 typedef struct fck_nuklear_panel_api
 {
-	void (*begin)(fck_nk nk, const char* name, float ratio);
+	void (*begin)(fck_nk nk, const char *name, float ratio);
 	void (*end)(fck_nk nk);
 
 	// Maybe fmt?
@@ -156,7 +156,9 @@ typedef struct fck_nuklear_api
 	int (*control_point)(fck_nk nk, const void *pointer, float *x, float *y, float size, float hover_scale, fck_nk_colour on,
 	                     fck_nk_colour off);
 
-	int (*to_world)(fck_nk nk, float* x, float* y);
+	int (*select)(fck_nk nk, const void *pointer, float x, float y, float w, float h, fck_nk_colour on);
+
+	int (*to_world)(fck_nk nk, float *x, float *y);
 
 	fck_nk_control (*control)(fck_nk nk);
 

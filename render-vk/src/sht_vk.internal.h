@@ -22,7 +22,7 @@
 #define sht_vk_graphics_pipeline_capacity 64
 #define sht_vk_descriptor_pool_capacity 64
 #define sht_vk_bss_binding_capacity 8
-#define sht_vk_bss_descriptor_set_bind_copies 8
+#define sht_vk_bss_descriptor_set_bind_copies 1024
 #define sht_vk_swapchain_image_capacity 8
 
 #define sht_vk_success(vk_result) ((vk_result) == VK_SUCCESS)
@@ -48,10 +48,10 @@ static inline VkResult sht_vk_report(VkResult result, const char *msg)
 }
 
 #define sht_vk_assert fck_assert
-#define sht_vk_report_defner(sht_vk_report_func) sht_vk_report_func
+#define sht_vk_report_defer(sht_vk_report_func) sht_vk_report_func
 #define sht_vk_report_(vk_result, func) sht_vk_report(vk_result, func)
-#define sht_vk_error(vk_result) (sht_vk_report((vk_result), sht_vk_report_defner(__func__)))
-#define sht_vk_crash(vk_result) sht_vk_assert(sht_vk_success(sht_vk_report_((vk_result), sht_vk_report_defner(__func__))))
+#define sht_vk_error(vk_result) (sht_vk_report((vk_result), sht_vk_report_defer(__func__)))
+#define sht_vk_crash(vk_result) sht_vk_assert(sht_vk_success(sht_vk_report_((vk_result), sht_vk_report_defer(__func__))))
 
 // Vulkan API loading
 #define sht_vk_declare(function_name) PFN_vk##function_name function_name

@@ -153,8 +153,7 @@ typedef struct fck_nuklear_api
 
 	void (*theme)(fck_nk nk, fck_nuklear_theme theme);
 
-	int (*control_point)(fck_nk nk, const void *pointer, float *x, float *y, float size, float hover_scale, fck_nk_colour on,
-	                     fck_nk_colour off);
+	int (*control_point)(fck_nk nk, const void *pointer, float *x, float *y, float size, fck_nk_colour on, fck_nk_colour off);
 
 	int (*select)(fck_nk nk, const void *pointer, float x, float y, float w, float h, fck_nk_colour on);
 

@@ -103,7 +103,7 @@ static VkResult sht_vk_descriptor_pool_create(sht_vk_driver *driver, sht_binding
 	// This example only one descriptor type (uniform buffer)
 	// We have one buffer (and as such descriptor) per frame
 	// This part is utterly backward and dumb. lol
-	const fckc_u32 set_copies_cacacity = sht_vk_bss_descriptor_set_bind_copies * sht_frame_count;
+	const fckc_u32 set_copies_cacacity = sht_vk_bss_descriptor_set_bind_copies;
 
 	fckc_u32 counts[sht_binding_count] = {0};
 	VkDescriptorPoolSize descriptor_pool_sizes[sht_binding_count] = {0};
@@ -122,7 +122,7 @@ static VkResult sht_vk_descriptor_pool_create(sht_vk_driver *driver, sht_binding
 		{
 			VkDescriptorPoolSize *pool_size = descriptor_pool_sizes + descriptor_pool_size_count;
 			pool_size->type = sht_binding_type_to_vk_desc_type[index];
-			pool_size->descriptorCount = (sht_frame_count * count) + set_copies_cacacity;
+			pool_size->descriptorCount = set_copies_cacacity * count;
 			descriptor_pool_size_count = descriptor_pool_size_count + 1;
 		}
 	}
@@ -140,7 +140,7 @@ static VkResult sht_vk_descriptor_pool_create(sht_vk_driver *driver, sht_binding
 	// Set the max. number of descriptor sets that can be requested from this pool (requesting beyond this limit will result in an error)
 	// Our sample will create one set per uniform buffer per frame
 
-	desciptor_pool_create_info.maxSets = sht_frame_count + set_copies_cacacity;
+	desciptor_pool_create_info.maxSets = 1 + set_copies_cacacity;
 	desciptor_pool_create_info.poolSizeCount = descriptor_pool_size_count;
 	desciptor_pool_create_info.pPoolSizes = descriptor_pool_sizes;
 

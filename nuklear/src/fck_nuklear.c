@@ -608,6 +608,7 @@ static void fck_nk_api_present(fck_nk nke, const struct sht_command_buffer *buff
 
 		const struct nk_draw_command *cmd;
 		fckc_u32 index_offset = 0;
+
 		nk_draw_foreach(cmd, nk->ctx, &nk->commands)
 		{
 			if (!cmd->elem_count && !cmd->texture.ptr)
@@ -641,10 +642,10 @@ static void fck_nk_api_present(fck_nk nke, const struct sht_command_buffer *buff
 				.first_instance = 0,
 				.vertex_offset = 0,
 			};
-
 			command->draw_indexed(*buffer, &desc);
 			index_offset = index_offset + cmd->elem_count;
 		}
+
 		nk_buffer_free(&vertices);
 		nk_buffer_free(&elements);
 	}
@@ -779,7 +780,7 @@ static int fck_nk_api_to_nuklear(fck_nk nk, float *x, float *y)
 	return 1;
 }
 
-static int fck_nk_api_control_point(fck_nk nk, const void *pointer, float *x, float *y, float size, float hover_scale, fck_nk_colour on,
+static int fck_nk_api_control_point(fck_nk nk, const void *pointer, float *x, float *y, float size, fck_nk_colour on,
                                     fck_nk_colour off)
 {
 	// Since this nuklear implementation moves everything around, it is on said implementation to fix it
@@ -797,7 +798,7 @@ static int fck_nk_api_control_point(fck_nk nk, const void *pointer, float *x, fl
 
 	const struct nk_input *input = &nk_internal->ctx->input;
 
-	const float scaled_size = size * hover_scale;
+	const float scaled_size = size * 2.0f;
 	float spx = *x - (scaled_size * 0.5f);
 	float spy = *y - (scaled_size * 0.5f);
 	fck_nk_api_to_nuklear(nk, &spx, &spy);

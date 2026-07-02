@@ -106,6 +106,50 @@ typedef struct app_sprite_transform
 	int vertical_index;
 } app_sprite_transform;
 
+typedef struct app_sprite_batch
+{
+	kll_allocator *allocator;
+	sht_image_view image_view;
+	app_sprite_transform *transforms;
+	fckc_u32 count;
+	fckc_u32 capacity;
+} app_sprite_batch;
+
+static app_sprite_batch app_sprite_batch_create(kll_allocator *allocator, sht_image_view view)
+{
+	const app_sprite_batch batch = {
+		.allocator = allocator,
+		.image_view = view,
+	};
+	return batch;
+}
+
+static app_sprite_transform *app_sprite_batch_add(app_sprite_batch *batch)
+{
+	if (batch->transforms == NULL)
+	{
+		const fckc_u32 initial = 8;
+		batch->transforms = (app_sprite_transform *)kll_malloc(batch->allocator, initial * sizeof(*batch->transforms));
+		batch->count = 0;
+		batch->capacity = initial;
+	}
+
+	if (batch->count == batch->capacity)
+	{
+		const fckc_u32 next_capacity = batch->capacity * 2;
+		app_sprite_transform *next = (app_sprite_transform *)kll_malloc(batch->allocator, next_capacity * sizeof(*batch->transforms));
+		memcpy(next, batch->transforms, next_capacity * sizeof(*batch->transforms));
+		kll_free(batch->allocator, batch->transforms);
+		batch->capacity = next_capacity;
+		batch->transforms = next;
+	}
+
+	app_sprite_transform *target = batch->transforms + batch->count;
+	memset(target, 0, sizeof(*target));
+	batch->count = batch->count + 1;
+	return target;
+}
+
 int main(int argc, char **argv)
 {
 	load_config(argc, argv);
@@ -201,6 +245,19 @@ int main(int argc, char **argv)
 	fck_nk_pie_item copy_pie_item = {
 		.name = "Copy",
 	};
+	fck_nk_pie_item copy_pie_item_offset_left = {
+		.name = "<",
+	};
+	fck_nk_pie_item copy_pie_item_offset_right = {
+		.name = ">",
+	};
+	fck_nk_pie_item copy_pie_item_offset_up = {
+		.name = "^",
+	};
+	fck_nk_pie_item copy_pie_item_offset_down = {
+		.name = "v",
+	};
+
 	fck_nk_pie_item paste_pie_item = {
 		.name = "Paste",
 	};
@@ -243,13 +300,19 @@ int main(int argc, char **argv)
 	nk->hamburger->push(view, &setting_menu_item);
 
 	fck_nk_pie pie = {0};
-	nk->pie->push(&pie, &copy_pie_item);
 	nk->pie->push(&pie, &paste_pie_item);
 	nk->pie->push(&pie, &duplicate_pie_item);
 	nk->pie->push(&pie, &delete_pie_item);
+	nk->pie->push(&pie, &copy_pie_item);
 	nk->pie->push(&pie, &properties_pie_item);
 
 	nk->pie->push(&pie, &properties_add_item);
+
+	nk->pie->add_child(&copy_pie_item, &copy_pie_item_offset_left);
+	nk->pie->add_child(&copy_pie_item, &copy_pie_item_offset_right);
+	nk->pie->add_child(&copy_pie_item, &copy_pie_item_offset_up);
+	nk->pie->add_child(&copy_pie_item, &copy_pie_item_offset_down);
+
 	nk->pie->add_child(&properties_add_item, &properties_add_bird_item);
 
 	nk->pie->add_child(&properties_pie_item, &properties_child0_pie_item);
@@ -313,18 +376,13 @@ int main(int argc, char **argv)
 		driver.vt->upload_buffer(driver, &indices.buffer, index_data, sizeof(index_data));
 	}
 
-	fckc_u32 bird_transforms_count = 0;
-	app_sprite_transform bird_transforms[64] = {
-		{.x = -100.0f, .y = -100.0f, .scale = 1.0f, .width = 256.0f, .height = 256.0f, .vertical_index = 0},
-		{.x = 200.0f, .y = 200.0f, .scale = 1.0f, .width = 256.0f, .height = 256.0f, .vertical_index = 2},
-		{.x = -100, .y = 200.0f, .scale = 1.0f, .width = 256.0f, .height = 256.0f, .vertical_index = 9},
-		{.x = 200, .y = -100.0f, .scale = 1.0f, .width = 256.0f, .height = 256.0f, .vertical_index = 11}};
+	app_sprite_batch batch = app_sprite_batch_create(kll->system, bird_image_view);
 
 	fckc_u64 time_point = os->chrono->ms();
 
 	fckc_u64 accumulator = 0;
 
-	app_sprite_transform* selected_bird = NULL;
+	app_sprite_transform *selected_bird = NULL;
 
 	int is_running = 1;
 	while (is_running)
@@ -375,13 +433,13 @@ int main(int argc, char **argv)
 			{
 				nk->panel->begin(view, "Inspector", 300.0f);
 				{
-					if (nk->panel->push(view, "Birds %d", bird_transforms_count))
+					if (nk->panel->push(view, "Birds %d", batch.count))
 					{
-						for (fckc_size_t index = 0; index < bird_transforms_count; index++)
+						for (fckc_size_t index = 0; index < batch.count; index++)
 						{
 							if (nk->panel->push(view, "Bird %d", index))
 							{
-								app_sprite_transform *bird = bird_transforms + index;
+								app_sprite_transform *bird = batch.transforms + index;
 								bird->x = nk->elements->f32(view, "x", -1280.0f, bird->x, 1280.0f, 1.0f);
 								bird->y = nk->elements->f32(view, "y", -720.0f, bird->y, 720.0f, 1.0f);
 								bird->z = nk->elements->f32(view, "z", 0.0f, bird->z, 1.0f, 0.1f);
@@ -397,10 +455,11 @@ int main(int argc, char **argv)
 						nk->panel->pop(view);
 					}
 
-					if(selected_bird) {
+					if (selected_bird)
+					{
 						if (nk->panel->push(view, "Selected Bird"))
 						{
-							app_sprite_transform* bird = selected_bird;
+							app_sprite_transform *bird = selected_bird;
 							bird->x = nk->elements->f32(view, "x", -1280.0f, bird->x, 1280.0f, 1.0f);
 							bird->y = nk->elements->f32(view, "y", -720.0f, bird->y, 720.0f, 1.0f);
 							bird->z = nk->elements->f32(view, "z", 0.0f, bird->z, 1.0f, 0.1f);
@@ -420,14 +479,14 @@ int main(int argc, char **argv)
 					const fck_nk_colour on = {0, 255, 0, 255};
 					const fck_nk_colour off = {255, 0, 0, 255};
 					fckc_size_t index;
-					for (index = 0; index < bird_transforms_count; index++)
+					for (index = 0; index < batch.count; index++)
 					{
-						app_sprite_transform *bird = bird_transforms + index;
+						app_sprite_transform *bird = batch.transforms + index;
 						if (nk->select(view, bird, bird->x, bird->y, bird->width, bird->height, on))
 						{
 							selected_bird = bird;
 						}
-						if (nk->control_point(view, bird, &bird->x, &bird->y, 16.0f, 2.0f, on, off))
+						if (nk->control_point(view, bird, &bird->x, &bird->y, 16.0f, on, off))
 						{
 							// break;
 						}
@@ -448,7 +507,7 @@ int main(int argc, char **argv)
 		if (nk->pie->happened(&properties_add_bird_item))
 		{
 			os->io->log("Create Bird");
-			app_sprite_transform *transform = bird_transforms + bird_transforms_count;
+			app_sprite_transform *transform = app_sprite_batch_add(&batch);
 			// Pie api is a bit clunky
 			const app_sprite_transform baseline = {
 				.x = pie.x,
@@ -459,7 +518,39 @@ int main(int argc, char **argv)
 			};
 			*transform = baseline;
 			nk->to_world(view, &transform->x, &transform->y);
-			bird_transforms_count = bird_transforms_count + 1;
+		}
+
+		if (selected_bird)
+		{
+			if (nk->pie->happened(&copy_pie_item))
+			{
+				app_sprite_transform *transform = app_sprite_batch_add(&batch);
+				*transform = *selected_bird;
+			}
+			if (nk->pie->happened(&copy_pie_item_offset_left))
+			{
+				app_sprite_transform *transform = app_sprite_batch_add(&batch);
+				*transform = *selected_bird;
+				transform->x = transform->x - transform->width;
+			}
+			if (nk->pie->happened(&copy_pie_item_offset_right))
+			{
+				app_sprite_transform *transform = app_sprite_batch_add(&batch);
+				*transform = *selected_bird;
+				transform->x = transform->x + transform->width;
+			}
+			if (nk->pie->happened(&copy_pie_item_offset_up))
+			{
+				app_sprite_transform *transform = app_sprite_batch_add(&batch);
+				*transform = *selected_bird;
+				transform->y = transform->y - transform->height;
+			}
+			if (nk->pie->happened(&copy_pie_item_offset_down))
+			{
+				app_sprite_transform *transform = app_sprite_batch_add(&batch);
+				*transform = *selected_bird;
+				transform->y = transform->y + transform->height;
+			}
 		}
 
 		memory->reset(memory->temp);
@@ -500,7 +591,7 @@ int main(int argc, char **argv)
 					command->viewport(command_buffer, &viewport);
 					command->scissor(command_buffer, &scissor);
 
-					if (bird_transforms_count > 0)
+					if (batch.count > 0)
 					{
 						command->index_buffer(command_buffer, &indices.buffer, 0);
 
@@ -509,9 +600,9 @@ int main(int argc, char **argv)
 
 						const sht_buffer_upload_desc screen_upload = {.data = &screen, .size = sizeof(screen), .count = 1};
 						const sht_buffer_upload_desc transform_upload = {
-							.data = &bird_transforms,
-							.size = sizeof(*bird_transforms),
-							.count = bird_transforms_count,
+							.data = batch.transforms,
+							.size = sizeof(*batch.transforms),
+							.count = batch.count,
 						};
 						const sht_image_upload_desc image_upload = {.samplers = sampler, .views = bird_image_view};
 
@@ -525,7 +616,7 @@ int main(int argc, char **argv)
 						const sht_draw_indexed_desc desc = {
 							.first_index = 0,
 							.index_count = to_u32(indices.count),
-							.instance_count = bird_transforms_count,
+							.instance_count = batch.count,
 							.first_instance = 0,
 							.vertex_offset = 0,
 						};

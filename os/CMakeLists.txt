@@ -5,8 +5,9 @@ project(fck-os)
 include_guard(GLOBAL)
 
 add_library(${PROJECT_NAME})
+
 if(MSVC)
-    target_compile_options(${PROJECT_NAME} PRIVATE /W4 /WX)
+    target_compile_options(${PROJECT_NAME} PRIVATE /W4 /WX /we4244)
 else()
     target_compile_options(${PROJECT_NAME} PRIVATE
         -Wall 
@@ -15,6 +16,7 @@ else()
         -Wdouble-promotion
         -Wpedantic 
         -Wnull-dereference
+        -Wimplicit-int-float-conversion
         -Werror
         -Wformat=2
         -Wshadow

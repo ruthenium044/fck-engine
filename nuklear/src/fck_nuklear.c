@@ -3,18 +3,6 @@
 
 #include "fck_nuklear.h"
 
-#define NK_INCLUDE_FIXED_TYPES
-#define NK_INCLUDE_STANDARD_IO
-#define NK_INCLUDE_STANDARD_VARARGS
-#define NK_INCLUDE_DEFAULT_ALLOCATOR
-#define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
-#define NK_INCLUDE_FONT_BAKING
-#define NK_INCLUDE_DEFAULT_FONT
-#define NK_KEYSTATE_BASED_INPUT
-#define NK_UINT_DRAW_INDEX
-#define NK_IMPLEMENTATION
-#include "nuklear.h"
-
 #include <fck_os.h>
 #include <fckc_assert.h>
 #include <fckc_inttypes.h>
@@ -34,6 +22,18 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+
+#define NK_INCLUDE_FIXED_TYPES
+#define NK_INCLUDE_STANDARD_IO
+#define NK_INCLUDE_STANDARD_VARARGS
+#define NK_INCLUDE_DEFAULT_ALLOCATOR
+#define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
+#define NK_INCLUDE_FONT_BAKING
+#define NK_INCLUDE_DEFAULT_FONT
+#define NK_KEYSTATE_BASED_INPUT
+#define NK_UINT_DRAW_INDEX
+#define NK_IMPLEMENTATION
+#include "nuklear.h"
 
 static fck_api_registry *apis;
 
@@ -66,14 +66,29 @@ typedef struct fck_nk_selection
 	// TODO: We need to be able to "click through"
 	const void *pointer;
 	struct nk_rect rect;
+
+	fckc_u32 index;
 } fck_nk_selection;
+
+typedef struct fck_nk_hovered
+{
+	const void *last;
+	fckc_u32 track;
+	fckc_u32 count;
+} fck_nk_hovered;
+
+typedef struct fck_nk_control_point
+{
+	const void *current;
+	const void *last_hovered;
+} fck_nk_control_point;
 
 // TODO: Revisit this and make it better... Not now though
 typedef struct fck_nk_control_state
 {
-	const void *point;
-	const void *last_hovered;
+	fck_nk_control_point point;
 
+	fck_nk_hovered hovered;
 	fck_nk_selection selection;
 } fck_nk_control_state;
 
@@ -449,29 +464,58 @@ static int fck_nk_api_begin(fck_nk nke)
 static void fck_nk_api_end(fck_nk nke)
 {
 	fck_nk_internal *nk = (fck_nk_internal *)nke.handle;
+	fck_nk_selection *selection = &nk->os.control_state.selection;
+	fck_nk_hovered *hovered = &nk->os.control_state.hovered;
+	fck_nk_control_point *point = &nk->os.control_state.point;
+
+	const struct nk_input *input = &nk->ctx->input;
+	if (nk->os.control_state.point.current)
+	{
+		struct nk_rect *target = &selection->rect;
+		target->x = input->mouse.pos.x - (target->w * 0.5f);
+		target->y = input->mouse.pos.y - (target->h * 0.5f);
+	}
 
 	if (nk->os.control.body)
 	{
-		const struct nk_input *input = &nk->ctx->input;
-		if (!nk_input_is_mouse_down(input, NK_BUTTON_LEFT))
-		{
-			nk->os.control_state.point = NULL;
-		}
 		if (input->mouse.pos.x > nk->ctx->current->layout->max_x)
 		{
-			if (nk_input_is_mouse_down(input, NK_BUTTON_LEFT))
+			if (nk_input_is_mouse_pressed(input, NK_BUTTON_LEFT))
 			{
-				if (nk->os.control_state.last_hovered == NULL)
+				if (hovered->last == NULL)
 				{
-					nk->os.control_state.selection.pointer = NULL;
-					nk->os.control_state.selection.rect = nk_rect(0, 0, 0, 0);
+					selection->pointer = NULL;
+					selection->rect = nk_rect(0, 0, 0, 0);
+					selection->index = to_u32(0LLU);
+				}
+				else
+				{
+					if (point->last_hovered == NULL)
+					{
+						selection->index = selection->index + 1;
+					}
 				}
 			}
 		}
 
+		if (!nk_input_is_mouse_down(input, NK_BUTTON_LEFT))
+		{
+			point->current = NULL;
+		}
+
 		nk_end(nk->ctx);
+
+		if (hovered->count != hovered->track)
+		{
+			selection->index = to_u32(0LLU);
+		}
+
+		hovered->count = hovered->track;
+		hovered->track = 0;
 	}
-	nk->os.control_state.last_hovered = NULL;
+
+	point->last_hovered = NULL;
+	hovered->last = NULL;
 }
 
 static void fck_nk_api_present(fck_nk nke, const struct sht_command_buffer *buffer, fckc_u32 frame_index)
@@ -763,28 +807,32 @@ static int fck_nk_api_control_point(fck_nk nk, const void *pointer, float *x, fl
 	const fck_nk_colour *select = &off;
 	if (nk_input_is_mouse_hovering_rect(input, sr) || NK_INBOX(input->mouse.prev.x, input->mouse.prev.y, sr.x, sr.y, sr.w, sr.h))
 	{
-		if (nk_internal->os.control_state.point == NULL)
+		nk_internal->os.control_state.point.last_hovered = pointer;
+
+		if (nk_internal->os.control_state.point.current == NULL)
 		{
 			r.x = spx;
 			r.y = spy;
 			r.w = r.h = scaled_size;
 		}
 
-		if ((nk_internal->os.control_state.point == NULL && nk_input_is_mouse_down(input, NK_BUTTON_LEFT) ||
-		     nk_internal->os.control_state.point == pointer))
+		if (nk_input_is_mouse_down(input, NK_BUTTON_LEFT))
 		{
-			nk_internal->os.control_state.point = pointer;
+			if ((nk_internal->os.control_state.point.current == NULL || nk_internal->os.control_state.point.current == pointer))
+			{
+				nk_internal->os.control_state.point.current = pointer;
 
-			select = &on;
-			*x = input->mouse.pos.x;
-			*y = input->mouse.pos.y;
-			fck_nk_api_to_world(nk, x, y);
+				select = &on;
+				*x = input->mouse.pos.x;
+				*y = input->mouse.pos.y;
+				fck_nk_api_to_world(nk, x, y);
+			}
 		}
 	}
 
 	const struct nk_color c = nk_rgba(select->r, select->g, select->b, select->a);
 	struct nk_command_buffer *canvas = nk_window_get_canvas(nk_internal->ctx);
-	if (nk_internal->os.control_state.point == NULL || nk_internal->os.control_state.point == pointer)
+	if (nk_internal->os.control_state.point.current == NULL || nk_internal->os.control_state.point.current == pointer)
 	{
 		nk_stroke_rect(canvas, sr, 0.0f, 2.0f, c);
 	}
@@ -807,37 +855,50 @@ static int fck_nk_api_select(fck_nk nk, const void *pointer, float x, float y, f
 	const struct nk_rect rect = nk_rect(x - (w * 0.5f), y - (h * 0.5f), w, h);
 	const struct nk_color c = nk_rgba(on.r, on.g, on.b, on.a);
 	struct nk_command_buffer *canvas = nk_window_get_canvas(nk_internal->ctx);
+
+	fck_nk_hovered *hovered = &nk_internal->os.control_state.hovered;
+	fck_nk_selection *selection = &nk_internal->os.control_state.selection;
+	fck_nk_control_point *point = &nk_internal->os.control_state.point;
+
 	if (nk_input_is_mouse_hovering_rect(input, rect))
 	{
-		nk_internal->os.control_state.last_hovered = pointer;
-
-		if (nk_internal->os.control_state.selection.pointer != pointer)
+		const fckc_u32 self = hovered->track;
+		hovered->last = pointer;
+		hovered->track = hovered->track + 1;
+		if (point->current == NULL)
 		{
-			const struct nk_rect other = nk_internal->os.control_state.selection.rect;
-			if (NK_INTERSECT(rect.x, rect.y, rect.w, rect.h, other.x, other.y, other.w, other.h))
+			if (hovered->count != 0)
 			{
-				if (NK_INBOX(input->mouse.pos.x, input->mouse.pos.y, other.x, other.y, other.w, other.h))
+				const fckc_u32 selected = selection->index % hovered->count;
+				const int is_not_selected = selection->pointer != pointer;
+				if (is_not_selected)
 				{
-					return 0;
+					const struct nk_rect smallest = nk_rect(x - (w * 0.33f), y - (h * 0.33f), w * 0.66f, h * 0.66f);
+					const struct nk_rect middle = nk_rect(x - (w * 0.42f), y - (h * 0.42f), w * 0.84f, h * 0.84f);
+
+					nk_stroke_rect(canvas, smallest, 0.0f, 1.0f, c);
+					nk_stroke_rect(canvas, middle, 0.0f, 1.0f, c);
+					nk_stroke_rect(canvas, rect, 0.0f, 1.0f, c);
+
+					if (self == selected && nk_input_is_mouse_pressed(input, NK_BUTTON_LEFT))
+					{
+						selection->pointer = pointer;
+						selection->rect = rect;
+					}
 				}
 			}
-
-			const struct nk_rect smallest = nk_rect(x - (w * 0.33f), y - (h * 0.33f), w * 0.66f, h * 0.66f);
-			const struct nk_rect middle = nk_rect(x - (w * 0.42f), y - (h * 0.42f), w * 0.84f, h * 0.84f);
-
-			nk_stroke_rect(canvas, smallest, 0.0f, 1.0f, c);
-			nk_stroke_rect(canvas, middle, 0.0f, 1.0f, c);
-			nk_stroke_rect(canvas, rect, 0.0f, 1.0f, c);
-
-			if (nk_input_is_mouse_pressed(input, NK_BUTTON_LEFT))
+		}
+		else
+		{
+			if (point->current == pointer)
 			{
-				nk_internal->os.control_state.selection.pointer = pointer;
-				nk_internal->os.control_state.selection.rect = rect;
+				selection->pointer = pointer;
+				selection->rect = rect;
 			}
 		}
 	}
 
-	if (pointer == nk_internal->os.control_state.selection.pointer)
+	if (pointer == selection->pointer)
 	{
 		nk_stroke_rect(canvas, rect, 0.0f, 2.0f, c);
 		return 1;
@@ -1075,8 +1136,8 @@ static fck_nk_pie_item *fck_nk_pie_fan(struct nk_context *ctx, fck_nk_pie *pie, 
 		const float text_angle = start_angle + (angle_step / 2.0f);
 		const struct nk_user_font *font = ctx->style.font;
 		struct nk_vec2 text_pos;
-		text_pos.x = center.x + (((radius_offset * 0.35) + (radius * 0.65f)) * nk_cos(text_angle));
-		text_pos.y = center.y + (((radius_offset * 0.35) + (radius * 0.65f)) * nk_sin(text_angle));
+		text_pos.x = center.x + (((radius_offset * 0.35f) + (radius * 0.65f)) * nk_cos(text_angle));
+		text_pos.y = center.y + (((radius_offset * 0.35f) + (radius * 0.65f)) * nk_sin(text_angle));
 
 		const float text_width = font->width(font->userdata, font->height, current->name, nk_strlen(current->name));
 		text_pos.x -= text_width / 2.0f;
@@ -1276,6 +1337,7 @@ static fck_nuklear_api nuklear_api = {
 
 FCK_EXPORT_API fck_nuklear_api *fck_nuklear_load(fck_api_registry *registry, void *old)
 {
+	(void)old;
 	apis = registry;
 	registry->add(fck_nuklear_api_name, &nuklear_api);
 	return &nuklear_api;

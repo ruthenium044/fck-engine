@@ -324,6 +324,8 @@ int main(int argc, char **argv)
 
 	fckc_u64 accumulator = 0;
 
+	app_sprite_transform* selected_bird = NULL;
+
 	int is_running = 1;
 	while (is_running)
 	{
@@ -392,8 +394,24 @@ int main(int argc, char **argv)
 								nk->panel->pop(view);
 							}
 						}
-
 						nk->panel->pop(view);
+					}
+
+					if(selected_bird) {
+						if (nk->panel->push(view, "Selected Bird"))
+						{
+							app_sprite_transform* bird = selected_bird;
+							bird->x = nk->elements->f32(view, "x", -1280.0f, bird->x, 1280.0f, 1.0f);
+							bird->y = nk->elements->f32(view, "y", -720.0f, bird->y, 720.0f, 1.0f);
+							bird->z = nk->elements->f32(view, "z", 0.0f, bird->z, 1.0f, 0.1f);
+							bird->width = nk->elements->f32(view, "width", 0.0f, bird->width, 256.0f, 4.0f);
+							bird->height = nk->elements->f32(view, "height", 0.0f, bird->height, 256.0f, 4.0f);
+							bird->rotation = nk->elements->f32(view, "rotation", 0.0f, bird->rotation, 360.0f, 1.0f);
+							bird->scale = nk->elements->f32(view, "scale", 1.0f, bird->scale, 100.0f, 1.0f);
+							bird->horizontal_index = nk->elements->i32(view, "horizontal index", 0, bird->horizontal_index, 10, 1);
+							bird->vertical_index = nk->elements->i32(view, "vertical index", 0, bird->vertical_index, 10, 1);
+							nk->panel->pop(view);
+						}
 					}
 				}
 				nk->panel->end(view);
@@ -407,6 +425,7 @@ int main(int argc, char **argv)
 						app_sprite_transform *bird = bird_transforms + index;
 						if (nk->select(view, bird, bird->x, bird->y, bird->width, bird->height, on))
 						{
+							selected_bird = bird;
 						}
 						if (nk->control_point(view, bird, &bird->x, &bird->y, 16.0f, 2.0f, on, off))
 						{

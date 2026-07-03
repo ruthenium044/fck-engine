@@ -87,7 +87,7 @@ static void VKAPI_PTR sht_vk_default_internal_free_notification(void *userdata, 
 	VK_LOG("INT_FREE", "Size: %zu, Type: %d, Scope: %d", size, type, scope);
 }
 
-static VkAllocationCallbacks log_allocation_callbacks = (VkAllocationCallbacks){
+static VkAllocationCallbacks log_allocation_callbacks = {
 	.pUserData = NULL,
 	.pfnAllocation = sht_vk_default_allocation,
 	.pfnReallocation = sht_vk_default_reallocation,
@@ -169,7 +169,7 @@ static VkResult sht_vk_descriptor_set_layout_create(sht_vk_driver *driver, sht_b
 	VkDevice device = driver->device;
 
 	VkDescriptorSetLayoutBinding bindings[16];
-	fck_assert(fck_arraysize(bindings) >= desc->count);
+	sht_vk_assert(fck_arraysize(bindings) >= desc->count);
 
 	for (fckc_size_t index = 0; index < desc->count; index++)
 	{
@@ -182,7 +182,7 @@ static VkResult sht_vk_descriptor_set_layout_create(sht_vk_driver *driver, sht_b
 		binding->pImmutableSamplers = NULL;
 	}
 
-	VkDescriptorSetLayoutCreateInfo descriptor_layout_create_info = {};
+	VkDescriptorSetLayoutCreateInfo descriptor_layout_create_info = {0};
 	descriptor_layout_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 	descriptor_layout_create_info.pNext = NULL;
 	descriptor_layout_create_info.bindingCount = desc->count;
@@ -223,7 +223,7 @@ static void sht_vk_descriptor_set_update_image(sht_vk_driver *driver, VkDescript
                                                const sht_image_view *views, const sht_sampler *samplers, fckc_size_t count)
 {
 	// The buffer's information is passed using a descriptor info structure
-	fck_assert(count <= 32 && "Need more image_infos...");
+	sht_vk_assert(count <= 32 && "Need more image_infos...");
 
 	VkDescriptorImageInfo image_infos[32]; // For now
 	for (fckc_size_t index = 0; index < count; index++)
@@ -436,11 +436,11 @@ static VkResult sht_vk_queues_init(sht_vk_queues *queues, sht_vk_gpu *gpu, VkSur
 	const fckc_u32 queue_family_capacity = fck_arraysize(queue_family_properties);
 	fckc_u32 queue_family_count;
 	gpu->GetPhysicalDeviceQueueFamilyProperties(gpu->device, &queue_family_count, NULL);
-	fck_assert(queue_family_count <= queue_family_capacity);
-	fck_assert(queue_family_count >= 1);
+	sht_vk_assert(queue_family_count <= queue_family_capacity);
+	sht_vk_assert(queue_family_count >= 1);
 
 	gpu->GetPhysicalDeviceQueueFamilyProperties(gpu->device, &queue_family_count, queue_family_properties);
-	fck_assert(queue_family_count >= 1);
+	sht_vk_assert(queue_family_count >= 1);
 
 	const fckc_u32 invalid_queue_family = (fckc_u32)(-1);
 	queues->family[sht_queue_graphic] = invalid_queue_family;
@@ -462,7 +462,7 @@ static VkResult sht_vk_queues_init(sht_vk_queues *queues, sht_vk_gpu *gpu, VkSur
 			break;
 		}
 	}
-	fck_assert(queues->family[sht_queue_graphic] != invalid_queue_family);
+	sht_vk_assert(queues->family[sht_queue_graphic] != invalid_queue_family);
 
 	for (fckc_size_t i = 0; i < queue_family_count; i++)
 	{
@@ -472,7 +472,7 @@ static VkResult sht_vk_queues_init(sht_vk_queues *queues, sht_vk_gpu *gpu, VkSur
 			break;
 		}
 	}
-	fck_assert(queues->family[sht_queue_compute] != invalid_queue_family);
+	sht_vk_assert(queues->family[sht_queue_compute] != invalid_queue_family);
 
 	for (unsigned int i = 0; i < queue_family_count; i++)
 	{
@@ -482,7 +482,7 @@ static VkResult sht_vk_queues_init(sht_vk_queues *queues, sht_vk_gpu *gpu, VkSur
 			break;
 		}
 	}
-	fck_assert(queues->family[sht_queue_transfer] != invalid_queue_family);
+	sht_vk_assert(queues->family[sht_queue_transfer] != invalid_queue_family);
 
 	for (unsigned int i = 0; i < queue_family_count; i++)
 	{
@@ -498,7 +498,7 @@ static VkResult sht_vk_queues_init(sht_vk_queues *queues, sht_vk_gpu *gpu, VkSur
 			break;
 		}
 	}
-	fck_assert(queues->family[sht_queue_present] != invalid_queue_family);
+	sht_vk_assert(queues->family[sht_queue_present] != invalid_queue_family);
 	return VK_SUCCESS;
 };
 
@@ -725,12 +725,13 @@ static sht_format sht_vk_image_resolve_format_from_config(sht_image_configuratio
 	return sht_format_undefined;
 }
 
-static sht_image sht_memory_arena_image_create(sht_memory_arena *mem, const sht_image_configuration *incoming_config, sht_memory_type memory_type)
+static sht_image sht_memory_arena_image_create(sht_memory_arena *mem, const sht_image_configuration *incoming_config,
+                                               sht_memory_type memory_type)
 {
 	sht_vk_driver *driver = (sht_vk_driver *)mem->owner;
 
 	sht_image_configuration configuration = *incoming_config;
-	sht_image_configuration* config = &configuration;
+	sht_image_configuration *config = &configuration;
 
 	if (config->format == sht_format_undefined)
 	{
@@ -946,7 +947,7 @@ static sht_buffer sht_memory_arena_malloc(sht_memory_arena *mem, sht_buffer_conf
 	sht_vk_crash(driver->BindBufferMemory(device, buffer, memory, *offset));
 
 	sht_buffer out;
-	out.size = memory_requirements.size;
+	out.size = config->size;
 	out.cpu = NULL;
 	out.heap = (sht_heap *)memory;
 	out.gpu = buffer;
@@ -1116,7 +1117,7 @@ static void sht_vk_memory_destroy(sht_memory *mem)
 
 static VkResult sht_vk_memory_init(sht_memory *mem, sht_vk_driver *driver, fckc_size_t size)
 {
-	static sht_memory_image image_api = (sht_memory_image){
+	static sht_memory_image image_api = {
 		.create = sht_memory_arena_image_create,
 		.destroy = sht_memory_arena_image_destroy,
 		.view = sht_memory_arena_image_view,
@@ -1126,7 +1127,7 @@ static VkResult sht_vk_memory_init(sht_memory *mem, sht_vk_driver *driver, fckc_
 	};
 
 	VkResult result;
-	fck_assert(fck_arraysize(mem->objects) == 2); // NOLINT
+	sht_vk_assert(fck_arraysize(mem->objects) == 2); // NOLINT
 	result = sht_vk_error(sht_memory_arena_init(&mem->objects[0], driver, size));
 	sht_vk_propagate_on_error(result);
 	result = sht_vk_error(sht_memory_arena_init(&mem->objects[1], driver, size));
@@ -1217,7 +1218,7 @@ static VkResult sht_vk_driver_init(sht_vk_driver *driver, sht_vk_queues *queues)
 	driver->gpu->GetPhysicalDeviceMemoryProperties(driver->gpu->device, &memory_properties);
 
 	float queue_priorities[1] = {0.0};
-	VkDeviceQueueCreateInfo queue_info = {};
+	VkDeviceQueueCreateInfo queue_info = {0};
 	queue_info.queueFamilyIndex = sht_vk_queues_get_family(queues, sht_queue_graphic);
 	queue_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
 	queue_info.pNext = NULL;
@@ -1230,7 +1231,7 @@ static VkResult sht_vk_driver_init(sht_vk_driver *driver, sht_vk_queues *queues)
 	// sht_vk_platform_adjust_extensions(instance_extension_names, &instance_extension_count);
 	instance_extension_names[instance_extension_count++] = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
 
-	VkDeviceCreateInfo device_info = {};
+	VkDeviceCreateInfo device_info = {0};
 	// Deprecated
 	device_info.enabledLayerCount = 0;
 	device_info.ppEnabledLayerNames = NULL;
@@ -1304,7 +1305,7 @@ static VkResult sht_vk_command_init(sht_vk_command *command, sht_vk_driver *driv
 	sht_vk_load_function(command, driver->gpu->vk->so, CmdEndRenderPass);
 	sht_vk_load_function(command, driver->gpu->vk->so, CmdExecuteCommands);
 
-	VkCommandPoolCreateInfo cmd_pool_info = {};
+	VkCommandPoolCreateInfo cmd_pool_info = {0};
 	cmd_pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 	cmd_pool_info.pNext = NULL;
 	cmd_pool_info.queueFamilyIndex = sht_vk_queues_get_family(queues, sht_queue_graphic);
@@ -1312,7 +1313,7 @@ static VkResult sht_vk_command_init(sht_vk_command *command, sht_vk_driver *driv
 
 	sht_vk_crash(command->CreateCommandPool(driver->device, &cmd_pool_info, default_allocation_callbacks, &command->pool));
 
-	VkCommandBufferAllocateInfo alloc_info = {};
+	VkCommandBufferAllocateInfo alloc_info = {0};
 	alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 	alloc_info.pNext = NULL;
 	alloc_info.commandPool = command->pool;
@@ -1353,7 +1354,7 @@ static VkResult sht_vk_fences_destroy(sht_vk_driver *driver, VkFence *fences, fc
 	{
 		VkFence *fence = fences + index;
 		(driver->DestroyFence(driver->device, *fence, default_allocation_callbacks));
-		sht_invalidate((void *)fence);
+		*fence = NULL;
 	}
 	return VK_SUCCESS;
 }
@@ -1383,7 +1384,7 @@ static VkResult sht_vk_semaphores_destroy(sht_vk_driver *driver, VkSemaphore *se
 		VkSemaphore *semaphore = semaphores + index;
 
 		driver->DestroySemaphore(driver->device, *semaphore, default_allocation_callbacks);
-		sht_invalidate((void *)semaphore);
+		*semaphore = NULL;
 	}
 	return VK_SUCCESS;
 }
@@ -1460,7 +1461,7 @@ static VkResult sht_vk_swapchain_resize(sht_vk_swapchain *swapchain, sht_vk_driv
 
 	for (fckc_u32 i = 0; i < swapchain->count; i++)
 	{
-		VkImageViewCreateInfo color_image_view = {};
+		VkImageViewCreateInfo color_image_view = {0};
 		color_image_view.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 		color_image_view.pNext = NULL;
 		color_image_view.flags = 0;
@@ -1506,7 +1507,7 @@ static VkResult sht_vk_swapchain_init(sht_vk_swapchain *swapchain, sht_vk_driver
 
 	VkSurfaceFormatKHR *formats = (VkSurfaceFormatKHR *)kll_malloc(kll->system, format_count * sizeof(VkSurfaceFormatKHR));
 	sht_vk_crash(gpu->GetPhysicalDeviceSurfaceFormatsKHR(gpu->device, surface, &format_count, formats));
-	fck_assert(format_count >= 1); // That would be fucking weird, lol
+	sht_vk_assert(format_count >= 1); // That would be fucking weird, lol
 
 	VkFormat format = VK_FORMAT_UNDEFINED;
 	// If the format list includes just one entry of VK_FORMAT_UNDEFINED,
@@ -1530,8 +1531,8 @@ static VkResult sht_vk_swapchain_init(sht_vk_swapchain *swapchain, sht_vk_driver
 	const fckc_u32 present_modes_capacity = fck_arraysize(present_modes);
 	fckc_u32 present_modes_count;
 	sht_vk_crash(gpu->GetPhysicalDeviceSurfacePresentModesKHR(gpu->device, surface, &present_modes_count, NULL));
-	fck_assert(present_modes_count <= present_modes_capacity);
-	fck_assert(present_modes_count >= 1);
+	sht_vk_assert(present_modes_count <= present_modes_capacity);
+	sht_vk_assert(present_modes_count >= 1);
 
 	sht_vk_crash(gpu->GetPhysicalDeviceSurfacePresentModesKHR( //
 		gpu->device,                                           //
@@ -1539,7 +1540,7 @@ static VkResult sht_vk_swapchain_init(sht_vk_swapchain *swapchain, sht_vk_driver
 		&present_modes_count,                                  //
 		present_modes)                                         //
 	);
-	fck_assert(present_modes_count >= 1);
+	sht_vk_assert(present_modes_count >= 1);
 
 	// The FIFO present mode is guaranteed by the spec to be supported
 	// FIFO can also be the most sluggish one (at least on my device) We need to find a good selection method here!
@@ -1579,7 +1580,7 @@ static VkResult sht_vk_swapchain_init(sht_vk_swapchain *swapchain, sht_vk_driver
 		}
 	}
 
-	VkSwapchainCreateInfoKHR swapchain_create_info = {};
+	VkSwapchainCreateInfoKHR swapchain_create_info = {0};
 	swapchain_create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 	swapchain_create_info.pNext = NULL;
 	swapchain_create_info.surface = surface;
@@ -1785,11 +1786,11 @@ static sht_bss sht_bss_create(sht_driver driver, sht_binding_desc *desc)
 	sht_vk_driver *vk_driver = sht_driver_to_vk(driver);
 	sht_vk_bss *vk_bss = vk_driver->storages.bss.handles + vk_driver->storages.bss.count;
 	vk_driver->storages.bss.count = vk_driver->storages.bss.count + 1;
-	fck_assert(vk_driver->storages.bss.count < fck_arraysize(vk_driver->storages.bss.handles));
+	sht_vk_assert(vk_driver->storages.bss.count < fck_arraysize(vk_driver->storages.bss.handles));
 	sht_invalidate(vk_bss);
 	memset(vk_bss, 0, sizeof(*vk_bss));
 
-	fck_assert(fck_arraysize(vk_bss->desc.bindings) >= desc->count);
+	sht_vk_assert(fck_arraysize(vk_bss->desc.bindings) >= desc->count);
 	memcpy(vk_bss->desc.bindings, desc->bindings, sizeof(*desc->bindings) * desc->count);
 	vk_bss->desc.count = desc->count;
 	memset(&vk_bss->nodes, 0, sizeof(vk_bss->nodes));
@@ -1978,7 +1979,7 @@ static sht_extent sht_swapchain_display(sht_swapchain swapchain)
 	sht_vk_swapchain *sc = (sht_vk_swapchain *)swapchain.handle;
 	const VkExtent2D extent = (VkExtent2D){.width = 0, .height = 0};
 	int w, h;
-	fck_assert(os->win->size(sc->driver->window, &w, &h));
+	sht_vk_assert(os->win->size(sc->driver->window, &w, &h));
 	return (sht_extent){.width = (fckc_f32)w, .height = (fckc_f32)h};
 }
 
@@ -2002,7 +2003,7 @@ static sht_command_buffer sht_command_buffer_create(sht_driver driver)
 	sht_vk_driver *vk_driver = sht_driver_to_vk(driver);
 	sht_vk_command *api = &vk_driver->command;
 
-	VkCommandBufferAllocateInfo command_buffer_alloc_info = {};
+	VkCommandBufferAllocateInfo command_buffer_alloc_info = {0};
 	command_buffer_alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 	command_buffer_alloc_info.commandPool = api->pool;
 	command_buffer_alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
@@ -2011,7 +2012,7 @@ static sht_command_buffer sht_command_buffer_create(sht_driver driver)
 	VkCommandBuffer command_buffer;
 	sht_vk_crash(api->AllocateCommandBuffers(vk_driver->device, &command_buffer_alloc_info, &command_buffer));
 	// We can make it fail later - If we identified the command buffer is in-flight, is_ok returns NULL command buffer
-	VkCommandBufferBeginInfo command_buffer_begin_info = {};
+	VkCommandBufferBeginInfo command_buffer_begin_info = {0};
 	command_buffer_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	command_buffer_begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
@@ -2037,12 +2038,12 @@ static sht_command_buffer sht_command_buffer_acquire(sht_driver driver, fckc_u32
 	// TODO: Reinit the bss?! OH FUCK. Maybe do it lazily in bind and/or upload
 	api->ResetCommandBuffer(command_buffer, 0);
 
-	VkCommandBufferBeginInfo cmd_buffer_info = {};
+	VkCommandBufferBeginInfo cmd_buffer_info = {0};
 	cmd_buffer_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	sht_vk_crash(api->BeginCommandBuffer(command_buffer, &cmd_buffer_info));
 
 	const fckc_u32 image_index = vk_driver->swapchain.sync.frame_index_to_swapchain_image_index[index];
-	fck_assert(image_index < sht_vk_swapchain_image_capacity);
+	sht_vk_assert(image_index < sht_vk_swapchain_image_capacity);
 
 	VkImageMemoryBarrier imageBarrier;
 	imageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -2142,7 +2143,7 @@ static void sht_command_buffer_draw_indexed(sht_command_buffer command, const sh
 
 static fckc_size_t sht_vk_command_find(sht_vk_command *command, sht_command_buffer command_buffer)
 {
-	fck_assert(command == command_buffer.owner);
+	sht_vk_assert(command == command_buffer.owner);
 
 	for (fckc_size_t index = 0; index < sht_frame_count; index++)
 	{
@@ -2164,7 +2165,7 @@ static void sht_swapchain_present(sht_command_buffer command_buffer, fckc_u32 im
 	sht_vk_driver *driver = api->driver;
 
 	VkSemaphore *graphics_completed = &sync->graphics_completed[sync->index];
-	VkPresentInfoKHR present_info = {};
+	VkPresentInfoKHR present_info = {0};
 	present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 	present_info.waitSemaphoreCount = 1;
 	present_info.pWaitSemaphores = graphics_completed;
@@ -2231,10 +2232,10 @@ static void sht_command_buffer_submit(sht_command_buffer command, sht_queue_type
 		submit_info.commandBufferCount = 1;               // We submit a single command buffer
 
 		// fckc_size_t find = sht_vk_command_find(api, command);
-		// fck_assert(find);
+		// sht_vk_assert(find);
 		// fckc_u32 frame_index = find - 1;
 		sync->frame_index_to_swapchain_image_index[sync->index] = image_index | (1 << 31);
-		fck_assert(image_index < sht_vk_swapchain_image_capacity);
+		sht_vk_assert(image_index < sht_vk_swapchain_image_capacity);
 
 		api->EndCommandBuffer(command_buffer);
 
@@ -2269,11 +2270,11 @@ static void sht_command_buffer_submit(sht_command_buffer command, sht_queue_type
 		break;
 	}
 	case sht_queue_present: {
-		fck_assert(sht_false && "Present not supported for now!");
+		sht_vk_assert(sht_false && "Present not supported for now!");
 		return;
 	}
 	case sht_queue_compute:
-		fck_assert(sht_false && "Compute not supported for now!");
+		sht_vk_assert(sht_false && "Compute not supported for now!");
 		return;
 	case sht_queue_count:
 		break;
@@ -2571,7 +2572,8 @@ static VkResult sht_vk_render_pass_create(sht_vk_driver *driver, sht_vk_render_p
 		attachment->stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		attachment->stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		// TODO: we technically have to do this for finalLayout too
-		attachment->initialLayout = desc->colour.load_op == sht_clear ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		attachment->initialLayout =
+			desc->colour.load_op == sht_clear ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 		attachment->finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
 		VkSubpassDependency *dependency = &dependencies[dependency_count++];
@@ -2923,7 +2925,7 @@ static VkResult sht_vk_graphics_pipeline_create(sht_vk_driver *driver, VkRenderP
 
 	// Input attribute bindings describe shader attribute locations and memory layouts
 	VkVertexInputAttributeDescription attributes[8];
-	fck_assert(fck_arraysize(attributes) >= vertex_desc->count);
+	sht_vk_assert(fck_arraysize(attributes) >= vertex_desc->count);
 
 	for (fckc_size_t index = 0; index < vertex_desc->count; index++)
 	{
@@ -3027,7 +3029,7 @@ static VkResult sht_vk_framebuffer_create(sht_vk_driver *driver, VkSurfaceKHR su
 		return result;
 	}
 
-	VkFramebufferCreateInfo fb_info = {};
+	VkFramebufferCreateInfo fb_info = {0};
 	fb_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
 	fb_info.pNext = NULL;
 	fb_info.renderPass = render_pass->handle;
@@ -3089,8 +3091,8 @@ static sht_render_pass sht_render_pass_begin(sht_command_buffer command_buffer, 
 	if (!find)
 	{
 		// Neither exists - Need to create render pass and framebuffer!
-		fck_assert(driver->storages.render_pass.count < sht_vk_render_pass_storage_capacity);
-		fck_assert(driver->storages.framebuffer.count < sht_vk_framebuffer_storage_capacity);
+		sht_vk_assert(driver->storages.render_pass.count < sht_vk_render_pass_storage_capacity);
+		sht_vk_assert(driver->storages.framebuffer.count < sht_vk_framebuffer_storage_capacity);
 		render_pass = driver->storages.render_pass.handles + driver->storages.render_pass.count;
 		framebuffer = driver->storages.framebuffer.handles + driver->storages.framebuffer.count;
 
@@ -3117,7 +3119,7 @@ static sht_render_pass sht_render_pass_begin(sht_command_buffer command_buffer, 
 		else
 		{
 			// Render pass exists, framebuffer does not - need to create framebuffer
-			fck_assert(driver->storages.framebuffer.count < sht_vk_framebuffer_storage_capacity);
+			sht_vk_assert(driver->storages.framebuffer.count < sht_vk_framebuffer_storage_capacity);
 			framebuffer = driver->storages.framebuffer.handles + driver->storages.framebuffer.count;
 
 			sht_vk_crash(sht_vk_framebuffer_create(driver, driver->swapchain.surface, render_pass, desc, framebuffer));
@@ -3325,7 +3327,7 @@ static sht_graphics_pipeline_key sht_vk_graphics_pipeline_storage_add(sht_vk_gra
 {
 	if (storage->count >= fck_arraysize(storage->handles) / 2)
 	{
-		fck_assert(0 && "come up with fallback");
+		sht_vk_assert(0 && "come up with fallback");
 		return (sht_graphics_pipeline_key){.invalid = 1};
 	}
 
@@ -3492,12 +3494,12 @@ static void sht_command_buffer_graphics_pipeline(sht_command_buffer command, sht
 	sht_vk_driver *vk_driver = (sht_vk_driver *)pipeline.owner;
 	VkCommandBuffer command_buffer = (VkCommandBuffer)command.handle;
 
-	fck_assert(api->driver == vk_driver && "Must be same driver!");
+	sht_vk_assert(api->driver == vk_driver && "Must be same driver!");
 	sht_graphics_pipeline_key stable;
 	(void)memcpy(&stable, &pipeline.handle, sizeof(stable));
 	sht_vk_graphics_pipeline *vk_pipeline = sht_vk_graphics_pipeline_find(&vk_driver->storages.graphics_pipeline, stable);
 
-	fck_assert(vk_pipeline != NULL);
+	sht_vk_assert(vk_pipeline != NULL);
 	api->CmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vk_pipeline->pipeline);
 }
 
@@ -3616,21 +3618,21 @@ static sht_bool32 sht_bss_upload_buffer(sht_bss bss, fckc_u32 id, const sht_buff
 	sht_vk_driver *driver = (sht_vk_driver *)bss.owner;
 
 	const fckc_u32 index = driver->swapchain.sync.index;
-	fck_assert(index < sht_frame_count);
+	sht_vk_assert(index < sht_frame_count);
 
 	VkDescriptorSet *set = &vk_bss->latest[index];
 
 	sht_bss_buffer_backends *buffer_backend = vk_bss->buffer_backends + index;
 
 	const fckc_size_t find = sht_bss_binding_find(vk_bss, id);
-	fck_assert(find); // Crash! MWAH
+	sht_vk_assert(find); // Crash! MWAH
 	const fckc_size_t at = find - 1;
-	fck_assert(at < sht_vk_bss_binding_capacity);
+	sht_vk_assert(at < sht_vk_bss_binding_capacity);
 
 	sht_binding *binding = vk_bss->desc.bindings + at;
 	sht_buffer *buffer = buffer_backend->buffers + at;
 
-	fck_assert(binding->type == sht_binding_uniform || binding->type == sht_binding_storage);
+	sht_vk_assert(binding->type == sht_binding_uniform || binding->type == sht_binding_storage);
 
 	sht_buffer_usage_flags usage = sht_binding_type_to_usage_flags(binding->type);
 	sht_bss_buffer_resize(&driver->memory, usage, buffer, desc->data, desc->size * desc->count);
@@ -3646,17 +3648,17 @@ static sht_bool32 sht_bss_upload_image(sht_bss bss, fckc_u32 id, const sht_image
 	sht_vk_driver *driver = (sht_vk_driver *)bss.owner;
 
 	const fckc_u32 index = driver->swapchain.sync.index;
-	fck_assert(index < sht_frame_count);
+	sht_vk_assert(index < sht_frame_count);
 
 	VkDescriptorSet *set = &vk_bss->latest[index];
 
 	const fckc_size_t find = sht_bss_binding_find(vk_bss, id);
-	fck_assert(find); // Crash! MWAH
+	sht_vk_assert(find); // Crash! MWAH
 	const fckc_size_t at = find - 1;
-	fck_assert(at < sht_vk_bss_binding_capacity);
+	sht_vk_assert(at < sht_vk_bss_binding_capacity);
 
 	sht_binding *binding = vk_bss->desc.bindings + at;
-	fck_assert(binding->type == sht_binding_readonly_image);
+	sht_vk_assert(binding->type == sht_binding_readonly_image);
 
 	// We do not allow Array of Samplers/Views for now.
 	sht_vk_descriptor_set_update_image(driver, *set, binding, &desc->views, &desc->samplers, 1);
@@ -3693,7 +3695,7 @@ static sht_bool32 sht_vk_is_ok(sht_instance instance)
 FCK_EXPORT_API sht_render_api *fck_render_vk_load(fck_api_registry *registry, sht_render_api_config *config)
 {
 	apis = registry;
-	fck_assert(registry && "Cannot use sht-renderer-vk without API registry available");
+	sht_vk_assert(registry && "Cannot use sht-renderer-vk without API registry available");
 
 	// Maybe here we load the shared object ;)
 	registry->add(sht_render_api_name, &sht_loader_api);

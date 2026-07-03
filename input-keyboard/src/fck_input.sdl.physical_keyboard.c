@@ -35,9 +35,9 @@ typedef struct fck_input_source_physical_keyboard
 	fck_input_data data[fck_pkey_count];
 } fck_input_source_physical_keyboard;
 
-static fck_input_source_physical_keyboard input_source_physical_keyboard = (fck_input_source_physical_keyboard){
+static fck_input_source_physical_keyboard input_source_physical_keyboard = {
 	.source =
-		(fck_input_source){
+		{
 			.name = "physical-keyboard",
 			.type = fck_input_source_keyboard,
 			.owners = fck_input_physical_keyboard_owners,

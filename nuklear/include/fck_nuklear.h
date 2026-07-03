@@ -60,25 +60,16 @@ typedef struct fck_nk_hamburger_item
 struct fck_nk_pie_item;
 typedef struct fck_nk_pie_item
 {
+	struct fck_nk_pie_item *prev;
 	struct fck_nk_pie_item *next;
 	struct fck_nk_pie_item *parent;
 
-	struct fck_nk_pie_item *child_items;
-	struct fck_nk_pie_item *child_items_last;
+	struct fck_nk_pie_item *items;
+	struct fck_nk_pie_item *items_last;
 
 	const char *name;
 	int value;
 } fck_nk_pie_item;
-
-typedef struct fck_nk_pie
-{
-	float x;
-	float y;
-	fck_nk_pie_item *hovered;
-	fck_nk_pie_item *items;
-	fck_nk_pie_item *items_last;
-	fckc_u32 active;
-} fck_nk_pie;
 
 typedef struct fck_nk_control
 {
@@ -96,10 +87,14 @@ typedef struct fck_nuklear_hamburger_api
 
 typedef struct fck_nuklear_pie_api
 {
-	fck_nk_pie_item *(*push)(fck_nk_pie *pie, fck_nk_pie_item *item);
-	void (*add_child)(fck_nk_pie_item *item, fck_nk_pie_item *child);
-	const fck_nk_pie_item *(*execute)(fck_nk nk, fck_nk_pie *pie, float radius);
+	// if we have root then we could streamline push_child and push to just become push
+	fck_nk_pie_item* (*root)(fck_nk nk);
+	void (*push)(fck_nk_pie_item *item, fck_nk_pie_item *child);
+	void (*remove)(fck_nk nk, fck_nk_pie_item *item);
 
+	int (*used)(fck_nk nk, fck_nk_pie_item *item);
+
+	void (*apply_position)(fck_nk nk, float *x, float *y);
 	int (*happened)(fck_nk_pie_item *item);
 } fck_nuklear_pie_api;
 
@@ -115,8 +110,6 @@ typedef struct fck_nuklear_input_api
 struct kll_allocator;
 struct fck_window;
 struct sht_driver;
-struct fck_shader_api;
-struct fck_input;
 struct sht_command_buffer;
 
 typedef struct fck_nuklear_elements_api
@@ -155,9 +148,10 @@ typedef struct fck_nuklear_api
 
 	int (*control_point)(fck_nk nk, const void *pointer, float *x, float *y, float size, fck_nk_colour on, fck_nk_colour off);
 
+	void (*set_selection)(fck_nk nk, const void *pointer);
 	int (*select)(fck_nk nk, const void *pointer, float x, float y, float w, float h, fck_nk_colour on);
 
-	int (*to_world)(fck_nk nk, float *x, float *y);
+	int (*to_screen)(fck_nk nk, float *x, float *y);
 
 	fck_nk_control (*control)(fck_nk nk);
 

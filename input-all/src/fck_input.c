@@ -66,7 +66,7 @@ static int fck_input_is(fck_input_source *source, const char *name)
 	return 0;
 }
 
-static fck_input input_api = (fck_input){
+static fck_input input_api = {
 	.add = fck_input_add,
 	.remove = fck_input_remove,
 	.sources = fck_input_sources,

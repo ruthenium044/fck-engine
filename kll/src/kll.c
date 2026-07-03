@@ -180,10 +180,9 @@ static kll_arena_api arena_api = {
 	.destroy = kll_arena_api_create_destroy,
 };
 
-
 #include <stdlib.h>
 
-static void* system_realloc(kll_allocator* allocator, void* ptr, fckc_size_t size, const char* file, fckc_size_t line)
+static void *system_realloc(kll_allocator *allocator, void *ptr, fckc_size_t size, const char *file, fckc_size_t line)
 {
 	(void)allocator;
 	(void)file;
@@ -204,11 +203,11 @@ static void* system_realloc(kll_allocator* allocator, void* ptr, fckc_size_t siz
 	return realloc(ptr, size);
 }
 
-static kll_allocator system_allocator = (kll_allocator){ system_realloc };
+static kll_allocator system_allocator = {system_realloc};
 
 static kll_api kll_api_implementation = {
 	.arena = &arena_api,
 	.system = &system_allocator,
 };
 
-kll_api* kll = &kll_api_implementation;
+kll_api *kll = &kll_api_implementation;

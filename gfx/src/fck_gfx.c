@@ -94,8 +94,7 @@ static struct fck_gfx fck_gfx_api_create(kll_allocator *allocator, sht_driver *d
 	frag = compiler.create_glsl_from_file(&compiler, &frag_desc, &frag_file);
 
 	// Setup Reflection
-	const fckc_size_t bindings_capacity = 16;
-	sht_binding bindings[bindings_capacity];
+	sht_binding bindings[16];
 	fckc_size_t bindings_count = 0;
 
 	fck_glsl_reflection_api *glsl_reflection = (fck_glsl_reflection_api *)apis->find(fck_glsl_reflection_api_name);
@@ -108,7 +107,7 @@ static struct fck_gfx fck_gfx_api_create(kll_allocator *allocator, sht_driver *d
 		{
 			if (current->binding >= 0)
 			{
-				bindings_count = fck_gfx_bindings_add(sht_stage_vertex_shader, current, bindings, bindings_count, bindings_capacity);
+				bindings_count = fck_gfx_bindings_add(sht_stage_vertex_shader, current, bindings, bindings_count, fck_arraysize(bindings));
 			}
 			current = current->next;
 		}
@@ -122,7 +121,7 @@ static struct fck_gfx fck_gfx_api_create(kll_allocator *allocator, sht_driver *d
 		{
 			if (current->binding >= 0)
 			{
-				bindings_count = fck_gfx_bindings_add(sht_stage_fragment_shader, current, bindings, bindings_count, bindings_capacity);
+				bindings_count = fck_gfx_bindings_add(sht_stage_fragment_shader, current, bindings, bindings_count, fck_arraysize(bindings));
 			}
 			current = current->next;
 		}

@@ -11,8 +11,8 @@
 #include "fckc_apidef.h"
 #include "fckc_assert.h"
 
-#include <string.h>
 #include <math.h>
+#include <string.h>
 
 // The maximum size of a USB packet for HID devices
 #define fck_dualsense_usb_packet_length 64
@@ -271,9 +271,9 @@ static fckc_size_t fck_input_dualsense_events(fck_input_event *events, fckc_size
 static fckc_size_t fck_input_dualsense_descriptions(fck_input_description **descriptions);
 static fckc_size_t fck_input_dualsense_states(fckc_u64 owner, fckc_u32 *ids, fck_input_data *states, fckc_size_t size);
 
-static fck_input_source_dualsense input_source_dualsense = (fck_input_source_dualsense){
+static fck_input_source_dualsense input_source_dualsense = {
 	.source =
-		(fck_input_source){
+		{
 			.name = "dualsense",
 			.type = fck_input_source_gamepad,
 			.owners = fck_input_dualsense_owners,
@@ -806,7 +806,7 @@ static fckc_size_t fck_input_dualsense_states(fckc_u64 owner, fckc_u32 *ids, fck
 
 #include <fck_apis.h>
 
-FCK_EXPORT_API fck_input_source* fck_input_dualsense_load(fck_api_registry* registry, void* old)
+FCK_EXPORT_API fck_input_source *fck_input_dualsense_load(fck_api_registry *registry, void *old)
 {
 	registry->add(fck_input_source_name, &input_source_dualsense.source);
 	return &input_source_dualsense.source;

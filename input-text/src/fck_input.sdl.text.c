@@ -23,9 +23,9 @@ typedef struct fck_input_text
 	// fck_input_data data[fck_pkey_count];
 } fck_input_text;
 
-static fck_input_text input_source_text = (fck_input_text){
+static fck_input_text input_source_text = {
 	.source =
-		(fck_input_source){
+		{
 			.name = "text",
 			.type = fck_input_source_text,
 			.owners = fck_input_text_owners,

@@ -7,8 +7,8 @@
 #include "sht_render.h"
 
 #define VK_NO_PROTOTYPES
-#include <vulkan/vulkan_core.h>
 #include <vulkan/vk_enum_string_helper.h>
+#include <vulkan/vulkan_core.h>
 
 #include <fck_os.h>
 #include <fckc_assert.h>
@@ -29,7 +29,7 @@
 
 #define sht_vk_propagate_on_error(vk_result)                                                                                               \
 	{                                                                                                                                      \
-		const VkResult _sht_vk_result_ = (vk_result);                                                                                            \
+		const VkResult _sht_vk_result_ = (vk_result);                                                                                      \
 		if (!sht_vk_success(_sht_vk_result_))                                                                                              \
 		{                                                                                                                                  \
 			return _sht_vk_result_;                                                                                                        \
@@ -47,7 +47,11 @@ static inline VkResult sht_vk_report(VkResult result, const char *msg)
 	return result;
 }
 
-#define sht_vk_assert fck_assert
+#ifndef NDEBUG
+#define sht_vk_assert(condition) fck_assert(condition)
+#else
+#define sht_vk_assert(condition) (void)(condition)
+#endif
 #define sht_vk_report_defer(sht_vk_report_func) sht_vk_report_func
 #define sht_vk_report_(vk_result, func) sht_vk_report(vk_result, func)
 #define sht_vk_error(vk_result) (sht_vk_report((vk_result), sht_vk_report_defer(__func__)))
@@ -56,7 +60,7 @@ static inline VkResult sht_vk_report(VkResult result, const char *msg)
 // Vulkan API loading
 #define sht_vk_declare(function_name) PFN_vk##function_name function_name
 
-#define sht_vk_load_function(api_namespace, api_so, api_member)                                                                                    \
+#define sht_vk_load_function(api_namespace, api_so, api_member)                                                                            \
 	(api_namespace)->api_member = (PFN_vk##api_member)os->so->symbol(api_so, "vk" #api_member)
 
 #define sht_static_assert(condition, note) extern char sht_static_assertion[(condition) ? 1 : -1]
@@ -69,7 +73,7 @@ struct sht_vk_instance;
 typedef struct sht_vk_queues
 {
 	struct sht_vk_gpu *gpu;
-	
+
 	fckc_u32 family[sht_queue_count];
 	fckc_u32 primary[sht_queue_count];
 
@@ -458,8 +462,8 @@ typedef struct sht_vk_instance
 	fck_shared_object so;
 } sht_vk_instance;
 
-void sht_vk_platform_adjust_instance(VkInstanceCreateInfo* create_info);
-void sht_vk_platform_adjust_extensions(const char** instance_extension_names, fckc_size_t* count);
+void sht_vk_platform_adjust_instance(VkInstanceCreateInfo *create_info);
+void sht_vk_platform_adjust_extensions(const char **instance_extension_names, fckc_size_t *count);
 
 VkResult sht_vk_platform_init(sht_vk_instance *vk, sht_vk_platform *platform, sht_vk_gpu *gpu, fck_window window,
                               VkSurfaceKHR *out_surface);

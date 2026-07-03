@@ -61,6 +61,18 @@ typedef struct fck_nk_hamburger
 	fck_nk_hamburger_item *items_last;
 } fck_nk_hamburger;
 
+typedef struct fck_nk_pie
+{
+	float x;
+	float y;
+
+	fck_nk_pie_item root;
+
+	fck_nk_pie_item *hovered;
+
+	fckc_u32 active;
+} fck_nk_pie;
+
 typedef struct fck_nk_selection
 {
 	// TODO: We need to be able to "click through"
@@ -124,6 +136,7 @@ typedef struct fck_nk_os_window
 {
 	fck_window window;
 	fck_nk_hamburger burger;
+	fck_nk_pie pie;
 	fck_nk_control control;
 
 	fck_nk_panel_state panel;
@@ -131,7 +144,7 @@ typedef struct fck_nk_os_window
 	fck_nk_control_state control_state;
 } fck_nk_os_window;
 
-typedef struct fck_nk_internal
+typedef struct fck_nk_private
 {
 	fck_nk_os_window os;
 
@@ -151,7 +164,7 @@ typedef struct fck_nk_internal
 	fck_gfx gfx;
 
 	fckc_u64 time_last_frame;
-} fck_nk_internal;
+} fck_nk_private;
 
 static fck_nk_panel_item *fck_nk_panel_state_find(fck_nk_panel_state *state, const char *name)
 {
@@ -226,9 +239,9 @@ static fck_nk fck_nk_api_create(kll_allocator *allocator, fck_window *window, sh
 {
 	sht_memory *memory = driver->vt->memory(*driver);
 
-	fck_nk_internal *nk;
-	const fckc_size_t offset = fckc_align(sizeof(*nk->ctx), alignof(sizeof(*nk->ctx)));
-	nk = (fck_nk_internal *)kll_malloc(allocator, offset + sizeof(*nk->ctx));
+	fck_nk_private *nk;
+	const fckc_size_t offset = fckc_align(sizeof(*nk), alignof(struct nk_context));
+	nk = (fck_nk_private *)kll_malloc(allocator, offset + sizeof(*nk->ctx));
 	nk->ctx = (struct nk_context *)fckc_pointer_add(nk, offset);
 	// OS feature set for the window
 	nk->os = fck_nk_os_window_create(*window);
@@ -310,7 +323,7 @@ static void fck_nk_api_input(fck_nk nk, fck_input *input)
 
 	// TODO: Text input...
 
-	fck_nk_internal *nki = (fck_nk_internal *)nk.handle;
+	fck_nk_private *nki = (fck_nk_private *)nk.handle;
 	nk_input_begin(nki->ctx);
 	{
 		fckc_u32 ids[] = {fck_mouse_left, fck_mouse_middle, fck_mouse_right, fck_mouse_position, fck_mouse_wheel};
@@ -333,7 +346,7 @@ static void fck_nk_api_input(fck_nk nk, fck_input *input)
 
 static int fck_nk_api_begin(fck_nk nke)
 {
-	fck_nk_internal *nk = (fck_nk_internal *)nke.handle;
+	fck_nk_private *nk = (fck_nk_private *)nke.handle;
 
 	struct nk_context *ctx = nk->ctx;
 	fck_nk_os_window *os_window = &nk->os;
@@ -345,6 +358,14 @@ static int fck_nk_api_begin(fck_nk nke)
 
 	int window_width, window_height;
 	os->win->size(window, &window_width, &window_height);
+
+	const fck_window_configuration config = {
+		.title_bar_height = 35.0f,
+		.resize_line_width = 4.0f,
+		.menu_area_width = 35.0f * 2.0f,
+		.button_area_width = 35.0f * 2.0f,
+	};
+	os->win->configuration(window, &config);
 
 	const fck_window_configuration *configuration = os->win->configuration(window, NULL);
 
@@ -461,9 +482,246 @@ static int fck_nk_api_begin(fck_nk nke)
 	return os_window->control.body;
 }
 
+static fck_nk_pie_item *fck_nk_pie_item_is_part_of(fck_nk_pie_item *item, fck_nk_pie_item *target)
+{
+	fck_nk_pie_item *current = item;
+	while (current)
+	{
+		if (current == target)
+		{
+			return current;
+		}
+		current = current->parent;
+	}
+	return NULL;
+}
+
+static fck_nk_pie_item *fck_nk_pie_fan(struct nk_context *ctx, fck_nk_pie *pie, fck_nk_pie_item *active, fck_nk_pie_item *pie_items,
+                                       struct nk_vec2 center, float offset_angle, float angle_step, float radius_offset, float radius)
+{
+	int count = 0;
+	fck_nk_pie_item *current = pie_items;
+	while (current)
+	{
+		count = count + 1;
+		current = current->next;
+	}
+
+	struct nk_input *input = &ctx->input;
+	const struct nk_vec2 mouse_pos = input->mouse.pos;
+
+	const float dx = mouse_pos.x - center.x;
+	const float dy = mouse_pos.y - center.y;
+
+	const float dist = sqrtf(dx * dx + dy * dy);
+	int hovered = -1;
+
+	fck_nk_pie_item *current_hovered = NULL;
+
+	angle_step = angle_step / (float)count;
+	if (dist > radius_offset && dist < radius)
+	{
+		float mouse_angle = nk_atan2(dy, dx);
+		mouse_angle = mouse_angle - offset_angle;
+		if (mouse_angle < 0.0f)
+		{
+			mouse_angle += 2.0f * NK_PI;
+		}
+		hovered = (int)(mouse_angle / angle_step);
+	}
+
+	int index = 0;
+	current = pie_items;
+	while (current)
+	{
+		const float start_angle = offset_angle + ((float)index * angle_step);
+		struct nk_color slice_color = nk_rgba(45, 45, 45, 230);
+
+		if (hovered == -1)
+		{
+			if (fck_nk_pie_item_is_part_of(pie->hovered, current))
+			{
+				struct fck_nk_pie_item *children = current->items;
+				if (children)
+				{
+					struct fck_nk_pie_item *result =
+						fck_nk_pie_fan(ctx, pie, pie->hovered, children, center, start_angle, angle_step, radius, radius * 1.25f);
+					if (result)
+					{
+						current_hovered = result;
+					}
+				}
+			}
+		}
+
+		if (index == hovered)
+		{
+			current_hovered = current;
+			slice_color = nk_rgba(0, 150, 255, 255);
+			struct fck_nk_pie_item *children = current->items;
+			if (children)
+			{
+				// Preview Children
+				fck_nk_pie_fan(ctx, pie, active, children, center, start_angle, angle_step, radius, radius * 1.25f);
+			}
+		}
+
+		struct nk_command_buffer *canvas = nk_window_get_canvas(ctx);
+		nk_fill_arc(canvas, center.x, center.y, radius, start_angle, start_angle + angle_step, slice_color);
+		nk_stroke_arc(canvas, center.x, center.y, radius, start_angle, start_angle + angle_step, 1.5f, nk_rgba(100, 100, 100, 255));
+
+		const float text_angle = start_angle + (angle_step / 2.0f);
+		const struct nk_user_font *font = ctx->style.font;
+		struct nk_vec2 text_pos;
+		text_pos.x = center.x + (((radius_offset * 0.35f) + (radius * 0.65f)) * nk_cos(text_angle));
+		text_pos.y = center.y + (((radius_offset * 0.35f) + (radius * 0.65f)) * nk_sin(text_angle));
+
+		const float text_width = font->width(font->userdata, font->height, current->name, nk_strlen(current->name));
+		text_pos.x -= text_width / 2.0f;
+		text_pos.y -= font->height / 2.0f;
+
+		nk_draw_text(canvas, nk_rect(text_pos.x, text_pos.y, text_width, font->height), current->name, nk_strlen(current->name), font,
+		             nk_rgba(0, 0, 0, 0), nk_rgba(255, 255, 255, 255));
+
+		index = index + 1;
+		current = current->next;
+	}
+
+	return current_hovered;
+}
+
+static const fck_nk_pie_item *fck_nk_pie_execute(fck_nk nk, float radius)
+{
+	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
+	fck_nk_pie *pie = &nk_internal->os.pie;
+
+	struct nk_context *ctx = nk_internal->ctx;
+	struct nk_command_buffer *canvas = nk_window_get_canvas(ctx);
+	struct nk_input *input = &ctx->input;
+
+	if (!nk_input_is_mouse_released(input, NK_BUTTON_RIGHT))
+	{
+		if (!nk_input_is_mouse_down(input, NK_BUTTON_RIGHT))
+		{
+			fck_nk_pie_item *selected = pie->hovered;
+			if (selected)
+			{
+				selected->value = 1;
+			}
+			pie->hovered = NULL;
+			pie->active = 0;
+			return selected;
+		}
+	}
+
+	if (pie->active == 0)
+	{
+		pie->x = input->mouse.pos.x;
+		pie->y = input->mouse.pos.y;
+	}
+	pie->active = 1;
+
+	const struct nk_vec2 center = nk_vec2(pie->x, pie->y);
+	fck_nk_pie_item *pie_items = pie->root.items;
+	if (pie_items == NULL)
+	{
+		return NULL;
+	}
+
+	int count = 0;
+	fck_nk_pie_item *current = pie_items;
+	while (current)
+	{
+		count = count + 1;
+		current = current->next;
+	}
+
+	const float angle_step = (2.0f * NK_PI) / (float)count;
+	const struct nk_vec2 mouse_pos = input->mouse.pos;
+
+	const float dx = mouse_pos.x - center.x;
+	const float dy = mouse_pos.y - center.y;
+	const float distance = sqrtf(dx * dx + dy * dy);
+
+	int hovered = -1;
+	if (distance > 15.0f && distance < radius)
+	{
+		float mouse_angle = nk_atan2(dy, dx);
+		if (mouse_angle < 0.0f)
+		{
+			mouse_angle += 2.0f * NK_PI;
+		}
+		hovered = (int)((mouse_angle) / angle_step) % count;
+	}
+
+	fck_nk_pie_item *selected = NULL;
+	fck_nk_pie_item *current_hovered = NULL;
+	current = pie_items;
+	int index = 0;
+	while (current)
+	{
+		const float start_angle = ((float)index * angle_step);
+		if (hovered == -1)
+		{
+			if (fck_nk_pie_item_is_part_of(pie->hovered, current))
+			{
+				struct fck_nk_pie_item *children = current->items;
+				if (children)
+				{
+					struct fck_nk_pie_item *result =
+						fck_nk_pie_fan(ctx, pie, pie->hovered, children, center, start_angle, angle_step, radius, radius * 1.5f);
+					if (result)
+					{
+						current_hovered = result;
+					}
+				}
+			}
+		}
+
+		struct nk_color slice_color = nk_rgba(45, 45, 45, 230);
+		if (index == hovered)
+		{
+			slice_color = nk_rgba(0, 150, 255, 255);
+			struct fck_nk_pie_item *children = current->items;
+			if (children)
+			{
+				// Preview Children
+				fck_nk_pie_fan(ctx, pie, current, children, center, start_angle, angle_step, radius, radius * 1.5f);
+			}
+			current_hovered = current;
+		}
+
+		{
+			const float text_angle = start_angle + (angle_step / 2.0f);
+			const struct nk_user_font *font = ctx->style.font;
+			struct nk_vec2 text_pos;
+			text_pos.x = center.x + (radius * 0.65f) * nk_cos(text_angle);
+			text_pos.y = center.y + (radius * 0.65f) * nk_sin(text_angle);
+
+			nk_fill_arc(canvas, center.x, center.y, radius, start_angle, start_angle + angle_step, slice_color);
+			nk_stroke_arc(canvas, center.x, center.y, radius, start_angle, start_angle + angle_step, 1.5f, nk_rgba(100, 100, 100, 255));
+
+			const float text_width = font->width(font->userdata, font->height, current->name, nk_strlen(current->name));
+			text_pos.x -= text_width / 2.0f;
+			text_pos.y -= font->height / 2.0f;
+
+			nk_draw_text(canvas, nk_rect(text_pos.x, text_pos.y, text_width, font->height), current->name, nk_strlen(current->name), font,
+			             nk_rgba(0, 0, 0, 0), nk_rgba(255, 255, 255, 255));
+		}
+		index = index + 1;
+		current = current->next;
+	}
+
+	pie->hovered = current_hovered;
+
+	nk_fill_circle(canvas, nk_rect(center.x - 15.0f, center.y - 15.0f, 30.0f, 30.0f), nk_rgba(30, 30, 30, 255));
+	nk_stroke_circle(canvas, nk_rect(center.x - 15.0f, center.y - 15.0f, 30.0f, 30.0f), 1.5f, nk_rgba(100, 100, 100, 255));
+	return selected;
+}
+
 static void fck_nk_api_end(fck_nk nke)
 {
-	fck_nk_internal *nk = (fck_nk_internal *)nke.handle;
+	fck_nk_private *nk = (fck_nk_private *)nke.handle;
 	fck_nk_selection *selection = &nk->os.control_state.selection;
 	fck_nk_hovered *hovered = &nk->os.control_state.hovered;
 	fck_nk_control_point *point = &nk->os.control_state.point;
@@ -485,8 +743,6 @@ static void fck_nk_api_end(fck_nk nke)
 				if (hovered->last == NULL)
 				{
 					selection->pointer = NULL;
-					selection->rect = nk_rect(0, 0, 0, 0);
-					selection->index = to_u32(0LLU);
 				}
 				else
 				{
@@ -503,6 +759,8 @@ static void fck_nk_api_end(fck_nk nke)
 			point->current = NULL;
 		}
 
+		fck_nk_pie_execute(nke, 125.0f);
+
 		nk_end(nk->ctx);
 
 		if (hovered->count != hovered->track)
@@ -514,13 +772,19 @@ static void fck_nk_api_end(fck_nk nke)
 		hovered->track = 0;
 	}
 
+	if (selection->pointer == NULL)
+	{
+		selection->rect = nk_rect(0, 0, 0, 0);
+		selection->index = to_u32(0LLU);
+	}
+
 	point->last_hovered = NULL;
 	hovered->last = NULL;
 }
 
 static void fck_nk_api_present(fck_nk nke, const struct sht_command_buffer *buffer, fckc_u32 frame_index)
 {
-	fck_nk_internal *nk = (fck_nk_internal *)nke.handle;
+	fck_nk_private *nk = (fck_nk_private *)nke.handle;
 
 	const fckc_u64 now = os->chrono->ms();
 	nk->ctx->delta_time_seconds = (float)(now - nk->time_last_frame) / 1000;
@@ -670,7 +934,7 @@ static void fck_nk_hamburger_push(fck_nk_hamburger *burger, fck_nk_hamburger_ite
 static fck_nk_hamburger_item *fck_nk_hamburger_api_push(fck_nk nk, fck_nk_hamburger_item *item)
 {
 	fck_assert(item->next == NULL);
-	fck_nk_internal *nk_internal = (fck_nk_internal *)nk.handle;
+	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
 
 	fck_nk_hamburger_push(&nk_internal->os.burger, item);
 	return item;
@@ -678,13 +942,13 @@ static fck_nk_hamburger_item *fck_nk_hamburger_api_push(fck_nk nk, fck_nk_hambur
 
 static void fck_nk_input_api_begin(fck_nk nk)
 {
-	fck_nk_internal *nk_internal = (fck_nk_internal *)nk.handle;
+	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
 	nk_input_begin(nk_internal->ctx);
 }
 
 static void fck_nk_input_api_events(fck_nk nke, const fck_input_event *const events, fckc_size_t count)
 {
-	fck_nk_internal *nk = (fck_nk_internal *)nke.handle;
+	fck_nk_private *nk = (fck_nk_private *)nke.handle;
 	for (fckc_size_t index = 0; index < count; index++)
 	{
 		const fck_input_event *const e = events + index;
@@ -738,13 +1002,13 @@ static struct nk_color *fck_ui_set_style(struct nk_context *ctx, enum fck_nuklea
 
 static void fck_nk_api_theme(fck_nk nk, fck_nuklear_theme theme)
 {
-	fck_nk_internal *nk_internal = (fck_nk_internal *)nk.handle;
+	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
 	fck_ui_set_style(nk_internal->ctx, theme);
 }
 
-static int fck_nk_api_to_world(fck_nk nk, float *x, float *y)
+static int fck_nk_api_to_screen(fck_nk nk, float *x, float *y)
 {
-	fck_nk_internal *nk_internal = (fck_nk_internal *)nk.handle;
+	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
 
 	int window_width = 0;
 	int window_height = 0;
@@ -763,7 +1027,7 @@ static int fck_nk_api_to_world(fck_nk nk, float *x, float *y)
 
 static int fck_nk_api_to_nuklear(fck_nk nk, float *x, float *y)
 {
-	fck_nk_internal *nk_internal = (fck_nk_internal *)nk.handle;
+	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
 
 	int window_width = 0;
 	int window_height = 0;
@@ -780,11 +1044,10 @@ static int fck_nk_api_to_nuklear(fck_nk nk, float *x, float *y)
 	return 1;
 }
 
-static int fck_nk_api_control_point(fck_nk nk, const void *pointer, float *x, float *y, float size, fck_nk_colour on,
-                                    fck_nk_colour off)
+static int fck_nk_api_control_point(fck_nk nk, const void *pointer, float *x, float *y, float size, fck_nk_colour on, fck_nk_colour off)
 {
 	// Since this nuklear implementation moves everything around, it is on said implementation to fix it
-	fck_nk_internal *nk_internal = (fck_nk_internal *)nk.handle;
+	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
 
 	int window_width = 0;
 	int window_height = 0;
@@ -826,7 +1089,7 @@ static int fck_nk_api_control_point(fck_nk nk, const void *pointer, float *x, fl
 				select = &on;
 				*x = input->mouse.pos.x;
 				*y = input->mouse.pos.y;
-				fck_nk_api_to_world(nk, x, y);
+				fck_nk_api_to_screen(nk, x, y);
 			}
 		}
 	}
@@ -841,9 +1104,15 @@ static int fck_nk_api_control_point(fck_nk nk, const void *pointer, float *x, fl
 	return select == &on;
 }
 
+static void fck_nk_api_set_select(fck_nk nk, const void *pointer)
+{
+	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
+	nk_internal->os.control_state.selection.pointer = pointer;
+}
+
 static int fck_nk_api_select(fck_nk nk, const void *pointer, float x, float y, float w, float h, fck_nk_colour on)
 {
-	fck_nk_internal *nk_internal = (fck_nk_internal *)nk.handle;
+	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
 
 	int window_width = 0;
 	int window_height = 0;
@@ -910,7 +1179,7 @@ static int fck_nk_api_select(fck_nk nk, const void *pointer, float x, float y, f
 
 static void fck_nk_panel_api_begin(fck_nk nk, const char *name, float width)
 {
-	fck_nk_internal *nk_internal = (fck_nk_internal *)nk.handle;
+	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
 	fck_nk_panel_state *state = &nk_internal->os.panel;
 
 	struct nk_context *ctx = nk_internal->ctx;
@@ -944,7 +1213,7 @@ static void fck_nk_panel_api_begin(fck_nk nk, const char *name, float width)
 
 static void fck_nk_panel_api_end(fck_nk nk)
 {
-	fck_nk_internal *nk_internal = (fck_nk_internal *)nk.handle;
+	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
 	struct nk_context *ctx = nk_internal->ctx;
 	if (nk_internal->os.panel.open)
 	{
@@ -954,7 +1223,7 @@ static void fck_nk_panel_api_end(fck_nk nk)
 
 static int fck_nk_panel_menu_api_push(fck_nk nk, const char *fmt, ...)
 {
-	fck_nk_internal *nk_internal = (fck_nk_internal *)nk.handle;
+	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
 	struct nk_context *ctx = nk_internal->ctx;
 
 	char buffer[256]; /* Adjust this size if you expect massive names */
@@ -970,316 +1239,141 @@ static int fck_nk_panel_menu_api_push(fck_nk nk, const char *fmt, ...)
 
 static void fck_nk_panel_menu_api_pop(fck_nk nk)
 {
-	fck_nk_internal *nk_internal = (fck_nk_internal *)nk.handle;
+	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
 	struct nk_context *ctx = nk_internal->ctx;
 	nk_tree_pop(ctx);
 }
 
 static fckc_f32 fck_nuklear_elements_api_f32(fck_nk nk, const char *name, fckc_f32 min, fckc_f32 val, fckc_f32 max, fckc_f32 step)
 {
-	fck_nk_internal *nk_internal = (fck_nk_internal *)nk.handle;
+	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
 	struct nk_context *ctx = nk_internal->ctx;
 	return nk_propertyf(ctx, name, min, val, max, step, 0.5f);
 }
 
 static fckc_i32 fck_nuklear_elements_api_i32(fck_nk nk, const char *name, fckc_i32 min, fckc_i32 val, fckc_i32 max, fckc_i32 step)
 {
-	fck_nk_internal *nk_internal = (fck_nk_internal *)nk.handle;
+	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
 	struct nk_context *ctx = nk_internal->ctx;
 	return nk_propertyi(ctx, name, min, val, max, step, 0.5f);
 }
 
 static int fck_nuklear_elements_api_button(fck_nk nk, const char *title)
 {
-	fck_nk_internal *nk_internal = (fck_nk_internal *)nk.handle;
+	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
 	struct nk_context *ctx = nk_internal->ctx;
 	return nk_button_label(ctx, title);
 }
 
 static fck_nk_control fck_nk_api_control(fck_nk nk)
 {
-	fck_nk_internal *nk_internal = (fck_nk_internal *)nk.handle;
+	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
 	return nk_internal->os.control;
 }
 
 static void fck_nk_input_api_end(fck_nk nk)
 {
-	fck_nk_internal *nk_internal = (fck_nk_internal *)nk.handle;
+	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
 
 	nk_input_end(nk_internal->ctx);
 	nk_clear(nk_internal->ctx);
 	nk_buffer_clear(&nk_internal->commands);
 }
 
-static fck_nk_pie_item *fck_nk_pie_api_push(fck_nk_pie *pie, fck_nk_pie_item *item)
+static fck_nk_pie_item* fck_nk_pie_api_root(fck_nk nk)
 {
-	fck_assert(item->next == NULL);
-
-	if (pie->items == NULL)
-	{
-		pie->items = item;
-		pie->items_last = item;
-	}
-	else
-	{
-		pie->items_last->next = item;
-		pie->items_last = item;
-	}
-	return item;
+	fck_nk_private* nk_internal = (fck_nk_private*)nk.handle;
+	return &nk_internal->os.pie.root;
 }
+
 static void fck_nk_pie_api_add_child(fck_nk_pie_item *item, fck_nk_pie_item *child)
 {
 	fck_assert(child->next == NULL);
 
 	child->parent = item;
 
-	if (item->child_items == NULL)
+	if (item->items == NULL)
 	{
-		item->child_items = child;
-		item->child_items_last = child;
+		item->items = child;
+		item->items_last = child;
 	}
 	else
 	{
-		item->child_items_last->next = child;
-		item->child_items_last = child;
+		child->prev = item->items_last;
+		item->items_last->next = child;
+		item->items_last = child;
 	}
 }
 
-static fck_nk_pie_item *fck_nk_pie_item_is_part_of(fck_nk_pie_item *item, fck_nk_pie_item *target)
+static fck_nk_pie_item *fck_nk_pie_api_push(fck_nk nk, fck_nk_pie_item *item)
 {
-	fck_nk_pie_item *current = item;
+	fck_assert(item->next == NULL);
+	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
+	fck_nk_pie *pie = &nk_internal->os.pie;
+	fck_nk_pie_item *root = &pie->root;
+	fck_nk_pie_api_add_child(root, item);
+	return item;
+}
+
+static int fck_nk_pie_api_used(fck_nk nk, fck_nk_pie_item *item)
+{
+	const fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
+	const fck_nk_pie *pie = &nk_internal->os.pie;
+	const fck_nk_pie_item *root = &pie->root;
+
+	const fck_nk_pie_item *current = item->parent;
 	while (current)
 	{
-		if (current == target)
+		if (current == root)
 		{
-			return current;
+			return 1;
 		}
 		current = current->parent;
 	}
-	return NULL;
+	return 0;
 }
 
-static fck_nk_pie_item *fck_nk_pie_fan(struct nk_context *ctx, fck_nk_pie *pie, fck_nk_pie_item *active, fck_nk_pie_item *pie_items,
-                                       struct nk_vec2 center, float offset_angle, float angle_step, float radius_offset, float radius)
+static void fck_nk_pie_api_remove(fck_nk nk, fck_nk_pie_item *item)
 {
-	int count = 0;
-	fck_nk_pie_item *current = pie_items;
-	while (current)
+	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
+	fck_nk_pie *pie = &nk_internal->os.pie;
+
+	fck_nk_pie_item *root = &pie->root;
+	fck_assert(item->parent);
+
+	if (item->parent)
 	{
-		count = count + 1;
-		current = current->next;
+		// Remove from pie
+		if (item->parent->items == item)
+		{
+			item->parent->items = item->next;
+		}
+		if (item->parent->items_last == item)
+		{
+			item->parent->items_last = item->prev;
+		}
+	}
+	if (item->prev != NULL)
+	{
+		item->prev->next = item->next;
+	}
+	if (item->next != NULL)
+	{
+		item->next->prev = item->prev;
 	}
 
-	struct nk_input *input = &ctx->input;
-	const struct nk_vec2 mouse_pos = input->mouse.pos;
-
-	const float dx = mouse_pos.x - center.x;
-	const float dy = mouse_pos.y - center.y;
-
-	const float dist = sqrtf(dx * dx + dy * dy);
-	int hovered = -1;
-
-	fck_nk_pie_item *current_hovered = NULL;
-
-	angle_step = angle_step / (float)count;
-	if (dist > radius_offset && dist < radius)
-	{
-		float mouse_angle = nk_atan2(dy, dx);
-		if (mouse_angle < 0.0f)
-		{
-			mouse_angle += 2.0f * NK_PI;
-		}
-		mouse_angle = mouse_angle - offset_angle;
-		hovered = (int)(mouse_angle / angle_step);
-	}
-
-	int index = 0;
-	current = pie_items;
-	while (current)
-	{
-		const float start_angle = offset_angle + ((float)index * angle_step);
-
-		struct nk_color slice_color = nk_rgba(45, 45, 45, 230);
-
-		if (hovered == -1)
-		{
-			if (fck_nk_pie_item_is_part_of(pie->hovered, current))
-			{
-				struct fck_nk_pie_item *children = current->child_items;
-				if (children)
-				{
-					struct fck_nk_pie_item *result =
-						fck_nk_pie_fan(ctx, pie, pie->hovered, children, center, start_angle, angle_step, radius, radius * 1.25f);
-					if (result)
-					{
-						current_hovered = result;
-					}
-				}
-			}
-		}
-
-		if (index == hovered)
-		{
-			current_hovered = current;
-			slice_color = nk_rgba(0, 150, 255, 255);
-			struct fck_nk_pie_item *children = current->child_items;
-			if (children)
-			{
-				// Preview Children
-				fck_nk_pie_fan(ctx, pie, active, children, center, start_angle, angle_step, radius, radius * 1.25f);
-			}
-		}
-
-		struct nk_command_buffer *canvas = nk_window_get_canvas(ctx);
-		nk_fill_arc(canvas, center.x, center.y, radius, start_angle, start_angle + angle_step, slice_color);
-		nk_stroke_arc(canvas, center.x, center.y, radius, start_angle, start_angle + angle_step, 1.5f, nk_rgba(100, 100, 100, 255));
-
-		const float text_angle = start_angle + (angle_step / 2.0f);
-		const struct nk_user_font *font = ctx->style.font;
-		struct nk_vec2 text_pos;
-		text_pos.x = center.x + (((radius_offset * 0.35f) + (radius * 0.65f)) * nk_cos(text_angle));
-		text_pos.y = center.y + (((radius_offset * 0.35f) + (radius * 0.65f)) * nk_sin(text_angle));
-
-		const float text_width = font->width(font->userdata, font->height, current->name, nk_strlen(current->name));
-		text_pos.x -= text_width / 2.0f;
-		text_pos.y -= font->height / 2.0f;
-
-		nk_draw_text(canvas, nk_rect(text_pos.x, text_pos.y, text_width, font->height), current->name, nk_strlen(current->name), font,
-		             nk_rgba(0, 0, 0, 0), nk_rgba(255, 255, 255, 255));
-
-		index = index + 1;
-		current = current->next;
-	}
-
-	return current_hovered;
+	item->parent = NULL;
+	item->next = NULL;
+	item->prev = NULL;
 }
 
-static const fck_nk_pie_item *fck_nk_pie_api_execute(fck_nk nk, fck_nk_pie *pie, float radius)
+static void fck_nk_pie_api_apply_position(fck_nk nk, float *x, float *y)
 {
-	fck_nk_internal *nk_internal = (fck_nk_internal *)nk.handle;
+	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
+	*x = nk_internal->os.pie.x;
+	*y = nk_internal->os.pie.y;
 
-	struct nk_context *ctx = nk_internal->ctx;
-	struct nk_command_buffer *canvas = nk_window_get_canvas(ctx);
-	struct nk_input *input = &ctx->input;
-
-	if (!nk_input_is_mouse_released(input, NK_BUTTON_RIGHT))
-	{
-		if (!nk_input_is_mouse_down(input, NK_BUTTON_RIGHT))
-		{
-			fck_nk_pie_item *selected = pie->hovered;
-			if (selected)
-			{
-				selected->value = 1;
-			}
-			pie->hovered = NULL;
-			pie->active = 0;
-			return selected;
-		}
-	}
-
-	if (pie->active == 0)
-	{
-		pie->x = input->mouse.pos.x;
-		pie->y = input->mouse.pos.y;
-	}
-	pie->active = 1;
-
-	const struct nk_vec2 center = nk_vec2(pie->x, pie->y);
-	fck_nk_pie_item *pie_items = pie->items;
-	if (pie_items == NULL)
-	{
-		return NULL;
-	}
-
-	int count = 0;
-	fck_nk_pie_item *current = pie_items;
-	while (current)
-	{
-		count = count + 1;
-		current = current->next;
-	}
-
-	const float angle_step = (2.0f * NK_PI) / (float)count;
-	const struct nk_vec2 mouse_pos = input->mouse.pos;
-
-	const float dx = mouse_pos.x - center.x;
-	const float dy = mouse_pos.y - center.y;
-	const float dist = sqrtf(dx * dx + dy * dy);
-
-	int hovered = -1;
-	if (dist > 15.0f && dist < radius)
-	{
-		float mouse_angle = nk_atan2(dy, dx);
-		if (mouse_angle < 0.0f)
-		{
-			mouse_angle += 2.0f * NK_PI;
-		}
-		hovered = (int)((mouse_angle + (angle_step / 2.0f)) / angle_step) % count;
-	}
-
-	fck_nk_pie_item *selected = NULL;
-	fck_nk_pie_item *current_hovered = NULL;
-	current = pie_items;
-	int index = 0;
-	while (current)
-	{
-		const float start_angle = ((float)index * angle_step) - (angle_step / 2.0f);
-		if (hovered == -1)
-		{
-			if (fck_nk_pie_item_is_part_of(pie->hovered, current))
-			{
-				struct fck_nk_pie_item *children = current->child_items;
-				if (children)
-				{
-					struct fck_nk_pie_item *result =
-						fck_nk_pie_fan(ctx, pie, pie->hovered, children, center, start_angle, angle_step, radius, radius * 1.5f);
-					if (result)
-					{
-						current_hovered = result;
-					}
-				}
-			}
-		}
-
-		struct nk_color slice_color = nk_rgba(45, 45, 45, 230);
-		if (index == hovered)
-		{
-			slice_color = nk_rgba(0, 150, 255, 255);
-			struct fck_nk_pie_item *children = current->child_items;
-			if (children)
-			{
-				// Preview Children
-				fck_nk_pie_fan(ctx, pie, current, children, center, start_angle, angle_step, radius, radius * 1.5f);
-			}
-			current_hovered = current;
-		}
-
-		{
-			const float text_angle = start_angle + (angle_step / 2.0f);
-			const struct nk_user_font *font = ctx->style.font;
-			struct nk_vec2 text_pos;
-			text_pos.x = center.x + (radius * 0.65f) * nk_cos(text_angle);
-			text_pos.y = center.y + (radius * 0.65f) * nk_sin(text_angle);
-
-			nk_fill_arc(canvas, center.x, center.y, radius, start_angle, start_angle + angle_step, slice_color);
-			nk_stroke_arc(canvas, center.x, center.y, radius, start_angle, start_angle + angle_step, 1.5f, nk_rgba(100, 100, 100, 255));
-
-			const float text_width = font->width(font->userdata, font->height, current->name, nk_strlen(current->name));
-			text_pos.x -= text_width / 2.0f;
-			text_pos.y -= font->height / 2.0f;
-
-			nk_draw_text(canvas, nk_rect(text_pos.x, text_pos.y, text_width, font->height), current->name, nk_strlen(current->name), font,
-			             nk_rgba(0, 0, 0, 0), nk_rgba(255, 255, 255, 255));
-		}
-		index = index + 1;
-		current = current->next;
-	}
-
-	pie->hovered = current_hovered;
-
-	nk_fill_circle(canvas, nk_rect(center.x - 15.0f, center.y - 15.0f, 30.0f, 30.0f), nk_rgba(30, 30, 30, 255));
-	nk_stroke_circle(canvas, nk_rect(center.x - 15.0f, center.y - 15.0f, 30.0f, 30.0f), 1.5f, nk_rgba(100, 100, 100, 255));
-	return selected;
+	fck_nk_api_to_screen(nk, x, y);
 }
 
 static int fck_nk_pie_api_happened(fck_nk_pie_item *item)
@@ -1294,9 +1388,11 @@ static fck_nuklear_hamburger_api nuklear_hamburger_api = {
 };
 
 static fck_nuklear_pie_api nuklear_pie_api = {
-	.push = fck_nk_pie_api_push,
-	.add_child = fck_nk_pie_api_add_child,
-	.execute = fck_nk_pie_api_execute,
+	.push = fck_nk_pie_api_add_child,
+	.root = fck_nk_pie_api_root,
+	.remove = fck_nk_pie_api_remove,
+	.used = fck_nk_pie_api_used,
+	.apply_position = fck_nk_pie_api_apply_position,
 	.happened = fck_nk_pie_api_happened,
 };
 
@@ -1326,8 +1422,9 @@ static fck_nuklear_api nuklear_api = {
 	.present = fck_nk_api_present,
 	.theme = fck_nk_api_theme,
 	.control_point = fck_nk_api_control_point,
+	.set_selection = fck_nk_api_set_select,
 	.select = fck_nk_api_select,
-	.to_world = fck_nk_api_to_world,
+	.to_screen = fck_nk_api_to_screen,
 	.control = fck_nk_api_control,
 	.input = &nuklear_input_api,
 	.hamburger = &nuklear_hamburger_api,

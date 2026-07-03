@@ -534,7 +534,7 @@ fck_file_watcher fck_file_watcher_create(const char *path)
 	const int notification_flags = FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_DIR_NAME | FILE_NOTIFY_CHANGE_ATTRIBUTES |
 	                               FILE_NOTIFY_CHANGE_SIZE | FILE_NOTIFY_CHANGE_LAST_WRITE | FILE_NOTIFY_CHANGE_CREATION;
 	const fckc_size_t buffer_size = sizeof(fs->buffer);
-	ReadDirectoryChangesW(fs->handle, (LPVOID)fs->buffer, buffer_size, TRUE, notification_flags, NULL, &fs->overlapped, NULL);
+	ReadDirectoryChangesW(fs->handle, (LPVOID)fs->buffer, (DWORD)buffer_size, TRUE, notification_flags, NULL, &fs->overlapped, NULL);
 	// TODO: Handle rror
 	fs->offset = 0;
 	fs->pending = 0;
@@ -619,7 +619,7 @@ fckc_size_t fck_file_watcher_changes(fck_file_watcher watcher, fck_file_watcher_
 	const int notification_flags = FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_DIR_NAME | FILE_NOTIFY_CHANGE_ATTRIBUTES |
 	                               FILE_NOTIFY_CHANGE_SIZE | FILE_NOTIFY_CHANGE_LAST_WRITE | FILE_NOTIFY_CHANGE_CREATION;
 	const fckc_size_t buffer_size = sizeof(fs->buffer);
-	ReadDirectoryChangesW(fs->handle, (LPVOID)fs->buffer, buffer_size, TRUE, notification_flags, NULL, &fs->overlapped, NULL);
+	ReadDirectoryChangesW(fs->handle, (LPVOID)fs->buffer, (DWORD)buffer_size, TRUE, notification_flags, NULL, &fs->overlapped, NULL);
 	// TODO: Handle error
 	return count;
 }

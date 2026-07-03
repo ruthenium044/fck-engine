@@ -150,6 +150,20 @@ static app_sprite_transform *app_sprite_batch_add(app_sprite_batch *batch)
 	return target;
 }
 
+static void app_sprite_batch_remove(app_sprite_batch *batch, const app_sprite_transform *transform)
+{
+	const fckc_size_t root = to_size_t(batch->transforms);
+	const fckc_size_t target = to_size_t(transform);
+	const fckc_size_t offset = (target - root) / sizeof(*transform);
+	if (offset < batch->count)
+	{
+		const app_sprite_transform *last = batch->transforms + batch->count - 1;
+		app_sprite_transform *current = batch->transforms + offset;
+		*current = *last;
+		batch->count = batch->count - 1;
+	}
+}
+
 int main(int argc, char **argv)
 {
 	load_config(argc, argv);
@@ -200,14 +214,6 @@ int main(int argc, char **argv)
 	int window_width, window_height;
 	os->win->size(window, &window_width, &window_height);
 
-	const fck_window_configuration config = {
-		.title_bar_height = 35.0f,
-		.resize_line_width = 4.0f,
-		.menu_area_width = 35.0f * 2.0f,
-		.button_area_width = 35.0f * 2.0f,
-	};
-	os->win->configuration(window, &config);
-
 	// We have to do this a bit smarter... Maybe not now
 	// os->win->text_input_start(window);
 
@@ -242,84 +248,48 @@ int main(int argc, char **argv)
 		.name = "Setting",
 	};
 
-	fck_nk_pie_item copy_pie_item = {
-		.name = "Copy",
-	};
-	fck_nk_pie_item copy_pie_item_offset_left = {
-		.name = "<",
-	};
-	fck_nk_pie_item copy_pie_item_offset_right = {
-		.name = ">",
-	};
-	fck_nk_pie_item copy_pie_item_offset_up = {
-		.name = "^",
-	};
-	fck_nk_pie_item copy_pie_item_offset_down = {
-		.name = "v",
-	};
-
-	fck_nk_pie_item paste_pie_item = {
-		.name = "Paste",
-	};
 	fck_nk_pie_item duplicate_pie_item = {
 		.name = "Duplicate",
 	};
+	fck_nk_pie_item duplicate_pie_item_offset_left = {
+		.name = "<",
+	};
+	fck_nk_pie_item duplicate_pie_item_offset_right = {
+		.name = ">",
+	};
+	fck_nk_pie_item duplicate_pie_item_offset_up = {
+		.name = "^",
+	};
+	fck_nk_pie_item duplicate_pie_item_offset_down = {
+		.name = "v",
+	};
+
 	fck_nk_pie_item delete_pie_item = {
 		.name = "Delete",
 	};
-	fck_nk_pie_item properties_pie_item = {
-		.name = "Properties",
-	};
-
-	fck_nk_pie_item properties_child0_pie_item = {
-		.name = "Extra",
-	};
-
-	fck_nk_pie_item properties_child_child_pie_item = {
-		.name = "X",
-	};
-
-	fck_nk_pie_item properties_child_child_child_pie_item = {
-		.name = "X",
-	};
-
-	fck_nk_pie_item properties_child1_pie_item = {
-		.name = "Extra",
-	};
-
-	fck_nk_pie_item properties_add_item = {
+	fck_nk_pie_item add_pie_item = {
 		.name = "Add",
 	};
-
-	fck_nk_pie_item properties_add_bird_item = {
+	fck_nk_pie_item add_pie_item_bird = {
 		.name = "Bird",
 	};
 
+
+	fck_nk_pie_item* root = nk->pie->root(view);
 	nk->hamburger->push(view, &help_menu_item);
 	nk->hamburger->push(view, &about_menu_item);
 	nk->hamburger->push(view, &setting_menu_item);
 
-	fck_nk_pie pie = {0};
-	nk->pie->push(&pie, &paste_pie_item);
-	nk->pie->push(&pie, &duplicate_pie_item);
-	nk->pie->push(&pie, &delete_pie_item);
-	nk->pie->push(&pie, &copy_pie_item);
-	nk->pie->push(&pie, &properties_pie_item);
+	nk->pie->push(root, &duplicate_pie_item);
+	nk->pie->push(root, &delete_pie_item);
+	nk->pie->push(root, &add_pie_item);
 
-	nk->pie->push(&pie, &properties_add_item);
+	nk->pie->push(&duplicate_pie_item, &duplicate_pie_item_offset_left);
+	nk->pie->push(&duplicate_pie_item, &duplicate_pie_item_offset_right);
+	nk->pie->push(&duplicate_pie_item, &duplicate_pie_item_offset_up);
+	nk->pie->push(&duplicate_pie_item, &duplicate_pie_item_offset_down);
 
-	nk->pie->add_child(&copy_pie_item, &copy_pie_item_offset_left);
-	nk->pie->add_child(&copy_pie_item, &copy_pie_item_offset_right);
-	nk->pie->add_child(&copy_pie_item, &copy_pie_item_offset_up);
-	nk->pie->add_child(&copy_pie_item, &copy_pie_item_offset_down);
-
-	nk->pie->add_child(&properties_add_item, &properties_add_bird_item);
-
-	nk->pie->add_child(&properties_pie_item, &properties_child0_pie_item);
-	nk->pie->add_child(&properties_pie_item, &properties_child1_pie_item);
-
-	nk->pie->add_child(&properties_child0_pie_item, &properties_child_child_pie_item);
-	nk->pie->add_child(&properties_child_child_pie_item, &properties_child_child_child_pie_item);
+	nk->pie->push(&add_pie_item, &add_pie_item_bird);
 
 	sht_elements indices = {0};
 
@@ -476,6 +446,7 @@ int main(int argc, char **argv)
 				nk->panel->end(view);
 
 				{
+					selected_bird = NULL;
 					const fck_nk_colour on = {0, 255, 0, 255};
 					const fck_nk_colour off = {255, 0, 0, 255};
 					fckc_size_t index;
@@ -492,8 +463,8 @@ int main(int argc, char **argv)
 						}
 					}
 				}
-				// TODO: Pie api is clunky, we should create pies through nk and then pie can reference upward!
-				nk->pie->execute(view, &pie, 125.0f);
+				//// TODO: Pie api is clunky, we should create pies through nk and then pie can reference upward!
+				// nk->pie->execute(view, &pie, 125.0f);
 			}
 			nk->end(view);
 
@@ -504,53 +475,55 @@ int main(int argc, char **argv)
 			}
 		}
 
-		if (nk->pie->happened(&properties_add_bird_item))
+		if (nk->pie->happened(&add_pie_item_bird))
 		{
 			os->io->log("Create Bird");
 			app_sprite_transform *transform = app_sprite_batch_add(&batch);
 			// Pie api is a bit clunky
 			const app_sprite_transform baseline = {
-				.x = pie.x,
-				.y = pie.y,
 				.scale = 1.0f,
 				.width = 256.0f,
 				.height = 256.0f,
 			};
 			*transform = baseline;
-			nk->to_world(view, &transform->x, &transform->y);
+			nk->pie->apply_position(view, &transform->x, &transform->y);
 		}
 
-		if (selected_bird)
+		if (nk->pie->happened(&delete_pie_item) && selected_bird)
 		{
-			if (nk->pie->happened(&copy_pie_item))
-			{
-				app_sprite_transform *transform = app_sprite_batch_add(&batch);
-				*transform = *selected_bird;
-			}
-			if (nk->pie->happened(&copy_pie_item_offset_left))
-			{
-				app_sprite_transform *transform = app_sprite_batch_add(&batch);
-				*transform = *selected_bird;
-				transform->x = transform->x - transform->width;
-			}
-			if (nk->pie->happened(&copy_pie_item_offset_right))
-			{
-				app_sprite_transform *transform = app_sprite_batch_add(&batch);
-				*transform = *selected_bird;
-				transform->x = transform->x + transform->width;
-			}
-			if (nk->pie->happened(&copy_pie_item_offset_up))
-			{
-				app_sprite_transform *transform = app_sprite_batch_add(&batch);
-				*transform = *selected_bird;
-				transform->y = transform->y - transform->height;
-			}
-			if (nk->pie->happened(&copy_pie_item_offset_down))
-			{
-				app_sprite_transform *transform = app_sprite_batch_add(&batch);
-				*transform = *selected_bird;
-				transform->y = transform->y + transform->height;
-			}
+			app_sprite_batch_remove(&batch, selected_bird);
+			nk->set_selection(view, NULL);
+		}
+
+		if (nk->pie->happened(&duplicate_pie_item) && selected_bird)
+		{
+			app_sprite_transform *transform = app_sprite_batch_add(&batch);
+			*transform = *selected_bird;
+			nk->pie->apply_position(view, &transform->x, &transform->y);
+		}
+		if (nk->pie->happened(&duplicate_pie_item_offset_left) && selected_bird)
+		{
+			app_sprite_transform *transform = app_sprite_batch_add(&batch);
+			*transform = *selected_bird;
+			transform->x = transform->x - transform->width;
+		}
+		if (nk->pie->happened(&duplicate_pie_item_offset_right) && selected_bird)
+		{
+			app_sprite_transform *transform = app_sprite_batch_add(&batch);
+			*transform = *selected_bird;
+			transform->x = transform->x + transform->width;
+		}
+		if (nk->pie->happened(&duplicate_pie_item_offset_up) && selected_bird)
+		{
+			app_sprite_transform *transform = app_sprite_batch_add(&batch);
+			*transform = *selected_bird;
+			transform->y = transform->y - transform->height;
+		}
+		if (nk->pie->happened(&duplicate_pie_item_offset_down) && selected_bird)
+		{
+			app_sprite_transform *transform = app_sprite_batch_add(&batch);
+			*transform = *selected_bird;
+			transform->y = transform->y + transform->height;
 		}
 
 		memory->reset(memory->temp);

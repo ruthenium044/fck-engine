@@ -57,9 +57,9 @@ typedef struct fck_input_mouse
 	fck_input_data data[fck_mouse_count];
 } fck_input_mouse;
 
-static fck_input_mouse input_source_mouse = (fck_input_mouse){
+static fck_input_mouse input_source_mouse = {
 	.source =
-		(fck_input_source){
+		{
 			.name = "mouse",
 			.type = fck_input_source_mouse,
 			.owners = fck_input_mouse_owners,
@@ -118,7 +118,7 @@ static fckc_size_t fck_input_mouse_events(fck_input_event *events, fckc_size_t s
 			// Maybe we should log errors...
 			break;
 		}
-		
+
 		for (fckc_size_t index = 0; index < to_size_t(result); index++)
 		{
 			const SDL_Event *e = sdl_events + index;

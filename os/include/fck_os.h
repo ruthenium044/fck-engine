@@ -67,6 +67,8 @@ typedef struct fck_window_api
 	const fck_window_configuration *(*configuration)(fck_window window, const fck_window_configuration *config);
 	const char *(*title)(fck_window window, const char *title);
 
+	int (*minimise)(fck_window window);
+
 	// Wonky, but ok
 	int (*text_input_start)(fck_window window);
 	int (*text_input_stop)(fck_window window);

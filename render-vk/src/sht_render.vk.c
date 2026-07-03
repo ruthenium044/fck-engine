@@ -1542,17 +1542,38 @@ static VkResult sht_vk_swapchain_init(sht_vk_swapchain *swapchain, sht_vk_driver
 	);
 	sht_vk_assert(present_modes_count >= 1);
 
+	int available = 0;
+	for (fckc_size_t index = 0; index < present_modes_count; index++)
+	{
+		const VkPresentModeKHR present_mode = present_modes[index];
+		if (present_mode < 16)
+		{
+			// Some arbitrary value - The extensions have very high bits set
+			available = available | (1 << present_mode);
+		}
+	}
+
 	// The FIFO present mode is guaranteed by the spec to be supported
 	// FIFO can also be the most sluggish one (at least on my device) We need to find a good selection method here!
-	const VkPresentModeKHR swapchain_present_mode = VK_PRESENT_MODE_MAILBOX_KHR; // we can also use queried present modes
+	VkPresentModeKHR swapchain_present_mode = VK_PRESENT_MODE_FIFO_KHR; // we can also use queried present modes
+	fckc_u32 desired_swapchain_image_count = surface_capabilities.minImageCount;
+	if (sht_test(available, (1 << VK_PRESENT_MODE_MAILBOX_KHR)))
+	{
+		if (surface_capabilities.minImageCount < 3)
+		{
+			if (surface_capabilities.maxImageCount > 3)
+			{
+				desired_swapchain_image_count = surface_capabilities.minImageCount + 1;
+				swapchain_present_mode = VK_PRESENT_MODE_MAILBOX_KHR;
+			}
+		}
+	}
 
 	// Determine the number of VkImage's to use in the swap chain.
 	// We need to acquire only 1 presentable image at at time.
 	// Asking for minImageCount images ensures that we can acquire
 	// 1 presentable image as long as we present it before attempting
 	// to acquire another.
-	const fckc_u32 desired_swapchain_image_count = surface_capabilities.minImageCount;
-
 	VkSurfaceTransformFlagBitsKHR pre_transform;
 	if (surface_capabilities.supportedTransforms & VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR)
 	{
@@ -2156,7 +2177,7 @@ static fckc_size_t sht_vk_command_find(sht_vk_command *command, sht_command_buff
 	return 0;
 }
 
-static void sht_swapchain_present(sht_command_buffer command_buffer, fckc_u32 image_index)
+static void sht_swapchain_present(sht_command_buffer command_buffer, VkSemaphore *graphics_completed, fckc_u32 image_index)
 {
 	sht_vk_command *api = (sht_vk_command *)command_buffer.owner;
 
@@ -2164,7 +2185,6 @@ static void sht_swapchain_present(sht_command_buffer command_buffer, fckc_u32 im
 	sht_vk_common_sync_resources *sync = &swapchain->sync;
 	sht_vk_driver *driver = api->driver;
 
-	VkSemaphore *graphics_completed = &sync->graphics_completed[sync->index];
 	VkPresentInfoKHR present_info = {0};
 	present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 	present_info.waitSemaphoreCount = 1;
@@ -2239,12 +2259,14 @@ static void sht_command_buffer_submit(sht_command_buffer command, sht_queue_type
 
 		api->EndCommandBuffer(command_buffer);
 
+		VkSemaphore *graphic_completed = &sync->graphics_completed[sync->index];
+
 		submit_info.pWaitSemaphores = &sync->presentation_completed[sync->index];
 		submit_info.waitSemaphoreCount = 1;
 		submit_info.pSignalSemaphores = &sync->graphics_completed[sync->index];
 		submit_info.signalSemaphoreCount = 1;
 		sht_vk_crash(queues->QueueSubmit(graphic_queue, 1, &submit_info, *wait_fence));
-		sht_swapchain_present(command, image_index);
+		sht_swapchain_present(command, graphic_completed, image_index);
 		break;
 	}
 	case sht_queue_transfer: {

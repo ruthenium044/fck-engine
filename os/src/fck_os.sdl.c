@@ -161,13 +161,19 @@ static fck_window fck_window_api_create(const char *name, int w, int h)
 	return (fck_window){.handle = sdl};
 }
 
-const char *fck_window_api_title(fck_window window, const char *title)
+static const char *fck_window_api_title(fck_window window, const char *title)
 {
 	if (title)
 	{
 		SDL_SetWindowTitle(to_sdl_window(window), title);
 	}
 	return SDL_GetWindowTitle(to_sdl_window(window));
+}
+
+static int fck_window_api_minimise(fck_window window)
+{
+
+	return SDL_MinimizeWindow(to_sdl_window(window));
 }
 
 static void fck_window_api_destroy(fck_window window)
@@ -450,6 +456,7 @@ static fck_window_api window_api = {
 	.resize = fck_window_api_resize,
 	.native = fck_window_native,
 	.title = fck_window_api_title,
+	.minimise = fck_window_api_minimise,
 	.configuration = fck_window_api_configuration,
 	.text_input_start = fck_window_api_text_input_start,
 	.text_input_stop = fck_window_api_text_input_stop,

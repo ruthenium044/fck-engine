@@ -50,6 +50,7 @@ static inline VkResult sht_vk_report(VkResult result, const char *msg)
 #ifndef NDEBUG
 #define sht_vk_assert(condition) fck_assert(condition)
 #else
+// TODO: Let's implement crashing later
 #define sht_vk_assert(condition) (void)(condition)
 #endif
 #define sht_vk_report_defer(sht_vk_report_func) sht_vk_report_func

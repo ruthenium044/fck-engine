@@ -473,6 +473,11 @@ int main(int argc, char **argv)
 			{
 				is_running = 0;
 			}
+
+			if (control.minimise)
+			{
+				os->win->minimise(window);
+			}
 		}
 
 		if (nk->pie->happened(&add_pie_item_bird))

@@ -1108,6 +1108,7 @@ static void fck_nk_api_set_select(fck_nk nk, const void *pointer)
 {
 	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
 	nk_internal->os.control_state.selection.pointer = pointer;
+	// TODO: Invalidate the rect?
 }
 
 static int fck_nk_api_select(fck_nk nk, const void *pointer, float x, float y, float w, float h, fck_nk_colour on)
@@ -1171,6 +1172,7 @@ static int fck_nk_api_select(fck_nk nk, const void *pointer, float x, float y, f
 	if (pointer == selection->pointer)
 	{
 		nk_stroke_rect(canvas, rect, 0.0f, 2.0f, c);
+		selection->rect = rect;
 		return 1;
 	}
 
@@ -1244,6 +1246,16 @@ static void fck_nk_panel_menu_api_pop(fck_nk nk)
 	nk_tree_pop(ctx);
 }
 
+static int fck_nk_elements_api_dropdown(fck_nk nk, int selected, const char *const *items, int count)
+{
+	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
+	struct nk_context *ctx = nk_internal->ctx;
+	// const struct nk_vec2 position = nk_widget_position(ctx);
+	const struct nk_vec2 size = nk_widget_size(ctx);
+	const struct nk_vec2 dropdown_size = nk_vec2(size.x, 128.0f);
+	return nk_combo(ctx, items, count, selected, 25, dropdown_size);
+}
+
 static fckc_f32 fck_nuklear_elements_api_f32(fck_nk nk, const char *name, fckc_f32 min, fckc_f32 val, fckc_f32 max, fckc_f32 step)
 {
 	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
@@ -1280,9 +1292,9 @@ static void fck_nk_input_api_end(fck_nk nk)
 	nk_buffer_clear(&nk_internal->commands);
 }
 
-static fck_nk_pie_item* fck_nk_pie_api_root(fck_nk nk)
+static fck_nk_pie_item *fck_nk_pie_api_root(fck_nk nk)
 {
-	fck_nk_private* nk_internal = (fck_nk_private*)nk.handle;
+	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
 	return &nk_internal->os.pie.root;
 }
 
@@ -1413,6 +1425,7 @@ static fck_nuklear_elements_api nuklear_property_api = {
 	.f32 = fck_nuklear_elements_api_f32,
 	.i32 = fck_nuklear_elements_api_i32,
 	.button = fck_nuklear_elements_api_button,
+	.dropdown = fck_nk_elements_api_dropdown,
 };
 
 static fck_nuklear_api nuklear_api = {

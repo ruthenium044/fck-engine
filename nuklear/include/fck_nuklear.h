@@ -67,6 +67,7 @@ typedef struct fck_nk_pie_item
 	struct fck_nk_pie_item *items;
 	struct fck_nk_pie_item *items_last;
 
+	// Everything but the name is actually private lol
 	const char *name;
 	int value;
 } fck_nk_pie_item;
@@ -88,7 +89,7 @@ typedef struct fck_nuklear_hamburger_api
 typedef struct fck_nuklear_pie_api
 {
 	// if we have root then we could streamline push_child and push to just become push
-	fck_nk_pie_item* (*root)(fck_nk nk);
+	fck_nk_pie_item *(*root)(fck_nk nk);
 	void (*push)(fck_nk_pie_item *item, fck_nk_pie_item *child);
 	void (*remove)(fck_nk nk, fck_nk_pie_item *item);
 
@@ -112,10 +113,14 @@ struct fck_window;
 struct sht_driver;
 struct sht_command_buffer;
 
+
+
 typedef struct fck_nuklear_elements_api
 {
 	fckc_f32 (*f32)(fck_nk nk, const char *name, fckc_f32 min, fckc_f32 val, fckc_f32 max, fckc_f32 step);
 	fckc_i32 (*i32)(fck_nk nk, const char *name, fckc_i32 min, fckc_i32 val, fckc_i32 max, fckc_i32 step);
+
+	int (*dropdown)(fck_nk nk, int selected, const char *const *items, int count);
 
 	int (*button)(fck_nk nk, const char *title);
 } fck_nuklear_elements_api;

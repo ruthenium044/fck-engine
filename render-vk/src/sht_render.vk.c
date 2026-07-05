@@ -3590,11 +3590,19 @@ static void sht_bss_buffer_resize(sht_memory *mem, sht_buffer_usage_flags usage,
                                   VkDeviceSize offset)
 {
 	if (buffer->size < size + offset)
-	{
-		sht_buffer temp = mem->malloc(mem->bump, &sht_buffer_retained(usage, size + offset), sht_memory_cpu);
+	{	
+		fckc_size_t total = size + offset;
+		if (buffer->cpu != NULL)
+		{
+			total = total * 2;
+		}
+
+		sht_buffer temp = mem->malloc(mem->bump, &sht_buffer_retained(usage, total), sht_memory_cpu);
 		if (buffer->cpu != NULL)
 		{
 			memcpy(temp.cpu, buffer->cpu, buffer->size);
+			// We do need to free the buffer
+			// Make a GC for this bad boy! :) 
 			//mem->free(mem->bump, buffer);
 		}
 		*buffer = temp;

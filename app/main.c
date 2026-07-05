@@ -205,29 +205,24 @@ typedef struct app_sprite_stable_batch
 {
 	app_sprite_batch base;
 
-	const char *name;
-
 	app_sprite_batch_index *sparse;
 	app_sprite_batch_dense_index *dense;
 
 	fckc_u32 capacity;
-
 	float sprite_width;
 	float sprite_height;
 } app_sprite_stable_batch;
 
-static app_sprite_stable_batch app_sprite_stable_batch_create(kll_allocator *allocator, const char *name, sht_image_view view, float sw,
-                                                              float sh)
+static app_sprite_stable_batch app_sprite_stable_batch_create(kll_allocator *a, const char *name, sht_image_view view, float sw, float sh)
 {
 	app_sprite_stable_batch batch = {0};
-	batch.name = name;
 	batch.sprite_width = sw;
 	batch.sprite_height = sh;
-	batch.base = app_sprite_batch_create(allocator, view);
+	batch.base = app_sprite_batch_create(a, view);
 	return batch;
 }
 
-static app_sprite_transform *app_sprite_stable_batch_resolve(app_sprite_stable_batch *batch, fckc_u32 at)
+static app_sprite_transform *app_sprite_stable_batch_find(app_sprite_stable_batch *batch, fckc_u32 at)
 {
 	if (at < batch->capacity)
 	{
@@ -236,6 +231,18 @@ static app_sprite_transform *app_sprite_stable_batch_resolve(app_sprite_stable_b
 		{
 			// It exists!
 			return batch->base.transforms + sparse->value;
+		}
+	}
+	return NULL;
+}
+
+static app_sprite_transform *app_sprite_stable_batch_resolve(app_sprite_stable_batch *batch, fckc_u32 at)
+{
+	{
+		app_sprite_transform *transform = app_sprite_stable_batch_find(batch, at);
+		if (transform)
+		{
+			return transform;
 		}
 	}
 
@@ -362,8 +369,218 @@ static int app_sprite_stable_batch_remove(app_sprite_stable_batch *batch, fckc_u
 	return 1;
 }
 
+typedef struct app_sprites
+{
+	kll_allocator *allocator;
+	const char **names;
+
+	app_sprite_stable_batch *batches;
+	fckc_u32 count;
+	fckc_u32 capacity;
+} app_sprites;
+
+static app_sprite_stable_batch *app_sprites_get_batch(app_sprites *sprites, fckc_u32 index)
+{
+	if (index < sprites->count)
+	{
+		app_sprite_stable_batch *batch = sprites->batches + index;
+		return batch;
+	}
+	return NULL;
+}
+
+static fckc_u32 app_sprites_batches(app_sprites *sprites, app_sprite_stable_batch **batches)
+{
+	*batches = sprites->batches;
+	return sprites->count;
+}
+
+static fckc_u32 app_sprites_transforms(app_sprites *sprites, fckc_u32 batch_index, app_sprite_transform **transforms)
+{
+	app_sprite_stable_batch *batch = app_sprites_get_batch(sprites, batch_index);
+	if (batch)
+	{
+		return app_sprite_stable_batch_data(batch, transforms);
+	}
+	return 0;
+}
+
+static fckc_u32 app_sprites_names(app_sprites *sprites, const char ***names)
+{
+	*names = sprites->names;
+	return sprites->count;
+}
+
+static const char *app_sprites_nameof_batch(app_sprites *sprites, fckc_u32 index)
+{
+	if (index < sprites->count)
+	{
+		const char *batch_name = sprites->names[index];
+		return batch_name;
+	}
+	return NULL;
+}
+
+static fckc_u32 app_sprites_find_batch(app_sprites *sprites, const char *name)
+{
+	for (fckc_u32 index = 0; index < sprites->count; index++)
+	{
+		app_sprite_stable_batch *batch = sprites->batches + index;
+		const char *batch_name = sprites->names[index];
+		if (strcmp(name, batch_name) == 0)
+		{
+			return index + 1;
+		}
+	}
+	return 0;
+}
+
+static fckc_u32 app_sprites_register_batch(app_sprites *sprites, const char *name, sht_image_view view, float sw, float sh)
+{
+	{
+		const fckc_u32 result = app_sprites_find_batch(sprites, name);
+		if (result)
+		{
+			app_sprite_stable_batch *batch = sprites->batches + result - 1;
+			if (view.gpu == batch->base.image_view.gpu)
+			{
+				if (batch->sprite_width == sw && batch->sprite_height == sh)
+				{
+					return result - 1;
+				}
+			}
+		}
+	}
+
+	{
+		if (sprites->count == sprites->capacity)
+		{
+			const fckc_u32 next_capacity = sprites->capacity ? sprites->capacity * 2 : 4;
+			const fckc_size_t total = next_capacity * sizeof(*sprites->batches);
+			const fckc_size_t total_name_size = next_capacity * sizeof(*sprites->names);
+
+			app_sprite_stable_batch *next = (app_sprite_stable_batch *)kll_malloc(sprites->allocator, total);
+			const char **names = (const char **)kll_malloc(sprites->allocator, total_name_size);
+			if (sprites->batches)
+			{
+				memcpy(next, sprites->batches, sprites->count * sizeof(*sprites->batches));
+				memcpy(names, sprites->names, sprites->count * sizeof(*sprites->names));
+				kll_free(sprites->allocator, sprites->batches);
+			}
+
+			sprites->names = names;
+			sprites->batches = next;
+			sprites->capacity = next_capacity;
+		}
+
+		{
+			app_sprite_stable_batch *batch = sprites->batches + sprites->count;
+			const char **batch_name = sprites->names + sprites->count;
+			*batch_name = name;
+
+			*batch = app_sprite_stable_batch_create(sprites->allocator, name, view, sw, sh);
+			sprites->count = sprites->count + 1;
+			return sprites->count - 1;
+		}
+	}
+}
+
+static app_sprites app_sprites_create(kll_allocator *allocator)
+{
+	const app_sprites sprites = {.allocator = allocator};
+	return sprites;
+}
+
+static app_sprite_transform *app_sprites_add(app_sprites *sprites, fckc_u32 index)
+{
+	app_sprite_stable_batch *batch = sprites->batches + index;
+	return app_sprite_stable_batch_add(batch);
+}
+
+static app_sprite_transform *app_sprites_add_by_name(app_sprites *sprites, const char *name)
+{
+	const fckc_u32 result = app_sprites_find_batch(sprites, name);
+	if (result)
+	{
+		return app_sprites_add(sprites, result - 1);
+	}
+	return NULL;
+}
+
+static fckc_u32 app_sprites_index_of(app_sprites *sprites, fckc_u32 batch_index, const app_sprite_transform *transform)
+{
+	app_sprite_stable_batch *batch = app_sprites_get_batch(sprites, batch_index);
+	if (batch)
+	{
+		return app_sprite_stable_batch_index_of(batch, transform);
+	}
+	return 0;
+}
+
+static int app_sprites_remove(app_sprites *sprites, fckc_u32 batch_index, fckc_u32 entry_index)
+{
+	app_sprite_stable_batch *batch = sprites->batches + batch_index;
+	return app_sprite_stable_batch_remove(batch, entry_index);
+}
+
+static int app_sprites_remove_by_name(app_sprites *sprites, fckc_u32 index, const char *name)
+{
+	const fckc_u32 result = app_sprites_find_batch(sprites, name);
+	if (result)
+	{
+		return app_sprites_remove(sprites, result - 1, index);
+	}
+	return 0;
+}
+
+typedef struct app_sprite_pie_items
+{
+	fck_nk_pie_item remove;
+
+	fck_nk_pie_item duplicate;
+	fck_nk_pie_item duplicate_left;
+	fck_nk_pie_item duplicate_right;
+	fck_nk_pie_item duplicate_up;
+	fck_nk_pie_item duplicate_down;
+
+	fck_nk_pie_item add;
+	fck_nk_pie_item add_bird;
+	fck_nk_pie_item add_item;
+} app_sprite_pie_items;
+
+static void app_sprite_pie_items_init(fck_nuklear_api *nk, app_sprite_pie_items *items, fck_nk_pie_item *root)
+{
+	memset(items, 0, sizeof(*items));
+
+	const app_sprite_pie_items initial = {
+		.remove.name = "Delete",
+		.duplicate.name = "Duplicate",
+		.duplicate_left.name = "<",
+		.duplicate_right.name = ">",
+		.duplicate_up.name = "^",
+		.duplicate_down.name = "V",
+		.add.name = "Add",
+		.add_bird.name = "Bird",
+		.add_item.name = "Item",
+	};
+	*items = initial;
+
+	nk->pie->push(root, &items->duplicate);
+	nk->pie->push(root, &items->remove);
+	nk->pie->push(root, &items->add);
+
+	nk->pie->push(&items->duplicate, &items->duplicate_left);
+	nk->pie->push(&items->duplicate, &items->duplicate_right);
+	nk->pie->push(&items->duplicate, &items->duplicate_up);
+	nk->pie->push(&items->duplicate, &items->duplicate_down);
+
+	nk->pie->push(&items->add, &items->add_bird);
+	nk->pie->push(&items->add, &items->add_item);
+}
+
 int main(int argc, char **argv)
 {
+	// TODO: We need to setup stable editor entities, or something like that
 	load_config(argc, argv);
 
 	purge_files("temp-*.dll");
@@ -446,51 +663,13 @@ int main(int argc, char **argv)
 		.name = "Setting",
 	};
 
-	fck_nk_pie_item duplicate_pie_item = {
-		.name = "Duplicate",
-	};
-	fck_nk_pie_item duplicate_pie_item_offset_left = {
-		.name = "<",
-	};
-	fck_nk_pie_item duplicate_pie_item_offset_right = {
-		.name = ">",
-	};
-	fck_nk_pie_item duplicate_pie_item_offset_up = {
-		.name = "^",
-	};
-	fck_nk_pie_item duplicate_pie_item_offset_down = {
-		.name = "v",
-	};
-
-	fck_nk_pie_item delete_pie_item = {
-		.name = "Delete",
-	};
-	fck_nk_pie_item add_pie_item = {
-		.name = "Add",
-	};
-	fck_nk_pie_item add_pie_item_bird = {
-		.name = "Bird",
-	};
-	fck_nk_pie_item add_pie_item_item = {
-		.name = "Item",
-	};
-
-	fck_nk_pie_item *root = nk->pie->root(view);
 	nk->hamburger->push(view, &help_menu_item);
 	nk->hamburger->push(view, &about_menu_item);
 	nk->hamburger->push(view, &setting_menu_item);
 
-	nk->pie->push(root, &duplicate_pie_item);
-	nk->pie->push(root, &delete_pie_item);
-	nk->pie->push(root, &add_pie_item);
-
-	nk->pie->push(&duplicate_pie_item, &duplicate_pie_item_offset_left);
-	nk->pie->push(&duplicate_pie_item, &duplicate_pie_item_offset_right);
-	nk->pie->push(&duplicate_pie_item, &duplicate_pie_item_offset_up);
-	nk->pie->push(&duplicate_pie_item, &duplicate_pie_item_offset_down);
-
-	nk->pie->push(&add_pie_item, &add_pie_item_bird);
-	nk->pie->push(&add_pie_item, &add_pie_item_item);
+	fck_nk_pie_item *root = nk->pie->root(view);
+	app_sprite_pie_items sprite_pie;
+	app_sprite_pie_items_init(nk, &sprite_pie, root);
 
 	sht_elements indices = {0};
 
@@ -553,13 +732,17 @@ int main(int argc, char **argv)
 
 	// app_sprite_batch batch = app_sprite_batch_create(kll->system, bird_image_view);
 
-	app_sprite_stable_batch birds = app_sprite_stable_batch_create(kll->system, "Birds", bird_image_view, 32.0f, 32.0f);
-	app_sprite_stable_batch items = app_sprite_stable_batch_create(kll->system, "Items", items_image_view, 16.0f, 16.0f);
+	// app_sprite_stable_batch birds = app_sprite_stable_batch_create(kll->system, "Birds", bird_image_view, 32.0f, 32.0f);
+	// app_sprite_stable_batch items = app_sprite_stable_batch_create(kll->system, "Items", items_image_view, 16.0f, 16.0f);
 
-	app_sprite_stable_batch *batches[] = {&items, &birds};
+	app_sprites sprites = app_sprites_create(kll->system);
+	const fckc_u32 birds_batch = app_sprites_register_batch(&sprites, "Birds", bird_image_view, 32.0f, 32.0f);
+	const fckc_u32 items_batch = app_sprites_register_batch(&sprites, "Items", items_image_view, 16.0f, 16.0f);
+
+	// app_sprite_stable_batch *batches[] = {&items, &birds};
 
 	{
-		app_sprite_transform* transform = app_sprite_stable_batch_add(&birds);
+		app_sprite_transform *transform = app_sprites_add(&sprites, birds_batch);
 		const app_sprite_transform baseline = {
 			.scale = 1.0f,
 			.width = 256.0f,
@@ -571,7 +754,7 @@ int main(int argc, char **argv)
 	}
 
 	{
-		app_sprite_transform *transform = app_sprite_stable_batch_add(&items);
+		app_sprite_transform *transform = app_sprites_add(&sprites, items_batch);
 		const app_sprite_transform baseline = {
 			.scale = 1.0f,
 			.width = 64.0f,
@@ -584,9 +767,10 @@ int main(int argc, char **argv)
 
 	fckc_u64 time_point = os->chrono->ms();
 
-	fckc_u64 accumulator = 0;
+	// fckc_u64 accumulator = 0;
 
-	app_sprite_transform *selected_bird = NULL;
+	fckc_u32 selected_batch_index = 0;
+	fckc_u32 selected_transform_index = 0;
 
 	int is_running = 1;
 	while (is_running)
@@ -637,27 +821,53 @@ int main(int argc, char **argv)
 			{
 				nk->panel->begin(view, "Inspector", 300.0f);
 				{
-					for (fckc_size_t batch_index = 0; batch_index < fck_arraysize(batches); batch_index++)
+					app_sprite_stable_batch *batches;
+					const fckc_size_t batch_count = app_sprites_batches(&sprites, &batches);
+
+					for (fckc_u32 batch_index = 0; batch_index < batch_count; batch_index++)
 					{
-						app_sprite_stable_batch *batch = batches[batch_index];
+						app_sprite_stable_batch *batch = batches + batch_index;
 						app_sprite_transform *transforms = NULL;
-						fckc_u32 count = app_sprite_stable_batch_data(batch, &transforms);
-						if (nk->panel->push(view, batch->name, count))
+						const fckc_u32 count = app_sprites_transforms(&sprites, batch_index, &transforms);
+						const char *batch_name = app_sprites_nameof_batch(&sprites, batch_index);
+						if (nk->panel->push(view, batch_name, count))
 						{
-							for (fckc_size_t index = 0; index < count; index++)
+							for (fckc_u32 index = 0; index < count; index++)
 							{
-								if (nk->panel->push(view, "%s[%d]", batch->name, index))
+								if (nk->panel->push(view, "%s[%d]", batch_name, index))
 								{
-									app_sprite_transform *bird = transforms + index;
-									bird->x = nk->elements->f32(view, "x", -1280.0f, bird->x, 1280.0f, 1.0f);
-									bird->y = nk->elements->f32(view, "y", -720.0f, bird->y, 720.0f, 1.0f);
-									bird->z = nk->elements->f32(view, "z", 0.0f, bird->z, 1.0f, 0.1f);
-									bird->width = nk->elements->f32(view, "width", 0.0f, bird->width, 256.0f, 4.0f);
-									bird->height = nk->elements->f32(view, "height", 0.0f, bird->height, 256.0f, 4.0f);
-									bird->rotation = nk->elements->f32(view, "rotation", 0.0f, bird->rotation, 360.0f, 1.0f);
-									bird->scale = nk->elements->f32(view, "scale", 1.0f, bird->scale, 100.0f, 1.0f);
-									bird->horizontal_index = nk->elements->i32(view, "horizontal index", 0, bird->horizontal_index, 10, 1);
-									bird->vertical_index = nk->elements->i32(view, "vertical index", 0, bird->vertical_index, 10, 1);
+									const char **names;
+									const fckc_u32 names_count = app_sprites_names(&sprites, &names);
+									const int new_index = nk->elements->dropdown(view, (int)batch_index, names, names_count);
+									if (new_index != batch_index)
+									{
+										const app_sprite_transform copy = transforms[index];
+										const fckc_u32 result = app_sprites_index_of(&sprites, batch_index, transforms + index);
+										if (result)
+										{
+											if (app_sprites_remove(&sprites, batch_index, result - 1))
+											{
+												app_sprite_transform *transform = app_sprites_add(&sprites, new_index);
+												*transform = copy;
+												transform->horizontal_index = transform->vertical_index = 0;
+											}
+										}
+									}
+									else
+									{
+										app_sprite_transform *transform = transforms + index;
+										transform->x = nk->elements->f32(view, "x", -1280.0f, transform->x, 1280.0f, 1.0f);
+										transform->y = nk->elements->f32(view, "y", -720.0f, transform->y, 720.0f, 1.0f);
+										transform->z = nk->elements->f32(view, "z", 0.0f, transform->z, 1.0f, 0.1f);
+										transform->width = nk->elements->f32(view, "width", 0.0f, transform->width, 256.0f, 4.0f);
+										transform->height = nk->elements->f32(view, "height", 0.0f, transform->height, 256.0f, 4.0f);
+										transform->rotation = nk->elements->f32(view, "rotation", 0.0f, transform->rotation, 360.0f, 1.0f);
+										transform->scale = nk->elements->f32(view, "scale", 1.0f, transform->scale, 100.0f, 1.0f);
+										transform->horizontal_index =
+											nk->elements->i32(view, "horizontal index", 0, transform->horizontal_index, 10, 1);
+										transform->vertical_index =
+											nk->elements->i32(view, "vertical index", 0, transform->vertical_index, 10, 1);
+									}
 									nk->panel->pop(view);
 								}
 							}
@@ -665,20 +875,22 @@ int main(int argc, char **argv)
 						}
 					}
 
-					if (selected_bird)
+					app_sprite_stable_batch *selected_batch = app_sprites_get_batch(&sprites, selected_batch_index);
+					if (selected_batch)
 					{
-						if (nk->panel->push(view, "Selected Bird"))
+						app_sprite_transform *transform = app_sprite_stable_batch_find(selected_batch, selected_transform_index);
+						if (transform && nk->panel->push(view, "Selection"))
 						{
-							app_sprite_transform *bird = selected_bird;
-							bird->x = nk->elements->f32(view, "x", -1280.0f, bird->x, 1280.0f, 1.0f);
-							bird->y = nk->elements->f32(view, "y", -720.0f, bird->y, 720.0f, 1.0f);
-							bird->z = nk->elements->f32(view, "z", 0.0f, bird->z, 1.0f, 0.1f);
-							bird->width = nk->elements->f32(view, "width", 0.0f, bird->width, 256.0f, 4.0f);
-							bird->height = nk->elements->f32(view, "height", 0.0f, bird->height, 256.0f, 4.0f);
-							bird->rotation = nk->elements->f32(view, "rotation", 0.0f, bird->rotation, 360.0f, 1.0f);
-							bird->scale = nk->elements->f32(view, "scale", 1.0f, bird->scale, 100.0f, 1.0f);
-							bird->horizontal_index = nk->elements->i32(view, "horizontal index", 0, bird->horizontal_index, 10, 1);
-							bird->vertical_index = nk->elements->i32(view, "vertical index", 0, bird->vertical_index, 10, 1);
+							transform->x = nk->elements->f32(view, "x", -1280.0f, transform->x, 1280.0f, 1.0f);
+							transform->y = nk->elements->f32(view, "y", -720.0f, transform->y, 720.0f, 1.0f);
+							transform->z = nk->elements->f32(view, "z", 0.0f, transform->z, 1.0f, 0.1f);
+							transform->width = nk->elements->f32(view, "width", 0.0f, transform->width, 256.0f, 4.0f);
+							transform->height = nk->elements->f32(view, "height", 0.0f, transform->height, 256.0f, 4.0f);
+							transform->rotation = nk->elements->f32(view, "rotation", 0.0f, transform->rotation, 360.0f, 1.0f);
+							transform->scale = nk->elements->f32(view, "scale", 1.0f, transform->scale, 100.0f, 1.0f);
+							transform->horizontal_index =
+								nk->elements->i32(view, "horizontal index", 0, transform->horizontal_index, 10, 1);
+							transform->vertical_index = nk->elements->i32(view, "vertical index", 0, transform->vertical_index, 10, 1);
 							nk->panel->pop(view);
 						}
 					}
@@ -686,30 +898,34 @@ int main(int argc, char **argv)
 				nk->panel->end(view);
 
 				{
-					selected_bird = NULL;
+					selected_batch_index = 0;
+					selected_transform_index = 0;
 					const fck_nk_colour on = {0, 255, 0, 255};
 					const fck_nk_colour off = {255, 0, 0, 255};
-					for (fckc_size_t batch_index = 0; batch_index < fck_arraysize(batches); batch_index++)
+
+					app_sprite_stable_batch *batches;
+					const fckc_size_t batch_count = app_sprites_batches(&sprites, &batches);
+
+					for (fckc_size_t batch_index = 0; batch_index < batch_count; batch_index++)
 					{
-						app_sprite_stable_batch *batch = batches[batch_index];
+						app_sprite_stable_batch *batch = batches + batch_index;
 						app_sprite_transform *transforms = NULL;
-						fckc_u32 count = app_sprite_stable_batch_data(batch, &transforms);
+						const fckc_u32 count = app_sprites_transforms(&sprites, batch_index, &transforms);
 						for (fckc_size_t index = 0; index < count; index++)
 						{
-							app_sprite_transform *bird = transforms + index;
-							if (nk->select(view, bird, bird->x, bird->y, bird->width, bird->height, on))
+							app_sprite_transform *transform = transforms + index;
+							if (nk->select(view, transform, transform->x, transform->y, transform->width, transform->height, on))
 							{
-								selected_bird = bird;
+								selected_batch_index = batch_index;
+								selected_transform_index = app_sprites_index_of(&sprites, batch_index, transform) - 1;
 							}
-							if (nk->control_point(view, bird, &bird->x, &bird->y, 16.0f, on, off))
+							if (nk->control_point(view, transform, &transform->x, &transform->y, 16.0f, on, off))
 							{
 								// break;
 							}
 						}
 					}
 				}
-				//// TODO: Pie api is clunky, we should create pies through nk and then pie can reference upward!
-				// nk->pie->execute(view, &pie, 125.0f);
 			}
 			nk->end(view);
 
@@ -725,9 +941,9 @@ int main(int argc, char **argv)
 			}
 		}
 
-		if (nk->pie->happened(&add_pie_item_bird))
+		if (nk->pie->happened(&sprite_pie.add_bird))
 		{
-			app_sprite_transform *transform = app_sprite_stable_batch_add(&birds);
+			app_sprite_transform *transform = app_sprites_add_by_name(&sprites, "Birds");
 			// Pie api is a bit clunky
 			const app_sprite_transform baseline = {
 				.scale = 1.0f,
@@ -736,11 +952,12 @@ int main(int argc, char **argv)
 			};
 			*transform = baseline;
 			nk->pie->apply_position(view, &transform->x, &transform->y);
+			nk->set_selection(view, transform);
 		}
 
-		if (nk->pie->happened(&add_pie_item_item))
+		if (nk->pie->happened(&sprite_pie.add_item))
 		{
-			app_sprite_transform *transform = app_sprite_stable_batch_add(&items);
+			app_sprite_transform *transform = app_sprites_add_by_name(&sprites, "Items");
 			// Pie api is a bit clunky
 			const app_sprite_transform baseline = {
 				.scale = 1.0f,
@@ -749,45 +966,67 @@ int main(int argc, char **argv)
 			};
 			*transform = baseline;
 			nk->pie->apply_position(view, &transform->x, &transform->y);
+			nk->set_selection(view, transform);
 		}
 
-		if (nk->pie->happened(&delete_pie_item) && selected_bird)
 		{
-			const fckc_u32 result = app_sprite_stable_batch_index_of(&birds, selected_bird);
-			fck_assert(result);
-			app_sprite_stable_batch_remove(&birds, result - 1);
-			nk->set_selection(view, NULL);
-		}
+			app_sprite_stable_batch *selected_batch = app_sprites_get_batch(&sprites, selected_batch_index);
+			if (nk->pie->happened(&sprite_pie.remove) && selected_batch)
+			{
+				app_sprite_stable_batch_remove(selected_batch, selected_transform_index);
+				nk->set_selection(view, NULL);
+			}
 
-		if (nk->pie->happened(&duplicate_pie_item) && selected_bird)
-		{
-			app_sprite_transform *transform = app_sprite_stable_batch_add(&birds);
-			*transform = *selected_bird;
-			nk->pie->apply_position(view, &transform->x, &transform->y);
-		}
-		if (nk->pie->happened(&duplicate_pie_item_offset_left) && selected_bird)
-		{
-			app_sprite_transform *transform = app_sprite_stable_batch_add(&birds);
-			*transform = *selected_bird;
-			transform->x = transform->x - transform->width;
-		}
-		if (nk->pie->happened(&duplicate_pie_item_offset_right) && selected_bird)
-		{
-			app_sprite_transform *transform = app_sprite_stable_batch_add(&birds);
-			*transform = *selected_bird;
-			transform->x = transform->x + transform->width;
-		}
-		if (nk->pie->happened(&duplicate_pie_item_offset_up) && selected_bird)
-		{
-			app_sprite_transform *transform = app_sprite_stable_batch_add(&birds);
-			*transform = *selected_bird;
-			transform->y = transform->y - transform->height;
-		}
-		if (nk->pie->happened(&duplicate_pie_item_offset_down) && selected_bird)
-		{
-			app_sprite_transform *transform = app_sprite_stable_batch_add(&birds);
-			*transform = *selected_bird;
-			transform->y = transform->y + transform->height;
+			if (nk->pie->happened(&sprite_pie.duplicate) && selected_batch)
+			{
+				const app_sprite_transform copy = *app_sprite_stable_batch_find(selected_batch, selected_transform_index);
+				app_sprite_transform *transform = app_sprite_stable_batch_add(selected_batch);
+				*transform = copy;
+				selected_transform_index = app_sprite_stable_batch_index_of(selected_batch, transform);
+
+				nk->pie->apply_position(view, &transform->x, &transform->y);
+				nk->set_selection(view, transform);
+			}
+			if (nk->pie->happened(&sprite_pie.duplicate_left) && selected_batch)
+			{
+				const app_sprite_transform copy = *app_sprite_stable_batch_find(selected_batch, selected_transform_index);
+				app_sprite_transform *transform = app_sprite_stable_batch_add(selected_batch);
+				*transform = copy;
+				selected_transform_index = app_sprite_stable_batch_index_of(selected_batch, transform);
+
+				transform->x = transform->x - transform->width;
+				nk->set_selection(view, transform);
+			}
+			if (nk->pie->happened(&sprite_pie.duplicate_right) && selected_batch)
+			{
+				const app_sprite_transform copy = *app_sprite_stable_batch_find(selected_batch, selected_transform_index);
+				app_sprite_transform *transform = app_sprite_stable_batch_add(selected_batch);
+				*transform = copy;
+				selected_transform_index = app_sprite_stable_batch_index_of(selected_batch, transform);
+
+				transform->x = transform->x + transform->width;
+				nk->set_selection(view, transform);
+			}
+			if (nk->pie->happened(&sprite_pie.duplicate_up) && selected_batch)
+			{
+				const app_sprite_transform copy = *app_sprite_stable_batch_find(selected_batch, selected_transform_index);
+				app_sprite_transform *transform = app_sprite_stable_batch_add(selected_batch);
+				*transform = copy;
+				selected_transform_index = app_sprite_stable_batch_index_of(selected_batch, transform);
+
+				transform->y = transform->y - transform->height;
+				nk->set_selection(view, transform);
+			}
+			if (nk->pie->happened(&sprite_pie.duplicate_down) && selected_batch)
+			{
+				const app_sprite_transform copy = *app_sprite_stable_batch_find(selected_batch, selected_transform_index);
+				app_sprite_transform *transform = app_sprite_stable_batch_add(selected_batch);
+				*transform = copy;
+				selected_transform_index = app_sprite_stable_batch_index_of(selected_batch, transform);
+
+				transform->y = transform->y + transform->height;
+				nk->set_selection(view, transform);
+			}
 		}
 
 		memory->reset(memory->temp);
@@ -822,12 +1061,15 @@ int main(int argc, char **argv)
 					command->viewport(command_buffer, &viewport);
 					command->scissor(command_buffer, &scissor);
 
-					for (fckc_size_t batch_index = 0; batch_index < fck_arraysize(batches); batch_index++)
+					app_sprite_stable_batch *batches;
+					const fckc_size_t batch_count = app_sprites_batches(&sprites, &batches);
+
+					for (fckc_size_t batch_index = 0; batch_index < batch_count; batch_index++)
 					{
-						app_sprite_stable_batch *batch = batches[batch_index];
+						app_sprite_stable_batch *batch = batches + batch_index;
 
 						app_sprite_transform *transforms = NULL;
-						const fckc_u32 count = app_sprite_stable_batch_data(batch, &transforms);
+						const fckc_u32 count = app_sprites_transforms(&sprites, batch_index, &transforms);
 
 						if (count > 0)
 						{
@@ -837,7 +1079,7 @@ int main(int argc, char **argv)
 							command->index_buffer(command_buffer, &indices.buffer, 0);
 
 							sht_bss *bss = gfx->bss(sprite_gfx);
-							sht_graphics_pipeline *pipeline = gfx->pipeline(sprite_gfx);//
+							sht_graphics_pipeline *pipeline = gfx->pipeline(sprite_gfx); //
 
 							const app_screen screen = {
 								.width = (float)extent.width,

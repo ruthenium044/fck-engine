@@ -23,8 +23,8 @@ static fck_api_registry *apis;
 
 typedef struct fck_gfx_internal
 {
-	sht_graphics_pipeline pipeline;
 	sht_bss bss;
+	sht_graphics_pipeline pipeline;
 } fck_gfx_internal;
 
 static fckc_size_t fck_gfx_bindings_add(sht_stage_flags stage, const fck_glsl_reflection_variable *var, sht_binding *bindings,
@@ -76,21 +76,22 @@ static struct fck_gfx fck_gfx_api_create(kll_allocator *allocator, sht_driver *d
 	fck_shader_api *shader = (fck_shader_api *)apis->find(fck_shader_api_name);
 
 	fck_shader_compiler compiler = shader->create();
+	fck_assert(shader->is_ok(compiler));
 
-	const char *vertex = info->vertex->path;
+	const char *vertex_path = info->vertex->path;
 	const char *vertex_name = info->vertex->name;
 
-	const char *fragment = info->fragment->path;
+	const char *fragment_path = info->fragment->path;
 	const char *fragment_name = info->fragment->name;
 
-	fck_file vert_file = os->fs->open(vertex, "r");
+	fck_file vert_file = os->fs->open(vertex_path, "r");
 	fck_shader_desc vert_desc = (fck_shader_desc){fck_shader_vertex, vertex_name, "main"};
-
-	fck_file frag_file = os->fs->open(fragment, "r");
-	fck_shader_desc frag_desc = (fck_shader_desc){fck_shader_fragment, fragment_name, "main"};
 	fck_glsl_object vert = {0};
-	fck_glsl_object frag = {0};
 	vert = compiler.create_glsl_from_file(&compiler, &vert_desc, &vert_file);
+
+	fck_file frag_file = os->fs->open(fragment_path, "r");
+	fck_shader_desc frag_desc = (fck_shader_desc){fck_shader_fragment, fragment_name, "main"};
+	fck_glsl_object frag = {0};
 	frag = compiler.create_glsl_from_file(&compiler, &frag_desc, &frag_file);
 
 	// Setup Reflection
@@ -138,13 +139,15 @@ static struct fck_gfx fck_gfx_api_create(kll_allocator *allocator, sht_driver *d
 		.bindings = NULL,
 		.count = 0,
 	};
+
 	const sht_raster_desc raster_desc = {
 		.cull_mode = sht_cull_mode_none,
 		.topology = sht_triangle_list,
 		.color = sht_format_b8g8r8a8_unorm,
 		.depth = sht_format_undefined, // sht_format_d16_unorm,
 	};
-	sht_graphic_desc graphic_desc = {
+
+	const sht_graphic_desc graphic_desc = {
 		.fragment = &frag.generic,
 		.vertex = &vert.generic,
 		.vertex_desc = &vertex_desc,
@@ -182,6 +185,7 @@ static fck_gfx_api gfx_api = {
 
 FCK_EXPORT_API fck_gfx_api *fck_gfx_load(fck_api_registry *registry, void *old)
 {
+	(void)old;
 	apis = registry;
 	registry->add(fck_gfx_api_name, &gfx_api);
 	return &gfx_api;

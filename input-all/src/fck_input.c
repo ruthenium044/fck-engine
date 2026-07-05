@@ -74,8 +74,9 @@ static fck_input input_api = {
 	.is = fck_input_is,
 };
 
-FCK_EXPORT_API fck_input *fck_input_all_load(fck_api_registry *registry, void *params)
-{
+FCK_EXPORT_API fck_input *fck_input_all_load(fck_api_registry *registry, void *old)
+{	
+	(void)old;
 	apis = registry;
 	registry->add(fck_input_api_name, &input_api);
 	return &input_api;

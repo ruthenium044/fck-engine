@@ -144,7 +144,7 @@ static fckc_size_t fck_plugin_cache_newest_shared_library(fck_plugins_hashmap *m
 
 		fck_plugins_hashmap_entry *entry = map->entries + result - 1;
 		const fckc_i64 modified = os->fs->modified(target);
-		if (modified > entry->modified || !os->so->is_valid(entry->shared_object))
+		if (modified > entry->modified || !os->so->is_ok(entry->shared_object))
 		{
 			entry->modified = modified;
 			return result;
@@ -179,7 +179,7 @@ static void *fck_plugin_load_shared_library(fck_plugins_hashmap *map, fck_api_re
 	const char *so_load_path = fck_plugin_create_temp_dll(entry->path, entry->modified, path_buffer, sizeof(path_buffer));
 	const fck_shared_object so = os->so->load(so_load_path);
 
-	if (os->so->is_valid(so))
+	if (os->so->is_ok(so))
 	{
 		char *extension = os->glob->find(path, ".dll");
 		const fckc_size_t length = (fckc_size_t)extension - (fckc_size_t)path;
@@ -204,7 +204,7 @@ static void *fck_plugin_load_shared_library(fck_plugins_hashmap *map, fck_api_re
 		void *api = load(registry, entry->implementation);
 		if (api != entry->implementation)
 		{
-			if (os->so->is_valid(entry->shared_object))
+			if (os->so->is_ok(entry->shared_object))
 			{
 				// If we had an SO lying around, it is now invalid, so we increment the
 				// generation counter - Maybe never unloading is way better...
@@ -246,7 +246,7 @@ static void fck_plugins_api_unload(const char *path)
 
 	const fckc_size_t index = result - 1;
 	fck_plugins_hashmap_entry *entry = plugin_map.entries + index;
-	if (!os->so->is_valid(entry->shared_object))
+	if (!os->so->is_ok(entry->shared_object))
 	{
 		return;
 	}
@@ -303,7 +303,7 @@ static fckc_u32 fck_plugins_api_hotreload(void)
 						os->io->log("Created: %s", change->path);
 						fck_plugins_hashmap_entry *entry = plugin_map.entries + result - 1;
 						entry->modified = entry->modified - 1; // Little hack ;)
-						if (os->so->is_valid(entry->shared_object))
+						if (os->so->is_ok(entry->shared_object))
 						{
 							fck_plugins_api_load(change->path);
 						}
@@ -355,7 +355,7 @@ static const char *fck_plugins_loaded(const char *prev)
 	for (; index < fck_arraysize(plugin_map.entries); index++)
 	{
 		fck_plugins_hashmap_entry *entry = plugin_map.entries + index;
-		if (os->so->is_valid(entry->shared_object))
+		if (os->so->is_ok(entry->shared_object))
 		{
 			return entry->path;
 		}
@@ -378,7 +378,7 @@ static const char *fck_plugins_unloaded(const char *prev)
 	for (; index < fck_arraysize(plugin_map.entries); index++)
 	{
 		fck_plugins_hashmap_entry *entry = plugin_map.entries + index;
-		if (entry->path[0] != '\0' && !os->so->is_valid(entry->shared_object))
+		if (entry->path[0] != '\0' && !os->so->is_ok(entry->shared_object))
 		{
 			return entry->path;
 		}
@@ -404,7 +404,7 @@ void fck_plugins_api_shutdown(void)
 	for (fckc_size_t index = 0; index < fck_arraysize(plugin_map.entries); index++)
 	{
 		fck_plugins_hashmap_entry *entry = plugin_map.entries + index;
-		if (os->so->is_valid(entry->shared_object))
+		if (os->so->is_ok(entry->shared_object))
 		{
 			os->io->log("Unloaded Plugin: %.*s", strlen(entry->path), entry->path);
 			os->so->unload(entry->shared_object);

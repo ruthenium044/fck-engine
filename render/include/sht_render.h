@@ -526,7 +526,7 @@ typedef struct sht_command_buffer_vt
 
 typedef struct sht_graphics_pipeline_vt
 {
-	sht_graphics_pipeline (*create)(sht_driver driver, sht_bss bss, sht_graphic_desc *desc);
+	sht_graphics_pipeline (*create)(sht_driver driver, sht_bss bss, const sht_graphic_desc *desc);
 	sht_bool32 (*is_ok)(sht_graphics_pipeline pipeline);
 	void (*destroy)(sht_graphics_pipeline pipeline);
 	// void (*end)(sht_command_buffer command_buffer);

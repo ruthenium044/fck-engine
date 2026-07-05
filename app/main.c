@@ -68,7 +68,8 @@ typedef struct app_screen
 {
 	float width;
 	float height;
-	float texture_chunk_size;
+	float sprite_width;
+	float sprite_height;
 } app_screen;
 
 static sht_image app_load_image(sht_driver driver, const void *pixels, sht_format format, int width, int height)
@@ -92,6 +93,20 @@ static sht_image app_load_image(sht_driver driver, const void *pixels, sht_forma
 	return image;
 }
 
+typedef struct fck_gameloop
+{
+	void *handle;
+} fck_gameloop;
+
+typedef struct fck_gameloop_interface
+{
+	fck_gameloop (*create)(void);
+	void (*destroy)(fck_gameloop loop);
+
+	int (*edit)(fck_gameloop);
+	int (*tick)(fck_gameloop);
+} fck_gameloop_interface;
+
 // From GLSL
 typedef struct app_sprite_transform
 {
@@ -109,8 +124,11 @@ typedef struct app_sprite_transform
 typedef struct app_sprite_batch
 {
 	kll_allocator *allocator;
+
 	sht_image_view image_view;
+
 	app_sprite_transform *transforms;
+
 	fckc_u32 count;
 	fckc_u32 capacity;
 } app_sprite_batch;
@@ -124,44 +142,230 @@ static app_sprite_batch app_sprite_batch_create(kll_allocator *allocator, sht_im
 	return batch;
 }
 
-static app_sprite_transform *app_sprite_batch_add(app_sprite_batch *batch)
+static fckc_u32 app_sprite_batch_add(app_sprite_batch *batch)
 {
-	if (batch->transforms == NULL)
-	{
-		const fckc_u32 initial = 8;
-		batch->transforms = (app_sprite_transform *)kll_malloc(batch->allocator, initial * sizeof(*batch->transforms));
-		batch->count = 0;
-		batch->capacity = initial;
-	}
-
 	if (batch->count == batch->capacity)
 	{
-		const fckc_u32 next_capacity = batch->capacity * 2;
+		const fckc_u32 initial = 8;
+		const fckc_u32 next_capacity = batch->capacity ? batch->capacity * 2 : 8;
 		app_sprite_transform *next = (app_sprite_transform *)kll_malloc(batch->allocator, next_capacity * sizeof(*batch->transforms));
-		memcpy(next, batch->transforms, next_capacity * sizeof(*batch->transforms));
-		kll_free(batch->allocator, batch->transforms);
+		if (batch->transforms)
+		{
+			memcpy(next, batch->transforms, batch->capacity * sizeof(*batch->transforms));
+			kll_free(batch->allocator, batch->transforms);
+		}
 		batch->capacity = next_capacity;
 		batch->transforms = next;
 	}
 
-	app_sprite_transform *target = batch->transforms + batch->count;
+	const fckc_u32 at = batch->count;
+	app_sprite_transform *target = batch->transforms + at;
 	memset(target, 0, sizeof(*target));
 	batch->count = batch->count + 1;
-	return target;
+	return at;
 }
 
-static void app_sprite_batch_remove(app_sprite_batch *batch, const app_sprite_transform *transform)
+static fckc_u32 app_sprite_batch_index_of(app_sprite_batch *batch, const app_sprite_transform *transform)
 {
 	const fckc_size_t root = to_size_t(batch->transforms);
 	const fckc_size_t target = to_size_t(transform);
 	const fckc_size_t offset = (target - root) / sizeof(*transform);
 	if (offset < batch->count)
 	{
+		return offset + 1;
+	}
+	return 0;
+}
+
+static int app_sprite_batch_remove(app_sprite_batch *batch, fckc_u32 index)
+{
+	if (index < batch->count)
+	{
 		const app_sprite_transform *last = batch->transforms + batch->count - 1;
-		app_sprite_transform *current = batch->transforms + offset;
+		app_sprite_transform *current = batch->transforms + index;
 		*current = *last;
 		batch->count = batch->count - 1;
+		return 1;
 	}
+	return 0;
+}
+
+typedef struct app_sprite_batch_index
+{
+	fckc_u32 value : 31;
+	fckc_u32 is_ok : 1;
+} app_sprite_batch_index;
+
+typedef struct app_sprite_batch_dense_index
+{
+	fckc_u32 value;
+} app_sprite_batch_dense_index;
+
+typedef struct app_sprite_stable_batch
+{
+	app_sprite_batch base;
+
+	const char *name;
+
+	app_sprite_batch_index *sparse;
+	app_sprite_batch_dense_index *dense;
+
+	fckc_u32 capacity;
+
+	float sprite_width;
+	float sprite_height;
+} app_sprite_stable_batch;
+
+static app_sprite_stable_batch app_sprite_stable_batch_create(kll_allocator *allocator, const char *name, sht_image_view view, float sw,
+                                                              float sh)
+{
+	app_sprite_stable_batch batch = {0};
+	batch.name = name;
+	batch.sprite_width = sw;
+	batch.sprite_height = sh;
+	batch.base = app_sprite_batch_create(allocator, view);
+	return batch;
+}
+
+static app_sprite_transform *app_sprite_stable_batch_resolve(app_sprite_stable_batch *batch, fckc_u32 at)
+{
+	if (at < batch->capacity)
+	{
+		app_sprite_batch_index *sparse = batch->sparse + at;
+		if (sparse->is_ok)
+		{
+			// It exists!
+			return batch->base.transforms + sparse->value;
+		}
+	}
+
+	const fckc_u32 previous_base_capacity = batch->base.capacity;
+	const fckc_u32 result = app_sprite_batch_add(&batch->base);
+	if (previous_base_capacity != batch->base.capacity)
+	{
+		const fckc_size_t total = batch->base.capacity * sizeof(*batch->dense);
+		app_sprite_batch_dense_index *next = (app_sprite_batch_dense_index *)kll_malloc(batch->base.allocator, total);
+		if (batch->dense)
+		{
+			memcpy(next, batch->dense, previous_base_capacity * sizeof(*batch->dense));
+			kll_free(batch->base.allocator, batch->dense);
+		}
+		batch->dense = next;
+	}
+
+	if (batch->capacity <= at)
+	{
+		fckc_u32 next_capacity = at + 1;
+		next_capacity--;
+		next_capacity |= next_capacity >> 1;
+		next_capacity |= next_capacity >> 2;
+		next_capacity |= next_capacity >> 4;
+		next_capacity |= next_capacity >> 8;
+		next_capacity |= next_capacity >> 16;
+		next_capacity++;
+
+		const fckc_size_t total = next_capacity * sizeof(*batch->sparse);
+		app_sprite_batch_index *next = (app_sprite_batch_index *)kll_malloc(batch->base.allocator, total);
+		memset(next, 0, total);
+		if (batch->sparse)
+		{
+			memcpy(next, batch->sparse, batch->capacity * sizeof(*batch->sparse));
+			kll_free(batch->base.allocator, batch->sparse);
+		}
+
+		const fckc_u32 offset = batch->capacity * sizeof(*batch->dense);
+		const fckc_u32 invalid_total = (next_capacity - batch->capacity) * sizeof(*batch->dense);
+
+		batch->sparse = next;
+		batch->capacity = next_capacity;
+	}
+
+	app_sprite_batch_index *sparse = batch->sparse + at;
+	sparse->value = result;
+	sparse->is_ok = 1;
+
+	app_sprite_batch_dense_index *dense = batch->dense + result;
+	dense->value = at;
+
+	return batch->base.transforms + result;
+}
+
+static fckc_u32 app_sprite_stable_batch_data(app_sprite_stable_batch *batch, app_sprite_transform **transforms)
+{
+	*transforms = batch->base.transforms;
+	return batch->base.count;
+}
+
+static void app_sprite_stable_batch_dimensions(app_sprite_stable_batch *batch, float *width, float *height)
+{
+	*width = batch->sprite_width;
+	*height = batch->sprite_height;
+}
+
+static fckc_u32 app_sprite_stable_batch_index_of(app_sprite_stable_batch *batch, const app_sprite_transform *transform)
+{
+	const fckc_u32 result = app_sprite_batch_index_of(&batch->base, transform);
+	if (!result)
+	{
+		return 0;
+	}
+
+	const app_sprite_batch_dense_index *dense = batch->dense + result - 1;
+	const app_sprite_batch_index *sparse = batch->sparse + dense->value;
+	if (!sparse->is_ok)
+	{
+		return 0;
+	}
+
+	return sparse->value + 1;
+}
+
+static app_sprite_transform *app_sprite_stable_batch_add(app_sprite_stable_batch *batch)
+{
+	// This could become slow at some point! :-)
+	for (fckc_u32 index = 0; index < batch->capacity; index++)
+	{
+		app_sprite_batch_index *sparse = batch->sparse + index;
+		if (!sparse->is_ok)
+		{
+			return app_sprite_stable_batch_resolve(batch, index);
+		}
+	}
+
+	return app_sprite_stable_batch_resolve(batch, batch->capacity);
+}
+
+static int app_sprite_stable_batch_remove(app_sprite_stable_batch *batch, fckc_u32 index)
+{
+	if (index >= batch->capacity)
+	{
+		return 0;
+	}
+
+	app_sprite_batch_index *sparse = batch->sparse + index;
+	if (!sparse->is_ok)
+	{
+		return 0;
+	}
+
+	app_sprite_batch_dense_index *dense = batch->dense + sparse->value;
+
+	// Pop last!
+	const fckc_u32 last = batch->base.count - 1;
+
+	// Since base is the pivot for dense, it cuts off the range of batch->dense too!
+	batch->base.transforms[sparse->value] = batch->base.transforms[last];
+
+	app_sprite_batch_dense_index *last_dense = batch->dense + last;
+	*dense = *last_dense;
+
+	app_sprite_batch_index *last_sparse = batch->sparse + last_dense->value;
+	*last_sparse = *sparse;
+
+	fck_assert(app_sprite_batch_remove(&batch->base, last));
+
+	sparse->is_ok = 0;
+	return 1;
 }
 
 int main(int argc, char **argv)
@@ -273,9 +477,11 @@ int main(int argc, char **argv)
 	fck_nk_pie_item add_pie_item_bird = {
 		.name = "Bird",
 	};
+	fck_nk_pie_item add_pie_item_item = {
+		.name = "Item",
+	};
 
-
-	fck_nk_pie_item* root = nk->pie->root(view);
+	fck_nk_pie_item *root = nk->pie->root(view);
 	nk->hamburger->push(view, &help_menu_item);
 	nk->hamburger->push(view, &about_menu_item);
 	nk->hamburger->push(view, &setting_menu_item);
@@ -290,6 +496,7 @@ int main(int argc, char **argv)
 	nk->pie->push(&duplicate_pie_item, &duplicate_pie_item_offset_down);
 
 	nk->pie->push(&add_pie_item, &add_pie_item_bird);
+	nk->pie->push(&add_pie_item, &add_pie_item_item);
 
 	sht_elements indices = {0};
 
@@ -313,15 +520,19 @@ int main(int argc, char **argv)
 		driver.vt->upload_image(driver, &texture_image, pixels, sizeof(pixels));
 	}
 
-	fck_png bird_png = png->load(fck_resource_path "bird-sheet.png");
-	fck_png items_png = png->load(fck_resource_path "items-sheet.png");
+	const fck_png bird_png = png->load(fck_resource_path "bird-sheet.png");
+	const fck_png items_png = png->load(fck_resource_path "items-sheet.png");
+
 	const sht_image bird_image = app_load_image(driver, bird_png.data, sht_format_r8g8b8a8_unorm, bird_png.width, bird_png.height);
 	const sht_image_view bird_image_view = memory->image->view(memory->bump, bird_image, sht_format_r8g8b8a8_unorm);
+
+	const sht_image items_image = app_load_image(driver, items_png.data, sht_format_r8g8b8a8_unorm, items_png.width, items_png.height);
+	const sht_image_view items_image_view = memory->image->view(memory->bump, items_image, sht_format_r8g8b8a8_unorm);
 
 	const fck_gfx_shader vertex_shader = {.name = "vertex", .path = fck_resource_path "sprite.vert"};
 	const fck_gfx_shader fragment_shader = {.name = "textured", .path = fck_resource_path "textured.frag"};
 	const fck_gfx_create_info create_info = {.vertex = &vertex_shader, .fragment = &fragment_shader};
-	const fck_gfx bird_gfx = gfx->create(kll->system, &driver, &create_info);
+	const fck_gfx sprite_gfx = gfx->create(kll->system, &driver, &create_info);
 
 	sht_image depth_image = {0};
 	sht_image_view depth_view = {0};
@@ -346,7 +557,12 @@ int main(int argc, char **argv)
 		driver.vt->upload_buffer(driver, &indices.buffer, index_data, sizeof(index_data));
 	}
 
-	app_sprite_batch batch = app_sprite_batch_create(kll->system, bird_image_view);
+	// app_sprite_batch batch = app_sprite_batch_create(kll->system, bird_image_view);
+
+	app_sprite_stable_batch birds = app_sprite_stable_batch_create(kll->system, "Birds", bird_image_view, 32.0f, 32.0f);
+	app_sprite_stable_batch items = app_sprite_stable_batch_create(kll->system, "Items", items_image_view, 16.0f, 16.0f);
+
+	app_sprite_stable_batch *batches[] = {&items, &birds};
 
 	fckc_u64 time_point = os->chrono->ms();
 
@@ -403,26 +619,32 @@ int main(int argc, char **argv)
 			{
 				nk->panel->begin(view, "Inspector", 300.0f);
 				{
-					if (nk->panel->push(view, "Birds %d", batch.count))
+					for (fckc_size_t batch_index = 0; batch_index < fck_arraysize(batches); batch_index++)
 					{
-						for (fckc_size_t index = 0; index < batch.count; index++)
+						app_sprite_stable_batch *batch = batches[batch_index];
+						app_sprite_transform *transforms = NULL;
+						fckc_u32 count = app_sprite_stable_batch_data(batch, &transforms);
+						if (nk->panel->push(view, batch->name, count))
 						{
-							if (nk->panel->push(view, "Bird %d", index))
+							for (fckc_size_t index = 0; index < count; index++)
 							{
-								app_sprite_transform *bird = batch.transforms + index;
-								bird->x = nk->elements->f32(view, "x", -1280.0f, bird->x, 1280.0f, 1.0f);
-								bird->y = nk->elements->f32(view, "y", -720.0f, bird->y, 720.0f, 1.0f);
-								bird->z = nk->elements->f32(view, "z", 0.0f, bird->z, 1.0f, 0.1f);
-								bird->width = nk->elements->f32(view, "width", 0.0f, bird->width, 256.0f, 4.0f);
-								bird->height = nk->elements->f32(view, "height", 0.0f, bird->height, 256.0f, 4.0f);
-								bird->rotation = nk->elements->f32(view, "rotation", 0.0f, bird->rotation, 360.0f, 1.0f);
-								bird->scale = nk->elements->f32(view, "scale", 1.0f, bird->scale, 100.0f, 1.0f);
-								bird->horizontal_index = nk->elements->i32(view, "horizontal index", 0, bird->horizontal_index, 10, 1);
-								bird->vertical_index = nk->elements->i32(view, "vertical index", 0, bird->vertical_index, 10, 1);
-								nk->panel->pop(view);
+								if (nk->panel->push(view, "%s[%d]", batch->name, index))
+								{
+									app_sprite_transform *bird = transforms + index;
+									bird->x = nk->elements->f32(view, "x", -1280.0f, bird->x, 1280.0f, 1.0f);
+									bird->y = nk->elements->f32(view, "y", -720.0f, bird->y, 720.0f, 1.0f);
+									bird->z = nk->elements->f32(view, "z", 0.0f, bird->z, 1.0f, 0.1f);
+									bird->width = nk->elements->f32(view, "width", 0.0f, bird->width, 256.0f, 4.0f);
+									bird->height = nk->elements->f32(view, "height", 0.0f, bird->height, 256.0f, 4.0f);
+									bird->rotation = nk->elements->f32(view, "rotation", 0.0f, bird->rotation, 360.0f, 1.0f);
+									bird->scale = nk->elements->f32(view, "scale", 1.0f, bird->scale, 100.0f, 1.0f);
+									bird->horizontal_index = nk->elements->i32(view, "horizontal index", 0, bird->horizontal_index, 10, 1);
+									bird->vertical_index = nk->elements->i32(view, "vertical index", 0, bird->vertical_index, 10, 1);
+									nk->panel->pop(view);
+								}
 							}
+							nk->panel->pop(view);
 						}
-						nk->panel->pop(view);
 					}
 
 					if (selected_bird)
@@ -449,17 +671,22 @@ int main(int argc, char **argv)
 					selected_bird = NULL;
 					const fck_nk_colour on = {0, 255, 0, 255};
 					const fck_nk_colour off = {255, 0, 0, 255};
-					fckc_size_t index;
-					for (index = 0; index < batch.count; index++)
+					for (fckc_size_t batch_index = 0; batch_index < fck_arraysize(batches); batch_index++)
 					{
-						app_sprite_transform *bird = batch.transforms + index;
-						if (nk->select(view, bird, bird->x, bird->y, bird->width, bird->height, on))
+						app_sprite_stable_batch *batch = batches[batch_index];
+						app_sprite_transform *transforms = NULL;
+						fckc_u32 count = app_sprite_stable_batch_data(batch, &transforms);
+						for (fckc_size_t index = 0; index < count; index++)
 						{
-							selected_bird = bird;
-						}
-						if (nk->control_point(view, bird, &bird->x, &bird->y, 16.0f, on, off))
-						{
-							// break;
+							app_sprite_transform *bird = transforms + index;
+							if (nk->select(view, bird, bird->x, bird->y, bird->width, bird->height, on))
+							{
+								selected_bird = bird;
+							}
+							if (nk->control_point(view, bird, &bird->x, &bird->y, 16.0f, on, off))
+							{
+								// break;
+							}
 						}
 					}
 				}
@@ -482,8 +709,7 @@ int main(int argc, char **argv)
 
 		if (nk->pie->happened(&add_pie_item_bird))
 		{
-			os->io->log("Create Bird");
-			app_sprite_transform *transform = app_sprite_batch_add(&batch);
+			app_sprite_transform *transform = app_sprite_stable_batch_add(&birds);
 			// Pie api is a bit clunky
 			const app_sprite_transform baseline = {
 				.scale = 1.0f,
@@ -494,39 +720,54 @@ int main(int argc, char **argv)
 			nk->pie->apply_position(view, &transform->x, &transform->y);
 		}
 
+		if (nk->pie->happened(&add_pie_item_item))
+		{
+			app_sprite_transform *transform = app_sprite_stable_batch_add(&items);
+			// Pie api is a bit clunky
+			const app_sprite_transform baseline = {
+				.scale = 1.0f,
+				.width = 64.0f,
+				.height = 64.0f,
+			};
+			*transform = baseline;
+			nk->pie->apply_position(view, &transform->x, &transform->y);
+		}
+
 		if (nk->pie->happened(&delete_pie_item) && selected_bird)
 		{
-			app_sprite_batch_remove(&batch, selected_bird);
+			fckc_u32 result = app_sprite_stable_batch_index_of(&birds, selected_bird);
+			fck_assert(result);
+			app_sprite_stable_batch_remove(&birds, result - 1);
 			nk->set_selection(view, NULL);
 		}
 
 		if (nk->pie->happened(&duplicate_pie_item) && selected_bird)
 		{
-			app_sprite_transform *transform = app_sprite_batch_add(&batch);
+			app_sprite_transform *transform = app_sprite_stable_batch_add(&birds);
 			*transform = *selected_bird;
 			nk->pie->apply_position(view, &transform->x, &transform->y);
 		}
 		if (nk->pie->happened(&duplicate_pie_item_offset_left) && selected_bird)
 		{
-			app_sprite_transform *transform = app_sprite_batch_add(&batch);
+			app_sprite_transform *transform = app_sprite_stable_batch_add(&birds);
 			*transform = *selected_bird;
 			transform->x = transform->x - transform->width;
 		}
 		if (nk->pie->happened(&duplicate_pie_item_offset_right) && selected_bird)
 		{
-			app_sprite_transform *transform = app_sprite_batch_add(&batch);
+			app_sprite_transform *transform = app_sprite_stable_batch_add(&birds);
 			*transform = *selected_bird;
 			transform->x = transform->x + transform->width;
 		}
 		if (nk->pie->happened(&duplicate_pie_item_offset_up) && selected_bird)
 		{
-			app_sprite_transform *transform = app_sprite_batch_add(&batch);
+			app_sprite_transform *transform = app_sprite_stable_batch_add(&birds);
 			*transform = *selected_bird;
 			transform->y = transform->y - transform->height;
 		}
 		if (nk->pie->happened(&duplicate_pie_item_offset_down) && selected_bird)
 		{
-			app_sprite_transform *transform = app_sprite_batch_add(&batch);
+			app_sprite_transform *transform = app_sprite_stable_batch_add(&birds);
 			*transform = *selected_bird;
 			transform->y = transform->y + transform->height;
 		}
@@ -541,12 +782,6 @@ int main(int argc, char **argv)
 			const sht_command_buffer command_buffer = command->acquire(driver, frame_index);
 			if (command->is_ok(command_buffer))
 			{
-				const app_screen screen = {
-					.width = (float)extent.width,
-					.height = (float)extent.height,
-					.texture_chunk_size = 32.0f,
-				};
-
 				sht_viewport viewport;
 				viewport.offset.x = 0.0f;
 				viewport.offset.y = 0.0f;
@@ -569,37 +804,56 @@ int main(int argc, char **argv)
 					command->viewport(command_buffer, &viewport);
 					command->scissor(command_buffer, &scissor);
 
-					if (batch.count > 0)
+					for (fckc_size_t batch_index = 0; batch_index < fck_arraysize(batches); batch_index++)
 					{
-						command->index_buffer(command_buffer, &indices.buffer, 0);
+						app_sprite_stable_batch *batch = batches[batch_index];
 
-						sht_bss *bss = gfx->bss(bird_gfx);
-						sht_graphics_pipeline *pipeline = gfx->pipeline(bird_gfx);
+						app_sprite_transform *transforms = NULL;
+						const fckc_u32 count = app_sprite_stable_batch_data(batch, &transforms);
 
-						const sht_buffer_upload_desc screen_upload = {.data = &screen, .size = sizeof(screen), .count = 1};
-						const sht_buffer_upload_desc transform_upload = {
-							.data = batch.transforms,
-							.size = sizeof(*batch.transforms),
-							.count = batch.count,
-						};
-						const sht_image_upload_desc image_upload = {.samplers = sampler, .views = bird_image_view};
+						if (count > 0)
+						{
+							float sprite_width = 0;
+							float sprite_height = 0;
+							app_sprite_stable_batch_dimensions(batch, &sprite_width, &sprite_height);
+							command->index_buffer(command_buffer, &indices.buffer, 0);
 
-						driver.vt->bss->upload_buffer(*bss, 0, &screen_upload);
-						driver.vt->bss->upload_buffer(*bss, 1, &transform_upload);
-						driver.vt->bss->upload_image(*bss, 3, &image_upload);
-						command->bss(command_buffer, *bss);
+							sht_bss *bss = gfx->bss(sprite_gfx);
+							sht_graphics_pipeline *pipeline = gfx->pipeline(sprite_gfx);
 
-						command->graphics_pipeline(command_buffer, *pipeline);
+							const app_screen screen = {
+								.width = (float)extent.width,
+								.height = (float)extent.height,
+								.sprite_width = sprite_width,
+								.sprite_height = sprite_height,
+							};
 
-						const sht_draw_indexed_desc desc = {
-							.first_index = 0,
-							.index_count = to_u32(indices.count),
-							.instance_count = batch.count,
-							.first_instance = 0,
-							.vertex_offset = 0,
-						};
+							const sht_buffer_upload_desc screen_upload = {.data = &screen, .size = sizeof(screen), .count = 1};
 
-						command->draw_indexed(command_buffer, &desc);
+							const sht_buffer_upload_desc transform_upload = {
+								.data = transforms,
+								.size = sizeof(*transforms),
+								.count = count,
+							};
+							const sht_image_upload_desc image_upload = {.samplers = sampler, .views = batch->base.image_view};
+
+							driver.vt->bss->upload_buffer(*bss, 0, &screen_upload);
+							driver.vt->bss->upload_buffer(*bss, 1, &transform_upload);
+							driver.vt->bss->upload_image(*bss, 3, &image_upload);
+							command->bss(command_buffer, *bss);
+
+							command->graphics_pipeline(command_buffer, *pipeline);
+
+							const sht_draw_indexed_desc desc = {
+								.first_index = 0,
+								.index_count = to_u32(indices.count),
+								.instance_count = count,
+								.first_instance = 0,
+								.vertex_offset = 0,
+							};
+
+							command->draw_indexed(command_buffer, &desc);
+						}
 					}
 
 					nk->present(view, &command_buffer, frame_index);

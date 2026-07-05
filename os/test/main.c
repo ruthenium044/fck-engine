@@ -25,7 +25,7 @@ int main(int argc, char **argv)
 		if (api)
 		{
 			fck_shared_object so = os->so->load(path);
-			if (os->so->is_valid(so))
+			if (os->so->is_ok(so))
 			{
 				char *extension = os->glob->find(path, ".dll");
 				fckc_size_t length = (fckc_size_t)extension - (fckc_size_t)path;

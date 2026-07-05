@@ -73,7 +73,7 @@ typedef struct fck_shader_compiler
 	void (*destroy)(struct fck_shader_compiler *compiler, fck_shader_generic *shader);
 
 	fck_hlsl_object (*create_hlsl_from_file)(struct fck_shader_compiler *compiler, fck_shader_desc *desc, struct fck_file *file);
-	fck_glsl_object(*create_glsl_from_file)(struct fck_shader_compiler* compiler, fck_shader_desc* desc, struct fck_file* file);
+	fck_glsl_object (*create_glsl_from_file)(struct fck_shader_compiler *compiler, fck_shader_desc *desc, struct fck_file *file);
 
 	// TODO: Either we are stubborn and say "you need at least ONE compiler to understand a shader object"
 	// or we redesign this API :)

@@ -72,7 +72,7 @@ static fck_shared_object_api so_api = {
 	.load = fck_shared_object_load,
 	.symbol = fck_shared_object_symbol,
 	.unload = fck_shared_object_unload,
-	.is_valid = fck_shared_object_is_valid,
+	.is_ok = fck_shared_object_is_valid,
 };
 
 typedef struct fck_sdl_window

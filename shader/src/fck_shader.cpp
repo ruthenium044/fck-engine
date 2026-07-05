@@ -1,15 +1,17 @@
 // #include <dxc/WinAdapter.h>
 
-#include <stdio.h>
 extern "C"
 {
 #include "fck_shader.h"
+#include <fck_apis.h>
 #include <fck_os.h>
 #include <fckc_assert.h>
 #include <kll.h>
 #include <kll_malloc.h>
 }
+
 #include <shaderc/shaderc.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -202,7 +204,6 @@ static int fck_shader_api_is_ok(fck_shader_compiler compiler)
 
 extern "C"
 {
-#include <fck_apis.h>
 	static fck_shader_api shader_api = {
 		fck_shader_compiler_create,
 		fck_shader_api_is_ok,

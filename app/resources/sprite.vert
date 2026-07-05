@@ -2,13 +2,13 @@
 
 layout (location = 0) out vec3 out_colour;
 layout (location = 1) out vec2 out_uv;
-layout (location = 2) out int texture_index;
 
 layout (binding = 0) uniform app_screen 
 {
     float width;
     float height;
-    float texture_chunk_size;
+    float sprite_width;
+    float sprite_height;
 } screen;
 
 struct app_sprite_transform {
@@ -22,7 +22,6 @@ struct app_sprite_transform {
     int horizontal_index;
     int vertical_index;
 };
-
 
 layout(std430, binding = 1) readonly buffer transform_buffer {
     app_sprite_transform transforms[];
@@ -58,7 +57,7 @@ const vec2 uvs[4] = vec2[](
 
 void main() 
 {
-    vec2 spriteSize = vec2(screen.texture_chunk_size, screen.texture_chunk_size);
+    vec2 spriteSize = vec2(screen.sprite_width, screen.sprite_height);
     ivec2 texture_size = textureSize(texture_sampler, 0);
 
     app_sprite_transform transform = transforms[gl_InstanceIndex];

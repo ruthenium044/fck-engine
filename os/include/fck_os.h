@@ -29,7 +29,7 @@ typedef struct fck_shared_object_api
 {
 	fck_shared_object (*load)(const char *path);
 	void (*unload)(fck_shared_object so);
-	int (*is_valid)(fck_shared_object so);
+	int (*is_ok)(fck_shared_object so);
 	void *(*symbol)(fck_shared_object so, const char *name);
 } fck_shared_object_api;
 

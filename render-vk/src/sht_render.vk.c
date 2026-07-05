@@ -3420,7 +3420,7 @@ sht_bool32 sht_vk_graphics_pipeline_storage_remove(sht_vk_graphics_pipeline_stor
 	}
 }
 
-static sht_graphics_pipeline sht_driver_graphics_pipeline_create(sht_driver driver, sht_bss bss, sht_graphic_desc *desc)
+static sht_graphics_pipeline sht_driver_graphics_pipeline_create(sht_driver driver, sht_bss bss, const sht_graphic_desc *desc)
 {
 	sht_vk_driver *vk_driver = sht_driver_to_vk(driver);
 
@@ -3655,7 +3655,9 @@ static sht_bool32 sht_bss_upload_buffer(sht_bss bss, fckc_u32 id, const sht_buff
 	sht_buffer *buffer = buffer_backend->buffers + at;
 
 	sht_vk_assert(binding->type == sht_binding_uniform || binding->type == sht_binding_storage);
-
+	// TODO: Each of these buffers should be a bump allocator.
+	// This is because the coherent memory update and the queue execution are two separate phases
+	// So it should be that each time we bind a bss, we have to bump it up by the size written 
 	sht_buffer_usage_flags usage = sht_binding_type_to_usage_flags(binding->type);
 	sht_bss_buffer_resize(&driver->memory, usage, buffer, desc->data, desc->size * desc->count);
 	sht_vk_descriptor_set_update_buffer(driver, *set, binding, buffer);

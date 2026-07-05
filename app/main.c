@@ -794,7 +794,7 @@ int main(int argc, char **argv)
 				scissor.extent = viewport.extent = swapchain.vt->extent(swapchain);
 
 				sht_render_desc desc = {
-					.colour = {.view = color_target, .load_op = sht_clear, .store_op = sht_store, .clear_value = {0.0f, 0.0f, 0.2f, 1.0f}},
+					.colour = {.view = color_target, .load_op = sht_clear, .store_op = sht_store, .clear_value = {0.2f, 0.0f, 0.2f, 1.0f}},
 					//.depth = {.view = depth_view, .load_op = sht_clear, .store_op = sht_dont_care, .clear_value = 1.0f},
 				};
 

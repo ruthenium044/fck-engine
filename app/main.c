@@ -311,13 +311,7 @@ static fckc_u32 app_sprite_stable_batch_index_of(app_sprite_stable_batch *batch,
 	}
 
 	const app_sprite_batch_dense_index *dense = batch->dense + result - 1;
-	const app_sprite_batch_index *sparse = batch->sparse + dense->value;
-	if (!sparse->is_ok)
-	{
-		return 0;
-	}
-
-	return sparse->value + 1;
+	return dense->value + 1;
 }
 
 static app_sprite_transform *app_sprite_stable_batch_add(app_sprite_stable_batch *batch)
@@ -735,7 +729,7 @@ int main(int argc, char **argv)
 
 		if (nk->pie->happened(&delete_pie_item) && selected_bird)
 		{
-			fckc_u32 result = app_sprite_stable_batch_index_of(&birds, selected_bird);
+			const fckc_u32 result = app_sprite_stable_batch_index_of(&birds, selected_bird);
 			fck_assert(result);
 			app_sprite_stable_batch_remove(&birds, result - 1);
 			nk->set_selection(view, NULL);

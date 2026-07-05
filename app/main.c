@@ -564,6 +564,30 @@ int main(int argc, char **argv)
 
 	app_sprite_stable_batch *batches[] = {&items, &birds};
 
+	{
+		app_sprite_transform* transform = app_sprite_stable_batch_add(&birds);
+		const app_sprite_transform baseline = {
+			.scale = 1.0f,
+			.width = 256.0f,
+			.height = 256.0f,
+			.x = -200.0f,
+			.y = 0.0f,
+		};
+		*transform = baseline;
+	}
+
+	{
+		app_sprite_transform *transform = app_sprite_stable_batch_add(&items);
+		const app_sprite_transform baseline = {
+			.scale = 1.0f,
+			.width = 64.0f,
+			.height = 64.0f,
+			.x = 200.0f,
+			.y = 0.0f,
+		};
+		*transform = baseline;
+	}
+
 	fckc_u64 time_point = os->chrono->ms();
 
 	fckc_u64 accumulator = 0;
@@ -819,7 +843,7 @@ int main(int argc, char **argv)
 							command->index_buffer(command_buffer, &indices.buffer, 0);
 
 							sht_bss *bss = gfx->bss(sprite_gfx);
-							sht_graphics_pipeline *pipeline = gfx->pipeline(sprite_gfx);
+							sht_graphics_pipeline *pipeline = gfx->pipeline(sprite_gfx);//
 
 							const app_screen screen = {
 								.width = (float)extent.width,

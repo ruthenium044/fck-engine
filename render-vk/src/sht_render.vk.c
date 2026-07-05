@@ -191,13 +191,14 @@ static VkResult sht_vk_descriptor_set_layout_create(sht_vk_driver *driver, sht_b
 		driver->CreateDescriptorSetLayout(device, &descriptor_layout_create_info, default_allocation_callbacks, descriptor_set_layout));
 }
 
-static void sht_vk_descriptor_set_update_buffer(sht_vk_driver *driver, VkDescriptorSet set, sht_binding *binding, sht_buffer *buffer)
+static void sht_vk_descriptor_set_update_buffer(sht_vk_driver *driver, VkDescriptorSet set, sht_binding *binding, sht_buffer *buffer,
+                                                VkDeviceSize offset)
 {
 	// The buffer's information is passed using a descriptor info structure
 	VkDescriptorBufferInfo buffer_info = {0};
-	buffer_info.buffer = buffer->gpu;
-	buffer_info.offset = 0;
-	buffer_info.range = VK_WHOLE_SIZE; // VK_WHOLE_SIZE Maybe?
+	buffer_info.buffer = (VkBuffer)buffer->gpu;
+	buffer_info.offset = offset;
+	buffer_info.range = VK_WHOLE_SIZE;
 
 	// Update the descriptor set determining the shader binding points
 	// For every binding point used in a shader there needs to be one
@@ -1645,7 +1646,6 @@ static VkAttachmentLoadOp sht_vk_load_op_from_op(sht_memory_access_operation op)
 {
 	switch (op)
 	{
-
 	case sht_load:
 		return VK_ATTACHMENT_LOAD_OP_LOAD;
 	case sht_dont_care:
@@ -1953,8 +1953,8 @@ static sht_image_view sht_swapchain_wait_and_acquire(sht_swapchain swapchain, fc
 
 	{
 		sht_vk_bss_nodes *start = &driver->storages.bss.inflight;
-
 		sht_vk_bss_node *root = driver->storages.bss.inflight.values + sync->index;
+
 		sht_vk_bss_nodes *current = root->next;
 		while (current != start)
 		{
@@ -1972,6 +1972,9 @@ static sht_image_view sht_swapchain_wait_and_acquire(sht_swapchain swapchain, fc
 			VkDescriptorSet dst = bss->baselines[sync->index];
 			sht_vk_command_buffer_bss_copy(driver, bss, src, dst);
 			bss->latest[sync->index] = bss->baselines[sync->index];
+
+			sht_bss_buffer_backends *buffer_backend = bss->buffer_backends + sync->index;
+			memset(buffer_backend->offsets, 0, sizeof(buffer_backend->offsets));
 		}
 		root->next = &driver->storages.bss.inflight;
 		root->prev = &driver->storages.bss.inflight;
@@ -3565,23 +3568,6 @@ static void sht_command_buffer_bss(sht_command_buffer command, sht_bss bss)
 		bss_node->prev = tail_nodes;
 		inflight->prev = bss_nodes;
 	}
-
-	// sht_vk_node *inflights = api->driver->storages.bss.inflights + index;
-	// if (vk_bss->node.next == NULL)
-	//{
-	//	// Circular, so tail is starting->prev
-	//	sht_vk_node *tail = inflights->prev;
-	//	// [P N] - [P N] - [P N]
-	//	//           ^ start
-	//	tail->next = &vk_bss->node;
-	//	vk_bss->node.next = inflights;
-	//
-	//	vk_bss->node.prev = tail;
-	//	inflights->prev = &vk_bss->node;
-	//
-	//	// vk_bss->node.next = inflights;
-	//	// inflights->tail = &vk_bss->node;
-	//}
 }
 
 static fckc_size_t sht_bss_binding_find(sht_vk_bss *bss, fckc_u32 id)
@@ -3600,20 +3586,22 @@ static fckc_size_t sht_bss_binding_find(sht_vk_bss *bss, fckc_u32 id)
 	return 0;
 }
 
-static void sht_bss_buffer_resize(sht_memory *mem, sht_buffer_usage_flags usage, sht_buffer *buffer, const void *data, fckc_size_t size)
+static void sht_bss_buffer_resize(sht_memory *mem, sht_buffer_usage_flags usage, sht_buffer *buffer, const void *data, fckc_size_t size,
+                                  VkDeviceSize offset)
 {
-	if (buffer->size < size)
+	if (buffer->size < size + offset)
 	{
+		sht_buffer temp = mem->malloc(mem->bump, &sht_buffer_retained(usage, size + offset), sht_memory_cpu);
 		if (buffer->cpu != NULL)
 		{
-			mem->free(mem->bump, buffer);
+			memcpy(temp.cpu, buffer->cpu, buffer->size);
+			//mem->free(mem->bump, buffer);
 		}
-		// TODO: This only works for ONE, we need to make it suitable for multiple bindings
-		// NOTE: Great, I have no clue what I meant
-		*buffer = mem->malloc(mem->bump, &sht_buffer_retained(usage, size), sht_memory_cpu);
+		*buffer = temp;
 	}
+
 	// TODO: A transfer might make sense... but... what if we just do very smart offset coherent uploads?
-	memcpy(buffer->cpu, data, size);
+	memcpy((fckc_u8 *)buffer->cpu + offset, data, size);
 }
 
 static sht_buffer_usage_flags sht_binding_type_to_usage_flags(sht_binding_type type)
@@ -3653,14 +3641,35 @@ static sht_bool32 sht_bss_upload_buffer(sht_bss bss, fckc_u32 id, const sht_buff
 
 	sht_binding *binding = vk_bss->desc.bindings + at;
 	sht_buffer *buffer = buffer_backend->buffers + at;
+	VkDeviceSize *offset = buffer_backend->offsets + at;
 
 	sht_vk_assert(binding->type == sht_binding_uniform || binding->type == sht_binding_storage);
 	// TODO: Each of these buffers should be a bump allocator.
 	// This is because the coherent memory update and the queue execution are two separate phases
-	// So it should be that each time we bind a bss, we have to bump it up by the size written 
+	// So it should be that each time we bind a bss, we have to bump it up by the size written
 	sht_buffer_usage_flags usage = sht_binding_type_to_usage_flags(binding->type);
-	sht_bss_buffer_resize(&driver->memory, usage, buffer, desc->data, desc->size * desc->count);
-	sht_vk_descriptor_set_update_buffer(driver, *set, binding, buffer);
+
+	VkPhysicalDeviceProperties device_properties;
+	driver->gpu->GetPhysicalDeviceProperties(driver->gpu->device, &device_properties);
+
+	VkDeviceSize offset_alignment;
+	switch (binding->type)
+	{
+	case sht_binding_uniform:
+		offset_alignment = device_properties.limits.minUniformBufferOffsetAlignment;
+		break;
+	case sht_binding_storage:
+		offset_alignment = device_properties.limits.minStorageBufferOffsetAlignment;
+		break;
+	default:
+		offset_alignment = 0;
+		break;
+	}
+
+	*offset = fckc_align(*offset, offset_alignment);
+	sht_bss_buffer_resize(&driver->memory, usage, buffer, desc->data, desc->size * desc->count, *offset);
+	sht_vk_descriptor_set_update_buffer(driver, *set, binding, buffer, *offset);
+	*offset = *offset + desc->size * desc->count;
 	return sht_true;
 }
 

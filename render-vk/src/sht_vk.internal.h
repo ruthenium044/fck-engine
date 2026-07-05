@@ -282,6 +282,7 @@ typedef struct sht_vk_graphics_pipeline_storage
 typedef struct sht_bss_buffer_backends
 {
 	sht_buffer buffers[sht_vk_bss_binding_capacity];
+	VkDeviceSize offsets[sht_vk_bss_binding_capacity];
 } sht_bss_buffer_backends;
 
 typedef struct sht_vk_binding_desc

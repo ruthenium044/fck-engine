@@ -70,8 +70,6 @@ typedef uintptr_t fckc_uintptr;
 #endif
 #endif
 
-#define ALIGNOF_C99(type) offsetof(struct { char c; type t; }, t)
-
 #define fckc_align(offset, align) (((offset) + (align) - 1) & ~((align) - 1))
 
 #define fckc_concat_implementation(x, y) x##y

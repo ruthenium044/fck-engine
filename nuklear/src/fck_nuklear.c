@@ -94,6 +94,7 @@ typedef struct fck_nk_control_point
 {
 	const void *current;
 	const void *last_hovered;
+	struct nk_vec2 offset;
 } fck_nk_control_point;
 
 // TODO: Revisit this and make it better... Not now though
@@ -1045,7 +1046,7 @@ static int fck_nk_api_to_nuklear(fck_nk nk, float *x, float *y)
 	return 1;
 }
 
-static int fck_nk_api_control_point(fck_nk nk, const void *pointer, float *x, float *y, float size, fck_nk_colour on, fck_nk_colour off)
+static int fck_nk_api_legacy_control_point(fck_nk nk, const void *pointer, float *x, float *y, float size, fck_nk_colour on, fck_nk_colour off)
 {
 	// Since this nuklear implementation moves everything around, it is on said implementation to fix it
 	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
@@ -1103,6 +1104,56 @@ static int fck_nk_api_control_point(fck_nk nk, const void *pointer, float *x, fl
 	}
 	nk_fill_rect(canvas, r, 0.0f, c);
 	return select == &on;
+}
+
+static int fck_nk_api_control_point(fck_nk nk, const void *pointer, float *x, float *y, float w, float h)
+{
+	// Since this nuklear implementation moves everything around, it is on said implementation to fix it
+	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
+
+	int window_width = 0;
+	int window_height = 0;
+	os->win->size(nk_internal->os.window, &window_width, &window_height);
+
+	float px = *x;
+	float py = *y;
+	fck_nk_api_to_nuklear(nk, &px, &py);
+
+	struct nk_rect rect = nk_rect(px - (w * 0.5f), py - (h * 0.5f), w, h);
+
+	const struct nk_input *input = &nk_internal->ctx->input;
+
+	int select = 0;
+	if (nk_input_is_mouse_hovering_rect(input, rect) || NK_INBOX(input->mouse.prev.x, input->mouse.prev.y, rect.x, rect.y, rect.w, rect.h))
+	{
+		nk_internal->os.control_state.point.last_hovered = pointer;
+
+		if (nk_input_is_mouse_down(input, NK_BUTTON_LEFT))
+		{
+			if (nk_internal->os.control_state.point.current == NULL)
+			{
+				nk_internal->os.control_state.point.offset = input->mouse.pos;
+			}
+			if ((nk_internal->os.control_state.point.current == NULL || nk_internal->os.control_state.point.current == pointer))
+			{
+				nk_internal->os.control_state.point.current = pointer;
+
+				select = 1;
+				*x = input->mouse.pos.x - nk_internal->os.control_state.point.offset.x;
+				*y = input->mouse.pos.y - nk_internal->os.control_state.point.offset.y;
+				fck_nk_api_to_screen(nk, x, y);
+			}
+		}
+	}
+
+	const struct nk_color colour = nk_rgba(on.r, on.g, on.b, on.a);
+	struct nk_command_buffer *canvas = nk_window_get_canvas(nk_internal->ctx);
+	if (nk_internal->os.control_state.point.current == NULL || nk_internal->os.control_state.point.current == pointer)
+	{
+		nk_fill_rect(canvas, rect, 0.0f, colour);
+	}
+
+	return select == 1;
 }
 
 static void fck_nk_api_set_select(fck_nk nk, const void *pointer)
@@ -1457,6 +1508,7 @@ static fck_nuklear_api nuklear_api = {
 	.create = fck_nk_api_create,
 	.present = fck_nk_api_present,
 	.theme = fck_nk_api_theme,
+	.legacy_control_point = fck_nk_api_legacy_control_point,
 	.control_point = fck_nk_api_control_point,
 	.set_selection = fck_nk_api_set_select,
 	.select = fck_nk_api_select,

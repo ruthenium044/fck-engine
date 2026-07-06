@@ -904,7 +904,6 @@ int main(int argc, char **argv)
 					selected_batch_index = 0;
 					selected_transform_index = 0;
 					const fck_nk_colour on = {0, 255, 0, 255};
-					const fck_nk_colour off = {255, 0, 0, 255};
 
 					app_sprite_stable_batch *batches;
 					const fckc_size_t batch_count = app_sprites_batches(&sprites, &batches);
@@ -922,7 +921,7 @@ int main(int argc, char **argv)
 								selected_batch_index = batch_index;
 								selected_transform_index = app_sprites_index_of(&sprites, batch_index, transform) - 1;
 							}
-							if (nk->control_point(view, transform, &transform->x, &transform->y, 16.0f, on, off))
+							if (nk->control_point(view, transform, &transform->x, &transform->y, transform->width, transform->height))
 							{
 								// break;
 							}

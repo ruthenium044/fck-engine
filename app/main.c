@@ -360,9 +360,8 @@ int main(int argc, char **argv)
 		if (accumulator >= 160)
 		{
 		    accumulator = accumulator - 160;
-			app_sprite_transform *bird_transforms;
-
-			const fckc_u32 bird_count = app_sprites_transforms(&sprites, birds_batch, &bird_transforms);
+			fck_sprite_transform *bird_transforms;
+			const fckc_u32 bird_count = sprites_->transforms(&sprites, birds_batch, &bird_transforms);
 			for (fckc_size_t index = 0; index < bird_count; index++)
 		    {
 				bird_transforms[index].horizontal_index = (bird_transforms[index].horizontal_index + 1) % 4;

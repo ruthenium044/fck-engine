@@ -7,6 +7,9 @@ project(fck-app)
 
 add_executable(${PROJECT_NAME})
 target_sources(${PROJECT_NAME} PRIVATE "main.c")
+target_sources(${PROJECT_NAME} PRIVATE "fck_sprites.h")
+target_sources(${PROJECT_NAME} PRIVATE "fck_sprites.c")
+
 
 find_package(api)
 find_package(os)

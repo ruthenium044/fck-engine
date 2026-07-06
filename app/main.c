@@ -767,7 +767,7 @@ int main(int argc, char **argv)
 
 	fckc_u64 time_point = os->chrono->ms();
 
-	// fckc_u64 accumulator = 0;
+	fckc_u64 accumulator = 0;
 
 	fckc_u32 selected_batch_index = 0;
 	fckc_u32 selected_transform_index = 0;
@@ -779,15 +779,18 @@ int main(int argc, char **argv)
 		const fckc_u64 delta = now - time_point;
 		time_point = now;
 
-		/*accumulator = accumulator + delta;
+		accumulator = accumulator + delta;
 		if (accumulator >= 160)
 		{
 		    accumulator = accumulator - 160;
-		    for (fckc_size_t index = 0; index < fck_arraysize(bird_transforms); index++)
+			app_sprite_transform *bird_transforms;
+
+			const fckc_u32 bird_count = app_sprites_transforms(&sprites, birds_batch, &bird_transforms);
+			for (fckc_size_t index = 0; index < bird_count; index++)
 		    {
-		        bird_transforms[index].horizontal_index = (bird_transforms[index].horizontal_index + 1) % 4;
+				bird_transforms[index].horizontal_index = (bird_transforms[index].horizontal_index + 1) % 4;
 		    }
-		}*/
+		}
 		// TODO: Make render-vk hotreloadable :)
 		// How hard can it be?
 		plugins->hotreload();

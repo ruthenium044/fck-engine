@@ -159,7 +159,7 @@ static void fck_sprite_transform_editor(fck_plugins_api *plugins, fck_sprite_api
 {
 	nk->panel->begin(view, "Sprite Tool", 300.0f);
 	{
-		if (nk->panel->push(view, "Plugins"))
+		if (nk->panel->push(view, "Loaded Plugins"))
 		{
 			const char *current = NULL;
 			while ((current = plugins->loaded(current)))
@@ -167,6 +167,20 @@ static void fck_sprite_transform_editor(fck_plugins_api *plugins, fck_sprite_api
 				if (nk->elements->button(view, current))
 				{
 					plugins->unload(current);
+					break;
+				}
+			}
+			nk->panel->pop(view);
+		}
+
+		if (nk->panel->push(view, "Unloaded Plugins"))
+		{
+			const char* current = NULL;
+			while ((current = plugins->unloaded(current)))
+			{
+				if (nk->elements->button(view, current))
+				{
+					plugins->load(current);
 					break;
 				}
 			}

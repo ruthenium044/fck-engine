@@ -23,7 +23,7 @@
 #include <fck_gfx.h>
 #include <fck_nuklear.h>
 
-#include "fck_sprites.h"
+#include "fck_sprite.h"
 
 // #pragma optimize("", off)
 
@@ -109,7 +109,6 @@ typedef struct fck_gameloop_interface
 	int (*tick)(fck_gameloop);
 } fck_gameloop_interface;
 
-// From GLSL
 typedef struct app_sprite_pie_items
 {
 	fck_nk_pie_item remove;
@@ -155,6 +154,219 @@ static void app_sprite_pie_items_init(fck_nuklear_api *nk, app_sprite_pie_items 
 	nk->pie->push(&items->add, &items->add_item);
 }
 
+static void fck_sprite_transform_editor(fck_plugins_api *plugins, fck_sprite_api *sprite, fck_nuklear_api *nk, fck_nk view,
+                                        app_sprite_pie_items *pie, fck_sprites *sprites, fck_sprite_id *selected_sprite_id)
+{
+	nk->panel->begin(view, "Sprite Tool", 300.0f);
+	{
+		if (nk->panel->push(view, "Plugins"))
+		{
+			const char *current = NULL;
+			while ((current = plugins->loaded(current)))
+			{
+				if (nk->elements->button(view, current))
+				{
+					plugins->unload(current);
+					break;
+				}
+			}
+			nk->panel->pop(view);
+		}
+
+		const fckc_u32 batch_count = sprite->batches->count(sprites);
+		for (fckc_u32 batch_index = 0; batch_index < batch_count; batch_index++)
+		{
+			const fck_sprite_batch_id id = sprite->batches->index(sprites, batch_index);
+			fck_assert(sprite->batches->is_ok(sprites, id));
+
+			fck_sprite_transform *transforms = NULL;
+			const fckc_u32 count = sprite->transforms(sprites, id, &transforms);
+			const char *batch_name = sprite->batches->nameof(sprites, id);
+			if (nk->panel->push(view, batch_name, count))
+			{
+				for (fckc_u32 index = 0; index < count; index++)
+				{
+					if (nk->panel->push(view, "%s[%d]", batch_name, index))
+					{
+						const char **names;
+						const fckc_u32 names_count = sprite->batches->names(sprites, &names);
+						const int new_index = nk->elements->dropdown(view, (int)batch_index, names, names_count);
+						if (new_index != batch_index)
+						{
+							const fck_sprite_transform copy = transforms[index];
+							const fck_sprite_id sprite_id = sprite->indexof(sprites, id, transforms + index);
+							if (sprite->is_ok(sprites, sprite_id))
+							{
+								if (sprite->remove(sprites, sprite_id))
+								{
+									const fck_sprite_batch_id new_id = sprite->batches->index(sprites, batch_index);
+									fck_assert(sprite->batches->is_ok(sprites, new_id));
+									fck_sprite_transform *transform = sprite->add(sprites, new_id);
+									*transform = copy;
+									transform->horizontal_index = transform->vertical_index = 0;
+								}
+							}
+						}
+						else
+						{
+							fck_sprite_transform *transform = transforms + index;
+							transform->x = nk->elements->f32(view, "x", -1280.0f, transform->x, 1280.0f, 1.0f);
+							transform->y = nk->elements->f32(view, "y", -720.0f, transform->y, 720.0f, 1.0f);
+							transform->z = nk->elements->f32(view, "z", 0.0f, transform->z, 1.0f, 0.1f);
+							transform->width = nk->elements->f32(view, "width", 0.0f, transform->width, 256.0f, 4.0f);
+							transform->height = nk->elements->f32(view, "height", 0.0f, transform->height, 256.0f, 4.0f);
+							transform->rotation = nk->elements->f32(view, "rotation", 0.0f, transform->rotation, 360.0f, 1.0f);
+							transform->scale = nk->elements->f32(view, "scale", 1.0f, transform->scale, 100.0f, 1.0f);
+							transform->horizontal_index =
+								nk->elements->i32(view, "horizontal index", 0, transform->horizontal_index, 10, 1);
+							transform->vertical_index = nk->elements->i32(view, "vertical index", 0, transform->vertical_index, 10, 1);
+						}
+						nk->panel->pop(view);
+					}
+				}
+				nk->panel->pop(view);
+			}
+		}
+
+		fck_sprite_transform *selected_transform = sprite->get(sprites, *selected_sprite_id);
+		if (selected_transform)
+		{
+			fck_sprite_transform *transform = selected_transform;
+			if (nk->panel->push(view, "Selection"))
+			{
+				transform->x = nk->elements->f32(view, "x", -1280.0f, transform->x, 1280.0f, 1.0f);
+				transform->y = nk->elements->f32(view, "y", -720.0f, transform->y, 720.0f, 1.0f);
+				transform->z = nk->elements->f32(view, "z", 0.0f, transform->z, 1.0f, 0.1f);
+				transform->width = nk->elements->f32(view, "width", 0.0f, transform->width, 256.0f, 4.0f);
+				transform->height = nk->elements->f32(view, "height", 0.0f, transform->height, 256.0f, 4.0f);
+				transform->rotation = nk->elements->f32(view, "rotation", 0.0f, transform->rotation, 360.0f, 1.0f);
+				transform->scale = nk->elements->f32(view, "scale", 1.0f, transform->scale, 100.0f, 1.0f);
+				transform->horizontal_index = nk->elements->i32(view, "horizontal index", 0, transform->horizontal_index, 10, 1);
+				transform->vertical_index = nk->elements->i32(view, "vertical index", 0, transform->vertical_index, 10, 1);
+				nk->panel->pop(view);
+			}
+		}
+	}
+	nk->panel->end(view);
+
+	{
+		*selected_sprite_id = sprite->invalid();
+		const fck_nk_colour on = {0, 255, 0, 255};
+		const fck_nk_colour off = {255, 0, 0, 255};
+
+		const fckc_u32 batch_count = sprite->batches->count(sprites);
+		for (fckc_u32 batch_index = 0; batch_index < batch_count; batch_index++)
+		{
+			const fck_sprite_batch_id id = {.value = batch_index};
+			fck_sprite_transform *transforms = NULL;
+			const fckc_u32 count = sprite->transforms(sprites, id, &transforms);
+
+			for (fckc_size_t index = 0; index < count; index++)
+			{
+				fck_sprite_transform *transform = transforms + index;
+				if (nk->select(view, transform, transform->x, transform->y, transform->width, transform->height, on))
+				{
+					*selected_sprite_id = sprite->indexof(sprites, id, transforms + index);
+				}
+				if (nk->control_point(view, transform, &transform->x, &transform->y, 16.0f, on, off))
+				{
+					// break;
+				}
+			}
+		}
+	}
+
+	{
+		if (nk->pie->happened(&pie->add_bird))
+		{
+			fck_sprite_transform *transform = sprite->add_by_name(sprites, "Birds");
+			// Pie api is a bit clunky
+			const fck_sprite_transform baseline = {
+				.scale = 1.0f,
+				.width = 256.0f,
+				.height = 256.0f,
+			};
+			*transform = baseline;
+			nk->pie->apply_position(view, &transform->x, &transform->y);
+			nk->set_selection(view, transform);
+		}
+
+		if (nk->pie->happened(&pie->add_item))
+		{
+			fck_sprite_transform *transform = sprite->add_by_name(sprites, "Items");
+			// Pie api is a bit clunky
+			const fck_sprite_transform baseline = {
+				.scale = 1.0f,
+				.width = 64.0f,
+				.height = 64.0f,
+			};
+			*transform = baseline;
+			nk->pie->apply_position(view, &transform->x, &transform->y);
+			nk->set_selection(view, transform);
+		}
+
+		{
+			fck_sprite_transform *selected_transform = sprite->get(sprites, *selected_sprite_id);
+			if (nk->pie->happened(&pie->remove) && selected_transform)
+			{
+				sprite->remove(sprites, *selected_sprite_id);
+				nk->set_selection(view, NULL);
+			}
+
+			if (nk->pie->happened(&pie->duplicate) && selected_transform)
+			{
+				const fck_sprite_transform copy = *selected_transform;
+				fck_sprite_transform *transform = sprite->add(sprites, selected_sprite_id->batch);
+				*transform = copy;
+				*selected_sprite_id = sprite->indexof(sprites, selected_sprite_id->batch, transform);
+
+				nk->pie->apply_position(view, &transform->x, &transform->y);
+				nk->set_selection(view, transform);
+			}
+			if (nk->pie->happened(&pie->duplicate_left) && selected_transform)
+			{
+				const fck_sprite_transform copy = *selected_transform;
+				fck_sprite_transform *transform = sprite->add(sprites, selected_sprite_id->batch);
+				*transform = copy;
+				*selected_sprite_id = sprite->indexof(sprites, selected_sprite_id->batch, transform);
+
+				transform->x = transform->x - transform->width;
+				nk->set_selection(view, transform);
+			}
+			if (nk->pie->happened(&pie->duplicate_right) && selected_transform)
+			{
+				const fck_sprite_transform copy = *selected_transform;
+				fck_sprite_transform *transform = sprite->add(sprites, selected_sprite_id->batch);
+				*transform = copy;
+				*selected_sprite_id = sprite->indexof(sprites, selected_sprite_id->batch, transform);
+
+				transform->x = transform->x + transform->width;
+				nk->set_selection(view, transform);
+			}
+			if (nk->pie->happened(&pie->duplicate_up) && selected_transform)
+			{
+				const fck_sprite_transform copy = *selected_transform;
+				fck_sprite_transform *transform = sprite->add(sprites, selected_sprite_id->batch);
+				*transform = copy;
+				*selected_sprite_id = sprite->indexof(sprites, selected_sprite_id->batch, transform);
+
+				transform->y = transform->y - transform->height;
+				nk->set_selection(view, transform);
+			}
+			if (nk->pie->happened(&pie->duplicate_down) && selected_transform)
+			{
+				const fck_sprite_transform copy = *selected_transform;
+				fck_sprite_transform *transform = sprite->add(sprites, selected_sprite_id->batch);
+				*transform = copy;
+				*selected_sprite_id = sprite->indexof(sprites, selected_sprite_id->batch, transform);
+
+				transform->y = transform->y + transform->height;
+				nk->set_selection(view, transform);
+			}
+		}
+	}
+}
+
 int main(int argc, char **argv)
 {
 	// TODO: We need to setup stable editor entities, or something like that
@@ -185,6 +397,7 @@ int main(int argc, char **argv)
 	fck_png_api *png = (fck_png_api *)registry->find(fck_png_api_name);
 	fck_nuklear_api *nk = (fck_nuklear_api *)registry->find(fck_nuklear_api_name);
 	fck_gfx_api *gfx = (fck_gfx_api *)registry->find(fck_gfx_api_name);
+	fck_sprite_api *sprite = (fck_sprite_api *)registry->find("fck-sprite");
 
 	fck_input_source *mouse = NULL;
 	{
@@ -307,17 +520,9 @@ int main(int argc, char **argv)
 		driver.vt->upload_buffer(driver, &indices.buffer, index_data, sizeof(index_data));
 	}
 
-	// app_sprite_batch batch = app_sprite_batch_create(kll->system, bird_image_view);
-
-	// app_sprite_stable_batch birds = app_sprite_stable_batch_create(kll->system, "Birds", bird_image_view, 32.0f, 32.0f);
-	// app_sprite_stable_batch items = app_sprite_stable_batch_create(kll->system, "Items", items_image_view, 16.0f, 16.0f);
-
 	fck_sprites sprites = sprite->create(kll->system);
 	const fck_sprite_batch_id birds_batch = sprite->batches->add(&sprites, "Birds", &bird_image_view, 32.0f, 32.0f);
 	const fck_sprite_batch_id items_batch = sprite->batches->add(&sprites, "Items", &items_image_view, 16.0f, 16.0f);
-
-	// app_sprite_stable_batch *batches[] = {&items, &birds};
-
 	{
 		fck_sprite_transform *transform = sprite->add(&sprites, birds_batch);
 		const fck_sprite_transform baseline = {
@@ -352,6 +557,17 @@ int main(int argc, char **argv)
 	int is_running = 1;
 	while (is_running)
 	{
+		const fck_nk_control control = nk->control(view);
+		if (control.close)
+		{
+			is_running = 0;
+		}
+
+		if (control.minimise)
+		{
+			os->win->minimise(window);
+		}
+
 		const fckc_u64 now = os->chrono->ms();
 		const fckc_u64 delta = now - time_point;
 		time_point = now;
@@ -359,13 +575,13 @@ int main(int argc, char **argv)
 		accumulator = accumulator + delta;
 		if (accumulator >= 160)
 		{
-		    accumulator = accumulator - 160;
+			accumulator = accumulator - 160;
 			fck_sprite_transform *bird_transforms;
 			const fckc_u32 bird_count = sprite->transforms(&sprites, birds_batch, &bird_transforms);
 			for (fckc_size_t index = 0; index < bird_count; index++)
-		    {
+			{
 				bird_transforms[index].horizontal_index = (bird_transforms[index].horizontal_index + 1) % 4;
-		    }
+			}
 		}
 		// TODO: Make render-vk hotreloadable :)
 		// How hard can it be?
@@ -398,213 +614,9 @@ int main(int argc, char **argv)
 		{
 			if (nk->begin(view))
 			{
-				nk->panel->begin(view, "Inspector", 300.0f);
-				{
-					const fckc_u32 batch_count = sprite->batches->count(&sprites);
-					for (fckc_u32 batch_index = 0; batch_index < batch_count; batch_index++)
-					{
-						const fck_sprite_batch_id id = sprite->batches->index(&sprites, batch_index);
-						fck_assert(sprite->batches->is_ok(&sprites, id));
-
-						fck_sprite_transform *transforms = NULL;
-						const fckc_u32 count = sprite->transforms(&sprites, id, &transforms);
-						const char *batch_name = sprite->batches->nameof(&sprites, id);
-						if (nk->panel->push(view, batch_name, count))
-						{
-							for (fckc_u32 index = 0; index < count; index++)
-							{
-								if (nk->panel->push(view, "%s[%d]", batch_name, index))
-								{
-									const char **names;
-									const fckc_u32 names_count = sprite->batches->names(&sprites, &names);
-									const int new_index = nk->elements->dropdown(view, (int)batch_index, names, names_count);
-									if (new_index != batch_index)
-									{
-										const fck_sprite_transform copy = transforms[index];
-										const fck_sprite_id sprite_id = sprite->indexof(&sprites, id, transforms + index);
-										if (sprite->is_ok(&sprites, sprite_id))
-										{
-											if (sprite->remove(&sprites, sprite_id))
-											{
-												const fck_sprite_batch_id new_id = sprite->batches->index(&sprites, batch_index);
-												fck_assert(sprite->batches->is_ok(&sprites, new_id));
-												fck_sprite_transform *transform = sprite->add(&sprites, new_id);
-												*transform = copy;
-												transform->horizontal_index = transform->vertical_index = 0;
-											}
-										}
-									}
-									else
-									{
-										fck_sprite_transform *transform = transforms + index;
-										transform->x = nk->elements->f32(view, "x", -1280.0f, transform->x, 1280.0f, 1.0f);
-										transform->y = nk->elements->f32(view, "y", -720.0f, transform->y, 720.0f, 1.0f);
-										transform->z = nk->elements->f32(view, "z", 0.0f, transform->z, 1.0f, 0.1f);
-										transform->width = nk->elements->f32(view, "width", 0.0f, transform->width, 256.0f, 4.0f);
-										transform->height = nk->elements->f32(view, "height", 0.0f, transform->height, 256.0f, 4.0f);
-										transform->rotation = nk->elements->f32(view, "rotation", 0.0f, transform->rotation, 360.0f, 1.0f);
-										transform->scale = nk->elements->f32(view, "scale", 1.0f, transform->scale, 100.0f, 1.0f);
-										transform->horizontal_index =
-											nk->elements->i32(view, "horizontal index", 0, transform->horizontal_index, 10, 1);
-										transform->vertical_index =
-											nk->elements->i32(view, "vertical index", 0, transform->vertical_index, 10, 1);
-									}
-									nk->panel->pop(view);
-								}
-							}
-							nk->panel->pop(view);
-						}
-					}
-
-					fck_sprite_transform *selected_transform = sprite->get(&sprites, selected_sprite_id);
-					if (selected_transform)
-					{
-						fck_sprite_transform *transform = selected_transform;
-						if (nk->panel->push(view, "Selection"))
-						{
-							transform->x = nk->elements->f32(view, "x", -1280.0f, transform->x, 1280.0f, 1.0f);
-							transform->y = nk->elements->f32(view, "y", -720.0f, transform->y, 720.0f, 1.0f);
-							transform->z = nk->elements->f32(view, "z", 0.0f, transform->z, 1.0f, 0.1f);
-							transform->width = nk->elements->f32(view, "width", 0.0f, transform->width, 256.0f, 4.0f);
-							transform->height = nk->elements->f32(view, "height", 0.0f, transform->height, 256.0f, 4.0f);
-							transform->rotation = nk->elements->f32(view, "rotation", 0.0f, transform->rotation, 360.0f, 1.0f);
-							transform->scale = nk->elements->f32(view, "scale", 1.0f, transform->scale, 100.0f, 1.0f);
-							transform->horizontal_index =
-								nk->elements->i32(view, "horizontal index", 0, transform->horizontal_index, 10, 1);
-							transform->vertical_index = nk->elements->i32(view, "vertical index", 0, transform->vertical_index, 10, 1);
-							nk->panel->pop(view);
-						}
-					}
-				}
-				nk->panel->end(view);
-
-				{
-					selected_sprite_id = sprite->invalid();
-					const fck_nk_colour on = {0, 255, 0, 255};
-					const fck_nk_colour off = {255, 0, 0, 255};
-
-					const fckc_u32 batch_count = sprite->batches->count(&sprites);
-					for (fckc_u32 batch_index = 0; batch_index < batch_count; batch_index++)
-					{
-						const fck_sprite_batch_id id = {.value = batch_index};
-						fck_sprite_transform *transforms = NULL;
-						const fckc_u32 count = sprite->transforms(&sprites, id, &transforms);
-
-						for (fckc_size_t index = 0; index < count; index++)
-						{
-							fck_sprite_transform *transform = transforms + index;
-							if (nk->select(view, transform, transform->x, transform->y, transform->width, transform->height, on))
-							{
-								selected_sprite_id = sprite->indexof(&sprites, id, transforms + index);
-							}
-							if (nk->control_point(view, transform, &transform->x, &transform->y, 16.0f, on, off))
-							{
-								// break;
-							}
-						}
-					}
-				}
+				fck_sprite_transform_editor(plugins, sprite, nk, view, &sprite_pie, &sprites, &selected_sprite_id);
 			}
 			nk->end(view);
-
-			const fck_nk_control control = nk->control(view);
-			if (control.close)
-			{
-				is_running = 0;
-			}
-
-			if (control.minimise)
-			{
-				os->win->minimise(window);
-			}
-		}
-
-		if (nk->pie->happened(&sprite_pie.add_bird))
-		{
-			fck_sprite_transform *transform = sprite->add(&sprites, birds_batch);
-			// Pie api is a bit clunky
-			const fck_sprite_transform baseline = {
-				.scale = 1.0f,
-				.width = 256.0f,
-				.height = 256.0f,
-			};
-			*transform = baseline;
-			nk->pie->apply_position(view, &transform->x, &transform->y);
-			nk->set_selection(view, transform);
-		}
-
-		if (nk->pie->happened(&sprite_pie.add_item))
-		{
-			fck_sprite_transform *transform = sprite->add(&sprites, items_batch);
-			// Pie api is a bit clunky
-			const fck_sprite_transform baseline = {
-				.scale = 1.0f,
-				.width = 64.0f,
-				.height = 64.0f,
-			};
-			*transform = baseline;
-			nk->pie->apply_position(view, &transform->x, &transform->y);
-			nk->set_selection(view, transform);
-		}
-
-		{
-			fck_sprite_transform *selected_transform = sprite->get(&sprites, selected_sprite_id);
-			if (nk->pie->happened(&sprite_pie.remove) && selected_transform)
-			{
-				sprite->remove(&sprites, selected_sprite_id);
-				nk->set_selection(view, NULL);
-			}
-
-			if (nk->pie->happened(&sprite_pie.duplicate) && selected_transform)
-			{
-				const fck_sprite_transform copy = *selected_transform;
-				fck_sprite_transform *transform = sprite->add(&sprites, selected_sprite_id.batch);
-				*transform = copy;
-				selected_sprite_id = sprite->indexof(&sprites, selected_sprite_id.batch, transform);
-
-				nk->pie->apply_position(view, &transform->x, &transform->y);
-				nk->set_selection(view, transform);
-			}
-			if (nk->pie->happened(&sprite_pie.duplicate_left) && selected_transform)
-			{
-				const fck_sprite_transform copy = *selected_transform;
-				fck_sprite_transform *transform = sprite->add(&sprites, selected_sprite_id.batch);
-				*transform = copy;
-				selected_sprite_id = sprite->indexof(&sprites, selected_sprite_id.batch, transform);
-
-				transform->x = transform->x - transform->width;
-				nk->set_selection(view, transform);
-			}
-			if (nk->pie->happened(&sprite_pie.duplicate_right) && selected_transform)
-			{
-				const fck_sprite_transform copy = *selected_transform;
-				fck_sprite_transform *transform = sprite->add(&sprites, selected_sprite_id.batch);
-				*transform = copy;
-				selected_sprite_id = sprite->indexof(&sprites, selected_sprite_id.batch, transform);
-
-				transform->x = transform->x + transform->width;
-				nk->set_selection(view, transform);
-			}
-			if (nk->pie->happened(&sprite_pie.duplicate_up) && selected_transform)
-			{
-				const fck_sprite_transform copy = *selected_transform;
-				fck_sprite_transform *transform = sprite->add(&sprites, selected_sprite_id.batch);
-				*transform = copy;
-				selected_sprite_id = sprite->indexof(&sprites, selected_sprite_id.batch, transform);
-
-				transform->y = transform->y - transform->height;
-				nk->set_selection(view, transform);
-			}
-			if (nk->pie->happened(&sprite_pie.duplicate_down) && selected_transform)
-			{
-				const fck_sprite_transform copy = *selected_transform;
-				fck_sprite_transform *transform = sprite->add(&sprites, selected_sprite_id.batch);
-				*transform = copy;
-				selected_sprite_id = sprite->indexof(&sprites, selected_sprite_id.batch, transform);
-
-				transform->y = transform->y + transform->height;
-				nk->set_selection(view, transform);
-			}
 		}
 
 		memory->reset(memory->temp);
@@ -640,7 +652,6 @@ int main(int argc, char **argv)
 					command->scissor(command_buffer, &scissor);
 
 					const fckc_size_t batch_count = sprite->batches->count(&sprites);
-
 					for (fckc_size_t batch_index = 0; batch_index < batch_count; batch_index++)
 					{
 						const fck_sprite_batch_id id = sprite->batches->index(&sprites, batch_index);

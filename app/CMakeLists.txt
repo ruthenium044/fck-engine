@@ -7,8 +7,6 @@ project(fck-app)
 
 add_executable(${PROJECT_NAME})
 target_sources(${PROJECT_NAME} PRIVATE "main.c")
-target_sources(${PROJECT_NAME} PRIVATE "fck_sprites.h")
-target_sources(${PROJECT_NAME} PRIVATE "fck_sprites.c")
 
 
 find_package(api)
@@ -22,6 +20,7 @@ find_package(shader)
 find_package(png)
 find_package(gfx)
 find_package(nuklear)
+find_package(sprite)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::hash)
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::os)
@@ -35,6 +34,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE fck::png-interface)
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::render)
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::shader-interface)
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::gfx-interface)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::sprite-interface)
 
 # this needs to get substituted well...
 target_compile_definitions(${PROJECT_NAME} PRIVATE

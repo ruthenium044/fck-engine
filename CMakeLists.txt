@@ -36,6 +36,7 @@ add_subdirectory(png)
 add_subdirectory(glsl-reflection)
 add_subdirectory(gfx)
 add_subdirectory(nuklear)
+add_subdirectory(sprite)
 
 add_subdirectory(plugins)
 

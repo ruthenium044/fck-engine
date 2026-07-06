@@ -1,10 +1,12 @@
 
-#include "fck_sprites.h"
+#include "fck_sprite.h"
 
+#include <fckc_apidef.h>
 #include <fckc_assert.h>
 #include <fckc_inttypes.h>
 #include <fckc_math.h>
 
+#include <fck_apis.h>
 #include <kll.h>
 #include <kll_malloc.h>
 
@@ -473,8 +475,7 @@ static int fck_sprites_remove_by_name(fck_sprites_internal *sprites, fckc_u32 in
 	return 0;
 }
 
-static fck_sprite_batch_id fck_sprite_batch_api_add(fck_sprites *external, const char *name, const sht_image_view *view, float sw,
-                                                     float sh)
+static fck_sprite_batch_id fck_sprite_batch_api_add(fck_sprites *external, const char *name, const sht_image_view *view, float sw, float sh)
 {
 	fck_sprites_internal sprites = {0};
 	fck_sprites_to_internal(external, &sprites);
@@ -513,11 +514,12 @@ static fck_sprite_batch_id fck_sprite_batch_api_index(fck_sprites *external, fck
 
 static int fck_sprite_batch_api_is_ok(fck_sprites *external, fck_sprite_batch_id index)
 {
-	fck_sprites_internal sprites = { 0 };
+	fck_sprites_internal sprites = {0};
 	fck_sprites_to_internal(external, &sprites);
 
-	const fck_sprite_stable_batch* batch = fck_sprites_get_batch(&sprites, index.value);
-	if(batch) {
+	const fck_sprite_stable_batch *batch = fck_sprites_get_batch(&sprites, index.value);
+	if (batch)
+	{
 		return 1;
 	}
 	return 0;
@@ -640,6 +642,19 @@ static fck_sprite_transform *fck_sprite_api_add(struct fck_sprites *external, fc
 	return NULL;
 }
 
+static fck_sprite_transform *fck_sprite_api_add_by_name(fck_sprites *external, const char *name)
+{
+	fck_sprites_internal sprites = {0};
+	fck_sprites_to_internal(external, &sprites);
+	fck_sprite_transform *transform = fck_sprites_add_by_name(&sprites, name);
+	if (transform)
+	{
+		fck_sprites_to_external(&sprites, external);
+		return transform;
+	}
+	return NULL;
+}
+
 static int fck_sprite_api_remove(struct fck_sprites *external, fck_sprite_id index)
 {
 	fck_sprites_internal sprites = {0};
@@ -704,6 +719,7 @@ static fck_sprite_batch_api sprite_batch_api = {
 static fck_sprite_api sprite_api = {
 	.batches = &sprite_batch_api,
 	.add = fck_sprite_api_add,
+	.add_by_name = fck_sprite_api_add_by_name,
 	.create = fck_sprite_api_create,
 	.destroy = fck_sprite_api_destroy,
 	.indexof = fck_sprite_api_indexof,
@@ -715,4 +731,8 @@ static fck_sprite_api sprite_api = {
 	.invalid = fck_sprite_api_invalid,
 };
 
-fck_sprite_api *sprite = &sprite_api;
+FCK_EXPORT_API fck_sprite_api *fck_sprite_load(fck_api_registry *registry, fck_sprite_api *old)
+{
+	registry->add(fck_sprite_api_name, &sprite_api);
+	return &sprite_api;
+}

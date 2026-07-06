@@ -3,6 +3,8 @@
 
 #include <fckc_inttypes.h>
 
+#define fck_sprite_api_name "fck-sprite"
+
 struct fck_sprites;
 struct kll_allocator;
 struct sht_image_view;
@@ -72,6 +74,10 @@ typedef struct fck_sprite_api
 	fck_sprite_transform *(*get)(fck_sprites *sprites, fck_sprite_id index);
 	fck_sprite_transform *(*set)(fck_sprites *sprites, fck_sprite_id index);
 	fck_sprite_transform *(*add)(fck_sprites *sprites, fck_sprite_batch_id index);
+
+	// Not a fan of this one...
+	fck_sprite_transform* (*add_by_name)(fck_sprites* sprites, const char* name);
+
 	int (*remove)(fck_sprites *sprites, fck_sprite_id index);
 
 	fck_sprite_id (*indexof)(fck_sprites *sprites, fck_sprite_batch_id index, const fck_sprite_transform *transform);
@@ -81,7 +87,5 @@ typedef struct fck_sprite_api
 	int (*is_ok)(fck_sprites* sprites, fck_sprite_id index);
 
 } fck_sprite_api;
-
-extern fck_sprite_api *sprite;
 
 #endif // !FCK_SPRITES_H_INCLUDED

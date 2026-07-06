@@ -33,6 +33,7 @@
 #define NK_KEYSTATE_BASED_INPUT
 #define NK_UINT_DRAW_INDEX
 #define NK_IMPLEMENTATION
+#include "fckc_math.h"
 #include "nuklear.h"
 
 static fck_api_registry *apis;
@@ -1124,7 +1125,7 @@ static int fck_nk_api_select(fck_nk nk, const void *pointer, float x, float y, f
 	const struct nk_input *input = &nk_internal->ctx->input;
 
 	const struct nk_rect rect = nk_rect(x - (w * 0.5f), y - (h * 0.5f), w, h);
-	const struct nk_color c = nk_rgba(on.r, on.g, on.b, on.a);
+	const struct nk_color colour = nk_rgba(on.r, on.g, on.b, on.a);
 	struct nk_command_buffer *canvas = nk_window_get_canvas(nk_internal->ctx);
 
 	fck_nk_hovered *hovered = &nk_internal->os.control_state.hovered;
@@ -1144,12 +1145,7 @@ static int fck_nk_api_select(fck_nk nk, const void *pointer, float x, float y, f
 				const int is_not_selected = selection->pointer != pointer;
 				if (is_not_selected)
 				{
-					const struct nk_rect smallest = nk_rect(x - (w * 0.33f), y - (h * 0.33f), w * 0.66f, h * 0.66f);
-					const struct nk_rect middle = nk_rect(x - (w * 0.42f), y - (h * 0.42f), w * 0.84f, h * 0.84f);
-
-					nk_stroke_rect(canvas, smallest, 0.0f, 1.0f, c);
-					nk_stroke_rect(canvas, middle, 0.0f, 1.0f, c);
-					nk_stroke_rect(canvas, rect, 0.0f, 1.0f, c);
+					nk_stroke_rect(canvas, rect, 0.0f, 1.0f, colour);
 
 					if (self == selected && nk_input_is_mouse_pressed(input, NK_BUTTON_LEFT))
 					{
@@ -1171,7 +1167,34 @@ static int fck_nk_api_select(fck_nk nk, const void *pointer, float x, float y, f
 
 	if (pointer == selection->pointer)
 	{
-		nk_stroke_rect(canvas, rect, 0.0f, 2.0f, c);
+		float minX = rect.x;
+		float maxX = rect.x + rect.w;
+		float minY = rect.y;
+		float maxY = rect.y + rect.h;
+		float offset = 6.0f;
+		float dash = 6.0f;
+		float fullStep = offset + dash;
+
+		float current = minX;
+		float line_thickness = 2.0f;
+		while (current < maxX)
+		{
+			float from = fck_clamp(current, minX, maxX);
+			float to = fck_clamp( current + dash, minX, maxX);
+			nk_stroke_line(canvas, from, minY, to, minY, line_thickness, colour);
+			nk_stroke_line(canvas, from, maxY, to, maxY, line_thickness, colour);
+			current += fullStep;
+		}
+		current = minY;
+		while (current < maxY)
+		{
+			float from = fck_clamp(current, minY, maxY);
+			float to = fck_clamp(current + dash, minY, maxY);
+			nk_stroke_line(canvas, minX, from, minX, to, line_thickness, colour);
+			nk_stroke_line(canvas, maxX, from, maxX, to, line_thickness, colour);
+			current += fullStep;
+		}
+
 		selection->rect = rect;
 		return 1;
 	}

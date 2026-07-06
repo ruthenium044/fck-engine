@@ -315,7 +315,7 @@ static fck_sprite_stable_batch *fck_sprites_get_batch(fck_sprites_internal *spri
 	return NULL;
 }
 
-static fckc_u32 fck_sprites_batches(fck_sprites_internal *sprites, fck_sprite_stable_batch **batches)
+static fckc_u32 fck_sprite_batches(fck_sprites_internal *sprites, fck_sprite_stable_batch **batches)
 {
 	*batches = sprites->batches;
 	return sprites->count;
@@ -473,7 +473,7 @@ static int fck_sprites_remove_by_name(fck_sprites_internal *sprites, fckc_u32 in
 	return 0;
 }
 
-static fck_sprite_batch_id fck_sprites_batch_api_add(fck_sprites *external, const char *name, const sht_image_view *view, float sw,
+static fck_sprite_batch_id fck_sprite_batch_api_add(fck_sprites *external, const char *name, const sht_image_view *view, float sw,
                                                      float sh)
 {
 	fck_sprites_internal sprites = {0};
@@ -486,7 +486,7 @@ static fck_sprite_batch_id fck_sprites_batch_api_add(fck_sprites *external, cons
 	return id;
 }
 
-static int fck_sprites_batch_api_remove(fck_sprites *external, fck_sprite_batch_id index)
+static int fck_sprite_batch_api_remove(fck_sprites *external, fck_sprite_batch_id index)
 {
 	(void)external;
 	(void)index;
@@ -494,7 +494,7 @@ static int fck_sprites_batch_api_remove(fck_sprites *external, fck_sprite_batch_
 	return 0;
 }
 
-static fck_sprite_batch_id fck_sprites_batch_api_index(fck_sprites *external, fckc_u32 index)
+static fck_sprite_batch_id fck_sprite_batch_api_index(fck_sprites *external, fckc_u32 index)
 {
 	fck_sprites_internal sprites = {0};
 	fck_sprites_to_internal(external, &sprites);
@@ -511,7 +511,7 @@ static fck_sprite_batch_id fck_sprites_batch_api_index(fck_sprites *external, fc
 	}
 }
 
-static int fck_sprites_batch_api_is_ok(fck_sprites *external, fck_sprite_batch_id index)
+static int fck_sprite_batch_api_is_ok(fck_sprites *external, fck_sprite_batch_id index)
 {
 	fck_sprites_internal sprites = { 0 };
 	fck_sprites_to_internal(external, &sprites);
@@ -523,7 +523,7 @@ static int fck_sprites_batch_api_is_ok(fck_sprites *external, fck_sprite_batch_i
 	return 0;
 }
 
-static struct sht_image_view *fck_sprites_batch_api_image_view(fck_sprites *external, fck_sprite_batch_id index)
+static struct sht_image_view *fck_sprite_batch_api_image_view(fck_sprites *external, fck_sprite_batch_id index)
 {
 	fck_sprites_internal sprites = {0};
 	fck_sprites_to_internal(external, &sprites);
@@ -536,7 +536,7 @@ static struct sht_image_view *fck_sprites_batch_api_image_view(fck_sprites *exte
 	return NULL;
 }
 
-static int fck_sprites_batch_api_dimensions(fck_sprites *external, fck_sprite_batch_id index, float *sprite_width, float *sprite_height)
+static int fck_sprite_batch_api_dimensions(fck_sprites *external, fck_sprite_batch_id index, float *sprite_width, float *sprite_height)
 {
 	fck_sprites_internal sprites = {0};
 	fck_sprites_to_internal(external, &sprites);
@@ -551,35 +551,35 @@ static int fck_sprites_batch_api_dimensions(fck_sprites *external, fck_sprite_ba
 	return 0;
 }
 
-static const char *fck_sprites_batch_api_nameof(fck_sprites *external, fck_sprite_batch_id index)
+static const char *fck_sprite_batch_api_nameof(fck_sprites *external, fck_sprite_batch_id index)
 {
 	fck_sprites_internal sprites = {0};
 	fck_sprites_to_internal(external, &sprites);
 	return fck_sprites_nameof_batch(&sprites, index.value);
 }
 
-static fckc_u32 fck_sprites_batch_api_names(fck_sprites *external, const char ***out_names)
+static fckc_u32 fck_sprite_batch_api_names(fck_sprites *external, const char ***out_names)
 {
 	fck_sprites_internal sprites = {0};
 	fck_sprites_to_internal(external, &sprites);
 	return fck_sprites_names(&sprites, out_names);
 }
 
-static fckc_u32 fck_sprites_batch_api_count(fck_sprites *external)
+static fckc_u32 fck_sprite_batch_api_count(fck_sprites *external)
 {
 	fck_sprites_internal sprites = {0};
 	fck_sprites_to_internal(external, &sprites);
 	return sprites.count;
 }
 
-static struct fck_sprites fck_sprites_api_create(struct kll_allocator *allocator)
+static struct fck_sprites fck_sprite_api_create(struct kll_allocator *allocator)
 {
 	fck_sprites_internal sprites = fck_sprites_create(allocator);
 	fck_sprites external = {0};
 	return *fck_sprites_to_external(&sprites, &external);
 }
 
-static void fck_sprites_api_destroy(struct fck_sprites *external)
+static void fck_sprite_api_destroy(struct fck_sprites *external)
 {
 	fck_sprites_internal sprites = {0};
 	fck_sprites_to_internal(external, &sprites);
@@ -589,7 +589,7 @@ static void fck_sprites_api_destroy(struct fck_sprites *external)
 	fck_sprites_to_external(&sprites, external);
 }
 
-static fckc_u32 fck_sprites_api_transforms(struct fck_sprites *external, fck_sprite_batch_id index, fck_sprite_transform **out_transforms)
+static fckc_u32 fck_sprite_api_transforms(struct fck_sprites *external, fck_sprite_batch_id index, fck_sprite_transform **out_transforms)
 {
 	fck_sprites_internal sprites = {0};
 	fck_sprites_to_internal(external, &sprites);
@@ -598,7 +598,7 @@ static fckc_u32 fck_sprites_api_transforms(struct fck_sprites *external, fck_spr
 	return result;
 }
 
-static fck_sprite_transform *fck_sprites_api_get(struct fck_sprites *external, fck_sprite_id index)
+static fck_sprite_transform *fck_sprite_api_get(struct fck_sprites *external, fck_sprite_id index)
 {
 	fck_sprites_internal sprites = {0};
 	fck_sprites_to_internal(external, &sprites);
@@ -612,7 +612,7 @@ static fck_sprite_transform *fck_sprites_api_get(struct fck_sprites *external, f
 	return NULL;
 }
 
-static fck_sprite_transform *fck_sprites_api_set(struct fck_sprites *external, fck_sprite_id index)
+static fck_sprite_transform *fck_sprite_api_set(struct fck_sprites *external, fck_sprite_id index)
 {
 	fck_sprites_internal sprites = {0};
 	fck_sprites_to_internal(external, &sprites);
@@ -627,7 +627,7 @@ static fck_sprite_transform *fck_sprites_api_set(struct fck_sprites *external, f
 	return NULL;
 }
 
-static fck_sprite_transform *fck_sprites_api_add(struct fck_sprites *external, fck_sprite_batch_id index)
+static fck_sprite_transform *fck_sprite_api_add(struct fck_sprites *external, fck_sprite_batch_id index)
 {
 	fck_sprites_internal sprites = {0};
 	fck_sprites_to_internal(external, &sprites);
@@ -640,7 +640,7 @@ static fck_sprite_transform *fck_sprites_api_add(struct fck_sprites *external, f
 	return NULL;
 }
 
-static int fck_sprites_api_remove(struct fck_sprites *external, fck_sprite_id index)
+static int fck_sprite_api_remove(struct fck_sprites *external, fck_sprite_id index)
 {
 	fck_sprites_internal sprites = {0};
 	fck_sprites_to_internal(external, &sprites);
@@ -652,7 +652,7 @@ static int fck_sprites_api_remove(struct fck_sprites *external, fck_sprite_id in
 	return 0;
 }
 
-static fck_sprite_id fck_sprites_api_indexof(struct fck_sprites *external, fck_sprite_batch_id index, const fck_sprite_transform *transform)
+static fck_sprite_id fck_sprite_api_indexof(struct fck_sprites *external, fck_sprite_batch_id index, const fck_sprite_transform *transform)
 {
 	fck_sprites_internal sprites = {0};
 	fck_sprites_to_internal(external, &sprites);
@@ -663,7 +663,7 @@ static fck_sprite_id fck_sprites_api_indexof(struct fck_sprites *external, fck_s
 	return id;
 }
 
-static int fck_sprites_api_is_ok(fck_sprites *external, fck_sprite_id index)
+static int fck_sprite_api_is_ok(fck_sprites *external, fck_sprite_id index)
 {
 	fck_sprites_internal sprites = {0};
 	fck_sprites_to_internal(external, &sprites);
@@ -680,7 +680,7 @@ static int fck_sprites_api_is_ok(fck_sprites *external, fck_sprite_id index)
 	return 0;
 }
 
-static fck_sprite_id fck_sprites_api_invalid(void)
+static fck_sprite_id fck_sprite_api_invalid(void)
 {
 	const fck_sprite_id index = {
 		.batch = {.value = to_u32(~0LLU)},
@@ -689,30 +689,30 @@ static fck_sprite_id fck_sprites_api_invalid(void)
 	return index;
 }
 
-static fck_sprite_batch_api sprites_batch_api = {
-	.add = fck_sprites_batch_api_add,
-	.dimensions = fck_sprites_batch_api_dimensions,
-	.image_view = fck_sprites_batch_api_image_view,
-	.nameof = fck_sprites_batch_api_nameof,
-	.count = fck_sprites_batch_api_count,
-	.names = fck_sprites_batch_api_names,
-	.remove = fck_sprites_batch_api_remove,
-	.index = fck_sprites_batch_api_index,
-	.is_ok = fck_sprites_batch_api_is_ok,
+static fck_sprite_batch_api sprite_batch_api = {
+	.add = fck_sprite_batch_api_add,
+	.dimensions = fck_sprite_batch_api_dimensions,
+	.image_view = fck_sprite_batch_api_image_view,
+	.nameof = fck_sprite_batch_api_nameof,
+	.count = fck_sprite_batch_api_count,
+	.names = fck_sprite_batch_api_names,
+	.remove = fck_sprite_batch_api_remove,
+	.index = fck_sprite_batch_api_index,
+	.is_ok = fck_sprite_batch_api_is_ok,
 };
 
-static fck_sprite_api sprites_api = {
-	.batches = &sprites_batch_api,
-	.add = fck_sprites_api_add,
-	.create = fck_sprites_api_create,
-	.destroy = fck_sprites_api_destroy,
-	.indexof = fck_sprites_api_indexof,
-	.remove = fck_sprites_api_remove,
-	.get = fck_sprites_api_get,
-	.set = fck_sprites_api_set,
-	.transforms = fck_sprites_api_transforms,
-	.is_ok = fck_sprites_api_is_ok,
-	.invalid = fck_sprites_api_invalid,
+static fck_sprite_api sprite_api = {
+	.batches = &sprite_batch_api,
+	.add = fck_sprite_api_add,
+	.create = fck_sprite_api_create,
+	.destroy = fck_sprite_api_destroy,
+	.indexof = fck_sprite_api_indexof,
+	.remove = fck_sprite_api_remove,
+	.get = fck_sprite_api_get,
+	.set = fck_sprite_api_set,
+	.transforms = fck_sprite_api_transforms,
+	.is_ok = fck_sprite_api_is_ok,
+	.invalid = fck_sprite_api_invalid,
 };
 
-fck_sprite_api *sprites_ = &sprites_api;
+fck_sprite_api *sprite = &sprite_api;

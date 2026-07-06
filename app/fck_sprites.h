@@ -82,6 +82,6 @@ typedef struct fck_sprite_api
 
 } fck_sprite_api;
 
-extern fck_sprite_api *sprites_;
+extern fck_sprite_api *sprite;
 
 #endif // !FCK_SPRITES_H_INCLUDED

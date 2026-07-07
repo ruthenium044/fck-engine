@@ -542,7 +542,7 @@ fck_file_watcher fck_file_watcher_create(const char *path)
 	                               FILE_NOTIFY_CHANGE_SIZE | FILE_NOTIFY_CHANGE_LAST_WRITE | FILE_NOTIFY_CHANGE_CREATION;
 	const fckc_size_t buffer_size = sizeof(fs->buffer);
 	ReadDirectoryChangesW(fs->handle, (LPVOID)fs->buffer, (DWORD)buffer_size, TRUE, notification_flags, NULL, &fs->overlapped, NULL);
-	// TODO: Handle rror
+	// TODO: Handle error
 	fs->offset = 0;
 	fs->pending = 0;
 	return (fck_file_watcher){.handle = (void *)fs};

@@ -1046,7 +1046,8 @@ static int fck_nk_api_to_nuklear(fck_nk nk, float *x, float *y)
 	return 1;
 }
 
-static int fck_nk_api_legacy_control_point(fck_nk nk, const void *pointer, float *x, float *y, float size, fck_nk_colour on, fck_nk_colour off)
+static int fck_nk_api_control_point(fck_nk nk, const void *pointer, float *x, float *y, float size, fck_nk_colour on,
+                                           fck_nk_colour off)
 {
 	// Since this nuklear implementation moves everything around, it is on said implementation to fix it
 	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
@@ -1055,42 +1056,46 @@ static int fck_nk_api_legacy_control_point(fck_nk nk, const void *pointer, float
 	int window_height = 0;
 	os->win->size(nk_internal->os.window, &window_width, &window_height);
 
-	float px = *x - (size * 0.5f);
-	float py = *y - (size * 0.5f);
+	float px = *x;
+	float py = *y;
 	fck_nk_api_to_nuklear(nk, &px, &py);
 
-	struct nk_rect r = nk_rect(px, py, size, size);
+	struct nk_rect rect = nk_rect(px - (size * 0.5f), py - (size * 0.5f), size, size);
 
 	const struct nk_input *input = &nk_internal->ctx->input;
+	fck_nk_control_point *point = &nk_internal->os.control_state.point;
 
 	const float scaled_size = size * 2.0f;
-	float spx = *x - (scaled_size * 0.5f);
-	float spy = *y - (scaled_size * 0.5f);
-	fck_nk_api_to_nuklear(nk, &spx, &spy);
+	float scaled_px = *x - (scaled_size * 0.5f);
+	float scaled_py = *y - (scaled_size * 0.5f);
+	fck_nk_api_to_nuklear(nk, &scaled_px, &scaled_py);
 
-	const struct nk_rect sr = nk_rect(spx, spy, scaled_size, scaled_size);
+	const struct nk_rect scaled_rect = nk_rect(scaled_px, scaled_py, scaled_size, scaled_size);
 
 	const fck_nk_colour *select = &off;
-	if (nk_input_is_mouse_hovering_rect(input, sr) || NK_INBOX(input->mouse.prev.x, input->mouse.prev.y, sr.x, sr.y, sr.w, sr.h))
+	if (nk_input_is_mouse_hovering_rect(input, scaled_rect) || NK_INBOX(input->mouse.prev.x, input->mouse.prev.y, scaled_rect.x, scaled_rect.y, scaled_rect.w, scaled_rect.h))
 	{
-		nk_internal->os.control_state.point.last_hovered = pointer;
+		point->last_hovered = pointer;
 
-		if (nk_internal->os.control_state.point.current == NULL)
+		if (point->current == NULL)
 		{
-			r.x = spx;
-			r.y = spy;
-			r.w = r.h = scaled_size;
+			rect.x = scaled_px;
+			rect.y = scaled_py;
+			rect.w = rect.h = scaled_size;
+
+			point->offset.x = (input->mouse.pos.x - px);
+			point->offset.y = (input->mouse.pos.y - py);
 		}
 
 		if (nk_input_is_mouse_down(input, NK_BUTTON_LEFT))
 		{
-			if ((nk_internal->os.control_state.point.current == NULL || nk_internal->os.control_state.point.current == pointer))
+			if ((point->current == NULL || point->current == pointer))
 			{
-				nk_internal->os.control_state.point.current = pointer;
+				point->current = pointer;
 
 				select = &on;
-				*x = input->mouse.pos.x;
-				*y = input->mouse.pos.y;
+				*x = input->mouse.pos.x - point->offset.x;
+				*y = input->mouse.pos.y - point->offset.y;
 				fck_nk_api_to_screen(nk, x, y);
 			}
 		}
@@ -1098,15 +1103,15 @@ static int fck_nk_api_legacy_control_point(fck_nk nk, const void *pointer, float
 
 	const struct nk_color c = nk_rgba(select->r, select->g, select->b, select->a);
 	struct nk_command_buffer *canvas = nk_window_get_canvas(nk_internal->ctx);
-	if (nk_internal->os.control_state.point.current == NULL || nk_internal->os.control_state.point.current == pointer)
+	if (point->current == NULL || point->current == pointer)
 	{
-		nk_stroke_rect(canvas, sr, 0.0f, 2.0f, c);
+		nk_stroke_rect(canvas, scaled_rect, 0.0f, 2.0f, c);
 	}
-	nk_fill_rect(canvas, r, 0.0f, c);
+	nk_fill_rect(canvas, rect, 0.0f, c);
 	return select == &on;
 }
 
-static int fck_nk_api_control_point(fck_nk nk, const void *pointer, float *x, float *y, float w, float h)
+static int fck_nk_api_translation(fck_nk nk, const void *pointer, float *x, float *y, float w, float h)
 {
 	// Since this nuklear implementation moves everything around, it is on said implementation to fix it
 	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
@@ -1122,26 +1127,27 @@ static int fck_nk_api_control_point(fck_nk nk, const void *pointer, float *x, fl
 	struct nk_rect rect = nk_rect(px - (w * 0.5f), py - (h * 0.5f), w, h);
 
 	const struct nk_input *input = &nk_internal->ctx->input;
+	fck_nk_control_point *point = &nk_internal->os.control_state.point;
 
 	int select = 0;
 	if (nk_input_is_mouse_hovering_rect(input, rect) || NK_INBOX(input->mouse.prev.x, input->mouse.prev.y, rect.x, rect.y, rect.w, rect.h))
 	{
-		nk_internal->os.control_state.point.last_hovered = pointer;
+		point->last_hovered = pointer;
 
 		if (nk_input_is_mouse_down(input, NK_BUTTON_LEFT))
 		{
-			if (nk_internal->os.control_state.point.current == NULL)
+			if (point->current == NULL)
 			{
-				nk_internal->os.control_state.point.offset.x = (input->mouse.pos.x - px);
-				nk_internal->os.control_state.point.offset.y = (input->mouse.pos.y - py);
+				point->offset.x = (input->mouse.pos.x - px);
+				point->offset.y = (input->mouse.pos.y - py);
 			}
-			if ((nk_internal->os.control_state.point.current == NULL || nk_internal->os.control_state.point.current == pointer))
+			if ((point->current == NULL || point->current == pointer))
 			{
-				nk_internal->os.control_state.point.current = pointer;
+				point->current = pointer;
 
 				select = 1;
-				*x = input->mouse.pos.x - nk_internal->os.control_state.point.offset.x;
-				*y = input->mouse.pos.y - nk_internal->os.control_state.point.offset.y;
+				*x = input->mouse.pos.x - point->offset.x;
+				*y = input->mouse.pos.y - point->offset.y;
 				fck_nk_api_to_screen(nk, x, y);
 			}
 		}
@@ -1155,6 +1161,37 @@ static void fck_nk_api_set_select(fck_nk nk, const void *pointer)
 	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
 	nk_internal->os.control_state.selection.pointer = pointer;
 	// TODO: Invalidate the rect?
+}
+
+static void fck_nk_dashed_rect(struct nk_command_buffer *canvas, const struct nk_rect rect, float dash_length, float dash_offset, const struct nk_color colour)
+{
+	float minX = rect.x;
+	float maxX = rect.x + rect.w;
+	float minY = rect.y;
+	float maxY = rect.y + rect.h;
+	float offset = dash_length;
+	float dash = dash_offset;
+	float fullStep = offset + dash;
+
+	float current = minX;
+	float line_thickness = 2.0f;
+	while (current < maxX)
+	{
+		float from = fck_clamp(current, minX, maxX);
+		float to = fck_clamp(current + dash, minX, maxX);
+		nk_stroke_line(canvas, from, minY, to, minY, line_thickness, colour);
+		nk_stroke_line(canvas, from, maxY, to, maxY, line_thickness, colour);
+		current += fullStep;
+	}
+	current = minY;
+	while (current < maxY)
+	{
+		float from = fck_clamp(current, minY, maxY);
+		float to = fck_clamp(current + dash, minY, maxY);
+		nk_stroke_line(canvas, minX, from, minX, to, line_thickness, colour);
+		nk_stroke_line(canvas, maxX, from, maxX, to, line_thickness, colour);
+		current += fullStep;
+	}
 }
 
 static int fck_nk_api_select(fck_nk nk, const void *pointer, float x, float y, float w, float h, fck_nk_colour on)
@@ -1212,33 +1249,7 @@ static int fck_nk_api_select(fck_nk nk, const void *pointer, float x, float y, f
 
 	if (pointer == selection->pointer)
 	{
-		float minX = rect.x;
-		float maxX = rect.x + rect.w;
-		float minY = rect.y;
-		float maxY = rect.y + rect.h;
-		float offset = 6.0f;
-		float dash = 6.0f;
-		float fullStep = offset + dash;
-
-		float current = minX;
-		float line_thickness = 2.0f;
-		while (current < maxX)
-		{
-			float from = fck_clamp(current, minX, maxX);
-			float to = fck_clamp( current + dash, minX, maxX);
-			nk_stroke_line(canvas, from, minY, to, minY, line_thickness, colour);
-			nk_stroke_line(canvas, from, maxY, to, maxY, line_thickness, colour);
-			current += fullStep;
-		}
-		current = minY;
-		while (current < maxY)
-		{
-			float from = fck_clamp(current, minY, maxY);
-			float to = fck_clamp(current + dash, minY, maxY);
-			nk_stroke_line(canvas, minX, from, minX, to, line_thickness, colour);
-			nk_stroke_line(canvas, maxX, from, maxX, to, line_thickness, colour);
-			current += fullStep;
-		}
+		fck_nk_dashed_rect(canvas, rect, 6.0f, 6.0f, colour);
 
 		selection->rect = rect;
 		return 1;
@@ -1502,8 +1513,8 @@ static fck_nuklear_api nuklear_api = {
 	.create = fck_nk_api_create,
 	.present = fck_nk_api_present,
 	.theme = fck_nk_api_theme,
-	.legacy_control_point = fck_nk_api_legacy_control_point,
 	.control_point = fck_nk_api_control_point,
+	.translation = fck_nk_api_translation,
 	.set_selection = fck_nk_api_set_select,
 	.select = fck_nk_api_select,
 	.to_screen = fck_nk_api_to_screen,

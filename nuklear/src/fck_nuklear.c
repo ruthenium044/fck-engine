@@ -1132,7 +1132,8 @@ static int fck_nk_api_control_point(fck_nk nk, const void *pointer, float *x, fl
 		{
 			if (nk_internal->os.control_state.point.current == NULL)
 			{
-				nk_internal->os.control_state.point.offset = input->mouse.pos;
+				nk_internal->os.control_state.point.offset.x = (input->mouse.pos.x - px);
+				nk_internal->os.control_state.point.offset.y = (input->mouse.pos.y - py);
 			}
 			if ((nk_internal->os.control_state.point.current == NULL || nk_internal->os.control_state.point.current == pointer))
 			{
@@ -1144,13 +1145,6 @@ static int fck_nk_api_control_point(fck_nk nk, const void *pointer, float *x, fl
 				fck_nk_api_to_screen(nk, x, y);
 			}
 		}
-	}
-
-	const struct nk_color colour = nk_rgba(on.r, on.g, on.b, on.a);
-	struct nk_command_buffer *canvas = nk_window_get_canvas(nk_internal->ctx);
-	if (nk_internal->os.control_state.point.current == NULL || nk_internal->os.control_state.point.current == pointer)
-	{
-		nk_fill_rect(canvas, rect, 0.0f, colour);
 	}
 
 	return select == 1;

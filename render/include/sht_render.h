@@ -275,6 +275,7 @@ typedef struct sht_memory_image
 	sht_image_view (*view)(sht_memory_arena *mem, sht_image image, fck_alias(sht_format, fckc_u32) format);
 	void (*discard)(sht_memory_arena *mem, sht_image_view *view);
 
+	// TODO: Reorder the parameters -> mem, image, view_count, extent @Ruta
 	sht_bool32 (*recreate)(sht_memory_arena *mem, sht_image *image, sht_extent extent, sht_image_view *views, fckc_size_t view_count);
 } sht_memory_image;
 
@@ -314,7 +315,9 @@ typedef enum sht_swapchain_state
 
 typedef struct sht_swapchain_vt
 {
-	// TODO: More stuff
+	// TODO: index_or_state should preferable be a sht_frame struct with a union.
+	// If sht_frame::state == index -> we can do sht_frame::index
+	// If sht_frame::state == needs_resize -> do a resize
 	sht_image_view (*wait_and_acquire)(sht_swapchain swapchain, fck_alias(sht_swapchain_state *, fckc_u32 *) index_or_state);
 	sht_extent (*extent)(sht_swapchain swapchain);
 	sht_extent (*display)(sht_swapchain swapchain);

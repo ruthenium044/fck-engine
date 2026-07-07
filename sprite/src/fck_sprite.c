@@ -495,6 +495,15 @@ static int fck_sprite_batch_api_remove(fck_sprites *external, fck_sprite_batch_i
 	return 0;
 }
 
+static fck_sprite_batch_id fck_sprite_batch_api_find_by_name(fck_sprites *external, const char *name)
+{
+	fck_sprites_internal sprites = {0};
+	fck_sprites_to_internal(external, &sprites);
+	const fckc_u32 result = fck_sprites_find_batch(&sprites, name);
+	const fck_sprite_batch_id id = {.value = result - 1};
+	return id;
+}
+
 static fck_sprite_batch_id fck_sprite_batch_api_index(fck_sprites *external, fckc_u32 index)
 {
 	fck_sprites_internal sprites = {0};
@@ -642,19 +651,6 @@ static fck_sprite_transform *fck_sprite_api_add(struct fck_sprites *external, fc
 	return NULL;
 }
 
-static fck_sprite_transform *fck_sprite_api_add_by_name(fck_sprites *external, const char *name)
-{
-	fck_sprites_internal sprites = {0};
-	fck_sprites_to_internal(external, &sprites);
-	fck_sprite_transform *transform = fck_sprites_add_by_name(&sprites, name);
-	if (transform)
-	{
-		fck_sprites_to_external(&sprites, external);
-		return transform;
-	}
-	return NULL;
-}
-
 static int fck_sprite_api_remove(struct fck_sprites *external, fck_sprite_id index)
 {
 	fck_sprites_internal sprites = {0};
@@ -712,6 +708,7 @@ static fck_sprite_batch_api sprite_batch_api = {
 	.count = fck_sprite_batch_api_count,
 	.names = fck_sprite_batch_api_names,
 	.remove = fck_sprite_batch_api_remove,
+	.find_by_name = fck_sprite_batch_api_find_by_name,
 	.index = fck_sprite_batch_api_index,
 	.is_ok = fck_sprite_batch_api_is_ok,
 };
@@ -719,7 +716,6 @@ static fck_sprite_batch_api sprite_batch_api = {
 static fck_sprite_api sprite_api = {
 	.batches = &sprite_batch_api,
 	.add = fck_sprite_api_add,
-	.add_by_name = fck_sprite_api_add_by_name,
 	.create = fck_sprite_api_create,
 	.destroy = fck_sprite_api_destroy,
 	.indexof = fck_sprite_api_indexof,

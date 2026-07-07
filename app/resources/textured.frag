@@ -10,4 +10,8 @@ layout (binding = 3) uniform sampler2D texture_sampler;
 void main() 
 {
 	out_fragment_colour = texture(texture_sampler, uv) * vec4(colour, 1.0);
+	if(out_fragment_colour.a < 0.1f) 
+	{
+		discard;
+	}
 }

@@ -154,111 +154,115 @@ static void app_sprite_pie_items_init(fck_nuklear_api *nk, app_sprite_pie_items 
 	nk->pie->push(&items->add, &items->add_item);
 }
 
+static void fck_sprite_transform_property(fck_nuklear_api *nk, fck_nk view, fck_sprite_transform *transform)
+{
+	transform->x = nk->elements->f32(view, "x", -1280.0f, transform->x, 1280.0f, 1.0f);
+	transform->y = nk->elements->f32(view, "y", -720.0f, transform->y, 720.0f, 1.0f);
+	transform->z = nk->elements->f32(view, "z", 0.0f, transform->z, 1.0f, 0.1f);
+	transform->width = nk->elements->f32(view, "width", 0.0f, transform->width, 256.0f, 4.0f);
+	transform->height = nk->elements->f32(view, "height", 0.0f, transform->height, 256.0f, 4.0f);
+	transform->rotation = nk->elements->f32(view, "rotation", 0.0f, transform->rotation, 360.0f, 1.0f);
+	transform->scale = nk->elements->f32(view, "scale", 1.0f, transform->scale, 100.0f, 1.0f);
+	transform->horizontal_index = nk->elements->i32(view, "horizontal index", 0, transform->horizontal_index, 10, 1);
+	transform->vertical_index = nk->elements->i32(view, "vertical index", 0, transform->vertical_index, 10, 1);
+}
+
 static void fck_sprite_transform_editor(fck_plugins_api *plugins, fck_sprite_api *sprite, fck_nuklear_api *nk, fck_nk view,
                                         app_sprite_pie_items *pie, fck_sprites *sprites, fck_sprite_id *selected_sprite_id)
 {
-	nk->panel->begin(view, "Sprite Tool", 300.0f);
+	nk->panel->begin(view, "Core Panel", 300.0f);
 	{
-		if (nk->panel->push(view, "Loaded Plugins"))
+		if (nk->panel->push(view, "Plugins"))
 		{
-			const char *current = NULL;
-			while ((current = plugins->loaded(current)))
+			if (nk->panel->push(view, "Loaded Plugins"))
 			{
-				if (nk->elements->button(view, current))
+				const char *current = NULL;
+				while ((current = plugins->loaded(current)))
 				{
-					plugins->unload(current);
-					break;
-				}
-			}
-			nk->panel->pop(view);
-		}
-
-		if (nk->panel->push(view, "Unloaded Plugins"))
-		{
-			const char* current = NULL;
-			while ((current = plugins->unloaded(current)))
-			{
-				if (nk->elements->button(view, current))
-				{
-					plugins->load(current);
-					break;
-				}
-			}
-			nk->panel->pop(view);
-		}
-
-		const fckc_u32 batch_count = sprite->batches->count(sprites);
-		for (fckc_u32 batch_index = 0; batch_index < batch_count; batch_index++)
-		{
-			const fck_sprite_batch_id id = sprite->batches->index(sprites, batch_index);
-			fck_assert(sprite->batches->is_ok(sprites, id));
-
-			fck_sprite_transform *transforms = NULL;
-			const fckc_u32 count = sprite->transforms(sprites, id, &transforms);
-			const char *batch_name = sprite->batches->nameof(sprites, id);
-			if (nk->panel->push(view, batch_name, count))
-			{
-				for (fckc_u32 index = 0; index < count; index++)
-				{
-					if (nk->panel->push(view, "%s[%d]", batch_name, index))
+					if (nk->elements->button(view, current))
 					{
-						const char **names;
-						const fckc_u32 names_count = sprite->batches->names(sprites, &names);
-						const int new_index = nk->elements->dropdown(view, (int)batch_index, names, names_count);
-						if (new_index != batch_index)
-						{
-							const fck_sprite_transform copy = transforms[index];
-							const fck_sprite_id sprite_id = sprite->indexof(sprites, id, transforms + index);
-							if (sprite->is_ok(sprites, sprite_id))
-							{
-								if (sprite->remove(sprites, sprite_id))
-								{
-									const fck_sprite_batch_id new_id = sprite->batches->index(sprites, batch_index);
-									fck_assert(sprite->batches->is_ok(sprites, new_id));
-									fck_sprite_transform *transform = sprite->add(sprites, new_id);
-									*transform = copy;
-									transform->horizontal_index = transform->vertical_index = 0;
-								}
-							}
-						}
-						else
-						{
-							fck_sprite_transform *transform = transforms + index;
-							transform->x = nk->elements->f32(view, "x", -1280.0f, transform->x, 1280.0f, 1.0f);
-							transform->y = nk->elements->f32(view, "y", -720.0f, transform->y, 720.0f, 1.0f);
-							transform->z = nk->elements->f32(view, "z", 0.0f, transform->z, 1.0f, 0.1f);
-							transform->width = nk->elements->f32(view, "width", 0.0f, transform->width, 256.0f, 4.0f);
-							transform->height = nk->elements->f32(view, "height", 0.0f, transform->height, 256.0f, 4.0f);
-							transform->rotation = nk->elements->f32(view, "rotation", 0.0f, transform->rotation, 360.0f, 1.0f);
-							transform->scale = nk->elements->f32(view, "scale", 1.0f, transform->scale, 100.0f, 1.0f);
-							transform->horizontal_index =
-								nk->elements->i32(view, "horizontal index", 0, transform->horizontal_index, 10, 1);
-							transform->vertical_index = nk->elements->i32(view, "vertical index", 0, transform->vertical_index, 10, 1);
-						}
-						nk->panel->pop(view);
+						plugins->unload(current);
+						break;
 					}
 				}
 				nk->panel->pop(view);
 			}
-		}
 
-		fck_sprite_transform *selected_transform = sprite->get(sprites, *selected_sprite_id);
-		if (selected_transform)
-		{
-			fck_sprite_transform *transform = selected_transform;
-			if (nk->panel->push(view, "Selection"))
+			if (nk->panel->push(view, "Unloaded Plugins"))
 			{
-				transform->x = nk->elements->f32(view, "x", -1280.0f, transform->x, 1280.0f, 1.0f);
-				transform->y = nk->elements->f32(view, "y", -720.0f, transform->y, 720.0f, 1.0f);
-				transform->z = nk->elements->f32(view, "z", 0.0f, transform->z, 1.0f, 0.1f);
-				transform->width = nk->elements->f32(view, "width", 0.0f, transform->width, 256.0f, 4.0f);
-				transform->height = nk->elements->f32(view, "height", 0.0f, transform->height, 256.0f, 4.0f);
-				transform->rotation = nk->elements->f32(view, "rotation", 0.0f, transform->rotation, 360.0f, 1.0f);
-				transform->scale = nk->elements->f32(view, "scale", 1.0f, transform->scale, 100.0f, 1.0f);
-				transform->horizontal_index = nk->elements->i32(view, "horizontal index", 0, transform->horizontal_index, 10, 1);
-				transform->vertical_index = nk->elements->i32(view, "vertical index", 0, transform->vertical_index, 10, 1);
+				const char *current = NULL;
+				while ((current = plugins->unloaded(current)))
+				{
+					if (nk->elements->button(view, current))
+					{
+						plugins->load(current);
+						break;
+					}
+				}
 				nk->panel->pop(view);
 			}
+			nk->panel->pop(view);
+		}
+
+		if (nk->panel->push(view, "Sprite Transforms"))
+		{
+			fck_sprite_transform *selected_transform = sprite->get(sprites, *selected_sprite_id);
+			if (selected_transform)
+			{
+				fck_sprite_transform *transform = selected_transform;
+				if (nk->panel->push(view, "Selection"))
+				{
+					fck_sprite_transform_property(nk, view, transform);
+					nk->panel->pop(view);
+				}
+			}
+
+			const fckc_u32 batch_count = sprite->batches->count(sprites);
+			for (fckc_u32 batch_index = 0; batch_index < batch_count; batch_index++)
+			{
+				const fck_sprite_batch_id id = sprite->batches->index(sprites, batch_index);
+				fck_assert(sprite->batches->is_ok(sprites, id));
+
+				fck_sprite_transform *transforms = NULL;
+				const fckc_u32 count = sprite->transforms(sprites, id, &transforms);
+				const char *batch_name = sprite->batches->nameof(sprites, id);
+				if (nk->panel->push(view, batch_name, count))
+				{
+					for (fckc_u32 index = 0; index < count; index++)
+					{
+						if (nk->panel->push(view, "%s[%d]", batch_name, index))
+						{
+							const char **names;
+							const fckc_u32 names_count = sprite->batches->names(sprites, &names);
+							const int new_index = nk->elements->dropdown(view, (int)batch_index, names, names_count);
+							if (new_index != batch_index)
+							{
+								const fck_sprite_transform copy = transforms[index];
+								const fck_sprite_id sprite_id = sprite->indexof(sprites, id, transforms + index);
+								if (sprite->is_ok(sprites, sprite_id))
+								{
+									if (sprite->remove(sprites, sprite_id))
+									{
+										const fck_sprite_batch_id new_id = sprite->batches->index(sprites, batch_index);
+										fck_assert(sprite->batches->is_ok(sprites, new_id));
+										fck_sprite_transform *transform = sprite->add(sprites, new_id);
+										*transform = copy;
+										transform->horizontal_index = transform->vertical_index = 0;
+									}
+								}
+							}
+							else
+							{
+								fck_sprite_transform *transform = transforms + index;
+								fck_sprite_transform_property(nk, view, transform);
+							}
+							nk->panel->pop(view);
+						}
+					}
+					nk->panel->pop(view);
+				}
+			}
+			nk->panel->pop(view);
 		}
 	}
 	nk->panel->end(view);
@@ -293,7 +297,8 @@ static void fck_sprite_transform_editor(fck_plugins_api *plugins, fck_sprite_api
 	{
 		if (nk->pie->happened(&pie->add_bird))
 		{
-			fck_sprite_transform *transform = sprite->add_by_name(sprites, "Birds");
+			const fck_sprite_batch_id id = sprite->batches->find_by_name(sprites, "Birds");
+			fck_sprite_transform *transform = sprite->add(sprites, id);
 			// Pie api is a bit clunky
 			const fck_sprite_transform baseline = {
 				.scale = 1.0f,
@@ -307,7 +312,8 @@ static void fck_sprite_transform_editor(fck_plugins_api *plugins, fck_sprite_api
 
 		if (nk->pie->happened(&pie->add_item))
 		{
-			fck_sprite_transform *transform = sprite->add_by_name(sprites, "Items");
+			const fck_sprite_batch_id id = sprite->batches->find_by_name(sprites, "Items");
+			fck_sprite_transform *transform = sprite->add(sprites, id);
 			// Pie api is a bit clunky
 			const fck_sprite_transform baseline = {
 				.scale = 1.0f,
@@ -381,8 +387,193 @@ static void fck_sprite_transform_editor(fck_plugins_api *plugins, fck_sprite_api
 	}
 }
 
+typedef enum app_entity_bits
+{
+	app_entity_alive_bit_count = 1,
+
+	app_entity_index_bit_count = 23,
+	app_entity_index_invalid = (1 << app_entity_index_bit_count) - 1,
+
+	app_entity_generation_bit_count = 8,
+	app_entity_generation_max = (1 << app_entity_generation_bit_count) - 1,
+} app_entity_bits;
+
+typedef struct app_entity_handle
+{
+	fckc_u32 index : app_entity_index_bit_count;
+	fckc_u32 alive : app_entity_alive_bit_count;
+	fckc_u32 generation : app_entity_generation_bit_count;
+} app_entity;
+
+typedef struct app_entity_lookup
+{
+	kll_allocator *allocator;
+	app_entity *sparse;
+
+	fckc_u32 free_list;
+
+	fckc_u32 count;
+	fckc_u32 capacity;
+} app_entity_lookup;
+
+static app_entity_lookup app_entity_lookup_api_create(kll_allocator *allocator)
+{
+	app_entity_lookup entities = {0};
+	entities.allocator = allocator;
+	entities.free_list = app_entity_index_invalid;
+	return entities;
+}
+
+static void app_entity_lookup_ensure_capacity(app_entity_lookup *entities, fckc_u32 extra)
+{
+	if (entities->capacity <= entities->count + extra)
+	{
+		// Make more space - eh, the extra makes stuff a bit ugly
+		const fckc_u32 next_capacity = entities->capacity ? (entities->capacity + extra) * 2 : 8;
+		const fckc_size_t total = next_capacity * sizeof(*entities->sparse);
+		app_entity *next_values = (app_entity *)kll_malloc(entities->allocator, total);
+		if (entities->sparse)
+		{
+			const fckc_size_t prev_total = entities->count * sizeof(*entities->sparse);
+			memcpy(next_values, entities->sparse, prev_total);
+			kll_free(entities->allocator, entities->sparse);
+		}
+		entities->sparse = next_values;
+		entities->capacity = next_capacity;
+	}
+}
+
+static app_entity app_entity_lookup_api_add(app_entity_lookup *entities, fckc_u32 value)
+{
+	app_entity_lookup_ensure_capacity(entities, 1);
+
+	fckc_u32 index;
+	if (entities->free_list != app_entity_index_invalid)
+	{
+		index = entities->free_list;
+		app_entity *free_item = entities->sparse + index;
+		free_item->generation = (free_item->generation + 1) % (app_entity_generation_max + 1);
+		entities->free_list = free_item->index;
+	}
+	else
+	{
+		index = entities->count;
+		app_entity *free_item = entities->sparse + index;
+		free_item->generation = 0;
+		entities->count = entities->count + 1;
+	}
+
+	// We have enough space!
+	app_entity *result = entities->sparse + index;
+	result->index = value;
+	result->alive = 1;
+	return *result;
+}
+
+static int app_entity_lookup_api_alive(app_entity_lookup *entities, app_entity entity)
+{
+	if (entity.index >= entities->count)
+	{
+		return 0;
+	}
+
+	app_entity *result = entities->sparse + entity.index;
+	if (result->alive == 0)
+	{
+		return 0;
+	}
+	if (result->generation != entity.generation)
+	{
+		return 0;
+	}
+	return 1;
+}
+
+static int app_entity_lookup_api_set(app_entity_lookup *entities, app_entity entity, fckc_u32 value)
+{
+	if (!app_entity_lookup_api_alive(entities, entity))
+	{
+		return 0;
+	}
+
+	app_entity *result = entities->sparse + entity.index;
+	result->index = value;
+	return 1;
+}
+
+static int app_entity_lookup_api_remove(app_entity_lookup *entities, app_entity entity)
+{
+	if (!app_entity_lookup_api_alive(entities, entity))
+	{
+		return 0;
+	}
+
+	app_entity *result = entities->sparse + entity.index;
+	// Append to the free list - Maintain generation!
+	result->index = entities->free_list;
+	result->alive = 0;
+	entities->free_list = entity.index;
+	return 1;
+}
+
+typedef struct app_entity_lookup_api
+{
+	app_entity_lookup (*create)(kll_allocator *allocator);
+	app_entity (*add)(app_entity_lookup *entities, fckc_u32 value);
+	int (*remove)(app_entity_lookup *entities, app_entity entity);
+	int (*alive)(app_entity_lookup *entities, app_entity entity);
+} app_entity_lookup_api;
+
+static app_entity_lookup_api entity_lookup_api = {
+	.create = app_entity_lookup_api_create,
+	.add = app_entity_lookup_api_add,
+	.remove = app_entity_lookup_api_remove,
+	.alive = app_entity_lookup_api_alive,
+};
+
+typedef struct app_entity_api
+{
+	app_entity_lookup_api *lookup;
+} app_entity_api;
+
+static app_entity_api entity_api = {
+	.lookup = &entity_lookup_api,
+};
+
+static app_entity_api *entity = &entity_api;
+
 int main(int argc, char **argv)
 {
+	app_entity_lookup entities = entity->lookup->create(kll->system);
+	entity->lookup->add(&entities, 0);
+	entity->lookup->add(&entities, 0);
+	entity->lookup->add(&entities, 0);
+	entity->lookup->add(&entities, 0);
+	entity->lookup->add(&entities, 0);
+	entity->lookup->add(&entities, 0);
+	entity->lookup->add(&entities, 0);
+	entity->lookup->add(&entities, 0);
+	entity->lookup->add(&entities, 0);
+
+	for (fckc_u32 index = 0; index < 9; index++)
+	{
+		if (index % 2 == 0)
+		{
+			const app_entity handle = {.index = index};
+			entity->lookup->remove(&entities, handle);
+		}
+	}
+
+	entity->lookup->add(&entities, 0);
+	entity->lookup->add(&entities, 0);
+	entity->lookup->add(&entities, 0);
+	entity->lookup->add(&entities, 0);
+	entity->lookup->add(&entities, 0);
+	entity->lookup->add(&entities, 0);
+	entity->lookup->add(&entities, 0);
+	entity->lookup->add(&entities, 0);
+	entity->lookup->add(&entities, 0);
+
 	// TODO: We need to setup stable editor entities, or something like that
 	load_config(argc, argv);
 
@@ -508,7 +699,7 @@ int main(int argc, char **argv)
 
 	const fck_gfx_shader vertex_shader = {.name = "vertex", .path = fck_resource_path "sprite.vert"};
 	const fck_gfx_shader fragment_shader = {.name = "textured", .path = fck_resource_path "textured.frag"};
-	const fck_gfx_create_info create_info = {.vertex = &vertex_shader, .fragment = &fragment_shader};
+	const fck_gfx_create_info create_info = {.has_depth = 1, .vertex = &vertex_shader, .fragment = &fragment_shader};
 	const fck_gfx sprite_gfx = gfx->create(kll->system, &driver, &create_info);
 
 	sht_image depth_image = {0};
@@ -654,74 +845,90 @@ int main(int argc, char **argv)
 				scissor.offset.y = 0;
 				scissor.extent = viewport.extent = swapchain.vt->extent(swapchain);
 
-				sht_render_desc desc = {
-					.colour = {.view = color_target, .load_op = sht_clear, .store_op = sht_store, .clear_value = {0.2f, 0.0f, 0.2f, 1.0f}},
-					//.depth = {.view = depth_view, .load_op = sht_clear, .store_op = sht_dont_care, .clear_value = 1.0f},
-				};
-
-				const sht_render_pass render_pass = command->render_pass->begin(command_buffer, &desc);
-				if (command->render_pass->is_ok(render_pass))
 				{
-					command->viewport(command_buffer, &viewport);
-					command->scissor(command_buffer, &scissor);
+					sht_render_desc desc = {
+						.colour = {.view = color_target,
+					               .load_op = sht_clear,
+					               .store_op = sht_store,
+					               .clear_value = {0.2f, 0.0f, 0.2f, 1.0f}},
+						.depth = {.view = depth_view, .load_op = sht_clear, .store_op = sht_dont_care},
+					};
 
-					const fckc_size_t batch_count = sprite->batches->count(&sprites);
-					for (fckc_size_t batch_index = 0; batch_index < batch_count; batch_index++)
+					const sht_render_pass render_pass = command->render_pass->begin(command_buffer, &desc);
+					if (command->render_pass->is_ok(render_pass))
 					{
-						const fck_sprite_batch_id id = sprite->batches->index(&sprites, batch_index);
-						fck_sprite_transform *transforms = NULL;
-						const fckc_u32 count = sprite->transforms(&sprites, id, &transforms);
+						command->viewport(command_buffer, &viewport);
+						command->scissor(command_buffer, &scissor);
 
-						if (count > 0)
+						const fckc_size_t batch_count = sprite->batches->count(&sprites);
+						for (fckc_size_t batch_index = 0; batch_index < batch_count; batch_index++)
 						{
-							float sprite_width = 0;
-							float sprite_height = 0;
-							sprite->batches->dimensions(&sprites, id, &sprite_width, &sprite_height);
-							command->index_buffer(command_buffer, &indices.buffer, 0);
+							const fck_sprite_batch_id id = sprite->batches->index(&sprites, batch_index);
+							fck_sprite_transform *transforms = NULL;
+							const fckc_u32 count = sprite->transforms(&sprites, id, &transforms);
 
-							sht_bss *bss = gfx->bss(sprite_gfx);
-							sht_graphics_pipeline *pipeline = gfx->pipeline(sprite_gfx); //
+							if (count > 0)
+							{
+								float sprite_width = 0;
+								float sprite_height = 0;
+								sprite->batches->dimensions(&sprites, id, &sprite_width, &sprite_height);
+								command->index_buffer(command_buffer, &indices.buffer, 0);
 
-							const app_screen screen = {
-								.width = (float)extent.width,
-								.height = (float)extent.height,
-								.sprite_width = sprite_width,
-								.sprite_height = sprite_height,
-							};
+								sht_bss *bss = gfx->bss(sprite_gfx);
+								sht_graphics_pipeline *pipeline = gfx->pipeline(sprite_gfx); //
 
-							const sht_buffer_upload_desc screen_upload = {.data = &screen, .size = sizeof(screen), .count = 1};
+								const app_screen screen = {
+									.width = (float)extent.width,
+									.height = (float)extent.height,
+									.sprite_width = sprite_width,
+									.sprite_height = sprite_height,
+								};
 
-							const sht_buffer_upload_desc transform_upload = {
-								.data = transforms,
-								.size = sizeof(*transforms),
-								.count = count,
-							};
+								const sht_buffer_upload_desc screen_upload = {.data = &screen, .size = sizeof(screen), .count = 1};
 
-							const sht_image_view *view = sprite->batches->image_view(&sprites, id);
-							const sht_image_upload_desc image_upload = {.samplers = sampler, .views = *view};
+								const sht_buffer_upload_desc transform_upload = {
+									.data = transforms,
+									.size = sizeof(*transforms),
+									.count = count,
+								};
 
-							driver.vt->bss->upload_buffer(*bss, 0, &screen_upload);
-							driver.vt->bss->upload_buffer(*bss, 1, &transform_upload);
-							driver.vt->bss->upload_image(*bss, 3, &image_upload);
-							command->bss(command_buffer, *bss);
+								const sht_image_view *view = sprite->batches->image_view(&sprites, id);
+								const sht_image_upload_desc image_upload = {.samplers = sampler, .views = *view};
 
-							command->graphics_pipeline(command_buffer, *pipeline);
+								driver.vt->bss->upload_buffer(*bss, 0, &screen_upload);
+								driver.vt->bss->upload_buffer(*bss, 1, &transform_upload);
+								driver.vt->bss->upload_image(*bss, 3, &image_upload);
+								command->bss(command_buffer, *bss);
 
-							const sht_draw_indexed_desc desc = {
-								.first_index = 0,
-								.index_count = to_u32(indices.count),
-								.instance_count = count,
-								.first_instance = 0,
-								.vertex_offset = 0,
-							};
+								command->graphics_pipeline(command_buffer, *pipeline);
 
-							command->draw_indexed(command_buffer, &desc);
+								const sht_draw_indexed_desc desc = {
+									.first_index = 0,
+									.index_count = to_u32(indices.count),
+									.instance_count = count,
+									.first_instance = 0,
+									.vertex_offset = 0,
+								};
+
+								command->draw_indexed(command_buffer, &desc);
+							}
 						}
+
+						command->render_pass->end(command_buffer);
 					}
+				}
 
-					nk->present(view, &command_buffer, frame_index);
+				{
+					sht_render_desc desc = {.colour = {.view = color_target, .load_op = sht_load, .store_op = sht_store}};
+					const sht_render_pass render_pass = command->render_pass->begin(command_buffer, &desc);
+					if (command->render_pass->is_ok(render_pass))
+					{
+						command->viewport(command_buffer, &viewport);
+						command->scissor(command_buffer, &scissor);
+						nk->present(view, &command_buffer, frame_index);
 
-					command->render_pass->end(command_buffer);
+						command->render_pass->end(command_buffer);
+					}
 				}
 
 				command->submit(command_buffer, sht_queue_graphic);

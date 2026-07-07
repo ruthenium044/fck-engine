@@ -122,7 +122,8 @@ static struct fck_gfx fck_gfx_api_create(kll_allocator *allocator, sht_driver *d
 		{
 			if (current->binding >= 0)
 			{
-				bindings_count = fck_gfx_bindings_add(sht_stage_fragment_shader, current, bindings, bindings_count, fck_arraysize(bindings));
+				bindings_count =
+					fck_gfx_bindings_add(sht_stage_fragment_shader, current, bindings, bindings_count, fck_arraysize(bindings));
 			}
 			current = current->next;
 		}
@@ -140,12 +141,16 @@ static struct fck_gfx fck_gfx_api_create(kll_allocator *allocator, sht_driver *d
 		.count = 0,
 	};
 
-	const sht_raster_desc raster_desc = {
+	sht_raster_desc raster_desc = {
 		.cull_mode = sht_cull_mode_none,
 		.topology = sht_triangle_list,
 		.color = sht_format_b8g8r8a8_unorm,
 		.depth = sht_format_undefined, // sht_format_d16_unorm,
 	};
+	if (info->has_depth)
+	{
+		raster_desc.depth = sht_format_d16_unorm;
+	}
 
 	const sht_graphic_desc graphic_desc = {
 		.fragment = &frag.generic,

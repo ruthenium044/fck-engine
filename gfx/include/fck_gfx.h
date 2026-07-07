@@ -26,6 +26,8 @@ typedef struct fck_gfx_shader
 
 typedef struct fck_gfx_create_info
 {
+	// This is not so elegant - Instead of boolean configuration always prefer more explicit settings
+	const int has_depth;
 	const fck_gfx_shader *vertex;
 	const fck_gfx_shader *fragment;
 } fck_gfx_create_info;

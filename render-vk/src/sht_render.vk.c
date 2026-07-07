@@ -2792,7 +2792,7 @@ static VkPipelineColorBlendAttachmentState sht_vk_color_blend_attachment_state()
 	blend_attachment_state.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
 	blend_attachment_state.colorBlendOp = VK_BLEND_OP_ADD;
 	blend_attachment_state.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-	blend_attachment_state.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+	blend_attachment_state.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
 	blend_attachment_state.alphaBlendOp = VK_BLEND_OP_ADD;
 	return blend_attachment_state;
 }
@@ -2842,12 +2842,15 @@ static VkPipelineDepthStencilStateCreateInfo sht_vk_depth_stencil_state()
 	depth_stencil_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
 	depth_stencil_create_info.pNext = NULL;
 	depth_stencil_create_info.flags = 0;
-	depth_stencil_create_info.minDepthBounds = 0.0f;
-	depth_stencil_create_info.maxDepthBounds = 0.0f;
 	depth_stencil_create_info.depthTestEnable = VK_TRUE;
 	depth_stencil_create_info.depthWriteEnable = VK_TRUE;
-	depth_stencil_create_info.depthCompareOp = VK_COMPARE_OP_LESS;
+	depth_stencil_create_info.depthCompareOp = VK_COMPARE_OP_GREATER_OR_EQUAL;
+	// Depth bounds are off
 	depth_stencil_create_info.depthBoundsTestEnable = VK_FALSE;
+	depth_stencil_create_info.minDepthBounds = 0.0f;
+	depth_stencil_create_info.maxDepthBounds = 0.0f;
+	// Stencil is off
+	depth_stencil_create_info.stencilTestEnable = VK_FALSE;
 	depth_stencil_create_info.back.failOp = VK_STENCIL_OP_KEEP;
 	depth_stencil_create_info.back.passOp = VK_STENCIL_OP_KEEP;
 	depth_stencil_create_info.back.compareOp = VK_COMPARE_OP_ALWAYS;
@@ -2855,7 +2858,6 @@ static VkPipelineDepthStencilStateCreateInfo sht_vk_depth_stencil_state()
 	depth_stencil_create_info.back.compareMask = 0;
 	depth_stencil_create_info.back.writeMask = 0;
 	depth_stencil_create_info.back.reference = 0;
-	depth_stencil_create_info.stencilTestEnable = VK_FALSE;
 	depth_stencil_create_info.front = depth_stencil_create_info.back;
 	return depth_stencil_create_info;
 }

@@ -23,7 +23,7 @@
 #include <fck_gfx.h>
 #include <fck_nuklear.h>
 
-#include "fck_sprite.h"
+#include <fck_sprite.h>
 
 // #pragma optimize("", off)
 
@@ -282,7 +282,7 @@ static void fck_sprite_transform_editor(fck_plugins_api *plugins, fck_sprite_api
 				{
 					*selected_sprite_id = sprite->indexof(sprites, id, transforms + index);
 				}
-				if (nk->control_point(view, transform, &transform->x, &transform->y, 16.0f, on, off))
+				if (nk->control_point(view, transform, &transform->x, &transform->y, transform->width, transform->height))
 				{
 					// break;
 				}

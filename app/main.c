@@ -279,12 +279,13 @@ static void fck_sprite_transform_editor(fck_plugins_api *plugins, fck_sprite_api
 
 			float sprite_width = 0;
 			float sprite_height = 0;
-			sprite->batches->dimensions(&sprites, id, &sprite_width, &sprite_height);
+			sprite->batches->dimensions(sprites, id, &sprite_width, &sprite_height);
 
 			for (fckc_size_t index = 0; index < count; index++)
 			{
 				fck_sprite_transform *transform = transforms + index;
-				if (nk->select(view, transform, transform->x, transform->y, sprite_width, sprite_height, on))
+				if (nk->select(view, transform, transform->x, transform->y, sprite_width * transform->scale,
+				               sprite_height * transform->scale, on))
 				{
 					*selected_sprite_id = sprite->indexof(sprites, id, transforms + index);
 				}
@@ -907,7 +908,7 @@ int main(int argc, char **argv)
 		const fck_sprite_transform baseline = {
 			.scale = temp_transform_scale,
 			.x = -200.0f,
-			.y = 0.0f,
+			.y = 150.0f,
 		};
 		*transform = baseline;
 	}
@@ -917,7 +918,7 @@ int main(int argc, char **argv)
 		const fck_sprite_transform baseline = {
 			.scale = temp_transform_scale,
 			.x = 200.0f,
-			.y = 0.0f,
+			.y = 150.0f,
 		};
 		*transform = baseline;
 	}

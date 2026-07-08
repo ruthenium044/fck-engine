@@ -15,8 +15,6 @@ typedef struct fck_sprite_transform
 	float y;
 	float z;
 	float rotation;
-	float width;
-	float height;
 	float scale;
 	int horizontal_index;
 	int vertical_index;

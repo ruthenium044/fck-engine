@@ -159,8 +159,6 @@ static void fck_sprite_transform_property(fck_nuklear_api *nk, fck_nk view, fck_
 	transform->x = nk->elements->f32(view, "x", -1280.0f, transform->x, 1280.0f, 1.0f);
 	transform->y = nk->elements->f32(view, "y", -720.0f, transform->y, 720.0f, 1.0f);
 	transform->z = nk->elements->f32(view, "z", 0.0f, transform->z, 1.0f, 0.1f);
-	transform->width = nk->elements->f32(view, "width", 0.0f, transform->width, 256.0f, 4.0f);
-	transform->height = nk->elements->f32(view, "height", 0.0f, transform->height, 256.0f, 4.0f);
 	transform->rotation = nk->elements->f32(view, "rotation", 0.0f, transform->rotation, 360.0f, 1.0f);
 	transform->scale = nk->elements->f32(view, "scale", 1.0f, transform->scale, 100.0f, 1.0f);
 	transform->horizontal_index = nk->elements->i32(view, "horizontal index", 0, transform->horizontal_index, 10, 1);
@@ -279,10 +277,14 @@ static void fck_sprite_transform_editor(fck_plugins_api *plugins, fck_sprite_api
 			fck_sprite_transform *transforms = NULL;
 			const fckc_u32 count = sprite->transforms(sprites, id, &transforms);
 
+			float sprite_width = 0;
+			float sprite_height = 0;
+			sprite->batches->dimensions(&sprites, id, &sprite_width, &sprite_height);
+
 			for (fckc_size_t index = 0; index < count; index++)
 			{
 				fck_sprite_transform *transform = transforms + index;
-				if (nk->select(view, transform, transform->x, transform->y, transform->width, transform->height, on))
+				if (nk->select(view, transform, transform->x, transform->y, sprite_width, sprite_height, on))
 				{
 					*selected_sprite_id = sprite->indexof(sprites, id, transforms + index);
 				}
@@ -301,9 +303,7 @@ static void fck_sprite_transform_editor(fck_plugins_api *plugins, fck_sprite_api
 			fck_sprite_transform *transform = sprite->add(sprites, id);
 			// Pie api is a bit clunky
 			const fck_sprite_transform baseline = {
-				.scale = 1.0f,
-				.width = 256.0f,
-				.height = 256.0f,
+				.scale = 10.0f,
 			};
 			*transform = baseline;
 			nk->pie->apply_position(view, &transform->x, &transform->y);
@@ -316,9 +316,7 @@ static void fck_sprite_transform_editor(fck_plugins_api *plugins, fck_sprite_api
 			fck_sprite_transform *transform = sprite->add(sprites, id);
 			// Pie api is a bit clunky
 			const fck_sprite_transform baseline = {
-				.scale = 1.0f,
-				.width = 64.0f,
-				.height = 64.0f,
+				.scale = 10.0f,
 			};
 			*transform = baseline;
 			nk->pie->apply_position(view, &transform->x, &transform->y);
@@ -350,7 +348,11 @@ static void fck_sprite_transform_editor(fck_plugins_api *plugins, fck_sprite_api
 				*transform = copy;
 				*selected_sprite_id = sprite->indexof(sprites, selected_sprite_id->batch, transform);
 
-				transform->x = transform->x - transform->width;
+				float sprite_width = 0;
+				float sprite_height = 0;
+				sprite->batches->dimensions(&sprites, selected_sprite_id->batch, &sprite_width, &sprite_height);
+
+				transform->x = transform->x - sprite_width;
 				nk->set_selection(view, transform);
 			}
 			if (nk->pie->happened(&pie->duplicate_right) && selected_transform)
@@ -360,7 +362,11 @@ static void fck_sprite_transform_editor(fck_plugins_api *plugins, fck_sprite_api
 				*transform = copy;
 				*selected_sprite_id = sprite->indexof(sprites, selected_sprite_id->batch, transform);
 
-				transform->x = transform->x + transform->width;
+				float sprite_width = 0;
+				float sprite_height = 0;
+				sprite->batches->dimensions(&sprites, selected_sprite_id->batch, &sprite_width, &sprite_height);
+
+				transform->x = transform->x + sprite_width;
 				nk->set_selection(view, transform);
 			}
 			if (nk->pie->happened(&pie->duplicate_up) && selected_transform)
@@ -369,8 +375,12 @@ static void fck_sprite_transform_editor(fck_plugins_api *plugins, fck_sprite_api
 				fck_sprite_transform *transform = sprite->add(sprites, selected_sprite_id->batch);
 				*transform = copy;
 				*selected_sprite_id = sprite->indexof(sprites, selected_sprite_id->batch, transform);
+				
+				float sprite_width = 0;
+				float sprite_height = 0;
+				sprite->batches->dimensions(&sprites, selected_sprite_id->batch, &sprite_width, &sprite_height);
 
-				transform->y = transform->y - transform->height;
+				transform->y = transform->y - sprite_width;
 				nk->set_selection(view, transform);
 			}
 			if (nk->pie->happened(&pie->duplicate_down) && selected_transform)
@@ -380,7 +390,11 @@ static void fck_sprite_transform_editor(fck_plugins_api *plugins, fck_sprite_api
 				*transform = copy;
 				*selected_sprite_id = sprite->indexof(sprites, selected_sprite_id->batch, transform);
 
-				transform->y = transform->y + transform->height;
+				float sprite_width = 0;
+				float sprite_height = 0;
+				sprite->batches->dimensions(&sprites, selected_sprite_id->batch, &sprite_width, &sprite_height);
+
+				transform->y = transform->y + sprite_width;
 				nk->set_selection(view, transform);
 			}
 		}
@@ -880,9 +894,7 @@ int main(int argc, char **argv)
 	{
 		fck_sprite_transform *transform = sprite->add(&sprites, background_batch);
 		const fck_sprite_transform baseline = {
-			.scale = 1.0f, 
-			.width = 132.0f * temp_transform_scale,
-			.height = 72.0f * temp_transform_scale, 
+			.scale = temp_transform_scale,
 			.x = 0.0f, 
 			.y = 0.0f, 
 			.z = 0.0f,
@@ -893,9 +905,7 @@ int main(int argc, char **argv)
 	{
 		fck_sprite_transform *transform = sprite->add(&sprites, birds_batch);
 		const fck_sprite_transform baseline = {
-			.scale = 1.0f,
-			.width = 32.0f * temp_transform_scale,
-			.height = 32.0f * temp_transform_scale,
+			.scale = temp_transform_scale,
 			.x = -200.0f,
 			.y = 0.0f,
 		};
@@ -905,9 +915,7 @@ int main(int argc, char **argv)
 	{
 		fck_sprite_transform *transform = sprite->add(&sprites, items_batch);
 		const fck_sprite_transform baseline = {
-			.scale = 1.0f,
-			.width = 16.0f * temp_transform_scale,
-			.height = 16.0f * temp_transform_scale,
+			.scale = temp_transform_scale,
 			.x = 200.0f,
 			.y = 0.0f,
 		};

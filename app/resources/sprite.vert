@@ -16,8 +16,6 @@ struct app_sprite_transform {
     float y;      
     float z;      
     float rotation;
-    float width;  
-    float height;
     float scale;
     int horizontal_index;
     int vertical_index;
@@ -63,8 +61,8 @@ void main()
     app_sprite_transform transform = transforms[gl_InstanceIndex];
 
 	vec3 pos = positions[gl_VertexIndex];
-    pos.x *= (transform.width * 0.5);
-    pos.y *= (transform.height * 0.5);
+    pos.x *= (screen.sprite_width * transform.scale * 0.5);
+    pos.y *= (screen.sprite_height * transform.scale * 0.5);
 
     float rad = transform.rotation;
     float cos_radius = cos(rad);

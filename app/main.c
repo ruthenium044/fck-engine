@@ -828,8 +828,13 @@ int main(int argc, char **argv)
 		driver.vt->upload_image(driver, &texture_image, pixels, sizeof(pixels));
 	}
 
+	const fck_png background_png = png->load(fck_resource_path "bg-mockup.png");
 	const fck_png bird_png = png->load(fck_resource_path "bird-sheet.png");
 	const fck_png items_png = png->load(fck_resource_path "items-sheet.png");
+
+	const sht_image background_image =
+		app_load_image(driver, background_png.data, sht_format_r8g8b8a8_unorm, background_png.width, background_png.height);
+	const sht_image_view background_image_view = memory->image->view(memory->bump, background_image, sht_format_r8g8b8a8_unorm);
 
 	const sht_image bird_image = app_load_image(driver, bird_png.data, sht_format_r8g8b8a8_unorm, bird_png.width, bird_png.height);
 	const sht_image_view bird_image_view = memory->image->view(memory->bump, bird_image, sht_format_r8g8b8a8_unorm);
@@ -866,14 +871,31 @@ int main(int argc, char **argv)
 	}
 
 	fck_sprites sprites = sprite->create(kll->system);
+	const fck_sprite_batch_id background_batch = sprite->batches->add(&sprites, "Background", &background_image_view, 132.0f, 72.0f);
 	const fck_sprite_batch_id birds_batch = sprite->batches->add(&sprites, "Birds", &bird_image_view, 32.0f, 32.0f);
 	const fck_sprite_batch_id items_batch = sprite->batches->add(&sprites, "Items", &items_image_view, 16.0f, 16.0f);
+
+	const float temp_transform_scale = 10.0f;
+
+	{
+		fck_sprite_transform *transform = sprite->add(&sprites, background_batch);
+		const fck_sprite_transform baseline = {
+			.scale = 1.0f, 
+			.width = 132.0f * temp_transform_scale,
+			.height = 72.0f * temp_transform_scale, 
+			.x = 0.0f, 
+			.y = 0.0f, 
+			.z = 0.0f,
+		};
+		*transform = baseline;
+	}
+
 	{
 		fck_sprite_transform *transform = sprite->add(&sprites, birds_batch);
 		const fck_sprite_transform baseline = {
 			.scale = 1.0f,
-			.width = 256.0f,
-			.height = 256.0f,
+			.width = 32.0f * temp_transform_scale,
+			.height = 32.0f * temp_transform_scale,
 			.x = -200.0f,
 			.y = 0.0f,
 		};
@@ -884,8 +906,8 @@ int main(int argc, char **argv)
 		fck_sprite_transform *transform = sprite->add(&sprites, items_batch);
 		const fck_sprite_transform baseline = {
 			.scale = 1.0f,
-			.width = 64.0f,
-			.height = 64.0f,
+			.width = 16.0f * temp_transform_scale,
+			.height = 16.0f * temp_transform_scale,
 			.x = 200.0f,
 			.y = 0.0f,
 		};

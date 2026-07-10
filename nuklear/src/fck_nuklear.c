@@ -1541,6 +1541,8 @@ struct fck_color_mapping
 	struct nk_color color;
 };
 
+// TODO: We are not doing capslock for constants
+// TODO We cannot do const variables and then reference them - This is C23 behaviour 
 static const struct nk_color FCK_CLR_CHARCOAL = {45, 45, 45, 255};
 static const struct nk_color FCK_CLR_SLATE = {70, 70, 70, 255};
 static const struct nk_color FCK_CLR_MID_GRAY = {150, 150, 150, 255};
@@ -1585,6 +1587,7 @@ static const struct fck_color_mapping white_theme_data[] = {
 	{NK_COLOR_TAB_HEADER, {180, 180, 180, 255}},
 };
 
+// TODO: We cannot do what you see below
 static const struct fck_color_mapping ruta_theme_data[] = {
 	{NK_COLOR_TEXT, {210, 210, 210, 255}},
 	{NK_COLOR_WINDOW, {30, 33, 40, 215}},

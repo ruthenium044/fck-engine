@@ -841,6 +841,10 @@ static void *app_entity_components_api_set(app_entity_components *components, ap
 	{
 		memcpy(memory + offset, data, components->size);
 	}
+	else
+	{
+		memset(memory + offset, 0, components->size);
+	}
 	return (void *)(memory + offset);
 }
 
@@ -1142,16 +1146,27 @@ typedef struct app_ec_components_api
 {
 	// Find better name
 	int (*reg)(app_ec *ec, const char *name, fckc_u32 size);
-	app_entity (*add)(app_ec *ec, app_entity entity, const char *name, const void* data);
+	app_entity (*add)(app_ec *ec, app_entity entity, const char *name, const void *data);
 	void (*remove)(app_ec *ec, app_entity entity, const char *name);
 
-	fckc_u32 (*dense)(app_ec* ecs, const char* name, app_entity** values);
-	void* (*buffer)(app_ec* ecs, const char* name);
+	void *(*get)(app_ec *ec, app_entity entity, const char *name);
+	void *(*query)(app_ec *ec, app_entity entity, const char *name, void *out_data);
+
+	fckc_u32 (*dense)(app_ec *ec, const char *name, const app_entity **values);
+	void *(*buffer)(app_ec *ec, const char *name);
 } app_ec_components_api;
+
+// Rethink this
+#define app_ec_components_get_typed(api, type, ec, entity) (type *)api->components->get(ec, entity, #type)
 
 typedef struct app_ec_api
 {
-	app_ec *(*create)(app_ec *ec, fckc_u32 capacity);
+	app_ec_entities_api *entities;
+	app_ec_components_api *components;
+
+	// Maybe moving this one into core or world would feel nicer
+	// Maybe call world "database", that would be extra nice
+	app_ec *(*create)(kll_allocator *allocator, fckc_u32 capacity);
 	void (*destroy)(app_ec *ec);
 } app_ec_api;
 
@@ -1169,6 +1184,7 @@ static app_entity_api entity_api = {
 };
 
 static app_entity_api *entity = &entity_api;
+static app_ec_api *ec;
 
 typedef struct app_sprite_component
 {
@@ -1179,54 +1195,97 @@ int main(int argc, char **argv)
 {
 	app_sprite_component initial = {.id = {.batch.value = 64, .entry.value = 128}};
 
-	app_ec *ec = app_ec_api_create(kll->system, 32);
+	//// We can create a new ec
+	//app_ec *other = ec->create(kll->system, 32);
 
-	app_ec_api_register_component(ec, "sprites", sizeof(app_sprite_component));
-	app_ec_api_register_component(ec, "test", sizeof(app_sprite_component));
-	app_ec_api_register_component(ec, "test case", sizeof(app_sprite_component));
-	app_ec_api_register_component(ec, "More", sizeof(app_sprite_component));
+	//// We can register a component
+	//ec->components->reg(other, "sprite", sizeof(app_sprite_component));
+	//// We can create an entity
+	//const app_entity entity = ec->entities->create(other);
 
-	app_entity e0 = app_ec_api_entity_add(ec);
-	app_entity e1 = app_ec_api_entity_add(ec);
-	app_entity e2 = app_ec_api_entity_add(ec);
-	app_entity e3 = app_ec_api_entity_add(ec);
+	//// We can add component to entity
+	//ec->components->add(other, entity, "sprite", NULL);
 
-	app_ec_api_set_component(ec, e0, "sprites", &initial);
-	app_ec_api_set_component(ec, e0, "test", &initial);
-	app_ec_api_set_component(ec, e0, "test case", &initial);
-	app_ec_api_set_component(ec, e0, "More", &initial);
-	app_ec_api_set_component(ec, e0, "Garbage", &initial);
+	//const app_entity *sprites_entities;
+	//// We can query a compact array of indices
+	//const fckc_u32 sprites_count = ec->components->dense(other, "sprite", &sprites_entities);
+	//// We can query a component buffer holding all the state in a compact manner
+	//app_sprite_component *sprites_data = (app_sprite_component *)ec->components->buffer(other, "sprites");
+	//for (fckc_u32 index = 0; index < sprites_count; index++)
+	//{
+	//	const app_entity e = sprites_entities[index];
+	//	const app_sprite_component d = sprites_data[index];
 
-	app_ec_api_entity_components_info_print(ec, "sprites");
-	app_ec_api_entity_components_info_print(ec, "test");
-	app_ec_api_entity_components_info_print(ec, "test case");
-	app_ec_api_entity_components_info_print(ec, "More");
+	//	// This - Still requires null check
+	//	float *x = app_ec_components_get_typed(ec, float, other, entity);
 
-	app_ec_api_set_component(ec, e1, "sprites", &initial);
-	app_ec_api_set_component(ec, e2, "sprites", &initial);
-	app_ec_api_set_component(ec, e3, "sprites", &initial);
+	//	// vs this - Still requires null check -- Can also be implicit
+	//	float *y = (float *)ec->components->get(other, e, "float");
+	//	// implicit:
+	//	// float *y = ec->components->get(other, e, "float");
+	//	// Makes the upper option redundant 
+	//	// 
+	//	// or maybe!
+	//	float z;
+	//	if (ec->components->query(other, e, "float", &z))
+	//	{
+	//	}
 
-	app_ec_api_entity_archetype_print(ec, e0);
-	app_ec_api_entity_archetype_print(ec, e1);
-	app_ec_api_entity_archetype_print(ec, e2);
-	app_ec_api_entity_archetype_print(ec, e3);
+	//	os->io->log("Entity: {index: %u - generation: %u} uses Sprite {batch: %u - index: %u}", e.index, e.generation, d.id.batch.value,
+	//	            d.id.entry.value);
+	//}
 
-	void *sprites_buffer = app_ec_api_get_component_buffer(ec, "sprites");
+	//// We can remove components
+	//ec->components->remove(other, entity, "sprite");
 
-	app_ec_api_entity_remove(ec, e0);
-	app_ec_api_entity_remove(ec, e1);
-	app_ec_api_entity_remove(ec, e2);
-	app_ec_api_entity_remove(ec, e3);
+	app_ec *world = app_ec_api_create(kll->system, 32);
 
-	app_ec_api_entity_components_info_print(ec, "sprites");
-	app_ec_api_entity_components_info_print(ec, "test");
-	app_ec_api_entity_components_info_print(ec, "test case");
-	app_ec_api_entity_components_info_print(ec, "More");
+	app_ec_api_register_component(world, "sprites", sizeof(app_sprite_component));
+	app_ec_api_register_component(world, "test", sizeof(app_sprite_component));
+	app_ec_api_register_component(world, "test case", sizeof(app_sprite_component));
+	app_ec_api_register_component(world, "More", sizeof(app_sprite_component));
 
-	app_entity e01 = app_ec_api_entity_add(ec);
-	app_entity e11 = app_ec_api_entity_add(ec);
-	app_entity e21 = app_ec_api_entity_add(ec);
-	app_entity e31 = app_ec_api_entity_add(ec);
+	app_entity e0 = app_ec_api_entity_add(world);
+	app_entity e1 = app_ec_api_entity_add(world);
+	app_entity e2 = app_ec_api_entity_add(world);
+	app_entity e3 = app_ec_api_entity_add(world);
+
+	app_ec_api_set_component(world, e0, "sprites", &initial);
+	app_ec_api_set_component(world, e0, "test", &initial);
+	app_ec_api_set_component(world, e0, "test case", &initial);
+	app_ec_api_set_component(world, e0, "More", &initial);
+	app_ec_api_set_component(world, e0, "Garbage", &initial);
+
+	app_ec_api_entity_components_info_print(world, "sprites");
+	app_ec_api_entity_components_info_print(world, "test");
+	app_ec_api_entity_components_info_print(world, "test case");
+	app_ec_api_entity_components_info_print(world, "More");
+
+	app_ec_api_set_component(world, e1, "sprites", &initial);
+	app_ec_api_set_component(world, e2, "sprites", &initial);
+	app_ec_api_set_component(world, e3, "sprites", &initial);
+
+	app_ec_api_entity_archetype_print(world, e0);
+	app_ec_api_entity_archetype_print(world, e1);
+	app_ec_api_entity_archetype_print(world, e2);
+	app_ec_api_entity_archetype_print(world, e3);
+
+	void *sprites_buffer = app_ec_api_get_component_buffer(world, "sprites");
+
+	app_ec_api_entity_remove(world, e0);
+	app_ec_api_entity_remove(world, e1);
+	app_ec_api_entity_remove(world, e2);
+	app_ec_api_entity_remove(world, e3);
+
+	app_ec_api_entity_components_info_print(world, "sprites");
+	app_ec_api_entity_components_info_print(world, "test");
+	app_ec_api_entity_components_info_print(world, "test case");
+	app_ec_api_entity_components_info_print(world, "More");
+
+	app_entity e01 = app_ec_api_entity_add(world);
+	app_entity e11 = app_ec_api_entity_add(world);
+	app_entity e21 = app_ec_api_entity_add(world);
+	app_entity e31 = app_ec_api_entity_add(world);
 
 	// app_entity_lookup lookup = entity->lookup->create(kll->system);
 	// app_entity_storage strorage = entity->storage->create(kll->system);

@@ -27,7 +27,6 @@ target_sources(${PROJECT_NAME} PRIVATE "src/fck_nuklear.c")
 target_link_libraries(${PROJECT_NAME}-interface INTERFACE fck::fckc)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE ${PROJECT_NAME}-interface)
-target_link_libraries(${PROJECT_NAME} PRIVATE fck::api)
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::kll)
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::os)
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::input)

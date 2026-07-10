@@ -37,6 +37,6 @@ add_subdirectory(glsl-reflection)
 add_subdirectory(gfx)
 add_subdirectory(nuklear)
 add_subdirectory(sprite)
-
+add_subdirectory(api)
 add_subdirectory(plugins)
-
+add_subdirectory(ec)

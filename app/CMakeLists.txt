@@ -21,6 +21,7 @@ find_package(png)
 find_package(gfx)
 find_package(nuklear)
 find_package(sprite)
+find_package(ec)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::hash)
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::os)
@@ -35,6 +36,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE fck::render)
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::shader-interface)
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::gfx-interface)
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::sprite-interface)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::ec-interface)
 
 # this needs to get substituted well...
 target_compile_definitions(${PROJECT_NAME} PRIVATE

@@ -1509,8 +1509,8 @@ int main(int argc, char **argv)
 		fck_sprite_transform *transform = sprite->add(&sprites, birds_batch);
 		const fck_sprite_transform baseline = {
 			.scale = temp_transform_scale,
-			.x = -200.0f,
-			.y = 150.0f,
+			.x = -20.0f * temp_transform_scale,
+			.y = 15.0f * temp_transform_scale,
 		};
 		*transform = baseline;
 	}
@@ -1519,8 +1519,8 @@ int main(int argc, char **argv)
 		fck_sprite_transform *transform = sprite->add(&sprites, items_batch);
 		const fck_sprite_transform baseline = {
 			.scale = temp_transform_scale,
-			.x = 200.0f,
-			.y = 150.0f,
+			.x = 20.0f * temp_transform_scale,
+			.y = 15.0f * temp_transform_scale,
 		};
 		*transform = baseline;
 	}

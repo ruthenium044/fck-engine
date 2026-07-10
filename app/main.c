@@ -351,7 +351,7 @@ static void fck_sprite_transform_editor(fck_plugins_api *plugins, fck_sprite_api
 
 				float sprite_width = 0;
 				float sprite_height = 0;
-				sprite->batches->dimensions(&sprites, selected_sprite_id->batch, &sprite_width, &sprite_height);
+				sprite->batches->dimensions(sprites, selected_sprite_id->batch, &sprite_width, &sprite_height);
 
 				transform->x = transform->x - sprite_width;
 				nk->set_selection(view, transform);
@@ -365,7 +365,7 @@ static void fck_sprite_transform_editor(fck_plugins_api *plugins, fck_sprite_api
 
 				float sprite_width = 0;
 				float sprite_height = 0;
-				sprite->batches->dimensions(&sprites, selected_sprite_id->batch, &sprite_width, &sprite_height);
+				sprite->batches->dimensions(sprites, selected_sprite_id->batch, &sprite_width, &sprite_height);
 
 				transform->x = transform->x + sprite_width;
 				nk->set_selection(view, transform);
@@ -376,10 +376,10 @@ static void fck_sprite_transform_editor(fck_plugins_api *plugins, fck_sprite_api
 				fck_sprite_transform *transform = sprite->add(sprites, selected_sprite_id->batch);
 				*transform = copy;
 				*selected_sprite_id = sprite->indexof(sprites, selected_sprite_id->batch, transform);
-				
+
 				float sprite_width = 0;
 				float sprite_height = 0;
-				sprite->batches->dimensions(&sprites, selected_sprite_id->batch, &sprite_width, &sprite_height);
+				sprite->batches->dimensions(sprites, selected_sprite_id->batch, &sprite_width, &sprite_height);
 
 				transform->y = transform->y - sprite_width;
 				nk->set_selection(view, transform);
@@ -393,7 +393,7 @@ static void fck_sprite_transform_editor(fck_plugins_api *plugins, fck_sprite_api
 
 				float sprite_width = 0;
 				float sprite_height = 0;
-				sprite->batches->dimensions(&sprites, selected_sprite_id->batch, &sprite_width, &sprite_height);
+				sprite->batches->dimensions(sprites, selected_sprite_id->batch, &sprite_width, &sprite_height);
 
 				transform->y = transform->y + sprite_width;
 				nk->set_selection(view, transform);
@@ -425,9 +425,6 @@ typedef struct app_entity_lookup
 	kll_allocator *allocator;
 	app_entity *sparse;
 
-	fckc_u32 free_list;
-
-	fckc_u32 count;
 	fckc_u32 capacity;
 } app_entity_lookup;
 
@@ -441,11 +438,105 @@ typedef struct app_entity_storage
 	fckc_u32 capacity;
 } app_entity_storage;
 
+typedef struct app_entity_storage_removal
+{
+	fckc_u32 from;
+	fckc_u32 to;
+} app_entity_storage_removal;
+
+typedef struct app_entity_components
+{
+	app_entity_storage storage;
+	struct app_entity_components *next;
+
+	const char *name;
+	void *opaque;
+	fckc_u32 size;
+} app_entity_components;
+
+typedef struct app_entity_buffer
+{
+	app_entity *values;
+	fckc_u32 capacity;
+	fckc_u32 count;
+} app_entity_buffer;
+
+typedef struct app_ec
+{
+	app_entity_storage all;
+	app_entity_buffer free_list;
+
+	app_entity_components *components;
+
+	app_entity_components *first;
+	app_entity_components *last;
+
+	fckc_u32 count;
+	fckc_u32 capacity;
+} app_ec;
+
+static void app_entity_buffer_destroy(kll_allocator *allocator, app_entity_buffer *buffer)
+{
+	if (buffer->values)
+	{
+		kll_free(allocator, buffer);
+		memset(buffer, 0, sizeof(*buffer));
+	}
+}
+
+static void app_entity_buffer_push(kll_allocator *allocator, app_entity_buffer *buffer, const app_entity *entities, fckc_u32 count)
+{
+	if (buffer->count + count >= buffer->capacity)
+	{
+		fckc_u32 next_capacity;
+		if (buffer->capacity == 0)
+		{
+			next_capacity = 8;
+		}
+		else
+		{
+			next_capacity = buffer->count + count + 1;
+			next_capacity--;
+			next_capacity |= next_capacity >> 1;
+			next_capacity |= next_capacity >> 2;
+			next_capacity |= next_capacity >> 4;
+			next_capacity |= next_capacity >> 8;
+			next_capacity |= next_capacity >> 16;
+			next_capacity++;
+		}
+		const fckc_size_t total = next_capacity * sizeof(*buffer->values);
+		app_entity *values = (app_entity *)kll_malloc(allocator, total);
+		if (buffer->values)
+		{
+			const fckc_size_t prev_entity_total = buffer->count * sizeof(*buffer->values);
+			memcpy(values, buffer->values, prev_entity_total);
+			kll_free(allocator, buffer->values);
+		}
+		buffer->values = values;
+		buffer->capacity = next_capacity;
+	}
+
+	memcpy(buffer->values + buffer->count, entities, count * sizeof(*buffer->values));
+	buffer->count = buffer->count + count;
+}
+
+static int app_entity_buffer_try_pop(app_entity_buffer *buffer, app_entity *entity)
+{
+	if (buffer->count > 0)
+	{
+		const fckc_u32 last = buffer->count - 1;
+		*entity = buffer->values[last];
+		buffer->count = last;
+		return 1;
+	}
+	return 0;
+}
+
 static app_entity_lookup app_entity_lookup_api_create(kll_allocator *allocator)
 {
 	app_entity_lookup entities = {0};
 	entities.allocator = allocator;
-	entities.free_list = app_entity_index_invalid;
+	// entities.free_list = app_entity_index_invalid;
 	return entities;
 }
 
@@ -458,18 +549,34 @@ static void app_entity_lookup_api_destroy(app_entity_lookup *lookup)
 	memset(lookup, 0, sizeof(*lookup));
 }
 
-static void app_entity_lookup_ensure_capacity(app_entity_lookup *entities, fckc_u32 extra)
+static void app_entity_lookup_ensure_capacity(app_entity_lookup *entities, fckc_u32 target)
 {
-	if (entities->capacity <= entities->count + extra)
+	if (entities->capacity <= target)
 	{
-		// Make more space - eh, the extra makes stuff a bit ugly
-		const fckc_u32 next_capacity = entities->capacity ? (entities->capacity + extra) * 2 : 8;
-		const fckc_size_t total = next_capacity * sizeof(*entities->sparse);
-		app_entity *next_values = (app_entity *)kll_malloc(entities->allocator, total);
+		fckc_u32 next_capacity;
+		if (entities->capacity == 0)
+		{
+			next_capacity = 8;
+		}
+		else
+		{
+			next_capacity = target + 1;
+			next_capacity--;
+			next_capacity |= next_capacity >> 1;
+			next_capacity |= next_capacity >> 2;
+			next_capacity |= next_capacity >> 4;
+			next_capacity |= next_capacity >> 8;
+			next_capacity |= next_capacity >> 16;
+			next_capacity++;
+		}
+
+		const fckc_size_t entity_total = next_capacity * sizeof(*entities->sparse);
+		app_entity *next_values = (app_entity *)kll_malloc(entities->allocator, entity_total);
+		memset(next_values, 0, entity_total);
 		if (entities->sparse)
 		{
-			const fckc_size_t prev_total = entities->count * sizeof(*entities->sparse);
-			memcpy(next_values, entities->sparse, prev_total);
+			const fckc_size_t prev_entity_total = entities->capacity * sizeof(*entities->sparse);
+			memcpy(next_values, entities->sparse, prev_entity_total);
 			kll_free(entities->allocator, entities->sparse);
 		}
 		entities->sparse = next_values;
@@ -477,90 +584,102 @@ static void app_entity_lookup_ensure_capacity(app_entity_lookup *entities, fckc_
 	}
 }
 
-static app_entity app_entity_lookup_api_add(app_entity_lookup *entities, fckc_u32 value)
+static int app_entity_lookup_api_alive(app_entity_lookup *entities, fckc_u32 index)
 {
-	app_entity_lookup_ensure_capacity(entities, 1);
-
-	fckc_u32 index;
-	if (entities->free_list != app_entity_index_invalid)
-	{
-		index = entities->free_list;
-		app_entity *free_item = entities->sparse + index;
-		free_item->generation = (free_item->generation + 1) % (app_entity_generation_max + 1);
-		entities->free_list = free_item->index;
-	}
-	else
-	{
-		index = entities->count;
-		app_entity *free_item = entities->sparse + index;
-		free_item->generation = 0;
-		entities->count = entities->count + 1;
-	}
-
-	// We have enough space!
-	app_entity *stored = entities->sparse + index;
-	stored->index = value;
-	stored->alive = 1;
-
-	app_entity result = {.alive = 1, .generation = stored->generation, .index = index};
-	return result;
-}
-
-static int app_entity_lookup_api_alive(app_entity_lookup *entities, app_entity entity)
-{
-	if (entity.index >= entities->count)
+	if (index >= entities->capacity)
 	{
 		return 0;
 	}
 
-	app_entity *result = entities->sparse + entity.index;
+	app_entity *result = entities->sparse + index;
 	if (result->alive == 0)
-	{
-		return 0;
-	}
-	if (result->generation != entity.generation)
 	{
 		return 0;
 	}
 	return 1;
 }
 
-static fckc_u32 app_entity_lookup_api_get(app_entity_lookup *entities, app_entity entity)
+static int app_entity_lookup_out_of_date(app_entity_lookup *entities, app_entity entity)
 {
-	if (!app_entity_lookup_api_alive(entities, entity))
+	if (entity.index >= entities->capacity)
 	{
 		return 0;
 	}
 
 	app_entity *result = entities->sparse + entity.index;
-	return result->index;
-}
-
-static fckc_u32 app_entity_lookup_api_set(app_entity_lookup *entities, app_entity entity, fckc_u32 value)
-{
-	if (!app_entity_lookup_api_alive(entities, entity))
+	if (!result->alive)
 	{
 		return 0;
+	}
+	if (result->generation != entity.generation)
+	{
+		return 1;
+	}
+	return 0;
+}
+
+static const app_entity *app_entity_lookup_api_add(app_entity_lookup *entities, app_entity entity)
+{
+	if (app_entity_lookup_api_alive(entities, entity.index))
+	{
+		return NULL;
+	}
+
+	app_entity_lookup_ensure_capacity(entities, entity.index + 1);
+
+	// We have enough space!
+	app_entity *stored = entities->sparse + entity.index;
+	stored->index = entity.index;
+	stored->alive = 1;
+	stored->generation = entity.generation;
+	return stored;
+}
+
+static const app_entity *app_entity_lookup_api_set(app_entity_lookup *entities, app_entity entity, fckc_u32 value)
+{
+	if (!app_entity_lookup_api_alive(entities, entity.index))
+	{
+		return NULL;
+	}
+	if (app_entity_lookup_out_of_date(entities, entity))
+	{
+		return NULL;
 	}
 
 	app_entity *result = entities->sparse + entity.index;
 	result->index = value;
-	return value + 1;
+	return result;
+}
+
+static app_entity *app_entity_lookup_api_get(app_entity_lookup *entities, app_entity entity)
+{
+	if (!app_entity_lookup_api_alive(entities, entity.index))
+	{
+		return NULL;
+	}
+	if (app_entity_lookup_out_of_date(entities, entity))
+	{
+		return NULL;
+	}
+
+	app_entity *result = entities->sparse + entity.index;
+	return result;
 }
 
 static fckc_u32 app_entity_lookup_api_remove(app_entity_lookup *entities, app_entity entity)
 {
-	if (!app_entity_lookup_api_alive(entities, entity))
+	if (!app_entity_lookup_api_alive(entities, entity.index))
+	{
+		return 0;
+	}
+	if (app_entity_lookup_out_of_date(entities, entity))
 	{
 		return 0;
 	}
 
 	app_entity *result = entities->sparse + entity.index;
 	const fckc_u32 target = result->index;
-	// Append to the free list - Maintain generation!
-	result->index = entities->free_list;
 	result->alive = 0;
-	entities->free_list = entity.index;
 	return target + 1;
 }
 
@@ -573,9 +692,8 @@ static app_entity_storage app_entity_storage_api_create(kll_allocator *allocator
 
 static void app_entity_storage_api_destroy(app_entity_storage *storage)
 {
-	app_entity_lookup_api_destroy(&storage->lookup);
-
 	kll_allocator *allocator = storage->lookup.allocator;
+	app_entity_lookup_api_destroy(&storage->lookup);
 	if (storage->dense)
 	{
 		kll_free(allocator, storage->dense);
@@ -583,8 +701,21 @@ static void app_entity_storage_api_destroy(app_entity_storage *storage)
 	memset(storage, 0, sizeof(*storage));
 }
 
-static fckc_u32 app_entity_storage_api_add(app_entity_storage *storage)
+static fckc_u32 app_entity_storage_api_set(app_entity_storage *storage, app_entity entity)
 {
+	if (app_entity_lookup_api_alive(&storage->lookup, entity.index))
+	{
+		if (app_entity_lookup_out_of_date(&storage->lookup, entity))
+		{
+			return 0;
+		}
+
+		app_entity *slot = app_entity_lookup_api_get(&storage->lookup, entity);
+		fck_assert(slot);
+		return slot->index + 1;
+	}
+
+	// Add new
 	if (storage->count == storage->capacity)
 	{
 		// Ensure size
@@ -601,26 +732,37 @@ static fckc_u32 app_entity_storage_api_add(app_entity_storage *storage)
 		storage->capacity = next_capacity;
 	}
 
-	const fckc_u32 slot = storage->count;
-	const app_entity entity = app_entity_lookup_api_add(&storage->lookup, slot);
-	storage->dense[slot] = entity;
-	storage->count = storage->count + 1;
-	return slot;
+	const fckc_u32 index = storage->count;
+	const app_entity *sparse = app_entity_lookup_api_add(&storage->lookup, entity);
+	if (sparse)
+	{
+		const app_entity lookup_index = *sparse;
+		const app_entity *result = app_entity_lookup_api_set(&storage->lookup, lookup_index, index);
+		storage->dense[index] = lookup_index;
+		storage->count = storage->count + 1;
+		return index + 1;
+	}
+	return 0;
 }
 
-typedef struct app_entity_storage_removal
+static fckc_u32 app_entity_storage_api_get(app_entity_storage *entities, app_entity entity)
 {
-	fckc_u32 from;
-	fckc_u32 to;
-} app_entity_storage_removal;
+	const app_entity *result = app_entity_lookup_api_get(&entities->lookup, entity);
+	if (result)
+	{
+		const app_entity value = entities->dense[result->index];
+		return value.index + 1;
+	}
+	return 0;
+}
 
-static app_entity_storage_removal app_entity_storage_api_remove(app_entity_storage *entities, app_entity entity)
+static int app_entity_storage_api_remove(app_entity_storage *entities, app_entity entity, app_entity_storage_removal *out_removal)
 {
 	const fckc_u32 result = app_entity_lookup_api_remove(&entities->lookup, entity);
-	app_entity_storage_removal removal = {0};
 	if (!result)
 	{
-		return removal;
+		// Just returning {0, 0} is not really cutting it, need to find a better approach!
+		return 0;
 	}
 	const fckc_u32 current = result - 1;
 
@@ -632,26 +774,312 @@ static app_entity_storage_removal app_entity_storage_api_remove(app_entity_stora
 	app_entity_lookup_api_set(&entities->lookup, *last_dense, current);
 	entities->dense[current] = *last_dense;
 
-	removal.from = last;
-
 	const app_entity invalid = {0};
 	*last_dense = invalid;
 
 	entities->count = entities->count - 1;
-	removal.to = current;
-	return removal;
+
+	if (out_removal)
+	{
+		out_removal->from = last;
+		out_removal->to = current;
+	}
+	return 1;
+}
+
+static app_entity_components app_entity_components_api_create(kll_allocator *allocator, const char *name, fckc_u32 size)
+{
+	app_entity_components components = {0};
+	components.name = name;
+	components.size = size;
+	components.storage = app_entity_storage_api_create(allocator);
+
+	return components;
+}
+
+static void app_entity_components_api_destroy(app_entity_components *components)
+{
+	kll_allocator *allocator = components->storage.lookup.allocator;
+	app_entity_storage_api_destroy(&components->storage);
+	if (components->opaque)
+	{
+		kll_free(allocator, components->opaque);
+	}
+	memset(components, 0, sizeof(*components));
+}
+
+static void *app_entity_components_api_set(app_entity_components *components, app_entity entity, const void *data)
+{
+	const fckc_u32 count = components->storage.count;
+	const fckc_u32 capacity = components->storage.capacity;
+	const fckc_u32 result = app_entity_storage_api_set(&components->storage, entity);
+
+	if (result == 0)
+	{
+		return NULL;
+	}
+
+	const fckc_u32 slot = result - 1;
+	if (capacity != components->storage.capacity)
+	{
+		// Ensure size
+		const fckc_size_t total = components->storage.capacity * components->size;
+		void *next_values = kll_malloc(components->storage.lookup.allocator, total);
+		if (components->opaque)
+		{
+			const fckc_size_t prev_total = count * components->size;
+			memcpy(next_values, components->opaque, prev_total);
+			kll_free(components->storage.lookup.allocator, components->opaque);
+		}
+		components->opaque = next_values;
+	}
+
+	const fckc_size_t offset = components->size * slot;
+	fckc_u8 *memory = (fckc_u8 *)components->opaque;
+
+	if (data != NULL)
+	{
+		memcpy(memory + offset, data, components->size);
+	}
+	return (void *)(memory + offset);
+}
+
+static void *app_entity_components_api_get(app_entity_components *components, app_entity entity)
+{
+	const fckc_u32 result = app_entity_storage_api_get(&components->storage, entity);
+	if (result)
+	{
+		const fckc_size_t at = (result - 1) * components->size;
+		fckc_u8 *memory = (fckc_u8 *)components->opaque;
+		return (void *)(memory + at);
+	}
+	return NULL;
+}
+
+static fckc_u32 app_entity_components_api_dense(app_entity_components *components, app_entity **values)
+{
+	*values = components->storage.dense;
+	return components->storage.count;
+}
+
+static void *app_entity_components_api_buffer(app_entity_components *components)
+{
+	return components->opaque;
+}
+
+static int app_entity_components_api_remove(app_entity_components *components, app_entity entity)
+{
+	app_entity_storage_removal removal;
+	if (app_entity_storage_api_remove(&components->storage, entity, &removal))
+	{
+		const fckc_size_t from = removal.from * components->size;
+		const fckc_size_t to = removal.to * components->size;
+		fckc_u8 *memory = (fckc_u8 *)components->opaque;
+		memcpy(memory + to, memory + from, components->size);
+		memset(memory + from, 0, components->size);
+		return 1;
+	}
+	return 0;
+}
+
+static app_ec *app_ec_api_create(kll_allocator *allocator, fckc_u32 capacity)
+{
+	app_ec *ec = {0};
+
+	const fckc_size_t self_total = sizeof(*ec);
+	const fckc_size_t components_total = sizeof(*ec->components) * capacity;
+	const fckc_size_t total = self_total + components_total;
+	void *memory = kll_malloc(allocator, total);
+	memset(memory, 0, total);
+
+	ec = (app_ec *)memory;
+	ec->components = (app_entity_components *)fckc_pointer_add(memory, self_total);
+	ec->all = app_entity_storage_api_create(allocator);
+	ec->capacity = capacity;
+	return ec;
+}
+
+static void app_ec_api_destroy(app_ec *ecs)
+{
+	kll_allocator *allocator = ecs->all.lookup.allocator;
+	for (fckc_u32 index = 0; index < ecs->capacity; index++)
+	{
+		app_entity_components *components = ecs->components + index;
+		app_entity_components_api_destroy(components);
+	}
+	app_entity_storage_api_destroy(&ecs->all);
+
+	app_entity_buffer_destroy(allocator, &ecs->free_list);
+	kll_free(allocator, ecs);
+}
+
+static app_entity app_ec_api_entity_add(app_ec *ecs)
+{
+	app_entity entity = {0};
+	if (!app_entity_buffer_try_pop(&ecs->free_list, &entity))
+	{
+		entity.index = ecs->all.count;
+		entity.alive = 1;
+	}
+
+	entity.generation = entity.generation + 1;
+
+	app_entity_storage_api_set(&ecs->all, entity);
+	return entity;
+}
+
+static void app_ec_api_entity_archetype_print(app_ec *ecs, app_entity entity)
+{
+	const fckc_u32 result = app_entity_storage_api_get(&ecs->all, entity);
+	if (result == 0)
+	{
+		os->io->log("Entity(index: %u - generation: %u) is dead");
+		return;
+	}
+
+	os->io->log("Entity(index: %u - generation: %u)", entity.index, entity.generation);
+	app_entity_components *current = ecs->first;
+	while (current)
+	{
+		void *data = app_entity_components_api_get(current, entity);
+		if (data)
+		{
+			os->io->log("\tComponent: %s", current->name);
+		}
+		current = current->next;
+	}
+	os->io->log("================================");
+}
+
+static void app_ec_api_entity_remove(app_ec *ecs, app_entity entity)
+{
+	const fckc_u32 result = app_entity_storage_api_get(&ecs->all, entity);
+	if (result == 0)
+	{
+		return;
+	}
+
+	app_entity_components *current = ecs->first;
+	while (current)
+	{
+		if (app_entity_components_api_remove(current, entity))
+		{
+			// TODO:
+		}
+		current = current->next;
+	}
+
+	app_entity_storage_api_remove(&ecs->all, entity, NULL);
+	app_entity_buffer_push(ecs->all.lookup.allocator, &ecs->free_list, &entity, 1);
+}
+
+static int app_ec_api_register_component(app_ec *ecs, const char *name, fckc_u32 size)
+{
+	fck_assert(ecs->count < ecs->capacity);
+
+	const fck_hash_int hash = fck_hash(name, strlen(name));
+	fckc_u32 slot = (fckc_u32)(hash % ecs->capacity);
+
+	for (fckc_u32 index = 0; index < ecs->capacity; index++)
+	{
+		app_entity_components *components = ecs->components + slot;
+		if (components->name == NULL)
+		{
+			*components = app_entity_components_api_create(ecs->all.lookup.allocator, name, size);
+
+			if (ecs->first == NULL)
+			{
+				ecs->first = components;
+				ecs->last = components;
+			}
+			else
+			{
+				ecs->last->next = components;
+				ecs->last = components;
+			}
+
+			return 1;
+		}
+
+		if (strcmp(components->name, name) == 0)
+		{
+			// Already added
+			return 0;
+		}
+		const fck_hash_int other = fck_hash(components->name, strlen(components->name));
+		fck_assert(hash != other);
+		slot = (slot + 1) % ecs->capacity;
+	}
+	//// Out of capacity!??
+	return 0;
+}
+
+static app_entity_components *app_ec_api_get_components(app_ec *ecs, const char *name)
+{
+	const fck_hash_int hash = fck_hash(name, strlen(name));
+	fckc_u32 slot = (fckc_u32)(hash % ecs->capacity);
+	for (fckc_u32 index = 0; index < ecs->capacity; index++)
+	{
+		app_entity_components *components = ecs->components + slot;
+		if (components->name == NULL)
+		{
+			return NULL;
+		}
+
+		if (strcmp(components->name, name) == 0)
+		{
+			// Already added
+			return components;
+		}
+		slot = (slot + 1) % ecs->capacity;
+	}
+	return NULL;
+}
+
+static void app_ec_api_entity_components_info_print(app_ec *ecs, const char *name)
+{
+	app_entity_components *components = app_ec_api_get_components(ecs, name);
+
+	if (components == NULL)
+	{
+		os->io->log("Component (name: %s) does not exist", name);
+		os->io->log("================================");
+		return;
+	}
+
+	os->io->log("Component (name: %s - size: %u)", components->name, components->size);
+	os->io->log("\tCount: %u", components->storage.count);
+	os->io->log("================================");
+}
+
+static int app_ec_api_set_component(app_ec *ecs, app_entity entity, const char *name, const void *data)
+{
+	const fckc_u32 result = app_entity_storage_api_get(&ecs->all, entity);
+	if (result)
+	{
+		app_entity_components *components = app_ec_api_get_components(ecs, name);
+		if (components)
+		{
+			app_entity_components_api_set(components, entity, data);
+			return 1;
+		}
+	}
+	return 0;
+}
+
+static void *app_ec_api_get_component_buffer(app_ec *ecs, const char *name)
+{
+	app_entity_components *components = app_ec_api_get_components(ecs, name);
+	return components->opaque;
 }
 
 typedef struct app_entity_lookup_api
 {
 	app_entity_lookup (*create)(kll_allocator *allocator);
 	void (*destroy)(app_entity_lookup *lookup);
-	app_entity (*add)(app_entity_lookup *entities, fckc_u32 value);
-
-	// All return values are the actual value stored + 1
-	// Need to do a - 1 on the result to get the result back! :)
-	fckc_u32 (*set)(app_entity_lookup *entities, app_entity entity, fckc_u32 value);
-	fckc_u32 (*get)(app_entity_lookup *entities, app_entity entity);
+	const app_entity *(*add)(app_entity_lookup *entities, app_entity entity);
+	const app_entity *(*set)(app_entity_lookup *entities, app_entity entity, fckc_u32 value);
+	app_entity *(*get)(app_entity_lookup *entities, app_entity entity);
 	fckc_u32 (*remove)(app_entity_lookup *entities, app_entity entity);
 } app_entity_lookup_api;
 
@@ -659,10 +1087,23 @@ typedef struct app_entity_storage_api
 {
 	app_entity_storage (*create)(kll_allocator *allocator);
 	void (*destroy)(app_entity_storage *entities);
-
-	fckc_u32 (*add)(app_entity_storage *entities);
-	app_entity_storage_removal(*remove)(app_entity_storage *entities, app_entity entity);
+	// All return values are the actual value stored + 1
+	// Need to do a - 1 on the result to get the result back! :)
+	fckc_u32 (*get)(app_entity_storage *entities, app_entity entity);
+	fckc_u32 (*set)(app_entity_storage *storage, app_entity entity);
+	int (*remove)(app_entity_storage *entities, app_entity entity, app_entity_storage_removal *out_removal);
 } app_entity_storage_api;
+
+typedef struct app_entity_components_api
+{
+	app_entity_components (*create)(kll_allocator *allocator, const char *name, fckc_u32 size);
+	void (*destroy)(app_entity_components *components);
+	void *(*set)(app_entity_components *components, app_entity entity, const void *data);
+	void *(*get)(app_entity_components *components, app_entity entity);
+	int (*remove)(app_entity_components *components, app_entity entity);
+	fckc_u32 (*dense)(app_entity_components *components, app_entity **values);
+	void *(*buffer)(app_entity_components *components);
+} app_entity_components_api;
 
 static app_entity_lookup_api entity_lookup_api = {
 	.create = app_entity_lookup_api_create,
@@ -676,58 +1117,219 @@ static app_entity_lookup_api entity_lookup_api = {
 static app_entity_storage_api entity_storage_api = {
 	.create = app_entity_storage_api_create,
 	.destroy = app_entity_storage_api_destroy,
-	.add = app_entity_storage_api_add,
+	.set = app_entity_storage_api_set,
+	.get = app_entity_storage_api_get,
 	.remove = app_entity_storage_api_remove,
 };
+
+static app_entity_components_api entity_component_api = {
+	.create = app_entity_components_api_create,
+	.destroy = app_entity_components_api_destroy,
+	.set = app_entity_components_api_set,
+	.get = app_entity_components_api_get,
+	.remove = app_entity_components_api_remove,
+	.dense = app_entity_components_api_dense,
+	.buffer = app_entity_components_api_buffer,
+};
+
+typedef struct app_ec_entities_api
+{
+	app_entity (*create)(app_ec *ec);
+	void (*remove)(app_ec *ec, app_entity entity);
+} app_ec_entities_api;
+
+typedef struct app_ec_components_api
+{
+	// Find better name
+	int (*reg)(app_ec *ec, const char *name, fckc_u32 size);
+	app_entity (*add)(app_ec *ec, app_entity entity, const char *name, const void* data);
+	void (*remove)(app_ec *ec, app_entity entity, const char *name);
+
+	fckc_u32 (*dense)(app_ec* ecs, const char* name, app_entity** values);
+	void* (*buffer)(app_ec* ecs, const char* name);
+} app_ec_components_api;
+
+typedef struct app_ec_api
+{
+	app_ec *(*create)(app_ec *ec, fckc_u32 capacity);
+	void (*destroy)(app_ec *ec);
+} app_ec_api;
 
 typedef struct app_entity_api
 {
 	app_entity_lookup_api *lookup;
 	app_entity_storage_api *storage;
+	app_entity_components_api *components;
 } app_entity_api;
 
 static app_entity_api entity_api = {
 	.lookup = &entity_lookup_api,
 	.storage = &entity_storage_api,
+	.components = &entity_component_api,
 };
 
 static app_entity_api *entity = &entity_api;
 
+typedef struct app_sprite_component
+{
+	fck_sprite_id id;
+} app_sprite_component;
+
 int main(int argc, char **argv)
 {
-	fckc_u32 buffer[32] = {0};
+	app_sprite_component initial = {.id = {.batch.value = 64, .entry.value = 128}};
 
-	app_entity_storage entities = entity->storage->create(kll->system);
-	buffer[entity->storage->add(&entities)] = 0xFF;
-	buffer[entity->storage->add(&entities)] = 0xFF;
-	buffer[entity->storage->add(&entities)] = 0xFF;
-	buffer[entity->storage->add(&entities)] = 0xFF;
-	buffer[entity->storage->add(&entities)] = 0xFF;
-	buffer[entity->storage->add(&entities)] = 0xFF;
-	buffer[entity->storage->add(&entities)] = 0xFF;
-	buffer[entity->storage->add(&entities)] = 0xFF;
-	buffer[entity->storage->add(&entities)] = 0xFF;
+	app_ec *ec = app_ec_api_create(kll->system, 32);
 
-	for (fckc_u32 index = 0; index < 9; index++)
-	{
-		if (index % 2 == 0)
-		{
-			const app_entity handle = {.index = index};
-			const app_entity_storage_removal removal = entity->storage->remove(&entities, handle);
-			buffer[removal.to] = buffer[removal.from];
-			buffer[removal.from] = 0x00;
-		}
-	}
+	app_ec_api_register_component(ec, "sprites", sizeof(app_sprite_component));
+	app_ec_api_register_component(ec, "test", sizeof(app_sprite_component));
+	app_ec_api_register_component(ec, "test case", sizeof(app_sprite_component));
+	app_ec_api_register_component(ec, "More", sizeof(app_sprite_component));
 
-	buffer[entity->storage->add(&entities)] = 0xF;
-	buffer[entity->storage->add(&entities)] = 0xF;
-	buffer[entity->storage->add(&entities)] = 0xF;
-	buffer[entity->storage->add(&entities)] = 0xF;
-	buffer[entity->storage->add(&entities)] = 0xF;
-	buffer[entity->storage->add(&entities)] = 0xF;
-	buffer[entity->storage->add(&entities)] = 0xF;
-	buffer[entity->storage->add(&entities)] = 0xF;
-	buffer[entity->storage->add(&entities)] = 0xF;
+	app_entity e0 = app_ec_api_entity_add(ec);
+	app_entity e1 = app_ec_api_entity_add(ec);
+	app_entity e2 = app_ec_api_entity_add(ec);
+	app_entity e3 = app_ec_api_entity_add(ec);
+
+	app_ec_api_set_component(ec, e0, "sprites", &initial);
+	app_ec_api_set_component(ec, e0, "test", &initial);
+	app_ec_api_set_component(ec, e0, "test case", &initial);
+	app_ec_api_set_component(ec, e0, "More", &initial);
+	app_ec_api_set_component(ec, e0, "Garbage", &initial);
+
+	app_ec_api_entity_components_info_print(ec, "sprites");
+	app_ec_api_entity_components_info_print(ec, "test");
+	app_ec_api_entity_components_info_print(ec, "test case");
+	app_ec_api_entity_components_info_print(ec, "More");
+
+	app_ec_api_set_component(ec, e1, "sprites", &initial);
+	app_ec_api_set_component(ec, e2, "sprites", &initial);
+	app_ec_api_set_component(ec, e3, "sprites", &initial);
+
+	app_ec_api_entity_archetype_print(ec, e0);
+	app_ec_api_entity_archetype_print(ec, e1);
+	app_ec_api_entity_archetype_print(ec, e2);
+	app_ec_api_entity_archetype_print(ec, e3);
+
+	void *sprites_buffer = app_ec_api_get_component_buffer(ec, "sprites");
+
+	app_ec_api_entity_remove(ec, e0);
+	app_ec_api_entity_remove(ec, e1);
+	app_ec_api_entity_remove(ec, e2);
+	app_ec_api_entity_remove(ec, e3);
+
+	app_ec_api_entity_components_info_print(ec, "sprites");
+	app_ec_api_entity_components_info_print(ec, "test");
+	app_ec_api_entity_components_info_print(ec, "test case");
+	app_ec_api_entity_components_info_print(ec, "More");
+
+	app_entity e01 = app_ec_api_entity_add(ec);
+	app_entity e11 = app_ec_api_entity_add(ec);
+	app_entity e21 = app_ec_api_entity_add(ec);
+	app_entity e31 = app_ec_api_entity_add(ec);
+
+	// app_entity_lookup lookup = entity->lookup->create(kll->system);
+	// app_entity_storage strorage = entity->storage->create(kll->system);
+	// app_entity_components components = entity->components->create(kll->system, "sprites", sizeof(app_sprite_component));
+
+	// for (fckc_u32 index = 0; index < 9; index++)
+	//{
+	//	if (index % 2 == 0)
+	//	{
+	//		const app_entity handle = {.index = index};
+	//		entity->lookup->add(&lookup, handle);
+	//		entity->storage->set(&strorage, handle);
+	//		entity->components->set(&components, handle, &initial);
+	//	}
+	// }
+
+	// for (fckc_u32 index = 0; index < 9; index++)
+	//{
+	//	if (index % 2 == 0)
+	//	{
+	//		const app_entity handle = {.index = index};
+	//		entity->lookup->remove(&lookup, handle);
+	//		entity->storage->remove(&strorage, handle);
+	//		entity->components->remove(&components, handle);
+	//	}
+	// }
+
+	// for (fckc_u32 index = 0; index < 9; index++)
+	//{
+	//	if (index % 2 == 0)
+	//	{
+	//		const app_entity handle = {.index = index};
+	//		entity->lookup->set(&lookup, handle, index);
+	//		entity->storage->set(&strorage, handle);
+	//		entity->components->set(&components, handle, &initial);
+	//	}
+	// }
+
+	// for (fckc_u32 index = 0; index < 9; index++)
+	//{
+	//	if (index % 2 == 0)
+	//	{
+	//		const app_entity handle = {.index = index};
+	//		entity->lookup->add(&lookup, handle);
+	//		entity->storage->set(&strorage, handle);
+	//		entity->components->set(&components, handle, &initial);
+	//	}
+	// }
+	// for (fckc_u32 index = 0; index < 9; index++)
+	//{
+	//	if (index % 2 == 0)
+	//	{
+	//		const app_entity handle = {
+	//			.index = index,
+	//			.generation = 1,
+	//		};
+	//		entity->lookup->add(&lookup, handle);
+	//		entity->storage->set(&strorage, handle);
+	//		entity->components->set(&components, handle, &initial);
+	//	}
+	// }
+
+	// app_entity_components entities = entity->components->create(kll->system, "sprite-component", sizeof(app_sprite_component));
+	// entity->components->add(&entities, &initial);
+	// entity->components->add(&entities, &initial);
+	// entity->components->add(&entities, &initial);
+	// entity->components->add(&entities, &initial);
+	// entity->components->add(&entities, &initial);
+	// entity->components->add(&entities, &initial);
+	// entity->components->add(&entities, &initial);
+	// entity->components->add(&entities, &initial);
+	// entity->components->add(&entities, &initial);
+
+	// for (fckc_u32 index = 0; index < 9; index++)
+	//{
+	//	if (index % 2 == 0)
+	//	{
+	//		const app_entity handle = {.index = index};
+	//		entity->components->remove(&entities, handle);
+	//	}
+	// }
+
+	//{
+	//	app_entity *entries = NULL;
+	//	const fckc_u32 count = entity->components->dense(&entities, &entries);
+	//	const fck_sprite_id *sprites = (const fck_sprite_id *)entity->components->buffer(&entities);
+	//	for (fckc_u32 index = 0; index < count; index++)
+	//	{
+	//		const app_entity e = entries[index];
+	//		const fck_sprite_id id = sprites[index];
+	//		os->io->log("Entity: %u -> Sprite: {batch: %u, entry: %u}", e.index, id.batch.value, id.entry.value);
+	//	}
+	//}
+
+	// entity->components->add(&entities, &initial);
+	// entity->components->add(&entities, &initial);
+	// entity->components->add(&entities, &initial);
+	// entity->components->add(&entities, &initial);
+	// entity->components->add(&entities, &initial);
+	// entity->components->add(&entities, &initial);
+	// entity->components->add(&entities, &initial);
+	// entity->components->add(&entities, &initial);
+	// entity->components->add(&entities, &initial);
 
 	// TODO: We need to setup stable editor entities, or something like that
 	load_config(argc, argv);
@@ -757,7 +1359,7 @@ int main(int argc, char **argv)
 	fck_png_api *png = (fck_png_api *)registry->find(fck_png_api_name);
 	fck_nuklear_api *nk = (fck_nuklear_api *)registry->find(fck_nuklear_api_name);
 	fck_gfx_api *gfx = (fck_gfx_api *)registry->find(fck_gfx_api_name);
-	fck_sprite_api *sprite = (fck_sprite_api *)registry->find("fck-sprite");
+	fck_sprite_api *sprite = (fck_sprite_api *)registry->find(fck_sprite_api_name);
 
 	fck_input_source *mouse = NULL;
 	{
@@ -896,8 +1498,8 @@ int main(int argc, char **argv)
 		fck_sprite_transform *transform = sprite->add(&sprites, background_batch);
 		const fck_sprite_transform baseline = {
 			.scale = temp_transform_scale,
-			.x = 0.0f, 
-			.y = 0.0f, 
+			.x = 0.0f,
+			.y = 0.0f,
 			.z = 0.0f,
 		};
 		*transform = baseline;

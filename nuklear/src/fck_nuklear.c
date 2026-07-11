@@ -1350,6 +1350,17 @@ static fckc_i32 fck_nuklear_elements_api_i32(fck_nk nk, const char *name, fckc_i
 	return nk_propertyi(ctx, name, min, val, max, step, 0.5f);
 }
 
+void fck_nuklear_elements_api_label(fck_nk nk, const char *fmt, ...)
+{
+	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
+	struct nk_context *ctx = nk_internal->ctx;
+
+	va_list args;
+	va_start(args, fmt);
+	nk_labelf(ctx, NK_TEXT_LEFT, fmt, args);
+	va_end(args);
+}
+
 static int fck_nuklear_elements_api_button(fck_nk nk, const char *title)
 {
 	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
@@ -1506,6 +1517,7 @@ static fck_nuklear_elements_api nuklear_property_api = {
 	.i32 = fck_nuklear_elements_api_i32,
 	.button = fck_nuklear_elements_api_button,
 	.dropdown = fck_nk_elements_api_dropdown,
+	.label = fck_nuklear_elements_api_label,
 };
 
 static fck_nuklear_api nuklear_api = {
@@ -1542,7 +1554,7 @@ struct fck_color_mapping
 };
 
 // TODO: We are not doing capslock for constants
-// TODO We cannot do const variables and then reference them - This is C23 behaviour 
+// TODO We cannot do const variables and then reference them - This is C23 behaviour
 static const struct nk_color FCK_CLR_CHARCOAL = {45, 45, 45, 255};
 static const struct nk_color FCK_CLR_SLATE = {70, 70, 70, 255};
 static const struct nk_color FCK_CLR_MID_GRAY = {150, 150, 150, 255};

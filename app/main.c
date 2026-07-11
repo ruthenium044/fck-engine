@@ -166,8 +166,8 @@ static void fck_sprite_transform_property(fck_nuklear_api *nk, fck_nk view, fck_
 	transform->vertical_index = nk->elements->i32(view, "vertical index", 0, transform->vertical_index, 10, 1);
 }
 
-static void fck_sprite_transform_editor(fck_plugins_api *plugins, fck_sprite_api *sprite, fck_nuklear_api *nk, fck_nk view,
-                                        app_sprite_pie_items *pie, fck_sprites *sprites, fck_sprite_id *selected_sprite_id)
+static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugins_api *plugins, fck_sprite_api *sprite, fck_nuklear_api *nk,
+                                        fck_nk view, app_sprite_pie_items *pie, fck_sprites *sprites, fck_sprite_id *selected_sprite_id)
 {
 	nk->panel->begin(view, "Core Panel", 300.0f);
 	{
@@ -199,6 +199,62 @@ static void fck_sprite_transform_editor(fck_plugins_api *plugins, fck_sprite_api
 					}
 				}
 				nk->panel->pop(view);
+			}
+			nk->panel->pop(view);
+		}
+
+		if (nk->panel->push(view, "Entities"))
+		{
+			const fck_entity *entities;
+			const fckc_u32 count = ec->entity->all(world, &entities);
+			for (fckc_u32 index = 0; index < count; index++)
+			{
+				const fck_entity entity = entities[index];
+				if (nk->panel->push(view, "Entity[%u]", entity.index))
+				{
+					{
+						fck_archetype_iterator it = ec->archetype->iterator(world, entity);
+						fck_component_id component_id;
+						while (ec->archetype->get(&it, &component_id, 1))
+						{
+							if (nk->elements->button(view, ec->registry->nameof(world, component_id)))
+							{
+								os->io->log("Remove Component");
+
+								ec->component->remove(world, entity, component_id);
+							}
+						}
+					}
+
+					fck_component_names_iterator name_it = ec->registry->iterator(world);
+					const char *component_names[16];
+					component_names[0] = "Add Component";
+					const fckc_u32 names_result = ec->registry->names(&name_it, &component_names[1], fck_arraysize(component_names) - 1);
+					int component_selection = nk->elements->dropdown(view, 0, component_names, names_result + 1);
+
+					if (component_selection)
+					{
+						os->io->log("Add Component");
+
+						const char *component_name = component_names[component_selection];
+						const fck_component_id component_id = ec->registry->id(world, component_name);
+						ec->component->set(world, entity, component_id, NULL);
+					}
+
+					if (nk->elements->button(view, "Remove Entity"))
+					{
+						os->io->log("Remove Entity");
+						ec->entity->destroy(world, entity);
+					}
+
+					nk->panel->pop(view);
+				}
+			}
+			if (nk->elements->button(view, "Add Entity"))
+			{
+				os->io->log("Add Entity");
+
+				ec->entity->create(world);
 			}
 			nk->panel->pop(view);
 		}
@@ -408,13 +464,6 @@ typedef struct app_sprite_component
 	fck_sprite_id id;
 } app_sprite_component;
 
-typedef struct app_some_query_value
-{
-	app_sprite_component sprite;
-	float f32;
-	int i32;
-} app_some_query_value;
-
 int main(int argc, char **argv)
 {
 	// TODO: We need to setup stable editor entities, or something like that
@@ -448,73 +497,10 @@ int main(int argc, char **argv)
 	fck_ec_api *ec = (fck_ec_api *)registry->find(fck_ec_api_name);
 
 	// We can create a new ec
-	const fck_ec world = ec->core->create(kll->system, 32);
+	fck_ec world = ec->core->create(kll->system, 32);
 
 	// We can register a component
 	const fck_component_id sprite_id = ec->registry->declare(world, "sprite", sizeof(app_sprite_component));
-	const fck_component_id float_id = ec->registry->declare(world, "float", sizeof(float));
-	const fck_component_id int_id = ec->registry->declare(world, "int", sizeof(int));
-
-	const app_sprite_component initial_sprite = {.id = {.batch = {.value = 13}}};
-	const float initial_float = 420.0f;
-	const int initial_int = 62.0f;
-
-	// We can create an entity
-	const fck_entity entity = ec->entity->create(world);
-
-	// We can add component to entity
-	ec->component->set(world, entity, sprite_id, &initial_sprite);
-	ec->component->set(world, entity, float_id, &initial_float);
-	ec->component->set(world, entity, int_id, &initial_int);
-
-	const fck_entity *sprites_entities;
-	// We can query a compact array of indices
-	const fckc_u32 sprites_count = ec->component->dense(world, sprite_id, &sprites_entities);
-	// We can query a component buffer holding all the state in a compact manner
-	app_sprite_component *sprites_data = (app_sprite_component *)ec->component->buffer(world, sprite_id);
-	for (fckc_u32 index = 0; index < sprites_count; index++)
-	{
-		const fck_entity e = sprites_entities[index];
-		const app_sprite_component d = sprites_data[index];
-
-		app_sprite_component *y = (app_sprite_component *)ec->component->get(world, e, sprite_id);
-		(void)y;
-
-		os->io->log("Entity: {index: %u - generation: %u} uses Sprite {batch: %u - index: %u}", e.index, e.generation, d.id.batch.value,
-		            d.id.entry.value);
-	}
-
-	const fck_query_component query_components[] = {
-		{.id = sprite_id, .offset = offsetof(app_some_query_value, sprite)},
-		{.id = float_id, .offset = offsetof(app_some_query_value, f32)},
-		{.id = int_id, .offset = offsetof(app_some_query_value, i32)},
-	};
-
-	fck_query_description query_desc = {
-		.name = "app_some_query_value",
-		.size = sizeof(app_some_query_value),
-		.components = query_components,
-		.count = fck_arraysize(query_components),
-	};
-
-	fck_query_id some_query = ec->query->get(world, &query_desc);
-
-	fck_query_iterator query_it = ec->query->iterator(world, some_query);
-	app_some_query_value queried_values[16] = {0};
-	const fckc_u32 queried_result = ec->query->match(&query_it, queried_values, fck_arraysize(queried_values));
-
-	fck_ec_archetype_iterator archetype_it = ec->archetype->iterator(world, entity);
-
-	fck_component_id archetype_component_id;
-	while (ec->archetype->get(&archetype_it, &archetype_component_id, 1))
-	{
-		const char* name = ec->registry->nameof(world, archetype_component_id);
-		fck_assert(name);
-		os->io->log("Entity has %s component", name);
-	}
-
-	// We can remove components
-	ec->component->remove(world, entity, sprite_id);
 
 	fck_input_source *mouse = NULL;
 	{
@@ -747,7 +733,7 @@ int main(int argc, char **argv)
 		{
 			if (nk->begin(view))
 			{
-				fck_sprite_transform_editor(plugins, sprite, nk, view, &sprite_pie, &sprites, &selected_sprite_id);
+				fck_sprite_transform_editor(ec, world, plugins, sprite, nk, view, &sprite_pie, &sprites, &selected_sprite_id);
 			}
 			nk->end(view);
 		}

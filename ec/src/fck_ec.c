@@ -490,7 +490,6 @@ static fckc_u32 fck_entity_storage_api_set(fck_entity_storage *storage, fck_enti
 		const fck_entity entity = *sparse;
 		const fck_entity *result = fck_entity_lookup_api_set(&storage->lookup, entity, index);
 		fck_assert(result == sparse && "add and set entity are different?");
-		fck_assert(result->index == entity.index);
 		storage->dense[index] = entity;
 		storage->count = storage->count + 1;
 		return index + 1;
@@ -921,6 +920,13 @@ static void *fck_ec_api_get_component_buffer(fck_ec ec, fck_component_id id)
 	return NULL;
 }
 
+static fckc_u32 fck_ec_api_all(fck_ec ec, const fck_entity **values)
+{
+	fck_ec_private *ec_private = ec.opaque;
+	*values = ec_private->all.dense;
+	return ec_private->all.count;
+}
+
 static fckc_u32 fck_ec_api_get_component_dense(fck_ec ec, fck_component_id id, const fck_entity **values)
 {
 	fck_entity_components *components = fck_ec_api_components_resolve(ec, id);
@@ -1004,21 +1010,19 @@ static fckc_u32 fck_ec_api_query_match(fck_query_iterator *it, void *dst, fckc_u
 	return result;
 }
 
-static fck_ec_archetype_iterator fck_ec_api_archetype_iterator(fck_ec ec, fck_entity entity)
+static fck_archetype_iterator fck_ec_api_archetype_iterator(fck_ec ec, fck_entity entity)
 {
 	fck_ec_private *ec_private = ec.opaque;
 
-	fck_ec_archetype_iterator it = {0};
+	fck_archetype_iterator it = {0};
 	it.ec = ec;
 	it.entity = entity;
 	it.opaque = ec_private->first;
 	return it;
 }
 
-static fckc_u32 fck_ec_api_archetype_get(fck_ec_archetype_iterator *it, fck_component_id *components, fckc_u32 capacity)
+static fckc_u32 fck_ec_api_archetype_get(fck_archetype_iterator *it, fck_component_id *components, fckc_u32 capacity)
 {
-	fck_ec_private *ec_private = it->ec.opaque;
-
 	if (it->opaque == NULL)
 	{
 		return 0;
@@ -1043,12 +1047,62 @@ static fckc_u32 fck_ec_api_archetype_get(fck_ec_archetype_iterator *it, fck_comp
 	return result;
 }
 
+static fck_component_names_iterator fck_ec_api_registry_names_iterator(fck_ec ec)
+{
+	fck_ec_private *ec_private = ec.opaque;
+
+	fck_component_names_iterator it = {0};
+	it.ec = ec;
+	it.opaque = ec_private->first;
+	return it;
+}
+
+static fckc_u32 fck_ec_api_registry_names(fck_component_names_iterator *it, const char **names, fckc_u32 capacity)
+{
+	if (names == NULL && capacity == 0)
+	{
+		// TODO: Do the same for the others!
+		fckc_u32 result = 0;
+		while (it->opaque)
+		{
+			fck_entity_components *current = (fck_entity_components *)it->opaque;
+			result = result + 1;
+			it->opaque = current->next;
+		}
+		return result;
+	}
+
+	{
+		fck_assert(names);
+		if (it->opaque == NULL)
+		{
+			return 0;
+		}
+
+		fckc_u32 result = 0;
+		while (it->opaque)
+		{
+			if (result == capacity)
+			{
+				break;
+			}
+
+			fck_entity_components *current = (fck_entity_components *)it->opaque;
+			names[result] = current->name;
+			result = result + 1;
+			it->opaque = current->next;
+		}
+		return result;
+	}
+}
+
 static fck_ec_archetype_api ec_archetype_api = {
 	.iterator = fck_ec_api_archetype_iterator,
 	.get = fck_ec_api_archetype_get,
 };
 
 static fck_ec_entity_api ec_entity_api = {
+	.all = fck_ec_api_all,
 	.create = fck_ec_api_entity_create,
 	.destroy = fck_ec_api_entity_destroy,
 };
@@ -1070,6 +1124,8 @@ static fck_ec_registry_api ec_registry_api = {
 	.declare = fck_ec_api_component_declare,
 	.id = fck_ec_api_components_id,
 	.nameof = fck_ec_api_components_nameof,
+	.iterator = fck_ec_api_registry_names_iterator,
+	.names = fck_ec_api_registry_names,
 };
 
 static fck_ec_query_api ec_query_qpi = {

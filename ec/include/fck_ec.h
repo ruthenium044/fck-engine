@@ -63,21 +63,30 @@ typedef struct fck_query_iterator
 	fckc_u32 index;
 } fck_query_iterator;
 
-typedef struct fck_ec_archetype_iterator
+typedef struct fck_archetype_iterator
 {
 	fck_ec ec;
 	fck_entity entity;
 	void *opaque;
-} fck_ec_archetype_iterator;
+} fck_archetype_iterator;
+
+typedef struct fck_component_names_iterator
+{
+	fck_ec ec;
+	void* opaque;
+} fck_component_names_iterator;
 
 typedef struct fck_ec_archetype_api
 {
-	fck_ec_archetype_iterator (*iterator)(fck_ec ec, fck_entity entity);
-	fckc_u32 (*get)(fck_ec_archetype_iterator *it, fck_component_id *components, fckc_u32 capacity);
+	fck_archetype_iterator (*iterator)(fck_ec ec, fck_entity entity);
+	fckc_u32 (*get)(fck_archetype_iterator *it, fck_component_id *components, fckc_u32 capacity);
 } fck_ec_archetype_api;
+
 
 typedef struct fck_ec_entity_api
 {
+	fckc_u32 (*all)(fck_ec ec, const fck_entity **values);
+
 	fck_entity (*create)(fck_ec ec);
 	int (*destroy)(fck_ec ec, fck_entity entity);
 } fck_ec_entity_api;
@@ -98,6 +107,9 @@ typedef struct fck_ec_registry_api
 	// TODO: (*define), so we can serialise each field!
 	fck_component_id (*id)(fck_ec ec, const char *name);
 	const char *(*nameof)(fck_ec ec, fck_component_id id);
+
+	fck_component_names_iterator (*iterator)(fck_ec ec);
+	fckc_u32 (*names)(fck_component_names_iterator* it, const char **names, fckc_u32 capacity);
 } fck_ec_registry_api;
 
 typedef struct fck_ec_query_api

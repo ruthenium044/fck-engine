@@ -120,8 +120,9 @@ typedef struct fck_nuklear_elements_api
 	fckc_i32 (*i32)(fck_nk nk, const char *name, fckc_i32 min, fckc_i32 val, fckc_i32 max, fckc_i32 step);
 
 	int (*dropdown)(fck_nk nk, int selected, const char *const *items, int count);
-
 	int (*button)(fck_nk nk, const char *title);
+	
+	void (*label)(fck_nk nk, const char* fmt, ...);
 } fck_nuklear_elements_api;
 
 typedef struct fck_nuklear_panel_api

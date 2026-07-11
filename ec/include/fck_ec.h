@@ -37,6 +37,16 @@ typedef struct fck_component_id
 	fckc_uintptr value;
 } fck_component_id;
 
+typedef struct fck_component_definition
+{
+	// Triggered on component add (Implicitly invoked by ec::component->set)
+	int (*constructor)(void *self, void *userdata);
+	// Triggered on component remove (Explicitly invoked by ec::component->remove)
+	int (*destructor)(void *self, void *userdata);
+
+	void *userdata;
+} fck_component_definition;
+
 typedef struct fck_query_component
 {
 	fck_component_id id;
@@ -73,7 +83,7 @@ typedef struct fck_archetype_iterator
 typedef struct fck_component_names_iterator
 {
 	fck_ec ec;
-	void* opaque;
+	void *opaque;
 } fck_component_names_iterator;
 
 typedef struct fck_ec_archetype_api
@@ -81,7 +91,6 @@ typedef struct fck_ec_archetype_api
 	fck_archetype_iterator (*iterator)(fck_ec ec, fck_entity entity);
 	fckc_u32 (*get)(fck_archetype_iterator *it, fck_component_id *components, fckc_u32 capacity);
 } fck_ec_archetype_api;
-
 
 typedef struct fck_ec_entity_api
 {
@@ -93,6 +102,7 @@ typedef struct fck_ec_entity_api
 
 typedef struct fck_ec_component_api
 {
+	// data can be NULL -> zeroes out memory
 	int (*set)(fck_ec ec, fck_entity entity, fck_component_id id, const void *data);
 	int (*remove)(fck_ec ec, fck_entity entity, fck_component_id id);
 	void *(*get)(fck_ec ec, fck_entity entity, fck_component_id id);
@@ -105,11 +115,13 @@ typedef struct fck_ec_registry_api
 {
 	fck_component_id (*declare)(fck_ec ec, const char *name, fckc_u32 size);
 	// TODO: (*define), so we can serialise each field!
+	int (*define)(fck_ec ec, fck_component_id id, const fck_component_definition *definition);
+
 	fck_component_id (*id)(fck_ec ec, const char *name);
 	const char *(*nameof)(fck_ec ec, fck_component_id id);
 
 	fck_component_names_iterator (*iterator)(fck_ec ec);
-	fckc_u32 (*names)(fck_component_names_iterator* it, const char **names, fckc_u32 capacity);
+	fckc_u32 (*names)(fck_component_names_iterator *it, const char **names, fckc_u32 capacity);
 } fck_ec_registry_api;
 
 typedef struct fck_ec_query_api

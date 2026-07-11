@@ -7,6 +7,7 @@ include_guard(GLOBAL)
 find_package(fckc)
 find_package(kll)
 find_package(api)
+find_package(os)
 find_package(render)
 
 add_library(${PROJECT_NAME})
@@ -27,4 +28,5 @@ target_include_directories(${PROJECT_NAME} INTERFACE "${CMAKE_CURRENT_SOURCE_DIR
 target_sources(${PROJECT_NAME} PRIVATE "include/fck_sprite.h")
 target_sources(${PROJECT_NAME} PRIVATE "src/fck_sprite.c")
 
-target_link_libraries(${PROJECT_NAME} PUBLIC  fck::fckc fck::kll fck::api-interface fck::render)
+target_link_libraries(${PROJECT_NAME} PUBLIC fck::fckc fck::kll fck::api-interface fck::render)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::os)

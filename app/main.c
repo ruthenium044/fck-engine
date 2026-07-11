@@ -125,6 +125,11 @@ typedef struct app_sprite_pie_items
 	fck_nk_pie_item add_item;
 } app_sprite_pie_items;
 
+typedef struct app_sprite_component
+{
+	fck_sprite_id id;
+} app_sprite_component;
+
 static void app_sprite_pie_items_init(fck_nuklear_api *nk, app_sprite_pie_items *items, fck_nk_pie_item *root)
 {
 	memset(items, 0, sizeof(*items));
@@ -203,6 +208,11 @@ static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugin
 			nk->panel->pop(view);
 		}
 
+		const char **sprite_batch_names;
+		const fckc_u32 sprite_batch_names_count = sprite->batches->names(sprites, &sprite_batch_names);
+
+		const fck_component_id sprite_component_id = ec->registry->id(world, "sprite");
+
 		if (nk->panel->push(view, "Entities"))
 		{
 			const fck_entity *entities;
@@ -217,11 +227,48 @@ static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugin
 						fck_component_id component_id;
 						while (ec->archetype->get(&it, &component_id, 1))
 						{
-							if (nk->elements->button(view, ec->registry->nameof(world, component_id)))
+							if (nk->panel->push(view, "%s [%u]", ec->registry->nameof(world, component_id), entity.index))
 							{
-								os->io->log("Remove Component");
+								if (sprite_component_id.value == component_id.value)
+								{
+									void *opaque_component = ec->component->get(world, entity, component_id);
+									app_sprite_component *sprite_component = (app_sprite_component *)opaque_component;
+									fck_sprite_transform *transform = sprite->get(sprites, sprite_component->id);
+									fck_assert(transform);
+									const fck_sprite_id sprite_id = sprite_component->id;
 
-								ec->component->remove(world, entity, component_id);
+									nk->elements->label(view, "Batch: %lu - Sprite: %lu", sprite_id.batch.value, sprite_id.entry.value);
+
+									const int as_int = to_int(sprite_id.batch.value);
+									const int new_index =
+										nk->elements->dropdown(view, as_int, sprite_batch_names, sprite_batch_names_count);
+									if (as_int != new_index)
+									{
+										const fck_sprite_transform copy = *transform;
+										if (sprite->is_ok(sprites, sprite_id))
+										{
+											if (sprite->remove(sprites, sprite_id))
+											{
+												const fck_sprite_batch_id new_id = sprite->batches->index(sprites, new_index);
+												fck_assert(sprite->batches->is_ok(sprites, new_id));
+												fck_sprite_transform *transform = sprite->add(sprites, new_id);
+												*transform = copy;
+												transform->horizontal_index = transform->vertical_index = 0;
+												sprite_component->id = sprite->indexof(sprites, new_id, transform);
+											}
+										}
+									}
+
+									fck_sprite_transform_property(nk, view, transform);
+								}
+
+								if (nk->elements->button(view, "Remove Component"))
+								{
+									os->io->log("Remove Component");
+									ec->component->remove(world, entity, component_id);
+								}
+
+								nk->panel->pop(view);
 							}
 						}
 					}
@@ -230,7 +277,7 @@ static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugin
 					const char *component_names[16];
 					component_names[0] = "Add Component";
 					const fckc_u32 names_result = ec->registry->names(&name_it, &component_names[1], fck_arraysize(component_names) - 1);
-					int component_selection = nk->elements->dropdown(view, 0, component_names, names_result + 1);
+					const int component_selection = nk->elements->dropdown(view, 0, component_names, names_result + 1);
 
 					if (component_selection)
 					{
@@ -287,9 +334,8 @@ static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugin
 					{
 						if (nk->panel->push(view, "%s[%d]", batch_name, index))
 						{
-							const char **names;
-							const fckc_u32 names_count = sprite->batches->names(sprites, &names);
-							const int new_index = nk->elements->dropdown(view, (int)batch_index, names, names_count);
+							const int as_int = to_int(batch_index);
+							const int new_index = nk->elements->dropdown(view, as_int, sprite_batch_names, sprite_batch_names_count);
 							if (new_index != batch_index)
 							{
 								const fck_sprite_transform copy = transforms[index];
@@ -459,10 +505,31 @@ static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugin
 	}
 }
 
-typedef struct app_sprite_component
+typedef struct app_sprite_implementation
 {
-	fck_sprite_id id;
-} app_sprite_component;
+	fck_sprite_api *sprite;
+	fck_sprites *sprites;
+} app_sprite_implementation;
+
+static int app_sprite_implementation_constructor(void *self, void *userdata)
+{
+	app_sprite_implementation *impl = (app_sprite_implementation *)userdata;
+	app_sprite_component *component = (app_sprite_component *)self;
+	const fck_sprite_batch_id id = impl->sprite->batches->index(impl->sprites, 0);
+	fck_sprite_transform *transform = impl->sprite->add(impl->sprites, id);
+	transform->scale = 2.0f;
+	component->id = impl->sprite->indexof(impl->sprites, id, transform);
+	return 1;
+}
+static int app_sprite_implementation_destructor(void *self, void *userdata)
+{
+	app_sprite_implementation *impl = (app_sprite_implementation *)userdata;
+	app_sprite_component *component = (app_sprite_component *)self;
+	const fck_sprite_batch_id id = impl->sprite->batches->index(impl->sprites, 0);
+	const int result = impl->sprite->remove(impl->sprites, component->id);
+	fck_assert(result);
+	return 1;
+}
 
 int main(int argc, char **argv)
 {
@@ -498,9 +565,6 @@ int main(int argc, char **argv)
 
 	// We can create a new ec
 	fck_ec world = ec->core->create(kll->system, 32);
-
-	// We can register a component
-	const fck_component_id sprite_id = ec->registry->declare(world, "sprite", sizeof(app_sprite_component));
 
 	fck_input_source *mouse = NULL;
 	{
@@ -567,23 +631,24 @@ int main(int argc, char **argv)
 	sht_elements indices = {0};
 
 	sht_sampler sampler = {0};
-	sht_image texture_image = {0};
-	sht_image_view texture_view = {0};
+	sht_image white_image = {0};
+	sht_image_view white_view = {0};
 
 	{
 		sampler = driver.vt->create_sampler(driver, sht_filter_nearest);
 		const sht_image_configuration config = {
 			.format = sht_format_r8g8b8a8_unorm,
-			.width = 4,
-			.height = 1,
+			.width = 32,
+			.height = 32,
 			.transfer = sht_transfer_target,
 			.usage = sht_image_usage_sampled,
 		};
-		texture_image = memory->image->create(memory->bump, &config, sht_memory_gpu);
-		texture_view = memory->image->view(memory->bump, texture_image, sht_format_r8g8b8a8_unorm);
+		white_image = memory->image->create(memory->bump, &config, sht_memory_gpu);
+		white_view = memory->image->view(memory->bump, white_image, sht_format_r8g8b8a8_unorm);
 
-		fckc_u32 pixels[] = {0xFF0000FF, 0xFF00FF00, 0xFFFF0000, 0xFFFFFFFF};
-		driver.vt->upload_image(driver, &texture_image, pixels, sizeof(pixels));
+		fckc_u32 pixels[32 * 32];
+		memset(pixels, 0xFF, sizeof(pixels));
+		driver.vt->upload_image(driver, &white_image, pixels, sizeof(pixels));
 	}
 
 	const fck_png background_png = png->load(fck_resource_path "bg-mockup.png");
@@ -629,42 +694,54 @@ int main(int argc, char **argv)
 	}
 
 	fck_sprites sprites = sprite->create(kll->system);
+
+	app_sprite_implementation sprite_implementation = {.sprite = sprite, .sprites = &sprites};
+	const fck_component_id sprite_id = ec->registry->declare(world, "sprite", sizeof(app_sprite_component));
+	const fck_component_definition sprite_definition = {
+		.constructor = app_sprite_implementation_constructor,
+		.destructor = app_sprite_implementation_destructor,
+		.userdata = &sprite_implementation,
+	};
+	ec->registry->define(world, sprite_id, &sprite_definition);
+
+	const fck_sprite_batch_id empty_batch = sprite->batches->add(&sprites, "Empty", &white_view, 32.0f, 32.0f);
+	fck_assert(empty_batch.value == 0);
 	const fck_sprite_batch_id background_batch = sprite->batches->add(&sprites, "Background", &background_image_view, 132.0f, 72.0f);
 	const fck_sprite_batch_id birds_batch = sprite->batches->add(&sprites, "Birds", &bird_image_view, 32.0f, 32.0f);
 	const fck_sprite_batch_id items_batch = sprite->batches->add(&sprites, "Items", &items_image_view, 16.0f, 16.0f);
 
 	const float temp_transform_scale = 10.0f;
 
-	{
-		fck_sprite_transform *transform = sprite->add(&sprites, background_batch);
-		const fck_sprite_transform baseline = {
-			.scale = temp_transform_scale,
-			.x = 0.0f,
-			.y = 0.0f,
-			.z = 0.0f,
-		};
-		*transform = baseline;
-	}
+	//{
+	//	fck_sprite_transform *transform = sprite->add(&sprites, background_batch);
+	//	const fck_sprite_transform baseline = {
+	//		.scale = temp_transform_scale,
+	//		.x = 0.0f,
+	//		.y = 0.0f,
+	//		.z = 0.0f,
+	//	};
+	//	*transform = baseline;
+	//}
 
-	{
-		fck_sprite_transform *transform = sprite->add(&sprites, birds_batch);
-		const fck_sprite_transform baseline = {
-			.scale = temp_transform_scale,
-			.x = -20.0f * temp_transform_scale,
-			.y = 15.0f * temp_transform_scale,
-		};
-		*transform = baseline;
-	}
+	//{
+	//	fck_sprite_transform *transform = sprite->add(&sprites, birds_batch);
+	//	const fck_sprite_transform baseline = {
+	//		.scale = temp_transform_scale,
+	//		.x = -20.0f * temp_transform_scale,
+	//		.y = 15.0f * temp_transform_scale,
+	//	};
+	//	*transform = baseline;
+	//}
 
-	{
-		fck_sprite_transform *transform = sprite->add(&sprites, items_batch);
-		const fck_sprite_transform baseline = {
-			.scale = temp_transform_scale,
-			.x = 20.0f * temp_transform_scale,
-			.y = 15.0f * temp_transform_scale,
-		};
-		*transform = baseline;
-	}
+	//{
+	//	fck_sprite_transform *transform = sprite->add(&sprites, items_batch);
+	//	const fck_sprite_transform baseline = {
+	//		.scale = temp_transform_scale,
+	//		.x = 20.0f * temp_transform_scale,
+	//		.y = 15.0f * temp_transform_scale,
+	//	};
+	//	*transform = baseline;
+	//}
 
 	fckc_u64 time_point = os->chrono->ms();
 

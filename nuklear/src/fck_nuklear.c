@@ -1350,14 +1350,14 @@ static fckc_i32 fck_nuklear_elements_api_i32(fck_nk nk, const char *name, fckc_i
 	return nk_propertyi(ctx, name, min, val, max, step, 0.5f);
 }
 
-void fck_nuklear_elements_api_label(fck_nk nk, const char *fmt, ...)
+static void fck_nuklear_elements_api_label(fck_nk nk, const char *fmt, ...)
 {
 	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
 	struct nk_context *ctx = nk_internal->ctx;
 
 	va_list args;
 	va_start(args, fmt);
-	nk_labelf(ctx, NK_TEXT_LEFT, fmt, args);
+	nk_labelfv(ctx, NK_TEXT_LEFT, fmt, args);
 	va_end(args);
 }
 

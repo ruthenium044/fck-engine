@@ -113,7 +113,7 @@ struct fck_window;
 struct sht_driver;
 struct sht_command_buffer;
 
-
+// TODO: Debug loggin on interaction setting!
 typedef struct fck_nuklear_elements_api
 {
 	fckc_f32 (*f32)(fck_nk nk, const char *name, fckc_f32 min, fckc_f32 val, fckc_f32 max, fckc_f32 step);

@@ -12,6 +12,8 @@
 #include <fck_apis.h>
 #include <fckc_apidef.h>
 
+#include <fck_os.h>
+
 #include <string.h>
 
 typedef struct fck_entity_lookup
@@ -43,8 +45,10 @@ typedef struct fck_entity_components
 	fck_entity_storage storage;
 	struct fck_entity_components *next;
 
-	const char *name;
 	void *opaque;
+	const char *name;
+
+	fck_component_definition definition;
 	fckc_u32 size;
 } fck_entity_components;
 
@@ -452,8 +456,12 @@ static void fck_entity_storage_api_destroy(fck_entity_storage *storage)
 	memset(storage, 0, sizeof(*storage));
 }
 
-static fckc_u32 fck_entity_storage_api_set(fck_entity_storage *storage, fck_entity entity)
+static fckc_u32 fck_entity_storage_api_set(fck_entity_storage *storage, fck_entity entity, int *just_added)
 {
+	if (just_added)
+	{
+		*just_added = 0;
+	}
 	if (fck_entity_lookup_api_alive(&storage->lookup, entity.index))
 	{
 		if (fck_entity_lookup_out_of_date(&storage->lookup, entity))
@@ -492,6 +500,12 @@ static fckc_u32 fck_entity_storage_api_set(fck_entity_storage *storage, fck_enti
 		fck_assert(result == sparse && "add and set entity are different?");
 		storage->dense[index] = entity;
 		storage->count = storage->count + 1;
+
+		if (just_added)
+		{
+			*just_added = 1;
+		}
+
 		return index + 1;
 	}
 	return 0;
@@ -502,8 +516,8 @@ static fckc_u32 fck_entity_storage_api_get(fck_entity_storage *entities, fck_ent
 	const fck_entity *result = fck_entity_lookup_api_get(&entities->lookup, entity);
 	if (result)
 	{
-		const fck_entity value = entities->dense[result->index];
-		return value.index + 1;
+		// const fck_entity value = entities->dense[result->index];
+		return result->index + 1;
 	}
 	return 0;
 }
@@ -564,8 +578,8 @@ static void *fck_entity_component_api_set(fck_entity_components *components, fck
 {
 	const fckc_u32 count = components->storage.count;
 	const fckc_u32 capacity = components->storage.capacity;
-	const fckc_u32 result = fck_entity_storage_api_set(&components->storage, entity);
-
+	int just_added;
+	const fckc_u32 result = fck_entity_storage_api_set(&components->storage, entity, &just_added);
 	if (result == 0)
 	{
 		return NULL;
@@ -588,16 +602,22 @@ static void *fck_entity_component_api_set(fck_entity_components *components, fck
 
 	const fckc_size_t offset = components->size * slot;
 	fckc_u8 *memory = (fckc_u8 *)components->opaque;
-
+	fckc_u8 *dst = memory + offset;
 	if (data != NULL)
 	{
-		memcpy(memory + offset, data, components->size);
+		memcpy(dst, data, components->size);
 	}
 	else
 	{
-		memset(memory + offset, 0, components->size);
+		memset(dst, 0, components->size);
 	}
-	return (void *)(memory + offset);
+
+	fck_component_definition *definition = &components->definition;
+	if (just_added && definition->constructor)
+	{
+		definition->constructor(dst, definition->userdata);
+	}
+	return (void *)(dst);
 }
 
 static void *fck_entity_component_api_get(fck_entity_components *components, fck_entity entity)
@@ -631,8 +651,18 @@ static int fck_entity_component_api_remove(fck_entity_components *components, fc
 		const fckc_size_t from = removal.from * components->size;
 		const fckc_size_t to = removal.to * components->size;
 		fckc_u8 *memory = (fckc_u8 *)components->opaque;
-		memcpy(memory + to, memory + from, components->size);
-		memset(memory + from, 0, components->size);
+
+		fckc_u8 *src = memory + from;
+		fckc_u8* dst = memory + to;
+
+		fck_component_definition *definition = &components->definition;
+		if (definition->destructor)
+		{
+			definition->destructor(dst, definition->userdata);
+		}
+
+		memmove(dst, src, components->size);
+		memset(src, 0, components->size);
 		return 1;
 	}
 	return 0;
@@ -685,7 +715,7 @@ static fck_entity fck_ec_api_entity_create(fck_ec ec)
 
 	entity.generation = entity.generation + 1;
 
-	fck_entity_storage_api_set(&ec_private->all, entity);
+	fck_entity_storage_api_set(&ec_private->all, entity, NULL);
 	return entity;
 }
 
@@ -853,6 +883,17 @@ static fck_entity_components *fck_ec_api_components_resolve(fck_ec ec, fck_compo
 	return ec_private->components + (id.value - 1);
 }
 
+static int fck_ec_api_component_define(fck_ec ec, fck_component_id id, const fck_component_definition *definition)
+{
+	fck_entity_components *components = fck_ec_api_components_resolve(ec, id);
+	if (components)
+	{
+		components->definition = *definition;
+		return 1;
+	}
+	return 0;
+}
+
 static const char *fck_ec_api_components_nameof(fck_ec ec, fck_component_id id)
 {
 	fck_entity_components *components = fck_ec_api_components_resolve(ec, id);
@@ -873,6 +914,7 @@ static int fck_ec_api_component_set(fck_ec ec, fck_entity entity, fck_component_
 		if (components)
 		{
 			fck_entity_component_api_set(components, entity, data);
+
 			return 1;
 		}
 	}
@@ -1122,6 +1164,7 @@ static fck_ec_core_api ec_core_api = {
 
 static fck_ec_registry_api ec_registry_api = {
 	.declare = fck_ec_api_component_declare,
+	.define = fck_ec_api_component_define,
 	.id = fck_ec_api_components_id,
 	.nameof = fck_ec_api_components_nameof,
 	.iterator = fck_ec_api_registry_names_iterator,

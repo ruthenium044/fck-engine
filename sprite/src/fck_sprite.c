@@ -462,6 +462,7 @@ static fckc_u32 fck_sprites_index_of(fck_sprites_internal *sprites, fckc_u32 bat
 static int fck_sprites_remove(fck_sprites_internal *sprites, fckc_u32 batch_index, fckc_u32 entry_index)
 {
 	fck_sprite_stable_batch *batch = sprites->batches + batch_index;
+
 	return fck_sprite_stable_batch_remove(batch, entry_index);
 }
 
@@ -638,6 +639,18 @@ static fck_sprite_transform *fck_sprite_api_set(struct fck_sprites *external, fc
 	return NULL;
 }
 
+static fck_sprite_id fck_sprite_api_indexof(struct fck_sprites* external, fck_sprite_batch_id index, const fck_sprite_transform* transform)
+{
+	fck_sprites_internal sprites = { 0 };
+	fck_sprites_to_internal(external, &sprites);
+	fck_sprite_id id;
+	id.batch = index;
+	// Flip to uintmax when invalid :-(
+	id.entry.value = fck_sprites_index_of(&sprites, index.value, transform) - 1;
+	return id;
+}
+
+
 static fck_sprite_transform *fck_sprite_api_add(struct fck_sprites *external, fck_sprite_batch_id index)
 {
 	fck_sprites_internal sprites = {0};
@@ -661,17 +674,6 @@ static int fck_sprite_api_remove(struct fck_sprites *external, fck_sprite_id ind
 		return 1;
 	}
 	return 0;
-}
-
-static fck_sprite_id fck_sprite_api_indexof(struct fck_sprites *external, fck_sprite_batch_id index, const fck_sprite_transform *transform)
-{
-	fck_sprites_internal sprites = {0};
-	fck_sprites_to_internal(external, &sprites);
-	fck_sprite_id id;
-	id.batch = index;
-	// Flip to uintmax when invalid :-(
-	id.entry.value = fck_sprites_index_of(&sprites, index.value, transform) - 1;
-	return id;
 }
 
 static int fck_sprite_api_is_ok(fck_sprites *external, fck_sprite_id index)

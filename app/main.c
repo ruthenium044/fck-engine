@@ -503,6 +503,16 @@ int main(int argc, char **argv)
 	app_some_query_value queried_values[16] = {0};
 	const fckc_u32 queried_result = ec->query->match(&query_it, queried_values, fck_arraysize(queried_values));
 
+	fck_ec_archetype_iterator archetype_it = ec->archetype->iterator(world, entity);
+
+	fck_component_id archetype_component_id;
+	while (ec->archetype->get(&archetype_it, &archetype_component_id, 1))
+	{
+		const char* name = ec->registry->nameof(world, archetype_component_id);
+		fck_assert(name);
+		os->io->log("Entity has %s component", name);
+	}
+
 	// We can remove components
 	ec->component->remove(world, entity, sprite_id);
 

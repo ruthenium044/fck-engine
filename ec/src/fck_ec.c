@@ -55,11 +55,41 @@ typedef struct fck_entity_buffer
 	fckc_u32 count;
 } fck_entity_buffer;
 
+typedef struct fck_query
+{
+	fck_hash_int hash;
+	const char *name;
+	fck_query_component *components;
+	fckc_u32 size;
+	fckc_u32 count;
+} fck_query;
+
+struct fck_query_chunk;
+typedef struct fck_query_chunk
+{
+	fckc_u32 index;
+	struct fck_query_chunk *next;
+
+	fckc_u32 capacity;
+	fckc_u32 count;
+	fck_query values[1];
+} fck_query_chunk;
+
+typedef struct fck_queries
+{
+	// kll_allocator *allocator;
+	kll_arena *arena;
+
+	fck_query_chunk *last;
+	fck_query_chunk *first;
+} fck_queries;
+
 typedef struct fck_ec_private
 {
 	fck_entity_storage all;
 	fck_entity_buffer free_list;
 
+	fck_queries queries;
 	fck_entity_components *components;
 
 	fck_entity_components *first;
@@ -68,6 +98,133 @@ typedef struct fck_ec_private
 	fckc_u32 count;
 	fckc_u32 capacity;
 } fck_ec_private;
+
+static fck_hash_int fck_components_hash(const fck_query_component *components, fckc_u32 count)
+{
+	fck_hash_int hash = 0;
+	for (fckc_u32 index = 0; index < count; index++)
+	{
+		const fck_query_component *component = components + index;
+		hash = fck_hash_combine(hash, component->id.value);
+	}
+	return hash;
+}
+
+static int fck_components_same(const fck_query_component *lhs, fckc_u32 lhs_count, const fck_query_component *rhs, fckc_u32 rhs_count)
+{
+	if (lhs_count != rhs_count)
+	{
+		return 0;
+	}
+
+	for (fckc_u32 index = 0; index < lhs_count; index++)
+	{
+		const fck_query_component *l = lhs + index;
+		const fck_query_component *r = rhs + index;
+		if (l->id.value != r->id.value)
+		{
+			return 0;
+		}
+	}
+	return 1;
+}
+
+static fck_queries fck_queries_create(kll_allocator *allocator)
+{
+	fck_queries queries = {0};
+	queries.arena = kll->arena->create(allocator, 2048);
+	return queries;
+}
+
+static void fck_queries_destroy(fck_queries *queries)
+{
+	kll->arena->destroy(queries->arena);
+	memset(queries, 0, sizeof(*queries));
+}
+
+static fck_query *fck_queries_resolve(fck_query_id id)
+{
+	return (fck_query *)id.opaque;
+}
+
+static fck_query_id fck_queries_get(fck_queries *queries, const char *name, fckc_u32 size, const fck_query_component *components,
+                                    fckc_u32 count)
+{
+	const fck_hash_int hash = fck_components_hash(components, count);
+
+	{
+		fck_query_chunk *current = queries->first;
+		while (current)
+		{
+			fckc_u32 slot = hash % current->capacity;
+			for (;;)
+			{
+				fck_query *query = current->values + slot;
+				if (query->components == NULL)
+				{
+					break;
+				}
+				if (query->hash == hash)
+				{
+					if (fck_components_same(components, count, query->components, query->count))
+					{
+						const fck_query_id id = {.opaque = query};
+						return id;
+					}
+				}
+				slot = (slot + 1) % current->capacity;
+			}
+			current = current->next;
+		}
+	}
+
+	if (queries->last == NULL)
+	{
+		const fckc_u32 capacity = 32;
+		const fckc_size_t total = offsetof(fck_query_chunk, values[capacity]);
+		fck_query_chunk *last = (fck_query_chunk *)kll_malloc(queries->arena, total);
+		memset(last, 0, total);
+		last->capacity = capacity;
+		last->count = 0;
+		last->index = 0;
+		last->next = NULL;
+		queries->last = last;
+		queries->first = last;
+	}
+	else if (queries->last->count >= (queries->last->capacity / 2))
+	{
+		const fckc_u32 capacity = queries->last->capacity * 2;
+		const fckc_size_t total = offsetof(fck_query_chunk, values[capacity]);
+		fck_query_chunk *last = (fck_query_chunk *)kll_malloc(queries->arena, total);
+		memset(last, 0, total);
+		last->capacity = capacity;
+		last->count = 0;
+		last->index = 0;
+		last->next = NULL;
+		queries->last->next = last;
+		queries->last = last;
+	}
+
+	fckc_u32 slot = hash % queries->last->capacity;
+	for (;;)
+	{
+		fck_query *query = queries->last->values + slot;
+		if (query->components == NULL)
+		{
+			const fckc_size_t total = sizeof(*query->components) * count;
+			fck_query_component *result = (fck_query_component *)kll_malloc(queries->arena, total);
+			memcpy(result, components, total);
+			query->components = result;
+			query->count = count;
+			query->hash = hash;
+			query->size = size;
+			query->name = name;
+			const fck_query_id id = {.opaque = query};
+			return id;
+		}
+		slot = (slot + 1) % queries->last->capacity;
+	}
+}
 
 static void fck_entity_buffer_destroy(kll_allocator *allocator, fck_entity_buffer *buffer)
 {
@@ -496,6 +653,8 @@ static fck_ec fck_ec_api_create(kll_allocator *allocator, fckc_u32 capacity)
 	ec->components = (fck_entity_components *)fckc_pointer_add(memory, self_total);
 	ec->all = fck_entity_storage_api_create(allocator);
 	ec->capacity = capacity;
+	ec->queries = fck_queries_create(allocator);
+
 	fck_ec result = {.opaque = ec};
 	return result;
 }
@@ -510,14 +669,14 @@ static void fck_ec_api_destroy(fck_ec ec)
 		fck_entity_component_api_destroy(components);
 	}
 	fck_entity_storage_api_destroy(&ec_private->all);
-
+	fck_queries_destroy(&ec_private->queries);
 	fck_entity_buffer_destroy(allocator, &ec_private->free_list);
 	kll_free(allocator, ec_private);
 }
 
 static fck_entity fck_ec_api_entity_create(fck_ec ec)
 {
-	fck_ec_private* ec_private = ec.opaque;
+	fck_ec_private *ec_private = ec.opaque;
 	fck_entity entity = {0};
 	if (!fck_entity_buffer_try_pop(&ec_private->free_list, &entity))
 	{
@@ -531,7 +690,7 @@ static fck_entity fck_ec_api_entity_create(fck_ec ec)
 	return entity;
 }
 
-// static void fck_ec_api_entity_archetype_print(fck_ec_private *ec_private, fck_entity entity)
+// static void fck_ec_api_entity_query_print(fck_ec_private *ec_private, fck_entity entity)
 //{
 //	const fckc_u32 result = fck_entity_storage_api_get(&ec_private->all, entity);
 //	if (result == 0)
@@ -556,7 +715,7 @@ static fck_entity fck_ec_api_entity_create(fck_ec ec)
 
 static int fck_ec_api_entity_destroy(fck_ec ec, fck_entity entity)
 {
-	fck_ec_private* ec_private = ec.opaque;
+	fck_ec_private *ec_private = ec.opaque;
 	const fckc_u32 result = fck_entity_storage_api_get(&ec_private->all, entity);
 	if (result == 0)
 	{
@@ -578,9 +737,9 @@ static int fck_ec_api_entity_destroy(fck_ec ec, fck_entity entity)
 	return 1;
 }
 
-static int fck_ec_api_component_declare(fck_ec ec, const char *name, fckc_u32 size)
+static fck_component_id fck_ec_api_component_declare(fck_ec ec, const char *name, fckc_u32 size)
 {
-	fck_ec_private* ec_private = ec.opaque;
+	fck_ec_private *ec_private = ec.opaque;
 	fck_assert(ec_private->count < ec_private->capacity);
 
 	const fck_hash_int hash = fck_hash(name, strlen(name));
@@ -604,25 +763,30 @@ static int fck_ec_api_component_declare(fck_ec ec, const char *name, fckc_u32 si
 				ec_private->last = components;
 			}
 
-			return 1;
+			const fck_component_id result = {.value = slot + 1};
+			return result;
 		}
 
 		if (strcmp(components->name, name) == 0)
 		{
+			const fck_component_id result = {.value = slot + 1};
 			// Already added
-			return 0;
+			return result;
 		}
 		const fck_hash_int other = fck_hash(components->name, strlen(components->name));
 		fck_assert(hash != other);
 		slot = (slot + 1) % ec_private->capacity;
 	}
 	//// Out of capacity!??
-	return 0;
+	{
+		const fck_component_id result = {0};
+		return result;
+	}
 }
 
 static fck_entity_components *fck_ec_api_get_components(fck_ec ec, const char *name)
 {
-	fck_ec_private* ec_private = ec.opaque;
+	fck_ec_private *ec_private = ec.opaque;
 	const fck_hash_int hash = fck_hash(name, strlen(name));
 	fckc_u32 slot = (fckc_u32)(hash % ec_private->capacity);
 	for (fckc_u32 index = 0; index < ec_private->capacity; index++)
@@ -659,13 +823,39 @@ static fck_entity_components *fck_ec_api_get_components(fck_ec ec, const char *n
 //	os->io->log("================================");
 // }
 
-static int fck_ec_api_component_set(fck_ec ecv, fck_entity entity, const char *name, const void *data)
+static fck_component_id fck_ec_api_components_id(fck_ec ec, const char *name)
 {
-	fck_ec_private* ec = ecv.opaque;
-	const fckc_u32 result = fck_entity_storage_api_get(&ec->all, entity);
+	fck_entity_components *components = fck_ec_api_get_components(ec, name);
+	if (components)
+	{
+		fck_ec_private *ec_private = ec.opaque;
+		const fckc_uintptr offset = components - ec_private->components;
+		const fck_component_id result = {.value = offset + 1};
+		return result;
+	}
+	{
+		const fck_component_id result = {0};
+		return result;
+	}
+}
+
+static fck_entity_components *fck_ec_api_components_resolve(fck_ec ec, fck_component_id id)
+{
+	if (id.value == 0)
+	{
+		return NULL;
+	}
+	fck_ec_private *ec_private = ec.opaque;
+	return ec_private->components + +(id.value - 1);
+}
+
+static int fck_ec_api_component_set(fck_ec ec, fck_entity entity, fck_component_id id, const void *data)
+{
+	fck_ec_private *ec_private = ec.opaque;
+	const fckc_u32 result = fck_entity_storage_api_get(&ec_private->all, entity);
 	if (result)
 	{
-		fck_entity_components *components = fck_ec_api_get_components(ecv, name);
+		fck_entity_components *components = fck_ec_api_components_resolve(ec, id);
 		if (components)
 		{
 			fck_entity_component_api_set(components, entity, data);
@@ -675,13 +865,13 @@ static int fck_ec_api_component_set(fck_ec ecv, fck_entity entity, const char *n
 	return 0;
 }
 
-static void *fck_ec_api_component_get(fck_ec ec, fck_entity entity, const char *name)
+static void *fck_ec_api_component_get(fck_ec ec, fck_entity entity, fck_component_id id)
 {
-	fck_ec_private* ec_private = ec.opaque;
+	fck_ec_private *ec_private = ec.opaque;
 	const fckc_u32 result = fck_entity_storage_api_get(&ec_private->all, entity);
 	if (result)
 	{
-		fck_entity_components *components = fck_ec_api_get_components(ec, name);
+		fck_entity_components *components = fck_ec_api_components_resolve(ec, id);
 		if (components)
 		{
 			return fck_entity_component_api_get(components, entity);
@@ -690,13 +880,13 @@ static void *fck_ec_api_component_get(fck_ec ec, fck_entity entity, const char *
 	return NULL;
 }
 
-static int fck_ec_api_component_remove(fck_ec ec, fck_entity entity, const char *name)
+static int fck_ec_api_component_remove(fck_ec ec, fck_entity entity, fck_component_id id)
 {
-	fck_ec_private* ec_private = ec.opaque;
+	fck_ec_private *ec_private = ec.opaque;
 	const fckc_u32 result = fck_entity_storage_api_get(&ec_private->all, entity);
 	if (result)
 	{
-		fck_entity_components *components = fck_ec_api_get_components(ec, name);
+		fck_entity_components *components = fck_ec_api_components_resolve(ec, id);
 		if (components)
 		{
 			fck_entity_component_api_remove(components, entity);
@@ -706,9 +896,9 @@ static int fck_ec_api_component_remove(fck_ec ec, fck_entity entity, const char 
 	return 0;
 }
 
-static void *fck_ec_api_get_component_buffer(fck_ec ec, const char *name)
+static void *fck_ec_api_get_component_buffer(fck_ec ec, fck_component_id id)
 {
-	fck_entity_components *components = fck_ec_api_get_components(ec, name);
+	fck_entity_components *components = fck_ec_api_components_resolve(ec, id);
 	if (components)
 	{
 		return fck_entity_component_api_buffer(components);
@@ -716,9 +906,9 @@ static void *fck_ec_api_get_component_buffer(fck_ec ec, const char *name)
 	return NULL;
 }
 
-static fckc_u32 fck_ec_api_get_component_dense(fck_ec ec, const char *name, const fck_entity **values)
+static fckc_u32 fck_ec_api_get_component_dense(fck_ec ec, fck_component_id id, const fck_entity **values)
 {
-	fck_entity_components *components = fck_ec_api_get_components(ec, name);
+	fck_entity_components *components = fck_ec_api_components_resolve(ec, id);
 	if (components)
 	{
 		return fck_entity_component_api_dense(components, values);
@@ -726,12 +916,85 @@ static fckc_u32 fck_ec_api_get_component_dense(fck_ec ec, const char *name, cons
 	return 0;
 }
 
+static fck_query_id fck_ec_api_query_get(fck_ec ec, const fck_query_description *description)
+{
+	fck_ec_private *ec_private = ec.opaque;
+	return fck_queries_get(&ec_private->queries, description->name, description->size, description->components, description->count);
+}
+
+static fck_query_iterator fck_ec_api_query_iterator(fck_ec ec, fck_query_id query)
+{
+	fck_query_iterator it = {0};
+	it.ec = ec;
+	it.query = query;
+	return it;
+}
+
+static fckc_u32 fck_ec_api_query_match(fck_query_iterator *it, void *dst, fckc_u32 capacity)
+{
+	fck_query_id query_id = it->query;
+	fck_query *query = fck_queries_resolve(query_id);
+	if (query == NULL)
+	{
+		return 0;
+	}
+
+	fck_assert(query->count && "Fix me if you see me :giggle:");
+
+	fck_ec ec = it->ec;
+	const fck_entity *entities = NULL;
+	fckc_u32 entities_count = 0;
+	{
+		// First
+		const fck_query_component *query_component = query->components + 0;
+		fck_entity_components *components = fck_ec_api_components_resolve(ec, query_component->id);
+		if (components == NULL)
+		{
+			return 0;
+		}
+		entities_count = fck_entity_component_api_dense(components, &entities);
+	}
+
+	fckc_u32 result = 0;
+	for (; it->index < entities_count; it->index++)
+	{
+		if (result == capacity)
+		{
+			break;
+		}
+
+		const fck_entity entity = entities[it->index];
+		void *current = fckc_pointer_add(dst, result * query->size);
+
+		int write = 1;
+		for (fckc_size_t component_index = 0; component_index < query->count; component_index++)
+		{
+			const fck_query_component *query_component = query->components + component_index;
+			void *component_buffer = fckc_pointer_add(current, query_component->offset);
+
+			fck_entity_components *components = fck_ec_api_components_resolve(ec, query_component->id);
+			void *data = fck_entity_component_api_get(components, entity);
+			if (data == NULL)
+			{
+				write = 0;
+				break;
+			}
+			memcpy(component_buffer, data, components->size);
+		}
+		if (write)
+		{
+			result = result + 1;
+		}
+	}
+	return result;
+}
+
 static fck_ec_entity_api ec_entity_api = {
 	.create = fck_ec_api_entity_create,
 	.destroy = fck_ec_api_entity_destroy,
 };
+
 static fck_ec_component_api ec_component_api = {
-	.declare = fck_ec_api_component_declare,
 	.set = fck_ec_api_component_set,
 	.remove = fck_ec_api_component_remove,
 	.get = fck_ec_api_component_get,
@@ -744,7 +1007,20 @@ static fck_ec_core_api ec_core_api = {
 	.destroy = fck_ec_api_destroy,
 };
 
+static fck_ec_registry_api ec_registry_api = {
+	.declare = fck_ec_api_component_declare,
+	.id = fck_ec_api_components_id,
+};
+
+static fck_ec_query_api ec_query_qpi = {
+	.iterator = fck_ec_api_query_iterator,
+	.get = fck_ec_api_query_get,
+	.match = fck_ec_api_query_match,
+};
+
 static fck_ec_api ec_api = {
+	.registry = &ec_registry_api,
+	.query = &ec_query_qpi,
 	.entity = &ec_entity_api,
 	.component = &ec_component_api,
 	.core = &ec_core_api,

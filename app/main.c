@@ -23,8 +23,8 @@
 #include <fck_gfx.h>
 #include <fck_nuklear.h>
 
-#include <fck_sprite.h>
 #include <fck_ec.h>
+#include <fck_sprite.h>
 
 // #pragma optimize("", off)
 
@@ -408,6 +408,13 @@ typedef struct app_sprite_component
 	fck_sprite_id id;
 } app_sprite_component;
 
+typedef struct app_some_query_value
+{
+	app_sprite_component sprite;
+	float f32;
+	int i32;
+} app_some_query_value;
+
 int main(int argc, char **argv)
 {
 	// TODO: We need to setup stable editor entities, or something like that
@@ -441,35 +448,63 @@ int main(int argc, char **argv)
 	fck_ec_api *ec = (fck_ec_api *)registry->find(fck_ec_api_name);
 
 	// We can create a new ec
-	const fck_ec other = ec->core->create(kll->system, 32);
+	const fck_ec world = ec->core->create(kll->system, 32);
 
 	// We can register a component
-	ec->component->declare(other, "sprite", sizeof(app_sprite_component));
+	const fck_component_id sprite_id = ec->registry->declare(world, "sprite", sizeof(app_sprite_component));
+	const fck_component_id float_id = ec->registry->declare(world, "float", sizeof(float));
+	const fck_component_id int_id = ec->registry->declare(world, "int", sizeof(int));
+
+	const app_sprite_component initial_sprite = {.id = {.batch = {.value = 13}}};
+	const float initial_float = 420.0f;
+	const int initial_int = 62.0f;
+
 	// We can create an entity
-	const fck_entity entity = ec->entity->create(other);
+	const fck_entity entity = ec->entity->create(world);
 
 	// We can add component to entity
-	ec->component->set(other, entity, "sprite", NULL);
+	ec->component->set(world, entity, sprite_id, &initial_sprite);
+	ec->component->set(world, entity, float_id, &initial_float);
+	ec->component->set(world, entity, int_id, &initial_int);
 
-	const fck_entity* sprites_entities;
+	const fck_entity *sprites_entities;
 	// We can query a compact array of indices
-	const fckc_u32 sprites_count = ec->component->dense(other, "sprite", &sprites_entities);
+	const fckc_u32 sprites_count = ec->component->dense(world, sprite_id, &sprites_entities);
 	// We can query a component buffer holding all the state in a compact manner
-	app_sprite_component* sprites_data = (app_sprite_component*)ec->component->buffer(other, "sprite");
+	app_sprite_component *sprites_data = (app_sprite_component *)ec->component->buffer(world, sprite_id);
 	for (fckc_u32 index = 0; index < sprites_count; index++)
 	{
 		const fck_entity e = sprites_entities[index];
 		const app_sprite_component d = sprites_data[index];
 
-		float* y = (float*)ec->component->get(other, e, "float");
+		app_sprite_component *y = (app_sprite_component *)ec->component->get(world, e, sprite_id);
 		(void)y;
 
 		os->io->log("Entity: {index: %u - generation: %u} uses Sprite {batch: %u - index: %u}", e.index, e.generation, d.id.batch.value,
-			d.id.entry.value);
+		            d.id.entry.value);
 	}
 
+	const fck_query_component query_components[] = {
+		{.id = sprite_id, .offset = offsetof(app_some_query_value, sprite)},
+		{.id = float_id, .offset = offsetof(app_some_query_value, f32)},
+		{.id = int_id, .offset = offsetof(app_some_query_value, i32)},
+	};
+
+	fck_query_description query_desc = {
+		.name = "app_some_query_value",
+		.size = sizeof(app_some_query_value),
+		.components = query_components,
+		.count = fck_arraysize(query_components),
+	};
+
+	fck_query_id some_query = ec->query->get(world, &query_desc);
+
+	fck_query_iterator query_it = ec->query->iterator(world, some_query);
+	app_some_query_value queried_values[16] = {0};
+	const fckc_u32 queried_result = ec->query->match(&query_it, queried_values, fck_arraysize(queried_values));
+
 	// We can remove components
-	ec->component->remove(other, entity, "sprite");
+	ec->component->remove(world, entity, sprite_id);
 
 	fck_input_source *mouse = NULL;
 	{

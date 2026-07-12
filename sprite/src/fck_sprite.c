@@ -97,7 +97,7 @@ static int fck_sprite_batch_destroy(fck_sprite_batch *batch)
 
 static fckc_u32 fck_sprite_batch_add(fck_sprite_batch *batch)
 {
-	if (batch->count == batch->capacity)
+	if (batch->count >= batch->capacity)
 	{
 		const fckc_u32 initial = 8;
 		const fckc_u32 next_capacity = batch->capacity ? batch->capacity * 2 : 8;
@@ -189,7 +189,7 @@ static fck_sprite_transform *fck_sprite_stable_batch_resolve(fck_sprite_stable_b
 
 	const fckc_u32 previous_base_capacity = batch->base.capacity;
 	const fckc_u32 result = fck_sprite_batch_add(&batch->base);
-	if (previous_base_capacity != batch->base.capacity)
+	if (previous_base_capacity < batch->base.capacity)
 	{
 		const fckc_size_t total = batch->base.capacity * sizeof(*batch->dense);
 		fck_sprite_batch_dense_index *next = (fck_sprite_batch_dense_index *)kll_malloc(batch->base.allocator, total);

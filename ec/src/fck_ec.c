@@ -809,10 +809,13 @@ static fck_entity fck_ec_api_entity_copy(fck_ec ec, fck_entity entity)
 	fck_entity_components *current = ec_private->first;
 	while (current)
 	{
-		void *src = fck_entity_component_api_get(current, entity);
+		const void *src = fck_entity_component_api_get(current, entity);
 		if (src)
 		{
 			void *dst = fck_entity_component_api_set(current, result, src);
+			// Setting can realloc - There are probably cheaper ways of doing it
+			// But this way we can also ensure we copy correctly
+			src = fck_entity_component_api_get(current, entity);
 			fck_component_definition *definition = &current->definition;
 			if (definition->copy)
 			{

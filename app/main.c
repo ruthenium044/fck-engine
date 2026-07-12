@@ -185,7 +185,19 @@ static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugin
 
 	const fck_component_id sprite_component_id = ec->registry->id(world, "sprite");
 
-	nk->panel->begin(view, "Core Panel", 300.0f);
+	const fck_sprite_batch_id batch_id = sprite->batches->find_by_name(sprites, "Items");
+	const fck_nk_rect source = {0.0f, 0.0f, 16.0f, 16.0f};
+	if (nk->panel->begin_icon(view, "Example", sprite->batches->image_view(sprites, batch_id), &source, 800.0f))
+	{
+		if (nk->panel->push(view, "Some Stuff"))
+		{
+			nk->elements->label(view, "Hello!");
+			nk->panel->pop(view);
+		}
+		nk->panel->end(view);
+	}
+
+	if (nk->panel->begin_label(view, "Core Panel", 300.0f))
 	{
 		if (nk->panel->push(view, "Plugins"))
 		{
@@ -244,6 +256,8 @@ static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugin
 									const fck_sprite_id sprite_id = sprite_component->id;
 
 									nk->elements->label(view, "Batch: %lu - Sprite: %lu", sprite_id.batch.value, sprite_id.entry.value);
+
+									nk->elements->button_image(view, sprite->batches->image_view(sprites, sprite_id.batch));
 
 									const int as_int = to_int(sprite_id.batch.value);
 									const int new_index =
@@ -350,8 +364,8 @@ static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugin
 			}
 			nk->panel->pop(view);
 		}
+		nk->panel->end(view);
 	}
-	nk->panel->end(view);
 
 	{
 		const fck_nk_colour on = {0, 255, 0, 255};
@@ -755,6 +769,16 @@ int main(int argc, char **argv)
 	int is_running = 1;
 	while (is_running)
 	{
+		if (nk->hamburger->used(view, &setting_menu_item))
+		{
+			os->io->log("Setting On");
+		}
+
+		if (nk->hamburger->used(view, &about_menu_item))
+		{
+			os->io->log("About");
+		}
+
 		const fck_nk_control control = nk->control(view);
 		if (control.close)
 		{

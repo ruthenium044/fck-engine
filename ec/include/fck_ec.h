@@ -43,6 +43,7 @@ typedef struct fck_component_definition
 	void *(*constructor)(void *self, void *userdata);
 	// Triggered on component remove (Explicitly invoked by ec::component->remove)
 	void *(*destructor)(void *self, void *userdata);
+	// Triggered on component copy (Explicitly invoked by ec::component->copy)
 	void *(*copy)(void* dst, const void* src, void* userdata);
 	void *userdata;
 } fck_component_definition;

@@ -244,6 +244,8 @@ typedef struct sht_image
 typedef struct sht_image_view
 {
 	fck_alias(sht_format, fckc_u32) format;
+	fckc_u32 width;
+	fckc_u32 height;
 	void *gpu;
 } sht_image_view;
 

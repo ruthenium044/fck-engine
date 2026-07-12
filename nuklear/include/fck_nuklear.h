@@ -84,6 +84,7 @@ typedef struct fck_nk_control
 typedef struct fck_nuklear_hamburger_api
 {
 	fck_nk_hamburger_item *(*push)(fck_nk nk, fck_nk_hamburger_item *item);
+	int (*used)(fck_nk nk, fck_nk_hamburger_item* item);
 } fck_nuklear_hamburger_api;
 
 typedef struct fck_nuklear_pie_api
@@ -112,6 +113,7 @@ struct kll_allocator;
 struct fck_window;
 struct sht_driver;
 struct sht_command_buffer;
+struct sht_image_view;
 
 // TODO: Debug loggin on interaction setting!
 typedef struct fck_nuklear_elements_api
@@ -121,13 +123,18 @@ typedef struct fck_nuklear_elements_api
 
 	int (*dropdown)(fck_nk nk, int selected, const char *const *items, int count);
 	int (*button)(fck_nk nk, const char *title);
-	
-	void (*label)(fck_nk nk, const char* fmt, ...);
+
+	// Image drawing works like this, let's clean it all up!
+	int (*button_image)(fck_nk nk, struct sht_image_view *image);
+
+	void (*label)(fck_nk nk, const char *fmt, ...);
 } fck_nuklear_elements_api;
 
 typedef struct fck_nuklear_panel_api
 {
-	void (*begin)(fck_nk nk, const char *name, float ratio);
+	int (*begin_label)(fck_nk nk, const char *name, float width);
+	int (*begin_icon)(fck_nk nk, const char *name, struct sht_image_view *image_view, const fck_nk_rect *region, float width);
+
 	void (*end)(fck_nk nk);
 
 	// Maybe fmt?

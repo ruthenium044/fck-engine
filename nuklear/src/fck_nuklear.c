@@ -33,9 +33,10 @@
 #define NK_KEYSTATE_BASED_INPUT
 #define NK_UINT_DRAW_INDEX
 #define NK_IMPLEMENTATION
+#include "nuklear.h"
+
 #include "fck_nuklear_colours.h"
 #include "fckc_math.h"
-#include "nuklear.h"
 
 static fck_api_registry *apis;
 
@@ -1542,6 +1543,17 @@ static int fck_nuklear_elements_api_button(fck_nk nk, const char *title)
 	return nk_button_label(ctx, title);
 }
 
+static void fck_nuklear_elements_api_label(fck_nk nk, const char* fmt, ...)
+{
+	fck_nk_private* nk_internal = (fck_nk_private*)nk.handle;
+	struct nk_context* ctx = nk_internal->ctx;
+
+	va_list args;
+	va_start(args, fmt);
+	nk_labelfv(ctx, NK_TEXT_LEFT, fmt, args);
+	va_end(args);
+}
+
 static int fck_nuklear_elements_api_button_image(fck_nk nk, sht_image_view *image)
 {
 	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
@@ -1714,6 +1726,7 @@ static fck_nuklear_elements_api nuklear_property_api = {
 	.f32 = fck_nuklear_elements_api_f32,
 	.i32 = fck_nuklear_elements_api_i32,
 	.button = fck_nuklear_elements_api_button,
+	.label = fck_nuklear_elements_api_label,
 	.button_image = fck_nuklear_elements_api_button_image,
 	.dropdown = fck_nk_elements_api_dropdown,
 };

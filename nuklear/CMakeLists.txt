@@ -22,7 +22,7 @@ target_include_directories(${PROJECT_NAME}-interface INTERFACE "${CMAKE_CURRENT_
 target_sources(${PROJECT_NAME}-interface PRIVATE "include/fck_nuklear.h")
 target_sources(${PROJECT_NAME}-interface PRIVATE "src/nuklear.h")
 target_sources(${PROJECT_NAME}-interface PRIVATE "src/nuklear_overview_demo.inl")
-target_sources(${PROJECT_NAME} PRIVATE "src/fck_nuklear.c")
+target_sources(${PROJECT_NAME} PRIVATE "src/fck_nuklear.c" "src/fck_nuklear_colours.h")
 
 target_link_libraries(${PROJECT_NAME}-interface INTERFACE fck::fckc)
 

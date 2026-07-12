@@ -35,7 +35,7 @@
 #define NK_IMPLEMENTATION
 #include "nuklear.h"
 
-#include "fck_nuklear_colours.h"
+#include "fck_nuklear_colours.inl"
 #include "fckc_math.h"
 
 static fck_api_registry *apis;

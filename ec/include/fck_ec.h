@@ -39,11 +39,11 @@ typedef struct fck_component_id
 
 typedef struct fck_component_definition
 {
-	// Triggered on component add (Implicitly invoked by ec::component->set)
-	int (*constructor)(void *self, void *userdata);
+	// Triggered on component add (Explicitly invoked by ec::component->add)
+	void *(*constructor)(void *self, void *userdata);
 	// Triggered on component remove (Explicitly invoked by ec::component->remove)
-	int (*destructor)(void *self, void *userdata);
-
+	void *(*destructor)(void *self, void *userdata);
+	void *(*copy)(void* dst, const void* src, void* userdata);
 	void *userdata;
 } fck_component_definition;
 
@@ -95,13 +95,16 @@ typedef struct fck_ec_archetype_api
 typedef struct fck_ec_entity_api
 {
 	fckc_u32 (*all)(fck_ec ec, const fck_entity **values);
-
+	fck_entity (*invalid)(fck_ec ec);
 	fck_entity (*create)(fck_ec ec);
+	fck_entity (*copy)(fck_ec ec, fck_entity entity);
+	int (*is_ok)(fck_ec ec, fck_entity entity);
 	int (*destroy)(fck_ec ec, fck_entity entity);
 } fck_ec_entity_api;
 
 typedef struct fck_ec_component_api
 {
+	int (*add)(fck_ec ec, fck_entity entity, fck_component_id id);
 	// data can be NULL -> zeroes out memory
 	int (*set)(fck_ec ec, fck_entity entity, fck_component_id id, const void *data);
 	int (*remove)(fck_ec ec, fck_entity entity, fck_component_id id);

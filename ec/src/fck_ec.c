@@ -574,19 +574,18 @@ static void fck_entity_component_api_destroy(fck_entity_components *components)
 	memset(components, 0, sizeof(*components));
 }
 
-static void *fck_entity_component_api_set(fck_entity_components *components, fck_entity entity, const void *data)
+static void *fck_entity_component_api_maybe_add(fck_entity_components *components, fck_entity entity, int *just_added)
 {
 	const fckc_u32 count = components->storage.count;
 	const fckc_u32 capacity = components->storage.capacity;
-	int just_added;
-	const fckc_u32 result = fck_entity_storage_api_set(&components->storage, entity, &just_added);
+	const fckc_u32 result = fck_entity_storage_api_set(&components->storage, entity, just_added);
 	if (result == 0)
 	{
 		return NULL;
 	}
 
 	const fckc_u32 slot = result - 1;
-	if (capacity != components->storage.capacity)
+	if (capacity < components->storage.capacity)
 	{
 		// Ensure size
 		const fckc_size_t total = components->storage.capacity * components->size;
@@ -603,6 +602,31 @@ static void *fck_entity_component_api_set(fck_entity_components *components, fck
 	const fckc_size_t offset = components->size * slot;
 	fckc_u8 *memory = (fckc_u8 *)components->opaque;
 	fckc_u8 *dst = memory + offset;
+	return (void *)(dst);
+}
+
+static void *fck_entity_component_api_add(fck_entity_components *components, fck_entity entity)
+{
+	int just_added;
+	void *dst = fck_entity_component_api_maybe_add(components, entity, &just_added);
+	if (!just_added)
+	{
+		return NULL;
+	}
+
+	memset(dst, 0, components->size);
+
+	fck_component_definition *definition = &components->definition;
+	if (just_added && definition->constructor)
+	{
+		definition->constructor(dst, definition->userdata);
+	}
+	return (void *)(dst);
+}
+
+static void *fck_entity_component_api_set(fck_entity_components *components, fck_entity entity, const void *data)
+{
+	void *dst = fck_entity_component_api_maybe_add(components, entity, NULL);
 	if (data != NULL)
 	{
 		memcpy(dst, data, components->size);
@@ -610,12 +634,6 @@ static void *fck_entity_component_api_set(fck_entity_components *components, fck
 	else
 	{
 		memset(dst, 0, components->size);
-	}
-
-	fck_component_definition *definition = &components->definition;
-	if (just_added && definition->constructor)
-	{
-		definition->constructor(dst, definition->userdata);
 	}
 	return (void *)(dst);
 }
@@ -653,7 +671,7 @@ static int fck_entity_component_api_remove(fck_entity_components *components, fc
 		fckc_u8 *memory = (fckc_u8 *)components->opaque;
 
 		fckc_u8 *src = memory + from;
-		fckc_u8* dst = memory + to;
+		fckc_u8 *dst = memory + to;
 
 		fck_component_definition *definition = &components->definition;
 		if (definition->destructor)
@@ -701,6 +719,23 @@ static void fck_ec_api_destroy(fck_ec ec)
 	fck_queries_destroy(&ec_private->queries);
 	fck_entity_buffer_destroy(allocator, &ec_private->free_list);
 	kll_free(allocator, ec_private);
+}
+
+static fck_entity fck_ec_api_entity_invalid(fck_ec ec)
+{
+	fck_entity entity = {0};
+	return entity;
+}
+
+static int fck_ec_api_entity_is_ok(fck_ec ec, fck_entity entity)
+{
+	fck_ec_private *ec_private = ec.opaque;
+	const fckc_u32 result = fck_entity_storage_api_get(&ec_private->all, entity);
+	if (result)
+	{
+		return 1;
+	}
+	return 0;
 }
 
 static fck_entity fck_ec_api_entity_create(fck_ec ec)
@@ -764,6 +799,31 @@ static int fck_ec_api_entity_destroy(fck_ec ec, fck_entity entity)
 	fck_entity_storage_api_remove(&ec_private->all, entity, NULL);
 	fck_entity_buffer_push(ec_private->all.lookup.allocator, &ec_private->free_list, &entity, 1);
 	return 1;
+}
+
+static fck_entity fck_ec_api_entity_copy(fck_ec ec, fck_entity entity)
+{
+	fck_ec_private *ec_private = ec.opaque;
+	fck_entity result = fck_ec_api_entity_create(ec);
+
+	fck_entity_components *current = ec_private->first;
+	while (current)
+	{
+		void *src = fck_entity_component_api_get(current, entity);
+		if (src)
+		{
+			void *dst = fck_entity_component_api_set(current, result, src);
+			fck_component_definition *definition = &current->definition;
+			if (definition->copy)
+			{
+				definition->copy(dst, src, definition->userdata);
+			}
+		}
+
+		current = current->next;
+	}
+
+	return result;
 }
 
 static fck_component_id fck_ec_api_component_declare(fck_ec ec, const char *name, fckc_u32 size)
@@ -902,6 +962,24 @@ static const char *fck_ec_api_components_nameof(fck_ec ec, fck_component_id id)
 		return components->name;
 	}
 	return NULL;
+}
+
+static int fck_ec_api_component_add(fck_ec ec, fck_entity entity, fck_component_id id)
+{
+	fck_ec_private *ec_private = ec.opaque;
+	const fckc_u32 result = fck_entity_storage_api_get(&ec_private->all, entity);
+	if (result)
+	{
+		fck_entity_components *components = fck_ec_api_components_resolve(ec, id);
+		if (components)
+		{
+			if (fck_entity_component_api_add(components, entity))
+			{
+				return 1;
+			}
+		}
+	}
+	return 0;
 }
 
 static int fck_ec_api_component_set(fck_ec ec, fck_entity entity, fck_component_id id, const void *data)
@@ -1145,11 +1223,15 @@ static fck_ec_archetype_api ec_archetype_api = {
 
 static fck_ec_entity_api ec_entity_api = {
 	.all = fck_ec_api_all,
+	.invalid = fck_ec_api_entity_invalid,
 	.create = fck_ec_api_entity_create,
+	.copy = fck_ec_api_entity_copy,
+	.is_ok = fck_ec_api_entity_is_ok,
 	.destroy = fck_ec_api_entity_destroy,
 };
 
 static fck_ec_component_api ec_component_api = {
+	.add = fck_ec_api_component_add,
 	.set = fck_ec_api_component_set,
 	.remove = fck_ec_api_component_remove,
 	.get = fck_ec_api_component_get,

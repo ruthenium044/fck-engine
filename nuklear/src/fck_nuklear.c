@@ -111,22 +111,26 @@ typedef struct fck_nk_control_state
 struct fck_nk_panel_item;
 typedef struct fck_nk_panel_item
 {
+	struct fck_nk_panel_item *next;
+	fck_hash_int hash;
+	char name[420];
+} fck_nk_panel_item;
+
+struct fck_nk_panel_state;
+typedef struct fck_nk_panel_state
+{
+	struct fck_nk_panel_state *next;
 	fck_hash_int hash;
 	char name[420];
 
-	struct fck_nk_panel_item *next;
-} fck_nk_panel_item;
+	struct nk_image icon;
 
-typedef struct fck_nk_panel_state
-{
 	// TODO: Over-engineer this
 	fck_nk_panel_item *root;
 	fck_nk_panel_item *active;
 
 	fck_nk_panel_item items[32];
 	fckc_size_t items_count;
-
-	nk_bool open;
 } fck_nk_panel_state;
 
 typedef enum fck_nk_os_group_type
@@ -143,7 +147,12 @@ typedef struct fck_nk_os_window
 	fck_nk_pie pie;
 	fck_nk_control control;
 
-	fck_nk_panel_state panel;
+	fck_nk_panel_state *selected_in_tab_panel;
+	fck_nk_panel_state *open_panel;
+	fck_nk_panel_state *current_panel;
+	fck_nk_panel_state *first_panel;
+	fck_nk_panel_state *last_panel;
+	fck_nk_panel_state panels[16];
 
 	fck_nk_control_state control_state;
 } fck_nk_os_window;
@@ -348,6 +357,83 @@ static void fck_nk_api_input(fck_nk nk, fck_input *input)
 	nk_input_end(nki->ctx);
 }
 
+static void fck_nk_panel_api_tabs(fck_nk nk)
+{
+	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
+	fck_nk_os_window *window = &nk_internal->os;
+	struct nk_context *ctx = nk_internal->ctx;
+
+	nk_style_push_vec2(ctx, &ctx->style.window.padding, nk_vec2(0, 0));
+	nk_style_push_vec2(ctx, &ctx->style.window.group_padding, nk_vec2(0, 0));
+	nk_style_push_vec2(ctx, &ctx->style.window.spacing, nk_vec2(0, 0));
+
+	nk_style_push_float(ctx, &ctx->style.button.rounding, 0.0f);
+
+	nk_layout_row_push(ctx, 48.0f);
+	if (nk_group_begin(ctx, "Panel Tabs", NK_WINDOW_NO_SCROLLBAR))
+	{
+		fck_nk_panel_state *current = window->first_panel;
+		while (current)
+		{
+			nk_layout_row_static(ctx, 48.0f, 48.0f, 1);
+			if (current->icon.handle.ptr)
+			{
+				if (nk_button_image(ctx, current->icon))
+				{
+					if (window->open_panel == current)
+					{
+						window->selected_in_tab_panel = NULL;
+					}
+					else
+					{
+						window->selected_in_tab_panel = current;
+					}
+				}
+			}
+			else
+			{
+				if (nk_button_label(ctx, current->name))
+				{
+					if (window->open_panel == current)
+					{
+						window->selected_in_tab_panel = NULL;
+					}
+					else
+					{
+						window->selected_in_tab_panel = current;
+					}
+				}
+			}
+			current = current->next;
+		}
+		nk_group_end(ctx);
+	}
+
+	nk_style_pop_float(ctx);
+
+	nk_style_pop_vec2(ctx);
+	nk_style_pop_vec2(ctx);
+	nk_style_pop_vec2(ctx);
+}
+
+static void fck_nk_panel_api_begin_layout(fck_nk nk)
+{
+	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
+	fck_nk_os_window *window = &nk_internal->os;
+	struct nk_context *ctx = nk_internal->ctx;
+
+	const struct nk_vec2 size = nk_window_get_size(ctx);
+	nk_layout_row_begin(ctx, NK_STATIC, size.y, window->open_panel ? 2 : 1);
+}
+
+static void fck_nk_panel_api_end_layout(fck_nk nk)
+{
+	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
+	fck_nk_os_window *window = &nk_internal->os;
+	struct nk_context *ctx = nk_internal->ctx;
+	nk_layout_row_end(ctx);
+}
+
 static int fck_nk_api_begin(fck_nk nke)
 {
 	fck_nk_private *nk = (fck_nk_private *)nke.handle;
@@ -479,6 +565,8 @@ static int fck_nk_api_begin(fck_nk nke)
 		const nk_flags body_flags = NK_WINDOW_BACKGROUND | NK_WINDOW_NO_SCROLLBAR;
 		if (nk_begin(ctx, "Window Body", nk_rect(0, configuration->title_bar_height, window_width, height), body_flags))
 		{
+			fck_nk_panel_api_begin_layout(nke);
+			fck_nk_panel_api_tabs(nke);
 			return os_window->control.body;
 		}
 		// We should not end up here
@@ -726,9 +814,17 @@ static const fck_nk_pie_item *fck_nk_pie_execute(fck_nk nk, float radius)
 static void fck_nk_api_end(fck_nk nke)
 {
 	fck_nk_private *nk = (fck_nk_private *)nke.handle;
-	fck_nk_selection *selection = &nk->os.control_state.selection;
-	fck_nk_hovered *hovered = &nk->os.control_state.hovered;
-	fck_nk_control_point *point = &nk->os.control_state.point;
+	fck_nk_os_window *window = &nk->os;
+	fck_nk_selection *selection = &window->control_state.selection;
+	fck_nk_hovered *hovered = &window->control_state.hovered;
+	fck_nk_control_point *point = &window->control_state.point;
+
+	window->open_panel = window->selected_in_tab_panel;
+
+	if (window->control.body)
+	{
+		fck_nk_panel_api_end_layout(nke);
+	}
 
 	const struct nk_input *input = &nk->ctx->input;
 	if (nk->os.control_state.point.current)
@@ -1261,48 +1357,136 @@ static int fck_nk_api_select(fck_nk nk, const void *pointer, float x, float y, f
 	return 0;
 }
 
-static void fck_nk_panel_api_begin(fck_nk nk, const char *name, float width)
+static fck_nk_panel_state *fck_nk_panel_find(fck_nk_private *nk, const char *name)
+{
+	fck_nk_os_window *window = &nk->os;
+	const fck_hash_int hash = fck_hash(name, strlen(name));
+	const fckc_size_t capacity = fck_arraysize(window->panels);
+
+	fckc_size_t slot = hash % capacity;
+	for (fckc_size_t index = 0; index < capacity; index++)
+	{
+		fck_nk_panel_state *state = window->panels + slot;
+		if (!state->name[0])
+		{
+			return NULL;
+		}
+
+		if (state->hash == hash)
+		{
+			if (strcmp(state->name, name) == 0)
+			{
+				return state;
+			}
+		}
+
+		slot = (slot + 1) % capacity;
+	}
+	return NULL;
+}
+
+static fck_nk_panel_state *fck_nk_panel_add(fck_nk_private *nk, const char *name)
+{
+	fck_nk_os_window *window = &nk->os;
+	const fckc_size_t len = strlen(name) + 1;
+	const fck_hash_int hash = fck_hash(name, strlen(name));
+	const fckc_size_t capacity = fck_arraysize(window->panels);
+
+	fckc_size_t slot = hash % capacity;
+	for (fckc_size_t index = 0; index < capacity; index++)
+	{
+		fck_nk_panel_state *state = window->panels + slot;
+		if (!state->name[0])
+		{
+			state->hash = hash;
+			memcpy(state->name, name, len);
+
+			if (window->last_panel)
+			{
+				window->last_panel->next = state;
+				window->last_panel = state;
+			}
+			else
+			{
+				window->last_panel = state;
+				window->first_panel = state;
+			}
+
+			return state;
+		}
+
+		slot = (slot + 1) % capacity;
+	}
+	return NULL;
+}
+
+static int fck_nk_panel_api_begin_icon(fck_nk nk, const char *name, struct sht_image_view *image, const fck_nk_rect *region, float width)
 {
 	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
-	fck_nk_panel_state *state = &nk_internal->os.panel;
+	fck_nk_panel_state *state = fck_nk_panel_find(nk_internal, name);
+	if (state == NULL)
+	{
+		state = fck_nk_panel_add(nk_internal, name);
+	}
 
+	if (region)
+	{
+		const struct nk_rect rect = nk_rect(region->x, region->y, region->w, region->h);
+		state->icon = nk_subimage_ptr(image, to_u16(image->width), to_u16(image->height), rect);
+	}
+	else
+	{
+		state->icon = nk_image_ptr(image);
+	}
+
+	fck_nk_os_window *window = &nk_internal->os;
 	struct nk_context *ctx = nk_internal->ctx;
+	window->current_panel = state;
 
-	const struct nk_vec2 size = nk_window_get_size(ctx);
+	if (window->open_panel == state)
+	{
+		nk_layout_row_push(ctx, width);
+		if (!nk_group_begin(ctx, window->open_panel->name, 0))
+		{
+			window->open_panel = NULL;
+		}
+	}
+	const int result = window->open_panel == state;
+	return result;
+}
 
-	// This might benefit from ACTUALLY being a window...
-	// But then the API is tough cause we cannot start TWO windows and then END two windows :/
+static int fck_nk_panel_api_begin_label(fck_nk nk, const char *name, float width)
+{
+	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
+	fck_nk_panel_state *state = fck_nk_panel_find(nk_internal, name);
+	if (state == NULL)
+	{
+		state = fck_nk_panel_add(nk_internal, name);
+	}
+	fck_nk_os_window *window = &nk_internal->os;
+	struct nk_context *ctx = nk_internal->ctx;
+	window->current_panel = state;
 
-	// const float tab_size = 48.0f;
-	// const float widths[] = {/*tab_size,*/ width, size.x - width};
-	// widths[fck_nk_os_group_panel] = width;
-	// widths[fck_nk_os_group_canvas] = size.x - width;
-	nk_layout_row_static(ctx, size.y, width, 1);
-	// Lazily Add
-	// fck_nk_panel_item *item = fck_nk_panel_state_find(state, name);
-
-	// if (nk_group_begin(ctx, item->name, NK_WINDOW_BORDER))
-	//{
-	//	nk_layout_row_static(ctx, tab_size, tab_size, 1);
-	//	fck_nk_panel_item *current = state->root;
-	//	while (current)
-	//	{
-	//		nk_button_label(ctx, current->name);
-	//		current = current->next;
-	//	}
-	//	nk_group_end(ctx);
-	// }
-	state->open = nk_group_begin(ctx, name, NK_WINDOW_BORDER);
+	if (window->open_panel == state)
+	{
+		nk_layout_row_push(ctx, width);
+		if (!nk_group_begin(ctx, window->open_panel->name, 0))
+		{
+			window->open_panel = NULL;
+		}
+	}
+	const int result = window->open_panel == state;
+	return result;
 }
 
 static void fck_nk_panel_api_end(fck_nk nk)
 {
 	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
 	struct nk_context *ctx = nk_internal->ctx;
-	if (nk_internal->os.panel.open)
-	{
-		nk_group_end(ctx);
-	}
+
+	fck_nk_os_window *window = &nk_internal->os;
+	fck_assert(window->current_panel == window->open_panel);
+	nk_group_end(ctx);
 }
 
 static int fck_nk_panel_menu_api_push(fck_nk nk, const char *fmt, ...)
@@ -1359,6 +1543,13 @@ static int fck_nuklear_elements_api_button(fck_nk nk, const char *title)
 	return nk_button_label(ctx, title);
 }
 
+static int fck_nuklear_elements_api_button_image(fck_nk nk, sht_image_view *image)
+{
+	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
+	struct nk_context *ctx = nk_internal->ctx;
+	return nk_button_image(ctx, nk_image_ptr(image));
+}
+
 static fck_nk_control fck_nk_api_control(fck_nk nk)
 {
 	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
@@ -1407,6 +1598,21 @@ static fck_nk_pie_item *fck_nk_pie_api_push(fck_nk nk, fck_nk_pie_item *item)
 	fck_nk_pie_item *root = &pie->root;
 	fck_nk_pie_api_add_child(root, item);
 	return item;
+}
+
+static int fck_nk_pie_hamburger_used(fck_nk nk, fck_nk_hamburger_item *item)
+{
+	const fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
+
+	int result = item->value;
+	if (item->type == fck_nk_hamburger_item_button)
+	{
+		if (item->value)
+		{
+			item->value = 0;
+		}
+	}
+	return result;
 }
 
 static int fck_nk_pie_api_used(fck_nk nk, fck_nk_pie_item *item)
@@ -1479,6 +1685,7 @@ static int fck_nk_pie_api_happened(fck_nk_pie_item *item)
 
 static fck_nuklear_hamburger_api nuklear_hamburger_api = {
 	.push = fck_nk_hamburger_api_push,
+	.used = fck_nk_pie_hamburger_used,
 };
 
 static fck_nuklear_pie_api nuklear_pie_api = {
@@ -1497,7 +1704,8 @@ static fck_nuklear_input_api nuklear_input_api = {
 };
 
 static fck_nuklear_panel_api nuklear_panel_api = {
-	.begin = fck_nk_panel_api_begin,
+	.begin_label = fck_nk_panel_api_begin_label,
+	.begin_icon = fck_nk_panel_api_begin_icon,
 	.end = fck_nk_panel_api_end,
 	.push = fck_nk_panel_menu_api_push,
 	.pop = fck_nk_panel_menu_api_pop,
@@ -1507,6 +1715,7 @@ static fck_nuklear_elements_api nuklear_property_api = {
 	.f32 = fck_nuklear_elements_api_f32,
 	.i32 = fck_nuklear_elements_api_i32,
 	.button = fck_nuklear_elements_api_button,
+	.button_image = fck_nuklear_elements_api_button_image,
 	.dropdown = fck_nk_elements_api_dropdown,
 };
 

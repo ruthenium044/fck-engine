@@ -884,6 +884,8 @@ static sht_image_view sht_memory_arena_image_view(sht_memory_arena *mem, sht_ima
 	sht_image_view out;
 	out.format = incoming_format;
 	out.gpu = (void *)view;
+	out.height = image.height;
+	out.width = image.width;
 	return out;
 }
 
@@ -1700,6 +1702,14 @@ static VkResult sht_vk_surface_size(sht_vk_gpu *gpu, VkSurfaceKHR surface, VkExt
 	return VK_SUCCESS;
 }
 
+static sht_extent sht_swapchain_extent(sht_swapchain swapchain)
+{
+	sht_vk_swapchain *sc = (sht_vk_swapchain *)swapchain.handle;
+	VkExtent2D extent = (VkExtent2D){.width = 0, .height = 0};
+	sht_vk_error(sht_vk_surface_size(sc->driver->gpu, sc->info.surface, &extent));
+	return (sht_extent){.width = (fckc_f32)extent.width, .height = (fckc_f32)extent.height};
+}
+
 static sht_image_view sht_swapchain_get_view(sht_swapchain swapchain, fckc_u32 index)
 {
 	sht_vk_swapchain *sc = (sht_vk_swapchain *)swapchain.handle;
@@ -1709,7 +1719,14 @@ static sht_image_view sht_swapchain_get_view(sht_swapchain swapchain, fckc_u32 i
 	}
 
 	VkImageView image_view = sc->views[index];
-	return (sht_image_view){.format = sht_vk_format_to_sht_format(sc->info.imageFormat), .gpu = image_view};
+
+	const sht_extent extent = sht_swapchain_extent(swapchain);
+	return (sht_image_view){
+		.format = sht_vk_format_to_sht_format(sc->info.imageFormat),
+		.gpu = image_view,
+		.height = extent.height,
+		.width = extent.width,
+	};
 }
 
 static sht_vk_descriptor_pool_storage_key sht_vk_descriptor_pool_storage_create(sht_vk_driver *driver,
@@ -1988,14 +2005,6 @@ static sht_image_view sht_swapchain_wait_and_acquire(sht_swapchain swapchain, fc
 	}
 
 	return sht_swapchain_get_view(swapchain, image_index);
-}
-
-static sht_extent sht_swapchain_extent(sht_swapchain swapchain)
-{
-	sht_vk_swapchain *sc = (sht_vk_swapchain *)swapchain.handle;
-	VkExtent2D extent = (VkExtent2D){.width = 0, .height = 0};
-	sht_vk_error(sht_vk_surface_size(sc->driver->gpu, sc->info.surface, &extent));
-	return (sht_extent){.width = (fckc_f32)extent.width, .height = (fckc_f32)extent.height};
 }
 
 static sht_extent sht_swapchain_display(sht_swapchain swapchain)
@@ -3592,7 +3601,7 @@ static void sht_bss_buffer_resize(sht_memory *mem, sht_buffer_usage_flags usage,
                                   VkDeviceSize offset)
 {
 	if (buffer->size < size + offset)
-	{	
+	{
 		fckc_size_t total = size + offset;
 		if (buffer->cpu != NULL)
 		{
@@ -3604,8 +3613,8 @@ static void sht_bss_buffer_resize(sht_memory *mem, sht_buffer_usage_flags usage,
 		{
 			memcpy(temp.cpu, buffer->cpu, buffer->size);
 			// We do need to free the buffer
-			// Make a GC for this bad boy! :) 
-			//mem->free(mem->bump, buffer);
+			// Make a GC for this bad boy! :)
+			// mem->free(mem->bump, buffer);
 		}
 		*buffer = temp;
 	}

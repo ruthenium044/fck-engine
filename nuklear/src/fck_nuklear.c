@@ -33,9 +33,10 @@
 #define NK_KEYSTATE_BASED_INPUT
 #define NK_UINT_DRAW_INDEX
 #define NK_IMPLEMENTATION
-#include "fck_nuklear_colours.h"
-#include "fckc_math.h"
 #include "nuklear.h"
+
+#include "fckc_math.h"
+#include "fck_nuklear_colours.inl"
 
 static fck_api_registry *apis;
 

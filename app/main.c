@@ -172,8 +172,19 @@ static void fck_sprite_transform_property(fck_nuklear_api *nk, fck_nk view, fck_
 }
 
 static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugins_api *plugins, fck_sprite_api *sprite, fck_nuklear_api *nk,
-                                        fck_nk view, app_sprite_pie_items *pie, fck_sprites *sprites, fck_sprite_id *selected_sprite_id)
+                                        fck_nk view, app_sprite_pie_items *pie, fck_sprites *sprites, fck_entity *selected_entity)
 {
+	const int is_selected_entity_ok = ec->entity->is_ok(world, *selected_entity);
+	if (!is_selected_entity_ok)
+	{
+		*selected_entity = ec->entity->invalid(world);
+	}
+
+	const char **sprite_batch_names;
+	const fckc_u32 sprite_batch_names_count = sprite->batches->names(sprites, &sprite_batch_names);
+
+	const fck_component_id sprite_component_id = ec->registry->id(world, "sprite");
+
 	nk->panel->begin(view, "Core Panel", 300.0f);
 	{
 		if (nk->panel->push(view, "Plugins"))
@@ -207,11 +218,6 @@ static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugin
 			}
 			nk->panel->pop(view);
 		}
-
-		const char **sprite_batch_names;
-		const fckc_u32 sprite_batch_names_count = sprite->batches->names(sprites, &sprite_batch_names);
-
-		const fck_component_id sprite_component_id = ec->registry->id(world, "sprite");
 
 		if (nk->panel->push(view, "Entities"))
 		{
@@ -285,7 +291,7 @@ static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugin
 
 						const char *component_name = component_names[component_selection];
 						const fck_component_id component_id = ec->registry->id(world, component_name);
-						ec->component->set(world, entity, component_id, NULL);
+						ec->component->add(world, entity, component_id);
 					}
 
 					if (nk->elements->button(view, "Remove Entity"))
@@ -308,16 +314,16 @@ static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugin
 
 		if (nk->panel->push(view, "Sprite Transforms"))
 		{
-			fck_sprite_transform *selected_transform = sprite->get(sprites, *selected_sprite_id);
-			if (selected_transform)
-			{
-				fck_sprite_transform *transform = selected_transform;
-				if (nk->panel->push(view, "Selection"))
-				{
-					fck_sprite_transform_property(nk, view, transform);
-					nk->panel->pop(view);
-				}
-			}
+			/*	fck_sprite_transform *selected_transform = sprite->get(sprites, *selected_sprite_id);
+			    if (selected_transform)
+			    {
+			        fck_sprite_transform *transform = selected_transform;
+			        if (nk->panel->push(view, "Selection"))
+			        {
+			            fck_sprite_transform_property(nk, view, transform);
+			            nk->panel->pop(view);
+			        }
+			    }*/
 
 			const fckc_u32 batch_count = sprite->batches->count(sprites);
 			for (fckc_u32 batch_index = 0; batch_index < batch_count; batch_index++)
@@ -334,29 +340,8 @@ static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugin
 					{
 						if (nk->panel->push(view, "%s[%d]", batch_name, index))
 						{
-							const int as_int = to_int(batch_index);
-							const int new_index = nk->elements->dropdown(view, as_int, sprite_batch_names, sprite_batch_names_count);
-							if (new_index != batch_index)
-							{
-								const fck_sprite_transform copy = transforms[index];
-								const fck_sprite_id sprite_id = sprite->indexof(sprites, id, transforms + index);
-								if (sprite->is_ok(sprites, sprite_id))
-								{
-									if (sprite->remove(sprites, sprite_id))
-									{
-										const fck_sprite_batch_id new_id = sprite->batches->index(sprites, new_index);
-										fck_assert(sprite->batches->is_ok(sprites, new_id));
-										fck_sprite_transform *transform = sprite->add(sprites, new_id);
-										*transform = copy;
-										transform->horizontal_index = transform->vertical_index = 0;
-									}
-								}
-							}
-							else
-							{
-								fck_sprite_transform *transform = transforms + index;
-								fck_sprite_transform_property(nk, view, transform);
-							}
+							fck_sprite_transform *transform = transforms + index;
+							fck_sprite_transform_property(nk, view, transform);
 							nk->panel->pop(view);
 						}
 					}
@@ -369,28 +354,28 @@ static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugin
 	nk->panel->end(view);
 
 	{
-		*selected_sprite_id = sprite->invalid();
 		const fck_nk_colour on = {0, 255, 0, 255};
 		const fck_nk_colour off = {255, 0, 0, 255};
 
-		const fckc_u32 batch_count = sprite->batches->count(sprites);
-		for (fckc_u32 batch_index = 0; batch_index < batch_count; batch_index++)
+		const fck_entity *entities;
+		const fckc_u32 count = ec->entity->all(world, &entities);
+		for (fckc_u32 index = 0; index < count; index++)
 		{
-			const fck_sprite_batch_id id = {.value = batch_index};
-			fck_sprite_transform *transforms = NULL;
-			const fckc_u32 count = sprite->transforms(sprites, id, &transforms);
-
-			float sprite_width = 0;
-			float sprite_height = 0;
-			sprite->batches->dimensions(sprites, id, &sprite_width, &sprite_height);
-
-			for (fckc_size_t index = 0; index < count; index++)
+			const fck_entity entity = entities[index];
+			void *opaque = ec->component->get(world, entity, sprite_component_id);
+			if (opaque)
 			{
-				fck_sprite_transform *transform = transforms + index;
+				app_sprite_component *sprite_component = (app_sprite_component *)opaque;
+				fck_sprite_transform *transform = sprite->get(sprites, sprite_component->id);
+				fck_assert(transform);
+
+				float sprite_width = 0;
+				float sprite_height = 0;
+				sprite->batches->dimensions(sprites, sprite_component->id.batch, &sprite_width, &sprite_height);
 				if (nk->select(view, transform, transform->x, transform->y, sprite_width * transform->scale,
 				               sprite_height * transform->scale, on))
 				{
-					*selected_sprite_id = sprite->indexof(sprites, id, transforms + index);
+					*selected_entity = entity;
 				}
 				if (nk->control_point(view, transform, &transform->x, &transform->y, 16.0f, on, off))
 				{
@@ -428,78 +413,79 @@ static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugin
 		}
 
 		{
-			fck_sprite_transform *selected_transform = sprite->get(sprites, *selected_sprite_id);
-			if (nk->pie->happened(&pie->remove) && selected_transform)
+			if (nk->pie->happened(&pie->remove) && is_selected_entity_ok)
 			{
-				sprite->remove(sprites, *selected_sprite_id);
+				ec->entity->destroy(world, *selected_entity);
 				nk->set_selection(view, NULL);
 			}
 
-			if (nk->pie->happened(&pie->duplicate) && selected_transform)
+			if (nk->pie->happened(&pie->duplicate) && is_selected_entity_ok)
 			{
-				const fck_sprite_transform copy = *selected_transform;
-				fck_sprite_transform *transform = sprite->add(sprites, selected_sprite_id->batch);
-				*transform = copy;
-				*selected_sprite_id = sprite->indexof(sprites, selected_sprite_id->batch, transform);
-
-				nk->pie->apply_position(view, &transform->x, &transform->y);
-				nk->set_selection(view, transform);
+				const fck_entity copy = ec->entity->copy(world, *selected_entity);
+				app_sprite_component *component = (app_sprite_component *)ec->component->get(world, copy, sprite_component_id);
+				if (component)
+				{
+					fck_sprite_transform *transform = sprite->get(sprites, component->id);
+					nk->pie->apply_position(view, &transform->x, &transform->y);
+					nk->set_selection(view, transform);
+				}
 			}
-			if (nk->pie->happened(&pie->duplicate_left) && selected_transform)
+			if (nk->pie->happened(&pie->duplicate_left) && is_selected_entity_ok)
 			{
-				const fck_sprite_transform copy = *selected_transform;
-				fck_sprite_transform *transform = sprite->add(sprites, selected_sprite_id->batch);
-				*transform = copy;
-				*selected_sprite_id = sprite->indexof(sprites, selected_sprite_id->batch, transform);
-
-				float sprite_width = 0;
-				float sprite_height = 0;
-				sprite->batches->dimensions(sprites, selected_sprite_id->batch, &sprite_width, &sprite_height);
-
-				transform->x = transform->x - sprite_width;
-				nk->set_selection(view, transform);
+				const fck_entity copy = ec->entity->copy(world, *selected_entity);
+				app_sprite_component *component = (app_sprite_component *)ec->component->get(world, copy, sprite_component_id);
+				if (component)
+				{
+					float sprite_width = 0;
+					float sprite_height = 0;
+					sprite->batches->dimensions(sprites, component->id.batch, &sprite_width, &sprite_height);
+					fck_sprite_transform *transform = sprite->get(sprites, component->id);
+					transform->x = transform->x - (sprite_width * transform->scale);
+					nk->set_selection(view, transform);
+				}
 			}
-			if (nk->pie->happened(&pie->duplicate_right) && selected_transform)
+
+			if (nk->pie->happened(&pie->duplicate_right) && is_selected_entity_ok)
 			{
-				const fck_sprite_transform copy = *selected_transform;
-				fck_sprite_transform *transform = sprite->add(sprites, selected_sprite_id->batch);
-				*transform = copy;
-				*selected_sprite_id = sprite->indexof(sprites, selected_sprite_id->batch, transform);
-
-				float sprite_width = 0;
-				float sprite_height = 0;
-				sprite->batches->dimensions(sprites, selected_sprite_id->batch, &sprite_width, &sprite_height);
-
-				transform->x = transform->x + sprite_width;
-				nk->set_selection(view, transform);
+				const fck_entity copy = ec->entity->copy(world, *selected_entity);
+				app_sprite_component *component = (app_sprite_component *)ec->component->get(world, copy, sprite_component_id);
+				if (component)
+				{
+					float sprite_width = 0;
+					float sprite_height = 0;
+					sprite->batches->dimensions(sprites, component->id.batch, &sprite_width, &sprite_height);
+					fck_sprite_transform *transform = sprite->get(sprites, component->id);
+					transform->x = transform->x + (sprite_width * transform->scale);
+					nk->set_selection(view, transform);
+				}
 			}
-			if (nk->pie->happened(&pie->duplicate_up) && selected_transform)
+			if (nk->pie->happened(&pie->duplicate_up) && is_selected_entity_ok)
 			{
-				const fck_sprite_transform copy = *selected_transform;
-				fck_sprite_transform *transform = sprite->add(sprites, selected_sprite_id->batch);
-				*transform = copy;
-				*selected_sprite_id = sprite->indexof(sprites, selected_sprite_id->batch, transform);
-
-				float sprite_width = 0;
-				float sprite_height = 0;
-				sprite->batches->dimensions(sprites, selected_sprite_id->batch, &sprite_width, &sprite_height);
-
-				transform->y = transform->y - sprite_width;
-				nk->set_selection(view, transform);
+				const fck_entity copy = ec->entity->copy(world, *selected_entity);
+				app_sprite_component *component = (app_sprite_component *)ec->component->get(world, copy, sprite_component_id);
+				if (component)
+				{
+					float sprite_width = 0;
+					float sprite_height = 0;
+					sprite->batches->dimensions(sprites, component->id.batch, &sprite_width, &sprite_height);
+					fck_sprite_transform *transform = sprite->get(sprites, component->id);
+					transform->y = transform->y - (sprite_height * transform->scale);
+					nk->set_selection(view, transform);
+				}
 			}
-			if (nk->pie->happened(&pie->duplicate_down) && selected_transform)
+			if (nk->pie->happened(&pie->duplicate_down) && is_selected_entity_ok)
 			{
-				const fck_sprite_transform copy = *selected_transform;
-				fck_sprite_transform *transform = sprite->add(sprites, selected_sprite_id->batch);
-				*transform = copy;
-				*selected_sprite_id = sprite->indexof(sprites, selected_sprite_id->batch, transform);
-
-				float sprite_width = 0;
-				float sprite_height = 0;
-				sprite->batches->dimensions(sprites, selected_sprite_id->batch, &sprite_width, &sprite_height);
-
-				transform->y = transform->y + sprite_width;
-				nk->set_selection(view, transform);
+				const fck_entity copy = ec->entity->copy(world, *selected_entity);
+				app_sprite_component *component = (app_sprite_component *)ec->component->get(world, copy, sprite_component_id);
+				if (component)
+				{
+					float sprite_width = 0;
+					float sprite_height = 0;
+					sprite->batches->dimensions(sprites, component->id.batch, &sprite_width, &sprite_height);
+					fck_sprite_transform *transform = sprite->get(sprites, component->id);
+					transform->y = transform->y + (sprite_height * transform->scale);
+					nk->set_selection(view, transform);
+				}
 			}
 		}
 	}
@@ -511,7 +497,7 @@ typedef struct app_sprite_implementation
 	fck_sprites *sprites;
 } app_sprite_implementation;
 
-static int app_sprite_implementation_constructor(void *self, void *userdata)
+static void *app_sprite_implementation_constructor(void *self, void *userdata)
 {
 	app_sprite_implementation *impl = (app_sprite_implementation *)userdata;
 	app_sprite_component *component = (app_sprite_component *)self;
@@ -519,16 +505,31 @@ static int app_sprite_implementation_constructor(void *self, void *userdata)
 	fck_sprite_transform *transform = impl->sprite->add(impl->sprites, id);
 	transform->scale = 2.0f;
 	component->id = impl->sprite->indexof(impl->sprites, id, transform);
-	return 1;
+	return component;
 }
-static int app_sprite_implementation_destructor(void *self, void *userdata)
+
+static void *app_sprite_implementation_destructor(void *self, void *userdata)
 {
 	app_sprite_implementation *impl = (app_sprite_implementation *)userdata;
 	app_sprite_component *component = (app_sprite_component *)self;
-	const fck_sprite_batch_id id = impl->sprite->batches->index(impl->sprites, 0);
 	const int result = impl->sprite->remove(impl->sprites, component->id);
 	fck_assert(result);
-	return 1;
+	return component;
+}
+
+static void *app_sprite_implementation_copy(void *dst, const void *src, void *userdata)
+{
+	app_sprite_implementation *impl = (app_sprite_implementation *)userdata;
+	const app_sprite_component *source_component = (app_sprite_component *)src;
+	app_sprite_component *destination_component = (app_sprite_component *)dst;
+
+	fck_sprite_transform *destination_transform = impl->sprite->add(impl->sprites, source_component->id.batch);
+	fck_sprite_transform *source_transform = impl->sprite->get(impl->sprites, source_component->id);
+	*destination_transform = *source_transform;
+
+	destination_component->id = impl->sprite->indexof(impl->sprites, source_component->id.batch, destination_transform);
+
+	return dst;
 }
 
 int main(int argc, char **argv)
@@ -700,6 +701,7 @@ int main(int argc, char **argv)
 	const fck_component_definition sprite_definition = {
 		.constructor = app_sprite_implementation_constructor,
 		.destructor = app_sprite_implementation_destructor,
+		.copy = app_sprite_implementation_copy,
 		.userdata = &sprite_implementation,
 	};
 	ec->registry->define(world, sprite_id, &sprite_definition);
@@ -749,7 +751,7 @@ int main(int argc, char **argv)
 
 	// fckc_u32 selected_batch_index = 0;
 	// fckc_u32 selected_transform_index = 0;
-	fck_sprite_id selected_sprite_id = {0, 0};
+	fck_entity selected_entity = ec->entity->invalid(world);
 	int is_running = 1;
 	while (is_running)
 	{
@@ -810,7 +812,7 @@ int main(int argc, char **argv)
 		{
 			if (nk->begin(view))
 			{
-				fck_sprite_transform_editor(ec, world, plugins, sprite, nk, view, &sprite_pie, &sprites, &selected_sprite_id);
+				fck_sprite_transform_editor(ec, world, plugins, sprite, nk, view, &sprite_pie, &sprites, &selected_entity);
 			}
 			nk->end(view);
 		}

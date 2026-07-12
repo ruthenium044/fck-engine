@@ -26,7 +26,7 @@
 #include <fck_ec.h>
 #include <fck_gameloop.h>
 #include <fck_sprite.h>
-// #pragma optimize("", off)
+#pragma optimize("", off)
 
 static void purge_files(const char *pattern)
 {
@@ -314,17 +314,6 @@ static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugin
 
 		if (nk->panel->push(view, "Sprite Transforms"))
 		{
-			/*	fck_sprite_transform *selected_transform = sprite->get(sprites, *selected_sprite_id);
-			    if (selected_transform)
-			    {
-			        fck_sprite_transform *transform = selected_transform;
-			        if (nk->panel->push(view, "Selection"))
-			        {
-			            fck_sprite_transform_property(nk, view, transform);
-			            nk->panel->pop(view);
-			        }
-			    }*/
-
 			const fckc_u32 batch_count = sprite->batches->count(sprites);
 			for (fckc_u32 batch_index = 0; batch_index < batch_count; batch_index++)
 			{
@@ -386,6 +375,8 @@ static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugin
 	}
 
 	{
+		// TODO: we shall not create through sprite anymore, we need to create through ec
+		// Sprite is a resource! 
 		if (nk->pie->happened(&pie->add_bird))
 		{
 			const fck_sprite_batch_id id = sprite->batches->find_by_name(sprites, "Birds");
@@ -490,6 +481,7 @@ static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugin
 		}
 	}
 }
+
 
 typedef struct app_sprite_implementation
 {
@@ -633,7 +625,7 @@ int main(int argc, char **argv)
 	}
 	fck_assert(mouse);
 
-	fck_window window = os->win->create("Vulkan Test Application", 1280, 720);
+	fck_window window = os->win->create("FCK Application", 1280, 720);
 	int window_width, window_height;
 	os->win->size(window, &window_width, &window_height);
 
@@ -755,6 +747,8 @@ int main(int argc, char **argv)
 	};
 	ec->registry->define(world, sprite_id, &sprite_definition);
 
+	// TODO: Add empty inline in sprites. Sprites has access to sht
+	// Then we could also move the whole render pass there?
 	const fck_sprite_batch_id empty_batch = sprite->batches->add(&sprites, "Empty", &white_view, 32.0f, 32.0f);
 	fck_assert(empty_batch.value == 0);
 	const fck_sprite_batch_id background_batch = sprite->batches->add(&sprites, "Background", &background_image_view, 132.0f, 72.0f);
@@ -829,13 +823,19 @@ int main(int argc, char **argv)
 			{
 				if (nk->panel->begin_label(view, "Loops", 400.f))
 				{
-					for (fckc_size_t index = 0; index < loops.count; index++)
+					if (nk->panel->push(view, "Game Loops"))
 					{
-						app_gameloop *gameloop = loops.values + index;
-						nk->elements->button(view, gameloop->i->name);
+						for (fckc_size_t index = 0; index < loops.count; index++)
+						{
+							app_gameloop *gameloop = loops.values + index;
+							nk->elements->button(view, gameloop->i->name);
+						}
+						nk->panel->pop(view);
 					}
 					nk->panel->end(view);
 				}
+
+				fck_sprite_transform_editor(ec, world, plugins, sprite, nk, view, &sprite_pie, &sprites, &selected_entity);
 
 				const fck_gameloop_edit_parameters edit_parameters = {.apis = registry, .ec = ec, .state = &world, .view = &view, .nk = nk};
 				for (fckc_size_t index = 0; index < loops.count; index++)
@@ -843,8 +843,6 @@ int main(int argc, char **argv)
 					app_gameloop *gameloop = loops.values + index;
 					gameloop->i->edit(gameloop->o, &edit_parameters);
 				}
-
-				// fck_sprite_transform_editor(ec, world, plugins, sprite, nk, view, &sprite_pie, &sprites, &selected_entity);
 			}
 			nk->end(view);
 		}

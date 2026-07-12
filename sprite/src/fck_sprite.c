@@ -301,7 +301,8 @@ static int fck_sprite_stable_batch_remove(fck_sprite_stable_batch *batch, fckc_u
 	fck_sprite_batch_index *last_sparse = batch->sparse + last_dense->value;
 	*last_sparse = *sparse;
 
-	fck_assert(fck_sprite_batch_remove(&batch->base, last));
+	const int removal_result = fck_sprite_batch_remove(&batch->base, last);
+	fck_assert(removal_result);
 
 	sparse->is_ok = 0;
 	return 1;

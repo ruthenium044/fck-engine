@@ -11,6 +11,13 @@
 
 #include <fck_os.h>
 
+#include <fckc_assert.h>
+#include <fckc_inttypes.h>
+
+#include <string.h>
+
+#include <fck_nuklear.h>
+
 typedef struct fck_bird_game
 {
 	kll_allocator *allocator;
@@ -25,8 +32,9 @@ static fck_bird_game *fck_to_bird_game(fck_gameloop loop)
 static fck_gameloop fck_bird_game_create(kll_allocator *allocator, const fck_gameloop_create_parameters *params)
 {
 	fck_bird_game *game = (fck_bird_game *)kll_malloc(allocator, sizeof(*game));
-	game->allocator = allocator;
+	memset(game, 0, sizeof(*game));
 
+	game->allocator = allocator;
 	const fck_gameloop gameloop = {.handle = (void *)game};
 	return gameloop;
 }
@@ -40,6 +48,13 @@ static void fck_bird_game_destroy(fck_gameloop loop, const fck_gameloop_destroy_
 static int fck_bird_game_edit(fck_gameloop loop, const fck_gameloop_edit_parameters *params)
 {
 	fck_bird_game *game = fck_to_bird_game(loop);
+	fck_nuklear_api* nk = params->nk;
+	const fck_nk view = *params->view;
+
+	if(nk->panel->begin_label(view, "Bird - Game", 400.0f)) {
+		
+		nk->panel->end(view);
+	}
 
 	return 1;
 }
@@ -47,7 +62,18 @@ static int fck_bird_game_edit(fck_gameloop loop, const fck_gameloop_edit_paramet
 static int fck_bird_game_tick(fck_gameloop loop, const fck_gameloop_tick_parameters *params)
 {
 	fck_bird_game *game = fck_to_bird_game(loop);
-	
+	fck_ec *state = params->state;
+	fck_ec_api *ec = params->ec;
+
+	static int created = 0;
+
+	//if (created == 0)
+	//{
+	//	const fck_component_id id = ec->registry->id(*state, "sprite");
+	//	const fck_entity entity = ec->entity->create(*state);
+	//	ec->component->add(*state, entity, id);
+	//	created = 1;
+	//}
 	return 1;
 }
 

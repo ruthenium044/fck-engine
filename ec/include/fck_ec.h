@@ -44,7 +44,9 @@ typedef struct fck_component_definition
 	// Triggered on component remove (Explicitly invoked by ec::component->remove)
 	void *(*destructor)(void *self, void *userdata);
 	// Triggered on component copy (Explicitly invoked by ec::component->copy)
-	void *(*copy)(void* dst, const void* src, void* userdata);
+	void *(*copy)(void *dst, const void *src, void *userdata);
+
+	// TODO: serialize
 	void *userdata;
 } fck_component_definition;
 
@@ -135,17 +137,16 @@ typedef struct fck_ec_query_api
 	fckc_u32 (*match)(fck_query_iterator *it, void *dst, fckc_u32 capacity);
 } fck_ec_query_api;
 
-// typedef struct fck_ec_debug_api
-//{
-//
-//
-// } fck_ec_debug_api;
-
 typedef struct fck_ec_core_api
 {
 	struct fck_ec (*create)(struct kll_allocator *allocator, fckc_u32 capacity);
 	void (*destroy)(fck_ec ec);
 } fck_ec_core_api;
+
+//typedef struct fck_ec_serialize_api
+//{
+//
+//} fck_ec_serialize_api;
 
 // I am inclined to prefer the vocabulary "Database"
 typedef struct fck_ec_api

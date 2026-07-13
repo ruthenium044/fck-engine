@@ -11,7 +11,7 @@ typedef struct fck_api_registry
 	fckc_size_t (*implementations)(const char *name, void ***apis);
 	void *(*find)(const char *name);
 	int (*remove)(const char *name, void *api);
-	const char* (*nameof)(void* api);
+	const char *(*nameof)(void *api);
 } fck_api_registry;
 
 // Both arguments are allowed to be NULL!

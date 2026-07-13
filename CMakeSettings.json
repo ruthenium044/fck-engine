@@ -63,7 +63,7 @@
     {
       "name": "x64-clang-release",
       "generator": "Ninja",
-      "configurationType": "Release",
+      "configurationType": "RelWithDebInfo",
       "buildRoot": "${projectDir}\\build\\clang\\${name}",
       "installRoot": "${projectDir}\\install\\clang\\${name}",
       "ctestCommandArgs": "",

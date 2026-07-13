@@ -24,9 +24,9 @@
 #include <fck_nuklear.h>
 
 #include <fck_ec.h>
+#include <fck_gameloop.h>
 #include <fck_sprite.h>
-
-// #pragma optimize("", off)
+#pragma optimize("", off)
 
 static void purge_files(const char *pattern)
 {
@@ -95,20 +95,6 @@ static sht_image app_load_image(sht_driver driver, const void *pixels, sht_forma
 	driver.vt->upload_image(driver, &image, pixels, size);
 	return image;
 }
-
-typedef struct fck_gameloop
-{
-	void *handle;
-} fck_gameloop;
-
-typedef struct fck_gameloop_interface
-{
-	fck_gameloop (*create)(void);
-	void (*destroy)(fck_gameloop loop);
-
-	int (*edit)(fck_gameloop);
-	int (*tick)(fck_gameloop);
-} fck_gameloop_interface;
 
 typedef struct app_sprite_pie_items
 {
@@ -376,17 +362,6 @@ static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugin
 
 		if (nk->panel->push(view, "Sprite Transforms"))
 		{
-			/*	fck_sprite_transform *selected_transform = sprite->get(sprites, *selected_sprite_id);
-			    if (selected_transform)
-			    {
-			        fck_sprite_transform *transform = selected_transform;
-			        if (nk->panel->push(view, "Selection"))
-			        {
-			            fck_sprite_transform_property(nk, view, transform);
-			            nk->panel->pop(view);
-			        }
-			    }*/
-
 			const fckc_u32 batch_count = sprite->batches->count(sprites);
 			for (fckc_u32 batch_index = 0; batch_index < batch_count; batch_index++)
 			{
@@ -448,6 +423,8 @@ static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugin
 	}
 
 	{
+		// TODO: we shall not create through sprite anymore, we need to create through ec
+		// Sprite is a resource! 
 		if (nk->pie->happened(&pie->add_bird))
 		{
 			const fck_sprite_batch_id id = sprite->batches->find_by_name(sprites, "Birds");
@@ -553,6 +530,7 @@ static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugin
 	}
 }
 
+
 typedef struct app_sprite_implementation
 {
 	fck_sprite_api *sprite;
@@ -594,6 +572,42 @@ static void *app_sprite_implementation_copy(void *dst, const void *src, void *us
 	return dst;
 }
 
+typedef struct app_gameloop
+{
+	fck_gameloop o;
+	fck_gameloop_interface *i;
+} app_gameloop;
+
+typedef struct app_gameloops
+{
+	app_gameloop *values;
+	fckc_size_t count;
+	fckc_size_t capacity;
+} app_gameloops;
+
+static app_gameloop *app_gameloops_add(kll_allocator *allocator, app_gameloops *loops)
+{
+	if (loops->count >= loops->capacity)
+	{
+		const fckc_size_t capacity = loops->capacity ? loops->capacity * 2 : 8;
+		const fckc_size_t total = capacity * sizeof(*loops->values);
+		app_gameloop *values = (app_gameloop *)kll_malloc(allocator, total);
+		if (loops->values)
+		{
+			memcpy(values, loops->values, loops->count * sizeof(*loops->values));
+			kll_free(allocator, loops->values);
+		}
+		loops->capacity = capacity;
+		loops->values = values;
+	}
+
+	const fckc_size_t index = loops->count;
+	loops->count = loops->count + 1;
+	app_gameloop *current = loops->values + index;
+	memset(current, 0, sizeof(*current));
+	return current;
+}
+
 int main(int argc, char **argv)
 {
 	// TODO: We need to setup stable editor entities, or something like that
@@ -626,8 +640,22 @@ int main(int argc, char **argv)
 	fck_sprite_api *sprite = (fck_sprite_api *)registry->find(fck_sprite_api_name);
 	fck_ec_api *ec = (fck_ec_api *)registry->find(fck_ec_api_name);
 
+	app_gameloops loops = {0};
 	// We can create a new ec
 	fck_ec world = ec->core->create(kll->system, 32);
+	{
+		fck_gameloop_interface **gameloops;
+		const fckc_size_t gameloops_count = registry->implementations(fck_gameloop_interface_name, (void ***)&gameloops);
+		const fck_gameloop_create_parameters create_parameters = {.apis = registry, .ec = ec, .state = &world};
+		for (fckc_size_t index = 0; index < gameloops_count; index++)
+		{
+			fck_gameloop_interface *gameloop_interface = gameloops[index];
+			app_gameloop *loop = app_gameloops_add(kll->system, &loops);
+
+			loop->o = gameloop_interface->create(kll->system, &create_parameters);
+			loop->i = gameloop_interface;
+		}
+	}
 
 	fck_input_source *mouse = NULL;
 	{
@@ -645,7 +673,7 @@ int main(int argc, char **argv)
 	}
 	fck_assert(mouse);
 
-	fck_window window = os->win->create("Vulkan Test Application", 1280, 720);
+	fck_window window = os->win->create("FCK Application", 1280, 720);
 	int window_width, window_height;
 	os->win->size(window, &window_width, &window_height);
 
@@ -667,8 +695,8 @@ int main(int argc, char **argv)
 	const sht_swapchain swapchain = driver.vt->swapchain(driver);
 	sht_command_buffer_vt *command = driver.vt->command_buffer;
 
-	const fck_nk view = nk->create(kll->system, &window, &driver);
-	nk->theme(view, fck_nk_theme_ruta);
+	fck_nk view = nk->create(kll->system, &window, &driver);
+	nk->set_theme(view, fck_nk_theme_ruta);
 
 	fck_nk_hamburger_item help_menu_item = {
 		.type = fck_nk_hamburger_item_button,
@@ -714,12 +742,11 @@ int main(int argc, char **argv)
 		driver.vt->upload_image(driver, &white_image, pixels, sizeof(pixels));
 	}
 
-	const fck_png background_png = png->load(fck_resource_path "bg-mockup.png");
+	const fck_png bg_png = png->load(fck_resource_path "bg-mockup.png");
 	const fck_png bird_png = png->load(fck_resource_path "bird-sheet.png");
 	const fck_png items_png = png->load(fck_resource_path "items-sheet.png");
 
-	const sht_image background_image =
-		app_load_image(driver, background_png.data, sht_format_r8g8b8a8_unorm, background_png.width, background_png.height);
+	const sht_image background_image = app_load_image(driver, bg_png.data, sht_format_r8g8b8a8_unorm, bg_png.width, bg_png.height);
 	const sht_image_view background_image_view = memory->image->view(memory->bump, background_image, sht_format_r8g8b8a8_unorm);
 
 	const sht_image bird_image = app_load_image(driver, bird_png.data, sht_format_r8g8b8a8_unorm, bird_png.width, bird_png.height);
@@ -768,6 +795,8 @@ int main(int argc, char **argv)
 	};
 	ec->registry->define(world, sprite_id, &sprite_definition);
 
+	// TODO: Add empty inline in sprites. Sprites has access to sht
+	// Then we could also move the whole render pass there?
 	const fck_sprite_batch_id empty_batch = sprite->batches->add(&sprites, "Empty", &white_view, 32.0f, 32.0f);
 	fck_assert(empty_batch.value == 0);
 	const fck_sprite_batch_id background_batch = sprite->batches->add(&sprites, "Background", &background_image_view, 132.0f, 72.0f);
@@ -775,37 +804,6 @@ int main(int argc, char **argv)
 	const fck_sprite_batch_id items_batch = sprite->batches->add(&sprites, "Items", &items_image_view, 16.0f, 16.0f);
 
 	const float temp_transform_scale = 10.0f;
-
-	//{
-	//	fck_sprite_transform *transform = sprite->add(&sprites, background_batch);
-	//	const fck_sprite_transform baseline = {
-	//		.scale = temp_transform_scale,
-	//		.x = 0.0f,
-	//		.y = 0.0f,
-	//		.z = 0.0f,
-	//	};
-	//	*transform = baseline;
-	//}
-
-	//{
-	//	fck_sprite_transform *transform = sprite->add(&sprites, birds_batch);
-	//	const fck_sprite_transform baseline = {
-	//		.scale = temp_transform_scale,
-	//		.x = -20.0f * temp_transform_scale,
-	//		.y = 15.0f * temp_transform_scale,
-	//	};
-	//	*transform = baseline;
-	//}
-
-	//{
-	//	fck_sprite_transform *transform = sprite->add(&sprites, items_batch);
-	//	const fck_sprite_transform baseline = {
-	//		.scale = temp_transform_scale,
-	//		.x = 20.0f * temp_transform_scale,
-	//		.y = 15.0f * temp_transform_scale,
-	//	};
-	//	*transform = baseline;
-	//}
 
 	fckc_u64 time_point = os->chrono->ms();
 
@@ -817,16 +815,6 @@ int main(int argc, char **argv)
 	int is_running = 1;
 	while (is_running)
 	{
-		if (nk->hamburger->used(view, &setting_menu_item))
-		{
-			os->io->log("Setting On");
-		}
-
-		if (nk->hamburger->used(view, &about_menu_item))
-		{
-			os->io->log("About");
-		}
-
 		const fck_nk_control control = nk->control(view);
 		if (control.close)
 		{
@@ -841,18 +829,6 @@ int main(int argc, char **argv)
 		const fckc_u64 now = os->chrono->ms();
 		const fckc_u64 delta = now - time_point;
 		time_point = now;
-
-		accumulator = accumulator + delta;
-		if (accumulator >= 160)
-		{
-			accumulator = accumulator - 160;
-			fck_sprite_transform *bird_transforms;
-			const fckc_u32 bird_count = sprite->transforms(&sprites, birds_batch, &bird_transforms);
-			for (fckc_size_t index = 0; index < bird_count; index++)
-			{
-				bird_transforms[index].horizontal_index = (bird_transforms[index].horizontal_index + 1) % 4;
-			}
-		}
 		// TODO: Make render-vk hotreloadable :)
 		// How hard can it be?
 		plugins->hotreload();
@@ -882,10 +858,40 @@ int main(int argc, char **argv)
 		nk->input->end(view);
 
 		{
+			const fck_gameloop_tick_parameters tick_parameters = {.apis = registry, .ec = ec, .state = &world};
+			for (fckc_size_t index = 0; index < loops.count; index++)
+			{
+				app_gameloop *gameloop = loops.values + index;
+				gameloop->i->tick(gameloop->o, &tick_parameters);
+			}
+		}
+
+		{
 			if (nk->begin(view))
 			{
-				fck_settings_editor(sprite, nk, view, &sprites);
+				if (nk->panel->begin_label(view, "Loops", 400.f))
+				{
+					if (nk->panel->push(view, "Game Loops"))
+					{
+						for (fckc_size_t index = 0; index < loops.count; index++)
+						{
+							app_gameloop *gameloop = loops.values + index;
+							nk->elements->button(view, gameloop->i->name);
+						}
+						nk->panel->pop(view);
+					}
+					nk->panel->end(view);
+				}
+
 				fck_sprite_transform_editor(ec, world, plugins, sprite, nk, view, &sprite_pie, &sprites, &selected_entity);
+
+				const fck_gameloop_edit_parameters edit_parameters = {.apis = registry, .ec = ec, .state = &world, .view = &view, .nk = nk};
+				for (fckc_size_t index = 0; index < loops.count; index++)
+				{
+					app_gameloop *gameloop = loops.values + index;
+					gameloop->i->edit(gameloop->o, &edit_parameters);
+				}
+				fck_settings_editor(sprite, nk, view, &sprites);
 			}
 			nk->end(view);
 		}
@@ -896,7 +902,6 @@ int main(int argc, char **argv)
 		const sht_image_view color_target = swapchain.vt->wait_and_acquire(swapchain, &frame_index);
 		if (swapchain.vt->is_ok(swapchain, frame_index))
 		{
-			const sht_extent extent = swapchain.vt->extent(swapchain);
 			const sht_command_buffer command_buffer = command->acquire(driver, frame_index);
 			if (command->is_ok(command_buffer))
 			{
@@ -945,8 +950,8 @@ int main(int argc, char **argv)
 								sht_graphics_pipeline *pipeline = gfx->pipeline(sprite_gfx); //
 
 								const app_screen screen = {
-									.width = (float)extent.width,
-									.height = (float)extent.height,
+									.width = (float)color_target.width,
+									.height = (float)color_target.height,
 									.sprite_width = sprite_width,
 									.sprite_height = sprite_height,
 								};

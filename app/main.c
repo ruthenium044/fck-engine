@@ -161,8 +161,6 @@ const char *fck_get_theme_name(fck_nuklear_theme theme_name)
 {
 	switch ( theme_name )
 	{
-	case fck_nk_theme_black:
-		return "Black";
 	case fck_nk_theme_white:
 		return "White";
 	case fck_nk_theme_ruta:

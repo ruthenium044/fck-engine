@@ -5,6 +5,7 @@
 #define fck_crl_perfect_green_highlight {95, 178, 0, 255}
 #define fck_clr_perfect_colour_clicked {115, 216, 0, 255}
 
+#define fck_clr_dracula_window {40, 42, 54, 215}
 #define fck_clr_dracula_background {40, 42, 54, 255}
 #define fck_clr_dracula_currentline {68, 71, 90, 255}
 #define fck_clr_dracula_foreground {248, 248, 242, 255}
@@ -40,7 +41,7 @@
 #define latte_surface2 {172, 176, 190, 255}
 #define latte_surface1 {188, 192, 204, 255}
 #define latte_surface0 {204, 208, 218, 255}
-#define latte_base {239, 241, 245, 255}
+#define latte_base {239, 241, 245, 215}
 #define latte_mantle {230, 233, 239, 255}
 #define latte_crust {220, 224, 232, 255}
 
@@ -67,7 +68,7 @@
 #define frappe_surface2 {98, 104, 128, 255}
 #define frappe_surface1 {81, 87, 109, 255}
 #define frappe_surface0 {65, 69, 89, 255}
-#define frappe_base {48, 52, 70, 255}
+#define frappe_base {48, 52, 70, 215}
 #define frappe_mantle {41, 44, 60, 255}
 #define frappe_crust {35, 38, 52, 255}
 
@@ -94,7 +95,7 @@
 #define macchiato_surface2 {91, 96, 120, 255}
 #define macchiato_surface1 {73, 77, 100, 255}
 #define macchiato_surface0 {54, 58, 79, 255}
-#define macchiato_base {36, 39, 58, 255}
+#define macchiato_base {36, 39, 58, 215}
 #define macchiato_mantle {30, 32, 48, 255}
 #define macchiato_crust {24, 25, 38, 255}
 
@@ -121,7 +122,7 @@
 #define mocha_surface2 {88, 91, 112, 255}
 #define mocha_surface1 {69, 71, 90, 255}
 #define mocha_surface0 {49, 50, 68, 255}
-#define mocha_base {30, 30, 46, 255}
+#define mocha_base {30, 30, 46, 215}
 #define mocha_mantle {24, 24, 37, 255}
 #define mocha_crust {17, 17, 27, 255}
 
@@ -134,7 +135,7 @@ struct fck_color_mapping
 
 static const struct fck_color_mapping white_theme_data[] = {
 	{NK_COLOR_TEXT, {70, 70, 70, 255}},
-	{NK_COLOR_WINDOW, {175, 175, 175, 255}},
+	{NK_COLOR_WINDOW, {175, 175, 175, 215}},
 	{NK_COLOR_HEADER, {175, 175, 175, 255}},
 	{NK_COLOR_BORDER, {0, 0, 0, 255}},
 	{NK_COLOR_BUTTON, {185, 185, 185, 255}},
@@ -289,7 +290,7 @@ static const struct fck_color_mapping dark_theme_data[] = {
 
 static const struct fck_color_mapping dracula_theme_data[] = {
 	{NK_COLOR_TEXT, fck_clr_dracula_foreground},
-	{NK_COLOR_WINDOW, fck_clr_dracula_background},
+	{NK_COLOR_WINDOW, fck_clr_dracula_window},
 	{NK_COLOR_HEADER, fck_clr_dracula_currentline},
 	{NK_COLOR_BORDER, fck_clr_dracula_currentline},
 	{NK_COLOR_BUTTON, fck_clr_dracula_currentline},

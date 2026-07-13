@@ -8,7 +8,6 @@
 
 typedef enum fck_nuklear_theme
 {
-	fck_nk_theme_black,
 	fck_nk_theme_white,
 	fck_nk_theme_ruta,
 	fck_nk_theme_red,

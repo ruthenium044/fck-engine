@@ -1222,7 +1222,7 @@ static int fck_nk_api_translation(fck_nk nk, const void *pointer, float *x, floa
 	float py = *y;
 	fck_nk_api_to_nuklear(nk, &px, &py);
 
-	struct nk_rect rect = nk_rect(px - (w * 0.5f), py - (h * 0.5f), w, h);
+	const struct nk_rect rect = nk_rect(px - (w * 0.5f), py - (h * 0.5f), w, h);
 
 	const struct nk_input *input = &nk_internal->ctx->input;
 	fck_nk_control_point *point = &nk_internal->os.control_state.point;
@@ -1264,20 +1264,20 @@ static void fck_nk_api_set_select(fck_nk nk, const void *pointer)
 static void fck_nk_dashed_rect(struct nk_command_buffer *canvas, const struct nk_rect rect, float dash_length, float dash_offset,
                                const struct nk_color colour)
 {
-	float minX = rect.x;
-	float maxX = rect.x + rect.w;
-	float minY = rect.y;
-	float maxY = rect.y + rect.h;
-	float offset = dash_length;
-	float dash = dash_offset;
-	float fullStep = offset + dash;
+	const float minX = rect.x;
+	const float maxX = rect.x + rect.w;
+	const float minY = rect.y;
+	const float maxY = rect.y + rect.h;
+	const float offset = dash_length;
+	const float dash = dash_offset;
+	const float fullStep = offset + dash;
 
 	float current = minX;
-	float line_thickness = 2.0f;
+	const float line_thickness = 2.0f;
 	while (current < maxX)
 	{
-		float from = fck_clamp(current, minX, maxX);
-		float to = fck_clamp(current + dash, minX, maxX);
+		const float from = fck_clamp(current, minX, maxX);
+		const float to = fck_clamp(current + dash, minX, maxX);
 		nk_stroke_line(canvas, from, minY, to, minY, line_thickness, colour);
 		nk_stroke_line(canvas, from, maxY, to, maxY, line_thickness, colour);
 		current += fullStep;
@@ -1285,8 +1285,8 @@ static void fck_nk_dashed_rect(struct nk_command_buffer *canvas, const struct nk
 	current = minY;
 	while (current < maxY)
 	{
-		float from = fck_clamp(current, minY, maxY);
-		float to = fck_clamp(current + dash, minY, maxY);
+		const float from = fck_clamp(current, minY, maxY);
+		const float to = fck_clamp(current + dash, minY, maxY);
 		nk_stroke_line(canvas, minX, from, minX, to, line_thickness, colour);
 		nk_stroke_line(canvas, maxX, from, maxX, to, line_thickness, colour);
 		current += fullStep;
@@ -1615,7 +1615,7 @@ static int fck_nk_pie_hamburger_used(fck_nk nk, fck_nk_hamburger_item *item)
 {
 	const fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
 
-	int result = item->value;
+	const int result = item->value;
 	if (item->type == fck_nk_hamburger_item_button)
 	{
 		if (item->value)

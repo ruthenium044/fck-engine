@@ -1,0 +1,11 @@
+{
+    "uuid": [
+        4457203395329697150,
+        924010586570381996
+    ],
+    "path": "configuration",
+    "loader": {
+        "type": 1,
+        "name": "directory"
+    }
+}

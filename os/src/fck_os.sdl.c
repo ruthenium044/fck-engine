@@ -12,6 +12,7 @@
 #include <SDL3/SDL_log.h>
 #include <SDL3/SDL_properties.h>
 #include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_time.h>
 #include <SDL3/SDL_timer.h>
 #include <SDL3/SDL_video.h>
 
@@ -317,6 +318,36 @@ static fckc_i64 fck_filesystem_flush(fck_file file)
 	return (fckc_i64)SDL_FlushIO((SDL_IOStream *)file.handle);
 }
 
+static int fck_filesystem_create_directory(const char *path)
+{
+	return SDL_CreateDirectory(path) ? 0 : 1;
+}
+
+static int fck_filesystem_info(const char *path, fck_path_info *info)
+{
+	SDL_PathInfo path_info;
+	if (SDL_GetPathInfo(path, &path_info))
+	{
+		switch (path_info.type)
+		{
+		default:
+			return 0;
+		case SDL_PATHTYPE_FILE:
+			info->type = fck_path_file;
+			break;
+		case SDL_PATHTYPE_DIRECTORY:
+			info->type = fck_path_directory;
+			break;
+		}
+		info->modified = path_info.modify_time;
+		info->created = path_info.create_time;
+		info->accessed = path_info.access_time;
+		info->size = path_info.size;
+		return 1;
+	}
+	return 0;
+}
+
 static fckc_i64 fck_filesystem_modified(const char *path)
 {
 	SDL_PathInfo info;
@@ -418,6 +449,16 @@ static void fck_glob_free(char **paths)
 	SDL_free((void *)paths);
 }
 
+static fckc_i64 fck_chrono_now(void)
+{
+	SDL_Time ticks;
+	if (SDL_GetCurrentTime(&ticks))
+	{
+		return ticks;
+	}
+	return 0;
+}
+
 static fck_glob_api glob_api = {
 	.find = fck_glob_find,
 	.match = fck_glob_match,
@@ -437,6 +478,8 @@ static fck_file_system_api file_system_api = {
 	.flush = fck_filesystem_flush,
 	.modified = fck_filesystem_modified,
 	.remove = fck_filesystem_remove,
+	.info = fck_filesystem_info,
+	.create_directory = fck_filesystem_create_directory,
 	.executable = fck_filesystem_local_path,
 };
 
@@ -464,6 +507,7 @@ static fck_window_api window_api = {
 
 static fck_chrono_api chrono_api = {
 	.ms = SDL_GetTicks,
+	.now = fck_chrono_now,
 };
 
 static fck_io_api io_api = {
@@ -499,6 +543,7 @@ static fck_os_api std_api = {
 
 fck_os_api *os = &std_api;
 
+// TODO: We need all this shit for UNIX
 #ifndef __WIN32__
 #include <windows.h> // !NOLINT
 

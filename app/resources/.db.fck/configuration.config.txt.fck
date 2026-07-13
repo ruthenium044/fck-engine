@@ -1,0 +1,11 @@
+{
+    "uuid": [
+        452938079817168365,
+        13656325986370254407
+    ],
+    "path": "configuration\\config.txt",
+    "loader": {
+        "type": 65535,
+        "name": "none"
+    }
+}

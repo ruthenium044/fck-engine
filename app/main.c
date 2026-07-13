@@ -26,7 +26,8 @@
 #include <fck_ec.h>
 #include <fck_gameloop.h>
 #include <fck_sprite.h>
-#pragma optimize("", off)
+
+#include "fck_db.h"
 
 static void purge_files(const char *pattern)
 {
@@ -111,10 +112,10 @@ typedef struct app_sprite_pie_items
 	fck_nk_pie_item add_item;
 } app_sprite_pie_items;
 
-typedef struct app_sprite_component
-{
-	fck_sprite_id id;
-} app_sprite_component;
+// typedef struct app_sprite_component
+//{
+//	fck_sprite_id id;
+// } app_sprite_component;
 
 static void app_sprite_pie_items_init(fck_nuklear_api *nk, app_sprite_pie_items *items, fck_nk_pie_item *root)
 {
@@ -236,10 +237,10 @@ static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugin
 								if (sprite_component_id.value == component_id.value)
 								{
 									void *opaque_component = ec->component->get(world, entity, component_id);
-									app_sprite_component *sprite_component = (app_sprite_component *)opaque_component;
-									fck_sprite_transform *transform = sprite->get(sprites, sprite_component->id);
+									fck_sprite_id *sprite_component = (fck_sprite_id *)opaque_component;
+									fck_sprite_transform *transform = sprite->get(sprites, *sprite_component);
 									fck_assert(transform);
-									const fck_sprite_id sprite_id = sprite_component->id;
+									const fck_sprite_id sprite_id = *sprite_component;
 
 									nk->elements->label(view, "Batch: %lu - Sprite: %lu", sprite_id.batch.value, sprite_id.entry.value);
 
@@ -260,7 +261,7 @@ static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugin
 												fck_sprite_transform *transform = sprite->add(sprites, new_id);
 												*transform = copy;
 												transform->horizontal_index = transform->vertical_index = 0;
-												sprite_component->id = sprite->indexof(sprites, new_id, transform);
+												*sprite_component = sprite->indexof(sprites, new_id, transform);
 											}
 										}
 									}
@@ -354,13 +355,13 @@ static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugin
 			void *opaque = ec->component->get(world, entity, sprite_component_id);
 			if (opaque)
 			{
-				app_sprite_component *sprite_component = (app_sprite_component *)opaque;
-				fck_sprite_transform *transform = sprite->get(sprites, sprite_component->id);
+				fck_sprite_id *sprite_component = (fck_sprite_id *)opaque;
+				fck_sprite_transform *transform = sprite->get(sprites, *sprite_component);
 				fck_assert(transform);
 
 				float sprite_width = 0;
 				float sprite_height = 0;
-				sprite->batches->dimensions(sprites, sprite_component->id.batch, &sprite_width, &sprite_height);
+				sprite->batches->dimensions(sprites, sprite_component->batch, &sprite_width, &sprite_height);
 				if (nk->select(view, transform, transform->x, transform->y, sprite_width * transform->scale,
 				               sprite_height * transform->scale, on))
 				{
@@ -376,7 +377,7 @@ static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugin
 
 	{
 		// TODO: we shall not create through sprite anymore, we need to create through ec
-		// Sprite is a resource! 
+		// Sprite is a resource!
 		if (nk->pie->happened(&pie->add_bird))
 		{
 			const fck_sprite_batch_id id = sprite->batches->find_by_name(sprites, "Birds");
@@ -413,10 +414,10 @@ static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugin
 			if (nk->pie->happened(&pie->duplicate) && is_selected_entity_ok)
 			{
 				const fck_entity copy = ec->entity->copy(world, *selected_entity);
-				app_sprite_component *component = (app_sprite_component *)ec->component->get(world, copy, sprite_component_id);
+				fck_sprite_id *component = (fck_sprite_id *)ec->component->get(world, copy, sprite_component_id);
 				if (component)
 				{
-					fck_sprite_transform *transform = sprite->get(sprites, component->id);
+					fck_sprite_transform *transform = sprite->get(sprites, *component);
 					nk->pie->apply_position(view, &transform->x, &transform->y);
 					nk->set_selection(view, transform);
 				}
@@ -424,13 +425,13 @@ static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugin
 			if (nk->pie->happened(&pie->duplicate_left) && is_selected_entity_ok)
 			{
 				const fck_entity copy = ec->entity->copy(world, *selected_entity);
-				app_sprite_component *component = (app_sprite_component *)ec->component->get(world, copy, sprite_component_id);
+				fck_sprite_id *component = (fck_sprite_id *)ec->component->get(world, copy, sprite_component_id);
 				if (component)
 				{
 					float sprite_width = 0;
 					float sprite_height = 0;
-					sprite->batches->dimensions(sprites, component->id.batch, &sprite_width, &sprite_height);
-					fck_sprite_transform *transform = sprite->get(sprites, component->id);
+					sprite->batches->dimensions(sprites, component->batch, &sprite_width, &sprite_height);
+					fck_sprite_transform *transform = sprite->get(sprites, *component);
 					transform->x = transform->x - (sprite_width * transform->scale);
 					nk->set_selection(view, transform);
 				}
@@ -439,13 +440,13 @@ static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugin
 			if (nk->pie->happened(&pie->duplicate_right) && is_selected_entity_ok)
 			{
 				const fck_entity copy = ec->entity->copy(world, *selected_entity);
-				app_sprite_component *component = (app_sprite_component *)ec->component->get(world, copy, sprite_component_id);
+				fck_sprite_id *component = (fck_sprite_id *)ec->component->get(world, copy, sprite_component_id);
 				if (component)
 				{
 					float sprite_width = 0;
 					float sprite_height = 0;
-					sprite->batches->dimensions(sprites, component->id.batch, &sprite_width, &sprite_height);
-					fck_sprite_transform *transform = sprite->get(sprites, component->id);
+					sprite->batches->dimensions(sprites, component->batch, &sprite_width, &sprite_height);
+					fck_sprite_transform *transform = sprite->get(sprites, *component);
 					transform->x = transform->x + (sprite_width * transform->scale);
 					nk->set_selection(view, transform);
 				}
@@ -453,13 +454,13 @@ static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugin
 			if (nk->pie->happened(&pie->duplicate_up) && is_selected_entity_ok)
 			{
 				const fck_entity copy = ec->entity->copy(world, *selected_entity);
-				app_sprite_component *component = (app_sprite_component *)ec->component->get(world, copy, sprite_component_id);
+				fck_sprite_id *component = (fck_sprite_id *)ec->component->get(world, copy, sprite_component_id);
 				if (component)
 				{
 					float sprite_width = 0;
 					float sprite_height = 0;
-					sprite->batches->dimensions(sprites, component->id.batch, &sprite_width, &sprite_height);
-					fck_sprite_transform *transform = sprite->get(sprites, component->id);
+					sprite->batches->dimensions(sprites, component->batch, &sprite_width, &sprite_height);
+					fck_sprite_transform *transform = sprite->get(sprites, *component);
 					transform->y = transform->y - (sprite_height * transform->scale);
 					nk->set_selection(view, transform);
 				}
@@ -467,13 +468,13 @@ static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugin
 			if (nk->pie->happened(&pie->duplicate_down) && is_selected_entity_ok)
 			{
 				const fck_entity copy = ec->entity->copy(world, *selected_entity);
-				app_sprite_component *component = (app_sprite_component *)ec->component->get(world, copy, sprite_component_id);
+				fck_sprite_id *component = (fck_sprite_id *)ec->component->get(world, copy, sprite_component_id);
 				if (component)
 				{
 					float sprite_width = 0;
 					float sprite_height = 0;
-					sprite->batches->dimensions(sprites, component->id.batch, &sprite_width, &sprite_height);
-					fck_sprite_transform *transform = sprite->get(sprites, component->id);
+					sprite->batches->dimensions(sprites, component->batch, &sprite_width, &sprite_height);
+					fck_sprite_transform *transform = sprite->get(sprites, *component);
 					transform->y = transform->y + (sprite_height * transform->scale);
 					nk->set_selection(view, transform);
 				}
@@ -481,7 +482,6 @@ static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugin
 		}
 	}
 }
-
 
 typedef struct app_sprite_implementation
 {
@@ -492,19 +492,19 @@ typedef struct app_sprite_implementation
 static void *app_sprite_implementation_constructor(void *self, void *userdata)
 {
 	app_sprite_implementation *impl = (app_sprite_implementation *)userdata;
-	app_sprite_component *component = (app_sprite_component *)self;
+	fck_sprite_id *component = (fck_sprite_id *)self;
 	const fck_sprite_batch_id id = impl->sprite->batches->index(impl->sprites, 0);
 	fck_sprite_transform *transform = impl->sprite->add(impl->sprites, id);
 	transform->scale = 2.0f;
-	component->id = impl->sprite->indexof(impl->sprites, id, transform);
+	*component = impl->sprite->indexof(impl->sprites, id, transform);
 	return component;
 }
 
 static void *app_sprite_implementation_destructor(void *self, void *userdata)
 {
 	app_sprite_implementation *impl = (app_sprite_implementation *)userdata;
-	app_sprite_component *component = (app_sprite_component *)self;
-	const int result = impl->sprite->remove(impl->sprites, component->id);
+	fck_sprite_id *component = (fck_sprite_id *)self;
+	const int result = impl->sprite->remove(impl->sprites, *component);
 	fck_assert(result);
 	return component;
 }
@@ -512,15 +512,14 @@ static void *app_sprite_implementation_destructor(void *self, void *userdata)
 static void *app_sprite_implementation_copy(void *dst, const void *src, void *userdata)
 {
 	app_sprite_implementation *impl = (app_sprite_implementation *)userdata;
-	const app_sprite_component *source_component = (app_sprite_component *)src;
-	app_sprite_component *destination_component = (app_sprite_component *)dst;
+	const fck_sprite_id *source_component = (fck_sprite_id *)src;
+	fck_sprite_id *destination_component = (fck_sprite_id *)dst;
 
-	fck_sprite_transform *destination_transform = impl->sprite->add(impl->sprites, source_component->id.batch);
-	fck_sprite_transform *source_transform = impl->sprite->get(impl->sprites, source_component->id);
+	fck_sprite_transform *destination_transform = impl->sprite->add(impl->sprites, source_component->batch);
+	fck_sprite_transform *source_transform = impl->sprite->get(impl->sprites, *source_component);
 	*destination_transform = *source_transform;
 
-	destination_component->id = impl->sprite->indexof(impl->sprites, source_component->id.batch, destination_transform);
-
+	*destination_component = impl->sprite->indexof(impl->sprites, source_component->batch, destination_transform);
 	return dst;
 }
 
@@ -560,6 +559,30 @@ static app_gameloop *app_gameloops_add(kll_allocator *allocator, app_gameloops *
 	return current;
 }
 
+static void *fck_png_import(const char *file)
+{
+	os->io->log("Load PNG: %s", file);
+	return NULL;
+}
+static fckc_size_t fck_png_supports(const char ***extensions)
+{
+	static const char *supported[] = {"png"};
+	*extensions = supported;
+	return fck_arraysize(supported);
+}
+
+static void *fck_shader_import(const char *file)
+{
+	os->io->log("Load Shader: %s", file);
+	return NULL;
+}
+static fckc_size_t fck_shader_supports(const char ***extensions)
+{
+	static const char *supported[] = {"vert", "frag"};
+	*extensions = supported;
+	return fck_arraysize(supported);
+}
+
 int main(int argc, char **argv)
 {
 	// TODO: We need to setup stable editor entities, or something like that
@@ -584,6 +607,25 @@ int main(int argc, char **argv)
 		plugins->load(current);
 	}
 
+	fck_db_loader_interface png_loader = {
+		.type = 2,
+		.name = "png",
+		.import = fck_png_import,
+		.supports = fck_png_supports,
+	};
+
+	fck_db_loader_interface shader_loader = {
+		.type = 3,
+		.name = "shader",
+		.import = fck_shader_import,
+		.supports = fck_shader_supports,
+	};
+
+	fck_db_load(registry, NULL);
+
+	registry->add(fck_db_loader_interface_name, &png_loader);
+	registry->add(fck_db_loader_interface_name, &shader_loader);
+
 	fck_input *input = (fck_input *)registry->find(fck_input_api_name);
 	sht_render_api *render = (sht_render_api *)registry->find(sht_render_api_name);
 	fck_png_api *png = (fck_png_api *)registry->find(fck_png_api_name);
@@ -591,6 +633,9 @@ int main(int argc, char **argv)
 	fck_gfx_api *gfx = (fck_gfx_api *)registry->find(fck_gfx_api_name);
 	fck_sprite_api *sprite = (fck_sprite_api *)registry->find(fck_sprite_api_name);
 	fck_ec_api *ec = (fck_ec_api *)registry->find(fck_ec_api_name);
+	fck_db_api *db = (fck_db_api *)registry->find(fck_db_api_name);
+
+	db->create(kll->system, fck_resource_path);
 
 	app_gameloops loops = {0};
 	// We can create a new ec
@@ -738,7 +783,7 @@ int main(int argc, char **argv)
 	fck_sprites sprites = sprite->create(kll->system);
 
 	app_sprite_implementation sprite_implementation = {.sprite = sprite, .sprites = &sprites};
-	const fck_component_id sprite_id = ec->registry->declare(world, "sprite", sizeof(app_sprite_component));
+	const fck_component_id sprite_id = ec->registry->declare(world, "sprite", sizeof(fck_sprite_id));
 	const fck_component_definition sprite_definition = {
 		.constructor = app_sprite_implementation_constructor,
 		.destructor = app_sprite_implementation_destructor,

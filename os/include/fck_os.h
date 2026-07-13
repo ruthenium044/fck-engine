@@ -95,6 +95,7 @@ typedef struct fck_clipboard_api
 typedef struct fck_chrono_api
 {
 	fckc_u64 (*ms)(void);
+	fckc_i64 (*now)(void);
 } fck_chrono_api;
 
 typedef struct fck_file
@@ -109,6 +110,22 @@ typedef enum fck_stream_seek_mode
 	fck_stream_end,
 } fck_stream_seek_mode;
 
+typedef enum fck_path_type
+{
+	fck_path_none,
+	fck_path_file,
+	fck_path_directory,
+} fck_path_type;
+
+typedef struct fck_path_info
+{
+	fck_path_type type;
+	fckc_u64 size;
+	fckc_i64 created;
+	fckc_i64 modified;
+	fckc_i64 accessed; 
+} fck_path_info;
+
 // This is ok
 typedef struct fck_filesystem_api
 {
@@ -122,9 +139,13 @@ typedef struct fck_filesystem_api
 	fckc_size_t (*write)(fck_file, const void *ptr, fckc_size_t size);
 	fckc_i64 (*flush)(fck_file);
 
+	int (*create_directory)(const char* path);
+
 	// Path utilities - Maybe path api?
+	int (*info)(const char* path, fck_path_info* info);
+
 	int (*remove)(const char *path);
-	// This might be better as parth of file_info or path_info...
+	// TODO: Remove this, use info instead
 	fckc_i64 (*modified)(const char *path);
 	const char *(*executable)(void);
 

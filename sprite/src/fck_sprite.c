@@ -143,7 +143,7 @@ static int fck_sprite_batch_remove(fck_sprite_batch *batch, fckc_u32 index)
 	return 0;
 }
 
-static fck_sprite_stable_batch fck_sprite_stable_batch_create(kll_allocator *a, const char *name, sht_image_view view, float sw, float sh)
+static fck_sprite_stable_batch fck_sprite_stable_batch_create(kll_allocator *a, sht_image_view view, float sw, float sh)
 {
 	fck_sprite_stable_batch batch = {0};
 	batch.sprite_width = sw;
@@ -303,6 +303,7 @@ static int fck_sprite_stable_batch_remove(fck_sprite_stable_batch *batch, fckc_u
 
 	const int removal_result = fck_sprite_batch_remove(&batch->base, last);
 	fck_assert(removal_result);
+	(void)removal_result;
 
 	sparse->is_ok = 0;
 	return 1;
@@ -406,7 +407,7 @@ static fckc_u32 fck_sprites_register_batch(fck_sprites_internal *sprites, const 
 			const char **batch_name = sprites->names + sprites->count;
 			*batch_name = name;
 
-			*batch = fck_sprite_stable_batch_create(sprites->allocator, name, view, sw, sh);
+			*batch = fck_sprite_stable_batch_create(sprites->allocator, view, sw, sh);
 			sprites->count = sprites->count + 1;
 			return sprites->count - 1;
 		}
@@ -640,9 +641,9 @@ static fck_sprite_transform *fck_sprite_api_set(struct fck_sprites *external, fc
 	return NULL;
 }
 
-static fck_sprite_id fck_sprite_api_indexof(struct fck_sprites* external, fck_sprite_batch_id index, const fck_sprite_transform* transform)
+static fck_sprite_id fck_sprite_api_indexof(struct fck_sprites *external, fck_sprite_batch_id index, const fck_sprite_transform *transform)
 {
-	fck_sprites_internal sprites = { 0 };
+	fck_sprites_internal sprites = {0};
 	fck_sprites_to_internal(external, &sprites);
 	fck_sprite_id id;
 	id.batch = index;
@@ -650,7 +651,6 @@ static fck_sprite_id fck_sprite_api_indexof(struct fck_sprites* external, fck_sp
 	id.entry.value = fck_sprites_index_of(&sprites, index.value, transform) - 1;
 	return id;
 }
-
 
 static fck_sprite_transform *fck_sprite_api_add(struct fck_sprites *external, fck_sprite_batch_id index)
 {

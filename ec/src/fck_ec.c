@@ -498,6 +498,7 @@ static fckc_u32 fck_entity_storage_api_set(fck_entity_storage *storage, fck_enti
 		const fck_entity entity = *sparse;
 		const fck_entity *result = fck_entity_lookup_api_set(&storage->lookup, entity, index);
 		fck_assert(result == sparse && "add and set entity are different?");
+		(void)result;
 		storage->dense[index] = entity;
 		storage->count = storage->count + 1;
 
@@ -867,6 +868,7 @@ static fck_component_id fck_ec_api_component_declare(fck_ec ec, const char *name
 		}
 		const fck_hash_int other = fck_hash(components->name, strlen(components->name));
 		fck_assert(hash != other);
+		(void)other;
 		slot = (slot + 1) % ec_private->capacity;
 	}
 	//// Out of capacity!??

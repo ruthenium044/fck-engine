@@ -177,6 +177,7 @@ typedef struct fck_nk_private
 	fck_gfx gfx;
 
 	fckc_u64 time_last_frame;
+	fck_nuklear_theme current_theme;
 } fck_nk_private;
 
 static fck_nk_panel_item *fck_nk_panel_state_find(fck_nk_panel_state *state, const char *name)
@@ -1100,10 +1101,17 @@ static void fck_nk_input_api_events(fck_nk nke, const fck_input_event *const eve
 
 static struct nk_color *fck_ui_set_style(struct nk_context *ctx, enum fck_nuklear_theme theme);
 
-static void fck_nk_api_theme(fck_nk nk, fck_nuklear_theme theme)
+static fck_nuklear_theme fck_nk_api_get_theme(fck_nk nk)
+{
+	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
+	return nk_internal->current_theme;
+}
+
+static void fck_nk_api_set_theme(fck_nk nk, fck_nuklear_theme theme)
 {
 	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
 	fck_ui_set_style(nk_internal->ctx, theme);
+	nk_internal->current_theme = theme;
 }
 
 static int fck_nk_api_to_screen(fck_nk nk, float *x, float *y)
@@ -1724,7 +1732,8 @@ static fck_nuklear_api nuklear_api = {
 	.end = fck_nk_api_end,
 	.create = fck_nk_api_create,
 	.present = fck_nk_api_present,
-	.theme = fck_nk_api_theme,
+	.set_theme = fck_nk_api_set_theme,
+	.get_theme = fck_nk_api_get_theme,
 	.control_point = fck_nk_api_control_point,
 	.translation = fck_nk_api_translation,
 	.set_selection = fck_nk_api_set_select,

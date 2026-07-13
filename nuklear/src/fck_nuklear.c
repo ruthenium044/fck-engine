@@ -267,7 +267,7 @@ static fck_nk fck_nk_api_create(kll_allocator *allocator, fck_window *window, sh
 		nk->indices[index] = memory->malloc(memory->bump, &config, sht_memory_cpu);
 	}
 
-	nk->sampler = driver->vt->create_sampler(*driver, sht_filter_linear);
+	nk->sampler = driver->vt->create_sampler(*driver, sht_filter_nearest);
 
 	nk_init_default(nk->ctx, &nk->default_font->handle);
 	nk->ctx->clip.userdata = nk_handle_ptr(0);
@@ -364,19 +364,33 @@ static void fck_nk_panel_api_tabs(fck_nk nk)
 	fck_nk_os_window *window = &nk_internal->os;
 	struct nk_context *ctx = nk_internal->ctx;
 
+	const float pixel_scale = 3.0f;
+	const float border = pixel_scale;
+	const float spacing = pixel_scale;
+
+	const float full_width = 64.0f;
+	const float full_height = 48.0f + border * 2.0f;
+	const float image_width = 16.0f * pixel_scale;
+	const float image_height = 16.0f * pixel_scale;
+	const float image_padding_x = (full_width - image_width) * 0.5f;
+	const float image_padding_y = (full_height - image_height) * 0.5f;
+
 	nk_style_push_vec2(ctx, &ctx->style.window.padding, nk_vec2(0, 0));
 	nk_style_push_vec2(ctx, &ctx->style.window.group_padding, nk_vec2(0, 0));
-	nk_style_push_vec2(ctx, &ctx->style.window.spacing, nk_vec2(0, 0));
+	nk_style_push_vec2(ctx, &ctx->style.window.spacing, nk_vec2(spacing, spacing));
 
 	nk_style_push_float(ctx, &ctx->style.button.rounding, 0.0f);
+	nk_style_push_float(ctx, &ctx->style.button.border, 0.0f);
+	nk_style_push_vec2(ctx, &ctx->style.button.image_padding, nk_vec2(image_padding_x, image_padding_y));
+	nk_style_push_vec2(ctx, &ctx->style.button.padding, nk_vec2(0.0f, 0.0f));
 
-	nk_layout_row_push(ctx, 48.0f);
+	nk_layout_row_push(ctx, full_width);
 	if (nk_group_begin(ctx, "Panel Tabs", NK_WINDOW_NO_SCROLLBAR))
 	{
 		fck_nk_panel_state *current = window->first_panel;
 		while (current)
 		{
-			nk_layout_row_static(ctx, 48.0f, 48.0f, 1);
+			nk_layout_row_static(ctx, full_height, full_width, 1);
 			if (current->icon.handle.ptr)
 			{
 				if (nk_button_image(ctx, current->icon))
@@ -410,8 +424,11 @@ static void fck_nk_panel_api_tabs(fck_nk nk)
 		nk_group_end(ctx);
 	}
 
+	nk_style_pop_vec2(ctx);
+	nk_style_pop_vec2(ctx);
 	nk_style_pop_float(ctx);
 
+	nk_style_pop_float(ctx);
 	nk_style_pop_vec2(ctx);
 	nk_style_pop_vec2(ctx);
 	nk_style_pop_vec2(ctx);

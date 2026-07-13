@@ -8,7 +8,6 @@
 
 typedef enum fck_nuklear_theme
 {
-	fck_nk_theme_black,
 	fck_nk_theme_white,
 	fck_nk_theme_ruta,
 	fck_nk_theme_red,
@@ -18,7 +17,8 @@ typedef enum fck_nuklear_theme
 	fck_nk_theme_latte,
 	fck_nk_theme_frappe,
 	fck_nk_theme_macchiato,
-	fck_nk_theme_mocha
+	fck_nk_theme_mocha,
+	fck_nk_theme_count
 } fck_nuklear_theme;
 
 typedef struct fck_nk_rect
@@ -156,7 +156,8 @@ typedef struct fck_nuklear_api
 	int (*begin)(fck_nk nk);
 	void (*end)(fck_nk nk);
 
-	void (*theme)(fck_nk nk, fck_nuklear_theme theme);
+	void (*set_theme)(fck_nk nk, fck_nuklear_theme theme);
+	fck_nuklear_theme (*get_theme)(fck_nk nk);
 
 	int (*control_point)(fck_nk nk, const void *pointer, float *x, float *y, float size, fck_nk_colour on, fck_nk_colour off);
 	int (*translation)(fck_nk nk, const void *pointer, float *x, float *y, float w, float h);

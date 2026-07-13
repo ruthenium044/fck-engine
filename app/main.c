@@ -158,8 +158,66 @@ static void fck_sprite_transform_property(fck_nuklear_api *nk, fck_nk view, fck_
 	transform->vertical_index = nk->elements->i32(view, "vertical index", 0, transform->vertical_index, 10, 1);
 }
 
+const char *fck_get_theme_name(fck_nuklear_theme theme_name)
+{
+	switch ( theme_name )
+	{
+	case fck_nk_theme_white:
+		return "White";
+	case fck_nk_theme_ruta:
+		return "Perfect";
+	case fck_nk_theme_red:
+		return "Red";
+	case fck_nk_theme_blue:
+		return "Blue";
+	case fck_nk_theme_dark:
+		return "Dark";
+	case fck_nk_theme_dracula:
+		return "Dracula";
+	case fck_nk_theme_latte:
+		return "Latte";
+	case fck_nk_theme_frappe:
+		return "Frappe";
+	case fck_nk_theme_macchiato:
+		return "Macchiato";
+	case fck_nk_theme_mocha:
+		return "Mocha";
+	case fck_nk_theme_count:
+		return "";
+	}
+	return "";
+	//todo add something to scream here
+}
+
+static void fck_settings_editor( fck_sprite_api *sprite, fck_nuklear_api *nk, fck_nk view, fck_sprites *sprites )
+{
+	const fck_sprite_batch_id batch_id = sprite->batches->find_by_name(sprites, "Items");
+	const fck_nk_rect source = {16.0f, 16.0f, 16.0f, 16.0f};
+	if (nk->panel->begin_icon(view, "Settings", sprite->batches->image_view(sprites, batch_id), &source, 800.0f))
+	{
+		if (nk->panel->push(view, "Appearance"))
+		{
+			if (nk->panel->push(view, "Theme"))
+			{
+				const char *component_names[fck_nk_theme_count];
+				for ( int i = 0; i < fck_nk_theme_count; ++i )
+				{
+					component_names[i] = fck_get_theme_name((fck_nuklear_theme)i);
+				}
+
+				fck_nuklear_theme current_theme = nk->get_theme(view);
+				const int new_index = nk->elements->dropdown(view, current_theme, component_names, fck_nk_theme_count);
+				nk->set_theme(view, (fck_nuklear_theme)new_index);
+				nk->panel->pop(view);
+			}
+			nk->panel->pop(view);
+		}
+		nk->panel->end(view);
+	}
+}
+
 static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugins_api *plugins, fck_sprite_api *sprite, fck_nuklear_api *nk,
-                                        fck_nk view, app_sprite_pie_items *pie, fck_sprites *sprites, fck_entity *selected_entity)
+										fck_nk view, app_sprite_pie_items *pie, fck_sprites *sprites, fck_entity *selected_entity)
 {
 	const int is_selected_entity_ok = ec->entity->is_ok(world, *selected_entity);
 	if (!is_selected_entity_ok)
@@ -171,18 +229,6 @@ static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugin
 	const fckc_u32 sprite_batch_names_count = sprite->batches->names(sprites, &sprite_batch_names);
 
 	const fck_component_id sprite_component_id = ec->registry->id(world, "sprite");
-
-	const fck_sprite_batch_id batch_id = sprite->batches->find_by_name(sprites, "Items");
-	const fck_nk_rect source = {0.0f, 0.0f, 16.0f, 16.0f};
-	if (nk->panel->begin_icon(view, "Example", sprite->batches->image_view(sprites, batch_id), &source, 800.0f))
-	{
-		if (nk->panel->push(view, "Some Stuff"))
-		{
-			nk->elements->label(view, "Hello!");
-			nk->panel->pop(view);
-		}
-		nk->panel->end(view);
-	}
 
 	if (nk->panel->begin_label(view, "Core Panel", 300.0f))
 	{
@@ -693,7 +739,7 @@ int main(int argc, char **argv)
 	sht_command_buffer_vt *command = driver.vt->command_buffer;
 
 	fck_nk view = nk->create(kll->system, &window, &driver);
-	nk->theme(view, fck_nk_theme_ruta);
+	nk->set_theme(view, fck_nk_theme_ruta);
 
 	fck_nk_hamburger_item help_menu_item = {
 		.type = fck_nk_hamburger_item_button,
@@ -888,6 +934,7 @@ int main(int argc, char **argv)
 					app_gameloop *gameloop = loops.values + index;
 					gameloop->i->edit(gameloop->o, &edit_parameters);
 				}
+				fck_settings_editor(sprite, nk, view, &sprites);
 			}
 			nk->end(view);
 		}

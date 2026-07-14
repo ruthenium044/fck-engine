@@ -1809,7 +1809,6 @@ struct nk_color *fck_ui_set_style(struct nk_context *ctx, enum fck_nuklear_theme
 		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR];
 		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_HOVER] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_HOVER];
 		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_ACTIVE] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_ACTIVE];
-		nk_style_from_table(ctx, fck_ui_cached_colour_table);
 	}
 	else if (theme == fck_nk_theme_ruta)
 	{
@@ -1822,7 +1821,6 @@ struct nk_color *fck_ui_set_style(struct nk_context *ctx, enum fck_nuklear_theme
 		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR];
 		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_HOVER] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_HOVER];
 		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_ACTIVE] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_ACTIVE];
-		nk_style_from_table(ctx, fck_ui_cached_colour_table);
 	}
 	else if (theme == fck_nk_theme_red)
 	{
@@ -1835,7 +1833,6 @@ struct nk_color *fck_ui_set_style(struct nk_context *ctx, enum fck_nuklear_theme
 		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR];
 		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_HOVER] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_HOVER];
 		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_ACTIVE] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_ACTIVE];
-		nk_style_from_table(ctx, fck_ui_cached_colour_table);
 	}
 	else if (theme == fck_nk_theme_blue)
 	{
@@ -1848,7 +1845,6 @@ struct nk_color *fck_ui_set_style(struct nk_context *ctx, enum fck_nuklear_theme
 		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR];
 		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_HOVER] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_HOVER];
 		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_ACTIVE] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_ACTIVE];
-		nk_style_from_table(ctx, fck_ui_cached_colour_table);
 	}
 	else if (theme == fck_nk_theme_dark)
 	{
@@ -1861,7 +1857,6 @@ struct nk_color *fck_ui_set_style(struct nk_context *ctx, enum fck_nuklear_theme
 		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR];
 		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_HOVER] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_HOVER];
 		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_ACTIVE] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_ACTIVE];
-		nk_style_from_table(ctx, fck_ui_cached_colour_table);
 	}
 	else if (theme == fck_nk_theme_dracula)
 	{
@@ -1874,7 +1869,6 @@ struct nk_color *fck_ui_set_style(struct nk_context *ctx, enum fck_nuklear_theme
 		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR];
 		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_HOVER] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_HOVER];
 		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_ACTIVE] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_ACTIVE];
-		nk_style_from_table(ctx, fck_ui_cached_colour_table);
 	}
 	else if (theme == fck_nk_theme_latte)
 	{
@@ -1884,7 +1878,6 @@ struct nk_color *fck_ui_set_style(struct nk_context *ctx, enum fck_nuklear_theme
 			fck_ui_cached_colour_table[latte_theme_data[i].id] = latte_theme_data[i].color;
 		}
 		fck_ui_cached_colour_table[NK_COLOR_KNOB] = fck_ui_cached_colour_table[NK_COLOR_SLIDER];
-		nk_style_from_table(ctx, fck_ui_cached_colour_table);
 	}
 	else if (theme == fck_nk_theme_frappe)
 	{
@@ -1894,7 +1887,6 @@ struct nk_color *fck_ui_set_style(struct nk_context *ctx, enum fck_nuklear_theme
 			fck_ui_cached_colour_table[frappe_theme_data[i].id] = frappe_theme_data[i].color;
 		}
 		fck_ui_cached_colour_table[NK_COLOR_KNOB] = fck_ui_cached_colour_table[NK_COLOR_SLIDER];
-		nk_style_from_table(ctx, fck_ui_cached_colour_table);
 	}
 	else if (theme == fck_nk_theme_macchiato)
 	{
@@ -1904,7 +1896,6 @@ struct nk_color *fck_ui_set_style(struct nk_context *ctx, enum fck_nuklear_theme
 			fck_ui_cached_colour_table[macchiato_theme_data[i].id] = macchiato_theme_data[i].color;
 		}
 		fck_ui_cached_colour_table[NK_COLOR_KNOB] = fck_ui_cached_colour_table[NK_COLOR_SLIDER];
-		nk_style_from_table(ctx, fck_ui_cached_colour_table);
 	}
 	else if (theme == fck_nk_theme_mocha)
 	{
@@ -1914,11 +1905,15 @@ struct nk_color *fck_ui_set_style(struct nk_context *ctx, enum fck_nuklear_theme
 			fck_ui_cached_colour_table[mocha_theme_data[i].id] = mocha_theme_data[i].color;
 		}
 		fck_ui_cached_colour_table[NK_COLOR_KNOB] = fck_ui_cached_colour_table[NK_COLOR_SLIDER];
-		nk_style_from_table(ctx, fck_ui_cached_colour_table);
 	}
 	else
 	{
 		nk_style_default(ctx);
+		return fck_ui_cached_colour_table;
 	}
+
+	fck_ui_cached_colour_table[NK_COLOR_WINDOW].a = 100;
+
+	nk_style_from_table(ctx, fck_ui_cached_colour_table);
 	return fck_ui_cached_colour_table;
 }

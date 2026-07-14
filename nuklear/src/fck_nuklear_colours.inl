@@ -1,7 +1,7 @@
 #ifndef FCK_NUKLEAR_COLOURS_H_INCLUDED
 #define FCK_NUKLEAR_COLOURS_H_INCLUDED
 
-#define fck_clr_perfect_base {20, 23, 25, 100}
+#define fck_clr_perfect_base {20, 23, 25, 255}
 #define fck_clr_perfect_background { 31, 35, 41, 255}
 #define fck_crl_perfect_highlight {75, 166, 0, 255}
 #define fck_clr_perfect_clicked {65, 148, 0, 255}
@@ -9,7 +9,7 @@
 
 #define fck_clr_dark_border {51, 55, 67, 255}
 
-#define fck_clr_dracula_window {40, 42, 54, 100}
+#define fck_clr_dracula_window {40, 42, 54, 255}
 #define fck_clr_dracula_background {40, 42, 54, 255}
 #define fck_clr_dracula_currentline {68, 71, 90, 255}
 #define fck_clr_dracula_foreground {248, 248, 242, 255}
@@ -45,7 +45,7 @@
 #define latte_surface2 {172, 176, 190, 255}
 #define latte_surface1 {188, 192, 204, 255}
 #define latte_surface0 {204, 208, 218, 255}
-#define latte_base {239, 241, 245, 100}
+#define latte_base {239, 241, 245, 255}
 #define latte_mantle {230, 233, 239, 255}
 #define latte_crust {220, 224, 232, 255}
 
@@ -72,7 +72,7 @@
 #define frappe_surface2 {98, 104, 128, 255}
 #define frappe_surface1 {81, 87, 109, 255}
 #define frappe_surface0 {65, 69, 89, 255}
-#define frappe_base {48, 52, 70, 100}
+#define frappe_base {48, 52, 70, 255}
 #define frappe_mantle {41, 44, 60, 255}
 #define frappe_crust {35, 38, 52, 255}
 
@@ -99,7 +99,7 @@
 #define macchiato_surface2 {91, 96, 120, 255}
 #define macchiato_surface1 {73, 77, 100, 255}
 #define macchiato_surface0 {54, 58, 79, 255}
-#define macchiato_base {36, 39, 58, 100}
+#define macchiato_base {36, 39, 58, 255}
 #define macchiato_mantle {30, 32, 48, 255}
 #define macchiato_crust {24, 25, 38, 255}
 
@@ -126,7 +126,7 @@
 #define mocha_surface2 {88, 91, 112, 255}
 #define mocha_surface1 {69, 71, 90, 255}
 #define mocha_surface0 {49, 50, 68, 255}
-#define mocha_base {30, 30, 46, 100}
+#define mocha_base {30, 30, 46, 255}
 #define mocha_mantle {24, 24, 37, 255}
 #define mocha_crust {17, 17, 27, 255}
 

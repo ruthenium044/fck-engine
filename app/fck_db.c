@@ -298,7 +298,7 @@ static void *fck_multidir_add_entry(fck_db_header *header, fck_multidir *root, f
 
 	kll_allocator *allocator = header->allocator;
 
-	fck_multidir *parents[indirections];
+	fck_multidir *parents[fck_arraysize(e)];
 
 	fck_multidir *current = root;
 	for (fckc_size_t index = 0; index < indirections; index++)
@@ -347,7 +347,7 @@ static void *fck_multidir_remove_entry(fck_db_header *header, fck_multidir *root
 
 	kll_allocator *allocator = header->allocator;
 
-	fck_multidir *parents[indirections];
+	fck_multidir *parents[fck_arraysize(e)];
 	fck_multidir *current = root;
 	for (fckc_size_t index = 0; index < indirections; index++)
 	{

@@ -961,11 +961,13 @@ int main(int argc, char **argv)
 				scissor.extent = viewport.extent = swapchain.vt->extent(swapchain);
 
 				{
+					fck_nk_colour colour = nk->get_style_colour(1);
+	
 					sht_render_desc desc = {
 						.colour = {.view = color_target,
 					               .load_op = sht_clear,
 					               .store_op = sht_store,
-					               .clear_value = {0.2f, 0.0f, 0.2f, 1.0f}},
+					               .clear_value = {colour.r / 255.0f, colour.g / 255.0f, colour.b / 255.0f, 1.0f}},
 						.depth = {.view = depth_view, .load_op = sht_clear, .store_op = sht_dont_care},
 					};
 

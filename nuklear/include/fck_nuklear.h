@@ -158,6 +158,7 @@ typedef struct fck_nuklear_api
 
 	void (*set_theme)(fck_nk nk, fck_nuklear_theme theme);
 	fck_nuklear_theme (*get_theme)(fck_nk nk);
+	fck_nk_colour (*get_style_colour)(enum nk_style_colors style);
 
 	int (*control_point)(fck_nk nk, const void *pointer, float *x, float *y, float size, fck_nk_colour on, fck_nk_colour off);
 	int (*translation)(fck_nk nk, const void *pointer, float *x, float *y, float w, float h);

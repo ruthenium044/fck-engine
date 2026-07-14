@@ -1719,6 +1719,15 @@ static int fck_nk_pie_api_happened(fck_nk_pie_item *item)
 	return value;
 }
 
+static struct nk_color fck_ui_cached_colour_table[NK_COLOR_COUNT];
+
+fck_nk_colour fck_ui_get_style_colour(enum nk_style_colors style)
+{
+	struct nk_color colour = fck_ui_cached_colour_table[style];
+	fck_nk_colour final_colour = {colour.r, colour.g, colour.b, colour.a};
+	return final_colour;
+}
+
 static fck_nuklear_hamburger_api nuklear_hamburger_api = {
 	.push = fck_nk_hamburger_api_push,
 	.used = fck_nk_pie_hamburger_used,
@@ -1763,6 +1772,7 @@ static fck_nuklear_api nuklear_api = {
 	.present = fck_nk_api_present,
 	.set_theme = fck_nk_api_set_theme,
 	.get_theme = fck_nk_api_get_theme,
+	.get_style_colour = fck_ui_get_style_colour,
 	.control_point = fck_nk_api_control_point,
 	.translation = fck_nk_api_translation,
 	.set_selection = fck_nk_api_set_select,
@@ -1784,7 +1794,6 @@ FCK_EXPORT_API fck_nuklear_api *fck_nuklear_load(fck_api_registry *registry, voi
 	return &nuklear_api;
 }
 
-static struct nk_color fck_ui_cached_colour_table[NK_COLOR_COUNT];
 struct nk_color *fck_ui_set_style(struct nk_context *ctx, enum fck_nuklear_theme theme)
 {
 	if (theme == fck_nk_theme_white)

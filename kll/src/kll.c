@@ -10,6 +10,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <fck_os.h>
+
 struct kll_memory_buffer_page;
 typedef struct kll_memory_buffer_page
 {

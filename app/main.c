@@ -76,6 +76,7 @@ typedef struct app_screen
 	float sprite_height;
 } app_screen;
 
+// Streamline this shit
 static sht_image app_load_image(sht_driver driver, const void *pixels, sht_format format, int width, int height)
 {
 	sht_memory *memory = driver.vt->memory(driver);
@@ -160,7 +161,7 @@ static void fck_sprite_transform_property(fck_nuklear_api *nk, fck_nk view, fck_
 
 const char *fck_get_theme_name(fck_nuklear_theme theme_name)
 {
-	switch ( theme_name )
+	switch (theme_name)
 	{
 	case fck_nk_theme_white:
 		return "White";
@@ -186,10 +187,10 @@ const char *fck_get_theme_name(fck_nuklear_theme theme_name)
 		return "";
 	}
 	return "";
-	//todo add something to scream here
+	// todo add something to scream here
 }
 
-static void fck_settings_editor( fck_sprite_api *sprite, fck_nuklear_api *nk, fck_nk view, fck_sprites *sprites )
+static void fck_settings_editor(fck_sprite_api *sprite, fck_nuklear_api *nk, fck_nk view, fck_sprites *sprites)
 {
 	const fck_sprite_batch_id batch_id = sprite->batches->find_by_name(sprites, "Items");
 	const fck_nk_rect source = {16.0f, 16.0f, 16.0f, 16.0f};
@@ -200,7 +201,7 @@ static void fck_settings_editor( fck_sprite_api *sprite, fck_nuklear_api *nk, fc
 			if (nk->panel->push(view, "Theme"))
 			{
 				const char *component_names[fck_nk_theme_count];
-				for ( int i = 0; i < fck_nk_theme_count; ++i )
+				for (int i = 0; i < fck_nk_theme_count; ++i)
 				{
 					component_names[i] = fck_get_theme_name((fck_nuklear_theme)i);
 				}
@@ -217,7 +218,7 @@ static void fck_settings_editor( fck_sprite_api *sprite, fck_nuklear_api *nk, fc
 }
 
 static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugins_api *plugins, fck_sprite_api *sprite, fck_nuklear_api *nk,
-										fck_nk view, app_sprite_pie_items *pie, fck_sprites *sprites, fck_entity *selected_entity)
+                                        fck_nk view, app_sprite_pie_items *pie, fck_sprites *sprites, fck_entity *selected_entity)
 {
 	const int is_selected_entity_ok = ec->entity->is_ok(world, *selected_entity);
 	if (!is_selected_entity_ok)
@@ -422,33 +423,33 @@ static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugin
 	}
 
 	{
-		// TODO: we shall not create through sprite anymore, we need to create through ec
-		// Sprite is a resource!
-		if (nk->pie->happened(&pie->add_bird))
-		{
-			const fck_sprite_batch_id id = sprite->batches->find_by_name(sprites, "Birds");
-			fck_sprite_transform *transform = sprite->add(sprites, id);
-			// Pie api is a bit clunky
-			const fck_sprite_transform baseline = {
-				.scale = 10.0f,
-			};
-			*transform = baseline;
-			nk->pie->apply_position(view, &transform->x, &transform->y);
-			nk->set_selection(view, transform);
-		}
+		//// TODO: we shall not create through sprite anymore, we need to create through ec
+		//// Sprite is a resource!
+		// if (nk->pie->happened(&pie->add_bird))
+		//{
+		//	const fck_sprite_batch_id id = sprite->batches->find_by_name(sprites, "Birds");
+		//	fck_sprite_transform *transform = sprite->add(sprites, id);
+		//	// Pie api is a bit clunky
+		//	const fck_sprite_transform baseline = {
+		//		.scale = 10.0f,
+		//	};
+		//	*transform = baseline;
+		//	nk->pie->apply_position(view, &transform->x, &transform->y);
+		//	nk->set_selection(view, transform);
+		// }
 
-		if (nk->pie->happened(&pie->add_item))
-		{
-			const fck_sprite_batch_id id = sprite->batches->find_by_name(sprites, "Items");
-			fck_sprite_transform *transform = sprite->add(sprites, id);
-			// Pie api is a bit clunky
-			const fck_sprite_transform baseline = {
-				.scale = 10.0f,
-			};
-			*transform = baseline;
-			nk->pie->apply_position(view, &transform->x, &transform->y);
-			nk->set_selection(view, transform);
-		}
+		// if (nk->pie->happened(&pie->add_item))
+		//{
+		//	const fck_sprite_batch_id id = sprite->batches->find_by_name(sprites, "Items");
+		//	fck_sprite_transform *transform = sprite->add(sprites, id);
+		//	// Pie api is a bit clunky
+		//	const fck_sprite_transform baseline = {
+		//		.scale = 10.0f,
+		//	};
+		//	*transform = baseline;
+		//	nk->pie->apply_position(view, &transform->x, &transform->y);
+		//	nk->set_selection(view, transform);
+		// }
 
 		{
 			if (nk->pie->happened(&pie->remove) && is_selected_entity_ok)
@@ -605,11 +606,30 @@ static app_gameloop *app_gameloops_add(kll_allocator *allocator, app_gameloops *
 	return current;
 }
 
-static void *fck_png_import(const char *file)
+typedef struct fck_png_asset
+{
+	fck_db_element base;
+	fck_png value;
+} fck_png_asset;
+
+typedef struct fck_shader_asset
+{
+	fck_db_element base;
+	fck_glsl_object value;
+} fck_shader_asset;
+
+static fck_db_element *fck_png_import(fck_api_registry *registry, const char *file)
 {
 	os->io->log("Load PNG: %s", file);
-	return NULL;
+	fck_png_api *png = (fck_png_api *)registry->find(fck_png_api_name);
+	const fck_png value = png->load(file);
+	fck_png_asset *asset = (fck_png_asset *)kll_malloc(kll->system, sizeof(*asset));
+	asset->value = value;
+	asset->base.type = fck_db_asset;
+	asset->base.timestamp = os->chrono->now();
+	return &asset->base;
 }
+
 static fckc_size_t fck_png_supports(const char ***extensions)
 {
 	static const char *supported[] = {"png"};
@@ -617,14 +637,49 @@ static fckc_size_t fck_png_supports(const char ***extensions)
 	return fck_arraysize(supported);
 }
 
-static void *fck_shader_import(const char *file)
+static fck_db_element *fck_shader_import(fck_api_registry *registry, const char *file)
 {
 	os->io->log("Load Shader: %s", file);
-	return NULL;
+	fck_shader_api *shader = (fck_shader_api *)registry->find(fck_shader_api_name);
+
+	const char *ext = fck_db_extension(file);
+	// I have no unknown yet...
+	fck_shader_stage_type type = fck_shader_compute;
+	if (ext)
+	{
+		if (strcmp(ext, "vert") == 0)
+		{
+			type = fck_shader_vertex;
+		}
+		else if (strcmp(ext, "vs") == 0)
+		{
+			type = fck_shader_vertex;
+		}
+		else if (strcmp(ext, "frag") == 0)
+		{
+			type = fck_shader_fragment;
+		}
+		else if (strcmp(ext, "fs") == 0)
+		{
+			type = fck_shader_fragment;
+		}
+	}
+	fck_shader_compiler compiler = shader->create();
+	fck_assert(shader->is_ok(compiler));
+
+	fck_file file_handle = os->fs->open(file, "r");
+	fck_shader_desc desc = (fck_shader_desc){type, file, "main"};
+	const fck_glsl_object shader_object = compiler.create_glsl_from_file(&compiler, &desc, &file_handle);
+	fck_shader_asset *asset = (fck_shader_asset *)kll_malloc(kll->system, sizeof(*asset));
+	os->fs->close(file_handle);
+	asset->value = shader_object;
+	asset->base.type = fck_db_asset;
+	asset->base.timestamp = os->chrono->now();
+	return &asset->base;
 }
 static fckc_size_t fck_shader_supports(const char ***extensions)
 {
-	static const char *supported[] = {"vert", "frag"};
+	static const char *supported[] = {"vert", "frag", "vs", "fs"};
 	*extensions = supported;
 	return fck_arraysize(supported);
 }
@@ -681,8 +736,7 @@ int main(int argc, char **argv)
 	fck_ec_api *ec = (fck_ec_api *)registry->find(fck_ec_api_name);
 	fck_db_api *db = (fck_db_api *)registry->find(fck_db_api_name);
 
-	db->create(kll->system, fck_resource_path);
-
+	const fck_db assets = db->create(kll->system, fck_resource_path);
 	app_gameloops loops = {0};
 	// We can create a new ec
 	fck_ec world = ec->core->create(kll->system, 32);
@@ -762,46 +816,24 @@ int main(int argc, char **argv)
 	app_sprite_pie_items sprite_pie;
 	app_sprite_pie_items_init(nk, &sprite_pie, root);
 
-	sht_elements indices = {0};
+	//fck_db_element* txt_asset = (fck_db_element*)db->get(assets, "app/configuration/config.txt");
+	fck_png_asset *bg_png_asset = (fck_png_asset *)db->get(assets, "app/bg-mockup.png");
+	fck_png_asset *bird_png_asset = (fck_png_asset *)db->get(assets, "app/bird-sheet.png");
+	fck_png_asset *items_png_asset = (fck_png_asset *)db->get(assets, "app/items-sheet.png");
+	fck_shader_asset *sprite_vs = (fck_shader_asset *)db->get(assets, "app/sprite.vs");
+	fck_shader_asset *sprite_fs = (fck_shader_asset *)db->get(assets, "app/sprite.fs");
 
-	sht_sampler sampler = {0};
-	sht_image white_image = {0};
-	sht_image_view white_view = {0};
-
-	{
-		sampler = driver.vt->create_sampler(driver, sht_filter_nearest);
-		const sht_image_configuration config = {
-			.format = sht_format_r8g8b8a8_unorm,
-			.width = 32,
-			.height = 32,
-			.transfer = sht_transfer_target,
-			.usage = sht_image_usage_sampled,
-		};
-		white_image = memory->image->create(memory->bump, &config, sht_memory_gpu);
-		white_view = memory->image->view(memory->bump, white_image, sht_format_r8g8b8a8_unorm);
-
-		fckc_u32 pixels[32 * 32];
-		memset(pixels, 0xFF, sizeof(pixels));
-		driver.vt->upload_image(driver, &white_image, pixels, sizeof(pixels));
-	}
-
-	const fck_png bg_png = png->load(fck_resource_path "bg-mockup.png");
-	const fck_png bird_png = png->load(fck_resource_path "bird-sheet.png");
-	const fck_png items_png = png->load(fck_resource_path "items-sheet.png");
-
-	const sht_image background_image = app_load_image(driver, bg_png.data, sht_format_r8g8b8a8_unorm, bg_png.width, bg_png.height);
+	const sht_image background_image =
+		app_load_image(driver, bg_png_asset->value.data, sht_format_r8g8b8a8_unorm, bg_png_asset->value.width, bg_png_asset->value.height);
 	const sht_image_view background_image_view = memory->image->view(memory->bump, background_image, sht_format_r8g8b8a8_unorm);
 
-	const sht_image bird_image = app_load_image(driver, bird_png.data, sht_format_r8g8b8a8_unorm, bird_png.width, bird_png.height);
+	const sht_image bird_image = app_load_image(driver, bird_png_asset->value.data, sht_format_r8g8b8a8_unorm, bird_png_asset->value.width,
+	                                            bird_png_asset->value.height);
 	const sht_image_view bird_image_view = memory->image->view(memory->bump, bird_image, sht_format_r8g8b8a8_unorm);
 
-	const sht_image items_image = app_load_image(driver, items_png.data, sht_format_r8g8b8a8_unorm, items_png.width, items_png.height);
+	const sht_image items_image = app_load_image(driver, items_png_asset->value.data, sht_format_r8g8b8a8_unorm,
+	                                             items_png_asset->value.width, items_png_asset->value.height);
 	const sht_image_view items_image_view = memory->image->view(memory->bump, items_image, sht_format_r8g8b8a8_unorm);
-
-	const fck_gfx_shader vertex_shader = {.name = "vertex", .path = fck_resource_path "sprite.vert"};
-	const fck_gfx_shader fragment_shader = {.name = "textured", .path = fck_resource_path "textured.frag"};
-	const fck_gfx_create_info create_info = {.has_depth = 1, .vertex = &vertex_shader, .fragment = &fragment_shader};
-	const fck_gfx sprite_gfx = gfx->create(kll->system, &driver, &create_info);
 
 	sht_image depth_image = {0};
 	sht_image_view depth_view = {0};
@@ -819,14 +851,7 @@ int main(int argc, char **argv)
 		depth_view = memory->image->view(memory->bump, depth_image, sht_format_undefined);
 	}
 
-	{
-		fckc_u32 index_data[] = {0, 1, 2, 1, 3, 2};
-		indices.count = fck_arraysize(index_data);
-		indices.buffer = memory->malloc(memory->bump, &sht_buffer_target(sht_buffer_usage_index, sizeof(index_data)), sht_memory_gpu);
-		driver.vt->upload_buffer(driver, &indices.buffer, index_data, sizeof(index_data));
-	}
-
-	fck_sprites sprites = sprite->create(kll->system);
+	fck_sprites sprites = sprite->create(kll->system, &driver);
 
 	app_sprite_implementation sprite_implementation = {.sprite = sprite, .sprites = &sprites};
 	const fck_component_id sprite_id = ec->registry->declare(world, "sprite", sizeof(fck_sprite_id));
@@ -840,8 +865,8 @@ int main(int argc, char **argv)
 
 	// TODO: Add empty inline in sprites. Sprites has access to sht
 	// Then we could also move the whole render pass there?
-	const fck_sprite_batch_id empty_batch = sprite->batches->add(&sprites, "Empty", &white_view, 32.0f, 32.0f);
-	fck_assert(empty_batch.value == 0);
+	// const fck_sprite_batch_id empty_batch = sprite->batches->add(&sprites, "Empty", &white_view, 32.0f, 32.0f);
+	// fck_assert(empty_batch.value == 0);
 	const fck_sprite_batch_id background_batch = sprite->batches->add(&sprites, "Background", &background_image_view, 132.0f, 72.0f);
 	const fck_sprite_batch_id birds_batch = sprite->batches->add(&sprites, "Birds", &bird_image_view, 32.0f, 32.0f);
 	const fck_sprite_batch_id items_batch = sprite->batches->add(&sprites, "Items", &items_image_view, 16.0f, 16.0f);
@@ -875,6 +900,7 @@ int main(int argc, char **argv)
 		// TODO: Make render-vk hotreloadable :)
 		// How hard can it be?
 		plugins->hotreload();
+		db->hotreload(assets);
 
 		nk->input->begin(view);
 
@@ -948,21 +974,9 @@ int main(int argc, char **argv)
 			const sht_command_buffer command_buffer = command->acquire(driver, frame_index);
 			if (command->is_ok(command_buffer))
 			{
-				// Keeping them more contained?
-				sht_viewport viewport;
-				viewport.offset.x = 0.0f;
-				viewport.offset.y = 0.0f;
-				viewport.depth.min = (float)0.0f;
-				viewport.depth.max = (float)1.0f;
-
-				sht_scissor scissor;
-				scissor.offset.x = 0;
-				scissor.offset.y = 0;
-				scissor.extent = viewport.extent = swapchain.vt->extent(swapchain);
-
 				{
-					fck_nk_colour colour = nk->get_style_colour(1);
-	
+					const fck_nk_colour colour = nk->get_style_colour(1);
+
 					sht_render_desc desc = {
 						.colour = {.view = color_target,
 					               .load_op = sht_clear,
@@ -974,63 +988,7 @@ int main(int argc, char **argv)
 					const sht_render_pass render_pass = command->render_pass->begin(command_buffer, &desc);
 					if (command->render_pass->is_ok(render_pass))
 					{
-						command->viewport(command_buffer, &viewport);
-						command->scissor(command_buffer, &scissor);
-
-						const fckc_size_t batch_count = sprite->batches->count(&sprites);
-						for (fckc_size_t batch_index = 0; batch_index < batch_count; batch_index++)
-						{
-							const fck_sprite_batch_id id = sprite->batches->index(&sprites, batch_index);
-							fck_sprite_transform *transforms = NULL;
-							const fckc_u32 count = sprite->transforms(&sprites, id, &transforms);
-
-							if (count > 0)
-							{
-								float sprite_width = 0;
-								float sprite_height = 0;
-								sprite->batches->dimensions(&sprites, id, &sprite_width, &sprite_height);
-								command->index_buffer(command_buffer, &indices.buffer, 0);
-
-								sht_bss *bss = gfx->bss(sprite_gfx);
-								sht_graphics_pipeline *pipeline = gfx->pipeline(sprite_gfx); //
-
-								const app_screen screen = {
-									.width = (float)color_target.width,
-									.height = (float)color_target.height,
-									.sprite_width = sprite_width,
-									.sprite_height = sprite_height,
-								};
-
-								const sht_buffer_upload_desc screen_upload = {.data = &screen, .size = sizeof(screen), .count = 1};
-
-								const sht_buffer_upload_desc transform_upload = {
-									.data = transforms,
-									.size = sizeof(*transforms),
-									.count = count,
-								};
-
-								const sht_image_view *view = sprite->batches->image_view(&sprites, id);
-								const sht_image_upload_desc image_upload = {.samplers = sampler, .views = *view};
-
-								driver.vt->bss->upload_buffer(*bss, 0, &screen_upload);
-								driver.vt->bss->upload_buffer(*bss, 1, &transform_upload);
-								driver.vt->bss->upload_image(*bss, 3, &image_upload);
-								command->bss(command_buffer, *bss);
-
-								command->graphics_pipeline(command_buffer, *pipeline);
-
-								const sht_draw_indexed_desc desc = {
-									.first_index = 0,
-									.index_count = to_u32(indices.count),
-									.instance_count = count,
-									.first_instance = 0,
-									.vertex_offset = 0,
-								};
-
-								command->draw_indexed(command_buffer, &desc);
-							}
-						}
-
+						sprite->present(&sprites, &command_buffer, frame_index);
 						command->render_pass->end(command_buffer);
 					}
 				}
@@ -1041,8 +999,6 @@ int main(int argc, char **argv)
 					const sht_render_pass render_pass = command->render_pass->begin(command_buffer, &desc);
 					if (command->render_pass->is_ok(render_pass))
 					{
-						command->viewport(command_buffer, &viewport);
-						command->scissor(command_buffer, &scissor);
 						nk->present(view, &command_buffer, frame_index);
 						command->render_pass->end(command_buffer);
 					}

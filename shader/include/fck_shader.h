@@ -17,6 +17,8 @@ typedef enum fck_shader_language
 
 typedef enum fck_shader_stage_type
 {
+	// TODO: Fix this up so we have unknown or something - Something breaks in the sht driver
+	// fck_shader_unkown = 0,
 	fck_shader_vertex = 0,
 	fck_shader_fragment = 1,
 	fck_shader_compute = 2,
@@ -41,7 +43,6 @@ typedef struct fck_shader_generic
 
 	const char *source;
 	fckc_size_t souce_byte_size;
-
 } fck_shader_generic;
 
 typedef struct fck_spirv_object
@@ -85,6 +86,9 @@ typedef struct fck_shader_compiler
 	const void *(*source)(fck_shader_generic *shader);
 	fckc_size_t (*size)(fck_shader_generic *shader);
 } fck_shader_compiler;
+
+// TODO: This api is a bit rubbish... We should include shader::destroy in the shader_api
+// Same applies to all the getters that do not need the compiler!!
 
 typedef struct fck_shader_api
 {

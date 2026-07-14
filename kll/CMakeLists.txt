@@ -5,6 +5,8 @@ project(fck-kll)
 
 include_guard(GLOBAL)
 
+find_package(os)
+
 add_library(${PROJECT_NAME})
 add_library(fck::kll ALIAS ${PROJECT_NAME})
 
@@ -21,7 +23,7 @@ target_sources(${PROJECT_NAME} PRIVATE "src/kll_system.c")
 target_sources(${PROJECT_NAME} PRIVATE "src/kll_temp.c")
 
 find_package(fckc)
-target_link_libraries(${PROJECT_NAME} PUBLIC fck::fckc)
+target_link_libraries(${PROJECT_NAME} PUBLIC fck::fckc fck::os)
 
 add_executable(${PROJECT_NAME}-test test/main.c)
 target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})

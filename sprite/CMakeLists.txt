@@ -9,6 +9,7 @@ find_package(kll)
 find_package(api)
 find_package(os)
 find_package(render)
+find_package(gfx)
 
 add_library(${PROJECT_NAME})
 add_library(${PROJECT_NAME}-interface INTERFACE)
@@ -30,3 +31,8 @@ target_sources(${PROJECT_NAME} PRIVATE "src/fck_sprite.c")
 
 target_link_libraries(${PROJECT_NAME} PUBLIC fck::fckc fck::kll fck::api-interface fck::render)
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::os)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::gfx-interface)
+
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+    fck_sprite_resource_path="${CMAKE_CURRENT_SOURCE_DIR}/resources/"
+)

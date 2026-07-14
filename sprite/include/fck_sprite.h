@@ -8,6 +8,8 @@
 struct fck_sprites;
 struct kll_allocator;
 struct sht_image_view;
+struct sht_driver;
+struct sht_command_buffer;
 
 typedef struct fck_sprite_transform
 {
@@ -38,7 +40,7 @@ typedef struct fck_sprite_id
 
 typedef struct fck_sprites
 {
-	fckc_u8 opaque[64];
+	fckc_u8 opaque[256];
 } fck_sprites;
 
 // ... Something like this... we gotta see
@@ -52,11 +54,10 @@ typedef struct fck_sprite_batch_api
 
 	const char *(*nameof)(fck_sprites *sprites, fck_sprite_batch_id index);
 
-	fck_sprite_batch_id (*find_by_name)(fck_sprites* sprites, const char* name);
+	fck_sprite_batch_id (*find_by_name)(fck_sprites *sprites, const char *name);
 
-	fck_sprite_batch_id (*index)(fck_sprites* sprites, fckc_u32 index);
-	int (*is_ok)(fck_sprites* sprites, fck_sprite_batch_id index);
-
+	fck_sprite_batch_id (*index)(fck_sprites *sprites, fckc_u32 index);
+	int (*is_ok)(fck_sprites *sprites, fck_sprite_batch_id index);
 
 	fckc_u32 (*count)(fck_sprites *sprites);
 	fckc_u32 (*names)(fck_sprites *sprites, const char ***out_names);
@@ -66,7 +67,7 @@ typedef struct fck_sprite_api
 {
 	fck_sprite_batch_api *batches;
 
-	struct fck_sprites (*create)(struct kll_allocator *allocator);
+	struct fck_sprites (*create)(struct kll_allocator *allocator, struct sht_driver *driver);
 	void (*destroy)(fck_sprites *sprites);
 
 	fckc_u32 (*transforms)(fck_sprites *sprites, fck_sprite_batch_id index, fck_sprite_transform **out_transforms);
@@ -78,11 +79,13 @@ typedef struct fck_sprite_api
 	// Not a fan of this one...
 	int (*remove)(fck_sprites *sprites, fck_sprite_id index);
 
+	void (*present)(fck_sprites *sprites, const struct sht_command_buffer *buffer, fckc_u32 frame_index);
+
 	fck_sprite_id (*indexof)(fck_sprites *sprites, fck_sprite_batch_id index, const fck_sprite_transform *transform);
 
 	fck_sprite_id (*invalid)(void);
 
-	int (*is_ok)(fck_sprites* sprites, fck_sprite_id index);
+	int (*is_ok)(fck_sprites *sprites, fck_sprite_id index);
 
 } fck_sprite_api;
 

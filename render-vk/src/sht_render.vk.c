@@ -1933,6 +1933,7 @@ static void sht_vk_command_buffer_bss_copy(sht_vk_driver *driver, sht_vk_bss *bs
 
 static sht_image_view sht_swapchain_wait_and_acquire(sht_swapchain swapchain, fckc_u32 *index)
 {
+	// I think some changes need to be done!
 	const fckc_u64 timeout = ~0LLU;
 
 	sht_vk_swapchain *sc = (sht_vk_swapchain *)swapchain.handle;

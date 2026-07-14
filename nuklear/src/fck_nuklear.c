@@ -962,6 +962,14 @@ static void fck_nk_api_present(fck_nk nke, const struct sht_command_buffer *buff
 	const sht_extent extent = swapchain.vt->extent(swapchain);
 
 	{
+		sht_viewport viewport;
+		viewport.offset.x = 0.0f;
+		viewport.offset.y = 0.0f;
+		viewport.depth.min = (float)0.0f;
+		viewport.depth.max = (float)1.0f;
+		viewport.extent = extent;
+		command->viewport(*buffer, &viewport);
+
 		const fck_nk_screen screen = {
 			.width = (float)extent.width,
 			.height = (float)extent.height,
@@ -1572,10 +1580,10 @@ static int fck_nuklear_elements_api_button(fck_nk nk, const char *title)
 	return nk_button_label(ctx, title);
 }
 
-static void fck_nuklear_elements_api_label(fck_nk nk, const char* fmt, ...)
+static void fck_nuklear_elements_api_label(fck_nk nk, const char *fmt, ...)
 {
-	fck_nk_private* nk_internal = (fck_nk_private*)nk.handle;
-	struct nk_context* ctx = nk_internal->ctx;
+	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
+	struct nk_context *ctx = nk_internal->ctx;
 
 	va_list args;
 	va_start(args, fmt);
@@ -1723,9 +1731,9 @@ static int fck_nk_pie_api_happened(fck_nk_pie_item *item)
 	return value;
 }
 
-fck_nk_colour fck_ui_get_style_colour(enum nk_style_colors style)
+static fck_nk_colour fck_ui_get_style_colour(int style)
 {
-	struct nk_color colour = fck_ui_cached_colour_table[style];
+	const struct nk_color colour = fck_ui_cached_colour_table[style];
 	fck_nk_colour final_colour = {colour.r, colour.g, colour.b, colour.a};
 	return final_colour;
 }

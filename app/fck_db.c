@@ -47,7 +47,7 @@ typedef struct fck_db_header
 typedef struct fck_multidir_entry
 {
 	const char *name; // ?
-	void *payload;
+	fck_db_element *element;
 } fck_multidir_entry;
 
 union fck_multidir;
@@ -72,6 +72,14 @@ typedef struct fck_database
 	fck_multidir root;
 } fck_database;
 
+typedef struct fck_db_section
+{
+	fck_file_watcher watcher;
+	char path[420];
+	char database_path[420];
+	char scope[256];
+} fck_db_section;
+
 typedef struct fck_db_private
 {
 	kll_allocator *allocator;
@@ -80,6 +88,8 @@ typedef struct fck_db_private
 	fck_db_ext_map loaders;
 
 	fck_database database;
+	fck_db_section sections[16];
+	fckc_size_t sections_count;
 } fck_db_private;
 
 static inline fckc_u64 fck_db_random_next_rotl(const fckc_u64 x, int k)
@@ -94,59 +104,6 @@ static inline fckc_u64 fck_db_random_splitmix64(fckc_u64 *state)
 	z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9;
 	z = (z ^ (z >> 27)) * 0x94d049bb133111eb;
 	return z ^ (z >> 31);
-}
-
-static fck_db_uuid fck_db_seed_from_time(fckc_u64 tp)
-{
-	fck_db_uuid s;
-	fckc_u64 mixer_state = tp;
-
-	s.high = fck_db_random_splitmix64(&mixer_state);
-	s.low = fck_db_random_splitmix64(&mixer_state);
-
-	if (s.high == 0 && s.low == 0)
-	{
-		s.high = 0xdf900294d8f554a5;
-	}
-
-	return s;
-}
-
-static inline fckc_u64 fck_db_random_next(fck_db_uuid *s)
-{
-	// xoroshiro128++
-	const fckc_u64 s0 = s->high;
-	fckc_u64 s1 = s->low;
-	const fckc_u64 result = fck_db_random_next_rotl(s0 + s1, 17) + s0;
-
-	s1 ^= s0;
-	s->high = fck_db_random_next_rotl(s0, 24) ^ s1 ^ (s1 << 16);
-	s->low = fck_db_random_next_rotl(s1, 37);
-
-	return result;
-}
-
-static inline fck_db_uuid fck_db_random_jump(fck_db_uuid s)
-{
-	static const fckc_u64 jump[] = {0xdf900294d8f554a5, 0x170865df4b3201fc};
-
-	fckc_u64 s0 = 0;
-	fckc_u64 s1 = 0;
-	for (fckc_u32 i = 0; i < sizeof(jump) / sizeof(*jump); i++)
-	{
-		for (fckc_u32 b = 0; b < 64; b++)
-		{
-			if (jump[i] & to_u64(1) << b)
-			{
-				s0 ^= s.high;
-				s1 ^= s.low;
-			}
-			fck_db_random_next(&s);
-		}
-	}
-
-	const fck_db_uuid result = {.high = s0, .low = s1};
-	return result;
 }
 
 static void fck_db_id_extract(fck_db_id id, fckc_u8 *e0, fckc_u8 *e1, fckc_u8 *e2, fckc_u8 *e3)
@@ -178,34 +135,6 @@ static fck_db_id fck_db_id_make(fckc_u8 e0, fckc_u8 e1, fckc_u8 e2, fckc_u8 e3)
 	return id;
 }
 
-static fck_db_id fck_db_uuid_to_db_id(fck_db_uuid uuid, fckc_u16 type, fckc_u16 generation)
-{
-	fckc_u64 hash = uuid.high ^ uuid.low;
-
-	hash ^= hash >> 33;
-	hash *= 0xff51afd7ed558ccdULL;
-	hash ^= hash >> 33;
-	hash *= 0xc4ceb9fe1a85ec53ULL;
-	hash ^= hash >> 33;
-
-	const fckc_u32 hash32 = (fckc_u32)hash;
-
-	fckc_u8 b0 = (fckc_u8)(hash32 & 0xFF);
-	fckc_u8 b1 = (fckc_u8)((hash32 >> 8) & 0xFF);
-	fckc_u8 b2 = (fckc_u8)((hash32 >> 16) & 0xFF);
-	fckc_u8 b3 = (fckc_u8)((hash32 >> 24) & 0xFF);
-
-	b0 = b0 % 255;
-	b1 = b1 % 255;
-	b2 = b2 % 255;
-	b3 = b3 % 255;
-
-	fck_db_id id = fck_db_id_make(b0, b1, b2, b3);
-	id.type = type;
-	id.generation = generation;
-	return id;
-}
-
 static int fck_multidir_id_is_ok(fckc_u8 e0, fckc_u8 e1, fckc_u8 e2, fckc_u8 e3)
 {
 	if (e0 == 0xFF)
@@ -227,7 +156,7 @@ static int fck_multidir_id_is_ok(fckc_u8 e0, fckc_u8 e1, fckc_u8 e2, fckc_u8 e3)
 	return 1;
 }
 
-static void *fck_multidir_resolve(fck_multidir *root, fck_db_id id)
+static fck_db_element *fck_multidir_resolve(fck_multidir *root, fck_db_id id)
 {
 	fckc_u8 e[4];
 	fck_db_id_extract(id, &e[0], &e[1], &e[2], &e[3]);
@@ -240,7 +169,7 @@ static void *fck_multidir_resolve(fck_multidir *root, fck_db_id id)
 	fck_multidir *current = root;
 	for (fckc_size_t index = 0; index < fck_arraysize(e); index++)
 	{
-		if (root->dir.children == NULL)
+		if (current->dir.children == NULL)
 		{
 			return NULL;
 		}
@@ -249,7 +178,7 @@ static void *fck_multidir_resolve(fck_multidir *root, fck_db_id id)
 		current = next;
 	}
 
-	return current->entry.payload;
+	return current->entry.element;
 }
 
 static void fck_multidir_bit_set_ok(fck_multidir *dir, const fckc_u8 subid)
@@ -285,7 +214,8 @@ static int fck_multidir_empty(fck_multidir *dir)
 	return 1;
 }
 
-static void *fck_multidir_add_entry(fck_db_header *header, fck_multidir *root, fck_db_id id, const char *name, void *payload)
+static fck_db_element *fck_multidir_add_entry(fck_db_header *header, fck_multidir *root, fck_db_id id, const char *name,
+                                              fck_db_element *element)
 {
 	fckc_u8 e[4];
 	const fckc_size_t indirections = fck_arraysize(e);
@@ -321,7 +251,7 @@ static void *fck_multidir_add_entry(fck_db_header *header, fck_multidir *root, f
 		current = next;
 	}
 	// We now know current is a leaf!
-	current->entry.payload = payload;
+	current->entry.element = element;
 	current->entry.name = name;
 
 	for (fckc_size_t index = 0; index < indirections; index++)
@@ -331,10 +261,10 @@ static void *fck_multidir_add_entry(fck_db_header *header, fck_multidir *root, f
 		fck_multidir_bit_set_ok(dir, subid);
 	}
 
-	return current->entry.payload;
+	return current->entry.element;
 }
 
-static void *fck_multidir_remove_entry(fck_db_header *header, fck_multidir *root, fck_db_id id)
+static fck_db_element *fck_multidir_remove_entry(fck_db_header *header, fck_multidir *root, fck_db_id id)
 {
 	fckc_u8 e[4];
 	const fckc_size_t indirections = fck_arraysize(e);
@@ -368,7 +298,7 @@ static void *fck_multidir_remove_entry(fck_db_header *header, fck_multidir *root
 		current = next;
 	}
 	// We now know current is a leaf!
-	void *stored = current->entry.payload;
+	fck_db_element *stored = current->entry.element;
 
 	for (fckc_size_t index = 0; index < indirections; index++)
 	{
@@ -431,17 +361,6 @@ static void fck_multidir_iterate(fck_multidir *root)
 	}
 
 	os->io->log("Iterations: %d", iterations);
-}
-
-static fckc_u64 fck_db_uuid_hash(fck_db_uuid uuid)
-{
-	fckc_u64 hash = uuid.high ^ (uuid.low + 0x9e3779b97f4a7c15ULL);
-	hash ^= hash >> 30;
-	hash *= 0xbf58476d1ce4e5b9ULL;
-	hash ^= hash >> 27;
-	hash *= 0x94d049bb133111ebULL;
-	hash ^= hash >> 31;
-	return hash;
 }
 
 static const char *fck_db_api_file_extension(const char *path)
@@ -564,7 +483,7 @@ static void fck_db_ext_map_destroy(kll_allocator *allocator, fck_db_ext_map *map
 	map->capacity = 0;
 }
 
-static fck_db_id fck_db_id_from_path(const char *path)
+static fck_db_id fck_db_id_from_path(const char *path, fckc_u16 type)
 {
 	fckc_u32 hash = 2166136261U;
 
@@ -574,18 +493,27 @@ static fck_db_id fck_db_id_from_path(const char *path)
 		if (c == '\\')
 			c = '/';
 		if (c >= 'A' && c <= 'Z')
-			c = (char)(c + 32);
+			c += 32;
 
 		hash ^= (fckc_u8)c;
 		hash *= 16777619U;
 	}
 
-	if (hash == 0xFFFFFFFFU)
+	hash ^= (fckc_u32)type << 16;
+
+	fckc_u8 e[4];
+	for (int i = 0; i < 4; i++)
 	{
-		hash = 0xFFFFFFFEU;
+		e[i] = (fckc_u8)((hash >> (i * 8)) & 0xFF);
+		if (e[i] == 0xFF)
+		{
+			e[i] = 0xFE;
+		}
 	}
-	fck_db_id id = {0};
-	id.index = hash ^ 0xFFFFFFFFU;
+	fck_db_id id = fck_db_id_make(e[0], e[1], e[2], e[3]);
+	id.type = type;
+	id.generation = 0;
+
 	return id;
 }
 
@@ -643,7 +571,7 @@ static const char *fck_db_make_database_path(char *buffer, fckc_size_t size, con
 		return NULL;
 	}
 
-	const int written = snprintf(buffer, size, "%s.%s", path, fck_db_extension);
+	const int written = snprintf(buffer, size, "%s.%s", path, fck_db_path_extension);
 	if (written < 0 || (fckc_size_t)written >= size)
 	{
 		return NULL;
@@ -651,162 +579,328 @@ static const char *fck_db_make_database_path(char *buffer, fckc_size_t size, con
 	return buffer;
 }
 
-static fck_db fck_db_api_create(kll_allocator *allocator, const char *path)
+static void fck_db_api_import_file(fck_db external, fck_db_section *section, const char *relative)
 {
-	fck_db_private *db = (fck_db_private *)kll_malloc(allocator, sizeof(*db));
-	memset(db, 0, sizeof(*db));
-	const fck_db result = {.opaque = db};
-	kll_arena *temp = kll->arena->create(allocator, 512);
+	fck_db_private *db = external.opaque;
 
-	db->strings = kll->arena->create(allocator, 512);
+	kll_arena *temp = kll->arena->create(db->allocator, 512);
+	const char *ext = fck_db_api_file_extension(relative);
+	fck_assert(ext);
+	if (strcmp(ext, fck_db_item_meta_extension) == 0)
+	{
+		return;
+	}
 
-	db->database.header.allocator = allocator;
+	char absolute_buffer[1024];
+	const char *absolute = fck_db_make_full_path(absolute_buffer, fck_arraysize(absolute_buffer), section->path, relative);
+	if (absolute == NULL)
+	{
+		return;
+	}
+	temp->reset(temp);
 
-	db->loaders = fck_db_ext_map_create(allocator);
-	char database_buffer[1024];
-	const char *database = fck_db_make_database_path(database_buffer, fck_arraysize(database_buffer), path);
+	fck_db_loader_interface null_loader = {.name = "none", .type = to_u16(~0)};
+	fck_db_loader_interface *loader = fck_db_ext_map_find(&db->loaders, ext);
+	fck_db_element *payload;
+	if (loader)
+	{
+		payload = loader->import(apis, absolute);
+	}
+	else
+	{
+		const fck_file file = os->fs->open(absolute, "r");
+		fck_assert(os->fs->is_valid(file));
+		const fckc_size_t size = os->fs->size(file);
+		payload = kll_malloc(db->allocator, size);
+		os->fs->read(file, payload, size);
+		os->fs->close(file);
+
+		loader = &null_loader;
+		os->io->log("No loader for: %s (%s)", ext, absolute);
+	}
+
+	char meta_buffer[1024];
+	const char *meta = fck_db_make_meta_path(meta_buffer, fck_arraysize(meta_buffer), section->database_path, relative);
+
+	// try red
+	int loaded = 0;
+	fck_file file = os->fs->open(meta, "r");
+	if (os->fs->is_valid(file))
+	{
+		const fckc_i64 size = os->fs->size(file);
+		char *buffer = (char *)kll_malloc(temp, size + 1);
+		os->fs->read(file, buffer, size);
+		buffer[size] = '\0';
+
+		const fckc_size_t read = os->fs->read(file, (void *)buffer, size);
+		fck_assert(read == 0);
+		fck_serialiser *reader = serialiser_json->reader(db->allocator, buffer, size);
+		fck_serialiser_element *query = reader->query(reader, "/path");
+
+		if (query && query->type == fck_serialiser_string && query->count == 1)
+		{
+			fck_assert(strcmp(query->values->as_string, relative) == 0);
+
+			query = reader->query(reader, "/loader/type");
+			if (query && query->type == fck_serialiser_u64 && query->count == 1)
+			{
+				const fckc_u64 type = query->values->as_u64;
+				if (type == loader->type)
+				{
+					query = reader->query(reader, "/loader/name");
+					if (query && query->type == fck_serialiser_string && query->count == 1)
+					{
+						// I think for this, I should let it fall through and the name should just get updated?
+						if (strcmp(query->values->as_string, loader->name) == 0)
+						{
+							loaded = 1;
+						}
+					}
+				}
+			}
+		}
+		os->fs->close(file);
+	}
+
+	if (loaded == 0)
+	{
+		fck_serialiser *writer = serialiser_json->writer(db->allocator);
+
+		const fckc_u64 time = to_u64(os->chrono->now());
+		fck_serialiser_params params;
+		params.name = "path";
+		writer->string(writer, &params, (void **)&relative, 1);
+		params.name = "loader";
+		writer->push(writer, &params);
+		params.name = "type";
+		writer->u16(writer, &params, &loader->type, 1);
+		params.name = "name";
+		writer->string(writer, &params, (void **)&loader->name, 1);
+		writer->pop(writer);
+
+		const void *buffer = writer->buffer(writer);
+		const fckc_size_t size = writer->at(writer);
+
+		file = os->fs->open(meta, "w+");
+		fck_assert(os->fs->is_valid(file));
+		os->fs->write(file, buffer, size);
+		os->fs->close(file);
+
+		writer->destroy(writer);
+	}
+
+	const fckc_size_t scope_len = strlen(section->scope) + 1; // for / separator
+	fckc_size_t total_len;
+	char *relative_path;
+	if (ext[0] != '\0')
+	{
+		const fckc_size_t len = to_size_t(ext - relative); // We add a dot dot somewhere above
+		total_len = len + scope_len;
+		relative_path = (char *)kll_malloc(db->strings, total_len);
+		memcpy(relative_path, section->scope, scope_len);
+		relative_path[scope_len - 1] = '/';
+		char *dst = (char *)memcpy(relative_path + scope_len, relative, len);
+		dst[len - 1] = '\0';
+	}
+	else
+	{
+		const fckc_size_t len = strlen(relative) + 1;
+		total_len = len + scope_len;
+		relative_path = (char *)kll_malloc(db->strings, total_len);
+		memcpy(relative_path, section->scope, scope_len);
+		relative_path[scope_len - 1] = '/';
+		memcpy(relative_path + scope_len, relative, len);
+	}
+
+	for (fckc_size_t index = 0; index < total_len; index++)
+	{
+		if (relative_path[index] == '\\')
+		{
+			relative_path[index] = '/';
+		}
+	}
+	const fck_db_id id = fck_db_id_from_path(relative_path, loader->type);
+	fck_multidir_add_entry(&db->database.header, &db->database.root, id, relative_path, payload);
+	kll->arena->destroy(temp);
+}
+
+static fck_db_id fck_db_api_id_from_path(fck_db external, const char *path)
+{
+	fck_db_private *db = (fck_db_private *)external.opaque;
+	const char *ext = fck_db_api_file_extension(path);
+
+	char base_path[1024];
+	const char *dot = strrchr(path, '.');
+	const fckc_size_t path_len = dot ? (fckc_size_t)(dot - path) : strlen(path);
+	if (path_len >= sizeof(base_path))
+	{
+		return fck_db_id_make(255, 255, 255, 255);
+	}
+
+	memcpy(base_path, path, path_len);
+	base_path[path_len] = '\0';
+	fck_db_loader_interface *loader = fck_db_ext_map_find(&db->loaders, ext);
+	if (!loader)
+	{
+		return fck_db_id_from_path(base_path, to_u16(~0));
+	}
+	const fck_db_id id = fck_db_id_from_path(base_path, loader->type);
+	return id;
+}
+
+static const char *fck_db_api_make_scope_path(char *buffer, fckc_size_t size, const char *scope, const char *relative)
+{
+	const fckc_size_t scope_len = strlen(scope);
+	const fckc_size_t relative_len = strlen(relative);
+	const fckc_size_t total_len = scope_len + 1 + relative_len + 1;
+	if (total_len > size)
+	{
+		return NULL;
+	}
+	memcpy(buffer, scope, scope_len);
+	buffer[scope_len] = '/';
+	memcpy(buffer + scope_len + 1, relative, relative_len);
+	buffer[total_len - 1] = '\0';
+	for (fckc_size_t index = 0; index < total_len - 1; index++)
+	{
+		if (buffer[index] == '\\')
+		{
+			buffer[index] = '/';
+		}
+	}
+	return buffer;
+}
+
+static void fck_db_api_remove_path(fck_db external, fck_db_section *section, fck_db_id id, const char *relative)
+{
+	fck_db_private *db = (fck_db_private *)external.opaque;
+	fck_multidir_remove_entry(&db->database.header, &db->database.root, id);
+	char buffer[1024];
+
+	const char *full_path = fck_db_make_full_path(buffer, fck_arraysize(buffer), section->path, relative);
+	const char *meta = fck_db_make_meta_path(buffer, fck_arraysize(buffer), section->database_path, relative);
+	if (meta)
+	{
+		os->fs->remove(meta);
+	}
+}
+
+static void fck_db_api_hotreload(fck_db external)
+{
+	fck_db_private *db = (fck_db_private *)external.opaque;
+
+	for (fckc_size_t index = 0; index < db->sections_count; index++)
+	{
+		fck_db_section *section = db->sections + index;
+		const fckc_size_t iteration_limit = 64;
+		for (fckc_size_t iterations = 0; iterations < iteration_limit; iterations++)
+		{
+			fck_file_watcher_event changes[64];
+			const fckc_size_t result = os->fw->changes(section->watcher, changes, fck_arraysize(changes));
+			if (result == 0)
+			{
+				break;
+			}
+
+			for (fckc_size_t index = 0; index < result; index++)
+			{
+				fck_file_watcher_event *change = changes + index;
+				if (strstr(change->path, ".db.fck"))
+				{
+					continue;
+				}
+				char buffer[1024];
+				const char *scoped_path = fck_db_api_make_scope_path(buffer, fck_arraysize(buffer), section->scope, change->path);
+
+				switch ((fck_file_watcher_event_type)change->type)
+				{
+				case fck_file_unknown:
+					os->io->log("Unknown: %s", change->path);
+					break;
+				case fck_file_deleted: {
+					os->io->log("Deleted: %s", change->path);
+					// Not supported - Let's say we load everything always into memory?
+					// const fck_db_id id = fck_db_api_id_from_path(external, scoped_path);
+					// fck_db_api_remove_path(external, section, id, change->path);
+					break;
+				}
+				case fck_file_modified: {
+					os->io->log("Modified: %s", change->path);
+					const fck_db_id id = fck_db_api_id_from_path(external, scoped_path);
+					fck_multidir_remove_entry(&db->database.header, &db->database.root, id);
+					fck_db_api_import_file(external, section, change->path);
+					break;
+				}
+				case fck_file_created: {
+					os->io->log("Created: %s", change->path);
+					fck_db_api_import_file(external, section, change->path);
+					break;
+				}
+				}
+			}
+		}
+	}
+}
+
+static void fck_db_section_init(fck_db_section *section, const char *scope, const char *path)
+{
+	section->watcher = os->fw->create(path);
+	{
+		const fckc_size_t len = strlen(scope) + 1;
+		memcpy(section->scope, scope, len);
+	}
+	{
+		const fckc_size_t len = strlen(path) + 1;
+		memcpy(section->path, path, len);
+	}
+	const char *database = fck_db_make_database_path(section->database_path, fck_arraysize(section->database_path), path);
 	fck_assert(database);
 
 	os->fs->create_directory(database);
+}
+
+static void fck_db_api_import_directory(fck_db external, const char *scope, const char *path)
+{
+	fck_assert(scope);
+
+	fck_db_private *db = (fck_db_private *)external.opaque;
+	fck_assert(db->sections_count < fck_arraysize(db->sections));
+	fck_db_section *section = db->sections + db->sections_count;
+	db->sections_count = db->sections_count + 1;
+	fck_db_section_init(section, scope, path);
 
 	char **paths;
 	const fckc_size_t paths_count = os->glob->directory(path, NULL, &paths);
 	for (fckc_size_t index = 0; index < paths_count; index++)
 	{
 		const char *relative = paths[index];
-		const char *ext = fck_db_api_file_extension(relative);
-		fck_assert(ext);
-		if (strcmp(ext, fck_db_item_meta_extension) == 0)
-		{
-			continue;
-		}
-
-		char absolute_buffer[1024];
-		const char *absolute = fck_db_make_full_path(absolute_buffer, fck_arraysize(absolute_buffer), path, relative);
-		if (absolute == NULL)
-		{
-			continue;
-		}
-		temp->reset(temp);
-
-		fck_db_id_from_path(path);
-		fck_db_loader_interface null_loader = {.name = "none", .type = to_u16(~0)};
-		fck_db_loader_interface *loader = fck_db_ext_map_find(&db->loaders, ext);
-		if (loader)
-		{
-			void *data = loader->import(absolute);
-			// fck_assert(file);
-		}
-		else
-		{
-			loader = &null_loader;
-			os->io->log("No loader for: %s (%s)", ext, absolute);
-		}
-
-		char meta_buffer[1024];
-		const char *meta = fck_db_make_meta_path(meta_buffer, fck_arraysize(meta_buffer), database, relative);
-
-		// try red
-		fck_db_uuid store_uuid = {0};
-		int loaded = 0;
-		fck_file file = os->fs->open(meta, "r");
-		if (os->fs->is_valid(file))
-		{
-			const fckc_i64 size = os->fs->size(file);
-			char *buffer = (char *)kll_malloc(temp, size + 1);
-			os->fs->read(file, buffer, size);
-			buffer[size] = '\0';
-
-			const fckc_size_t read = os->fs->read(file, (void *)buffer, size);
-			fck_assert(read == 0);
-			fck_serialiser *reader = serialiser_json->reader(allocator, buffer, size);
-			fck_serialiser_element *query = reader->query(reader, "/path");
-
-			if (query && query->type == fck_serialiser_string && query->count == 1)
-			{
-				fck_assert(strcmp(query->values->as_string, relative) == 0);
-				query = reader->query(reader, "/uuid");
-				if (query && query->type == fck_serialiser_u64 && query->count == 2)
-				{
-					store_uuid.high = query->values[0].as_u64;
-					store_uuid.low = query->values[1].as_u64;
-
-					query = reader->query(reader, "/loader/type");
-					if (query && query->type == fck_serialiser_u64 && query->count == 1)
-					{
-						const fckc_u64 type = query->values->as_u64;
-						if (type == loader->type)
-						{
-							query = reader->query(reader, "/loader/name");
-							if (query && query->type == fck_serialiser_string && query->count == 1)
-							{
-								// I think for this, I should let it fall through and the name should just get updated?
-								if (strcmp(query->values->as_string, loader->name) == 0)
-								{
-									loaded = 1;
-								}
-							}
-						}
-					}
-				}
-			}
-			os->fs->close(file);
-		}
-
-		if (loaded == 0)
-		{
-			fck_serialiser *writer = serialiser_json->writer(allocator);
-
-			const fckc_u64 time = to_u64(os->chrono->now());
-			const fck_db_uuid hash = fck_db_seed_from_time(time);
-			store_uuid = fck_db_random_jump(hash);
-
-			fck_serialiser_params params;
-			params.name = "uuid";
-			writer->u64(writer, &params, (fckc_u64 *)&store_uuid, 2);
-			params.name = "path";
-			writer->string(writer, &params, (void **)&relative, 1);
-			params.name = "loader";
-			writer->push(writer, &params);
-			params.name = "type";
-			writer->u16(writer, &params, &loader->type, 1);
-			params.name = "name";
-			writer->string(writer, &params, (void **)&loader->name, 1);
-			writer->pop(writer);
-
-			const void *buffer = writer->buffer(writer);
-			const fckc_size_t size = writer->at(writer);
-
-			file = os->fs->open(meta, "w+");
-			fck_assert(os->fs->is_valid(file));
-			os->fs->write(file, buffer, size);
-			os->fs->close(file);
-
-			writer->destroy(writer);
-		}
-
-		char *relative_path;
-		if (ext[0] != '\0')
-		{
-			const fckc_size_t len = to_size_t(ext - relative); // We add a dot dot somewhere above
-			relative_path = (char *)kll_malloc(db->strings, len);
-			memcpy(relative_path, relative, len);
-			relative_path[len - 1] = '\0';
-		}
-		else
-		{
-			const fckc_size_t len = strlen(relative) + 1;
-			relative_path = (char *)kll_malloc(db->strings, len);
-			memcpy(relative_path, relative, len);
-		}
-
-		const fck_db_id id = fck_db_uuid_to_db_id(store_uuid, loader->type, 0);
-		fck_multidir_add_entry(&db->database.header, &db->database.root, id, relative_path, loader);
+		fck_db_api_import_file(external, section, relative);
 	}
 
 	fck_multidir_iterate(&db->database.root);
 
 	os->glob->free(paths);
+}
+
+static fck_db_element *fck_db_api_get(fck_db external, const char *path)
+{
+	fck_db_private *db = (fck_db_private *)external.opaque;
+	const fck_db_id id = fck_db_api_id_from_path(external, path);
+	return fck_multidir_resolve(&db->database.root, id);
+}
+
+static fck_db fck_db_api_create(kll_allocator *allocator, const char *path)
+{
+	fck_db_private *db = (fck_db_private *)kll_malloc(allocator, sizeof(*db));
+	memset(db, 0, sizeof(*db));
+	const fck_db result = {.opaque = db};
+	db->allocator = allocator;
+	db->strings = kll->arena->create(allocator, 512);
+	db->database.header.allocator = allocator;
+	db->loaders = fck_db_ext_map_create(allocator);
+
+	fck_db_api_import_directory(result, "app", path);
+
 	return result;
 }
 
@@ -818,10 +912,12 @@ static void fck_db_api_close(fck_db db)
 
 static fck_db_api db_api = {
 	.create = fck_db_api_create,
+	.hotreload = fck_db_api_hotreload,
 	.close = fck_db_api_close,
+	.get = fck_db_api_get,
 };
 
-static void *fck_directory_import(const char *path)
+static fck_db_element *fck_directory_import(fck_api_registry *registry, const char *path)
 {
 	fck_path_info info;
 	if (os->fs->info(path, &info))

@@ -1,11 +1,15 @@
 #ifndef FCK_NUKLEAR_COLOURS_H_INCLUDED
 #define FCK_NUKLEAR_COLOURS_H_INCLUDED
 
-#define fck_clr_perfect_green {75, 140, 0, 255}
-#define fck_crl_perfect_green_highlight {95, 178, 0, 255}
-#define fck_clr_perfect_colour_clicked {115, 216, 0, 255}
+#define fck_clr_perfect_base {20, 23, 25, 100}
+#define fck_clr_perfect_background { 31, 35, 41, 255}
+#define fck_crl_perfect_highlight {75, 166, 0, 255}
+#define fck_clr_perfect_clicked {65, 148, 0, 255}
+#define fck_clr_perfect_border {95, 178, 0, 255}
 
-#define fck_clr_dracula_window {40, 42, 54, 215}
+#define fck_clr_dark_border {51, 55, 67, 255}
+
+#define fck_clr_dracula_window {40, 42, 54, 100}
 #define fck_clr_dracula_background {40, 42, 54, 255}
 #define fck_clr_dracula_currentline {68, 71, 90, 255}
 #define fck_clr_dracula_foreground {248, 248, 242, 255}
@@ -41,7 +45,7 @@
 #define latte_surface2 {172, 176, 190, 255}
 #define latte_surface1 {188, 192, 204, 255}
 #define latte_surface0 {204, 208, 218, 255}
-#define latte_base {239, 241, 245, 215}
+#define latte_base {239, 241, 245, 100}
 #define latte_mantle {230, 233, 239, 255}
 #define latte_crust {220, 224, 232, 255}
 
@@ -68,7 +72,7 @@
 #define frappe_surface2 {98, 104, 128, 255}
 #define frappe_surface1 {81, 87, 109, 255}
 #define frappe_surface0 {65, 69, 89, 255}
-#define frappe_base {48, 52, 70, 215}
+#define frappe_base {48, 52, 70, 100}
 #define frappe_mantle {41, 44, 60, 255}
 #define frappe_crust {35, 38, 52, 255}
 
@@ -95,7 +99,7 @@
 #define macchiato_surface2 {91, 96, 120, 255}
 #define macchiato_surface1 {73, 77, 100, 255}
 #define macchiato_surface0 {54, 58, 79, 255}
-#define macchiato_base {36, 39, 58, 215}
+#define macchiato_base {36, 39, 58, 100}
 #define macchiato_mantle {30, 32, 48, 255}
 #define macchiato_crust {24, 25, 38, 255}
 
@@ -122,7 +126,7 @@
 #define mocha_surface2 {88, 91, 112, 255}
 #define mocha_surface1 {69, 71, 90, 255}
 #define mocha_surface0 {49, 50, 68, 255}
-#define mocha_base {30, 30, 46, 215}
+#define mocha_base {30, 30, 46, 100}
 #define mocha_mantle {24, 24, 37, 255}
 #define mocha_crust {17, 17, 27, 255}
 
@@ -166,57 +170,57 @@ static const struct fck_color_mapping white_theme_data[] = {
 
 static const struct fck_color_mapping ruta_theme_data[] = {
 	{NK_COLOR_TEXT, {210, 210, 210, 255}},
-	{NK_COLOR_WINDOW, {30, 33, 40, 215}},
-	{NK_COLOR_HEADER, fck_clr_perfect_green},
-	{NK_COLOR_BORDER, {51, 55, 67, 255}},
-	{NK_COLOR_BUTTON, fck_clr_perfect_green},
-	{NK_COLOR_BUTTON_HOVER, fck_crl_perfect_green_highlight},
-	{NK_COLOR_BUTTON_ACTIVE, fck_clr_perfect_colour_clicked},
-	{NK_COLOR_TOGGLE, {51, 55, 67, 255}},
-	{NK_COLOR_TOGGLE_HOVER, fck_crl_perfect_green_highlight},
-	{NK_COLOR_TOGGLE_CURSOR, fck_clr_perfect_green},
-	{NK_COLOR_SELECT, {51, 55, 67, 255}},
-	{NK_COLOR_SELECT_ACTIVE, fck_clr_perfect_green},
-	{NK_COLOR_SLIDER, {51, 55, 67, 255}},
-	{NK_COLOR_SLIDER_CURSOR, fck_clr_perfect_green},
-	{NK_COLOR_SLIDER_CURSOR_HOVER, fck_crl_perfect_green_highlight},
-	{NK_COLOR_SLIDER_CURSOR_ACTIVE, fck_clr_perfect_colour_clicked},
-	{NK_COLOR_PROPERTY, {51, 55, 67, 255}},
-	{NK_COLOR_EDIT, {51, 55, 67, 225}},
+	{NK_COLOR_WINDOW, fck_clr_perfect_base},
+	{NK_COLOR_HEADER, fck_clr_perfect_background},
+	{NK_COLOR_BORDER, fck_clr_perfect_border},
+	{NK_COLOR_BUTTON, fck_clr_perfect_background},
+	{NK_COLOR_BUTTON_HOVER, fck_crl_perfect_highlight},
+	{NK_COLOR_BUTTON_ACTIVE, fck_clr_perfect_clicked},
+	{NK_COLOR_TOGGLE, fck_clr_perfect_border},
+	{NK_COLOR_TOGGLE_HOVER, fck_crl_perfect_highlight},
+	{NK_COLOR_TOGGLE_CURSOR, fck_clr_perfect_background},
+	{NK_COLOR_SELECT, fck_clr_perfect_border},
+	{NK_COLOR_SELECT_ACTIVE, fck_clr_perfect_background},
+	{NK_COLOR_SLIDER, fck_clr_perfect_border},
+	{NK_COLOR_SLIDER_CURSOR, fck_clr_perfect_background},
+	{NK_COLOR_SLIDER_CURSOR_HOVER, fck_crl_perfect_highlight},
+	{NK_COLOR_SLIDER_CURSOR_ACTIVE, fck_clr_perfect_clicked},
+	{NK_COLOR_PROPERTY, fck_clr_perfect_border},
+	{NK_COLOR_EDIT, fck_clr_perfect_border},
 	{NK_COLOR_EDIT_CURSOR, {190, 190, 190, 255}},
-	{NK_COLOR_COMBO, {51, 55, 67, 255}},
-	{NK_COLOR_CHART, {51, 55, 67, 255}},
-	{NK_COLOR_CHART_COLOR, fck_clr_perfect_green},
-	{NK_COLOR_CHART_COLOR_HIGHLIGHT, fck_crl_perfect_green_highlight},
+	{NK_COLOR_COMBO, fck_clr_perfect_border},
+	{NK_COLOR_CHART, fck_clr_perfect_border},
+	{NK_COLOR_CHART_COLOR, fck_clr_perfect_background},
+	{NK_COLOR_CHART_COLOR_HIGHLIGHT, fck_crl_perfect_highlight},
 	{NK_COLOR_SCROLLBAR, {30, 33, 40, 255}},
 	{NK_COLOR_SCROLLBAR_CURSOR, {64, 84, 95, 255}},
 	{NK_COLOR_SCROLLBAR_CURSOR_HOVER, {70, 90, 100, 255}},
 	{NK_COLOR_SCROLLBAR_CURSOR_ACTIVE, {75, 95, 105, 255}},
-	{NK_COLOR_TAB_HEADER, fck_clr_perfect_green},
+	{NK_COLOR_TAB_HEADER, fck_clr_perfect_background},
 };
 
 static const struct fck_color_mapping red_theme_data[] = {
 	{NK_COLOR_TEXT, {190, 190, 190, 255}},
 	{NK_COLOR_WINDOW, {30, 33, 40, 215}},
 	{NK_COLOR_HEADER, {181, 45, 69, 220}},
-	{NK_COLOR_BORDER, {51, 55, 67, 255}},
+	{NK_COLOR_BORDER, fck_clr_dark_border},
 	{NK_COLOR_BUTTON, {181, 45, 69, 255}},
 	{NK_COLOR_BUTTON_HOVER, {190, 50, 70, 255}},
 	{NK_COLOR_BUTTON_ACTIVE, {195, 55, 75, 255}},
-	{NK_COLOR_TOGGLE, {51, 55, 67, 255}},
+	{NK_COLOR_TOGGLE, fck_clr_dark_border},
 	{NK_COLOR_TOGGLE_HOVER, {45, 60, 60, 255}},
 	{NK_COLOR_TOGGLE_CURSOR, {181, 45, 69, 255}},
-	{NK_COLOR_SELECT, {51, 55, 67, 255}},
+	{NK_COLOR_SELECT, fck_clr_dark_border},
 	{NK_COLOR_SELECT_ACTIVE, {181, 45, 69, 255}},
-	{NK_COLOR_SLIDER, {51, 55, 67, 255}},
+	{NK_COLOR_SLIDER, fck_clr_dark_border},
 	{NK_COLOR_SLIDER_CURSOR, {181, 45, 69, 255}},
 	{NK_COLOR_SLIDER_CURSOR_HOVER, {186, 50, 74, 255}},
 	{NK_COLOR_SLIDER_CURSOR_ACTIVE, {191, 55, 79, 255}},
-	{NK_COLOR_PROPERTY, {51, 55, 67, 255}},
+	{NK_COLOR_PROPERTY, fck_clr_dark_border},
 	{NK_COLOR_EDIT, {51, 55, 67, 225}},
 	{NK_COLOR_EDIT_CURSOR, {190, 190, 190, 255}},
-	{NK_COLOR_COMBO, {51, 55, 67, 255}},
-	{NK_COLOR_CHART, {51, 55, 67, 255}},
+	{NK_COLOR_COMBO, fck_clr_dark_border},
+	{NK_COLOR_CHART, fck_clr_dark_border},
 	{NK_COLOR_CHART_COLOR, {170, 40, 60, 255}},
 	{NK_COLOR_CHART_COLOR_HIGHLIGHT, {255, 0, 0, 255}},
 	{NK_COLOR_SCROLLBAR, {30, 33, 40, 255}},

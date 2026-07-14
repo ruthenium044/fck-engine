@@ -606,6 +606,8 @@ static fck_nk_pie_item *fck_nk_pie_item_is_part_of(fck_nk_pie_item *item, fck_nk
 	return NULL;
 }
 
+static struct nk_color fck_ui_cached_colour_table[NK_COLOR_COUNT];
+
 static fck_nk_pie_item *fck_nk_pie_fan(struct nk_context *ctx, fck_nk_pie *pie, fck_nk_pie_item *active, fck_nk_pie_item *pie_items,
                                        struct nk_vec2 center, float offset_angle, float angle_step, float radius_offset, float radius)
 {
@@ -645,7 +647,7 @@ static fck_nk_pie_item *fck_nk_pie_fan(struct nk_context *ctx, fck_nk_pie *pie, 
 	while (current)
 	{
 		const float start_angle = offset_angle + ((float)index * angle_step);
-		struct nk_color slice_color = nk_rgba(45, 45, 45, 230);
+		struct nk_color slice_color = fck_ui_cached_colour_table[NK_COLOR_BUTTON];
 
 		if (hovered == -1)
 		{
@@ -667,7 +669,7 @@ static fck_nk_pie_item *fck_nk_pie_fan(struct nk_context *ctx, fck_nk_pie *pie, 
 		if (index == hovered)
 		{
 			current_hovered = current;
-			slice_color = nk_rgba(0, 150, 255, 255);
+			slice_color = fck_ui_cached_colour_table[NK_COLOR_BUTTON_HOVER];
 			struct fck_nk_pie_item *children = current->items;
 			if (children)
 			{
@@ -678,7 +680,8 @@ static fck_nk_pie_item *fck_nk_pie_fan(struct nk_context *ctx, fck_nk_pie *pie, 
 
 		struct nk_command_buffer *canvas = nk_window_get_canvas(ctx);
 		nk_fill_arc(canvas, center.x, center.y, radius, start_angle, start_angle + angle_step, slice_color);
-		nk_stroke_arc(canvas, center.x, center.y, radius, start_angle, start_angle + angle_step, 1.5f, nk_rgba(100, 100, 100, 255));
+		nk_stroke_arc(canvas, center.x, center.y, radius, start_angle, start_angle + angle_step, 1.5f,
+		              fck_ui_cached_colour_table[NK_COLOR_BORDER]);
 
 		const float text_angle = start_angle + (angle_step / 2.0f);
 		const struct nk_user_font *font = ctx->style.font;
@@ -691,7 +694,7 @@ static fck_nk_pie_item *fck_nk_pie_fan(struct nk_context *ctx, fck_nk_pie *pie, 
 		text_pos.y -= font->height / 2.0f;
 
 		nk_draw_text(canvas, nk_rect(text_pos.x, text_pos.y, text_width, font->height), current->name, nk_strlen(current->name), font,
-		             nk_rgba(0, 0, 0, 0), nk_rgba(255, 255, 255, 255));
+		             nk_rgba(0, 0, 0, 0), fck_ui_cached_colour_table[NK_COLOR_TEXT]);
 
 		index = index + 1;
 		current = current->next;
@@ -788,10 +791,10 @@ static const fck_nk_pie_item *fck_nk_pie_execute(fck_nk nk, float radius)
 			}
 		}
 
-		struct nk_color slice_color = nk_rgba(45, 45, 45, 230);
+		struct nk_color slice_color = fck_ui_cached_colour_table[NK_COLOR_BUTTON];
 		if (index == hovered)
 		{
-			slice_color = nk_rgba(0, 150, 255, 255);
+			slice_color = fck_ui_cached_colour_table[NK_COLOR_BUTTON_HOVER];
 			struct fck_nk_pie_item *children = current->items;
 			if (children)
 			{
@@ -809,14 +812,15 @@ static const fck_nk_pie_item *fck_nk_pie_execute(fck_nk nk, float radius)
 			text_pos.y = center.y + (radius * 0.65f) * nk_sin(text_angle);
 
 			nk_fill_arc(canvas, center.x, center.y, radius, start_angle, start_angle + angle_step, slice_color);
-			nk_stroke_arc(canvas, center.x, center.y, radius, start_angle, start_angle + angle_step, 1.5f, nk_rgba(100, 100, 100, 255));
+			nk_stroke_arc(canvas, center.x, center.y, radius, start_angle, start_angle + angle_step, 1.5f,
+			              fck_ui_cached_colour_table[NK_COLOR_BORDER]);
 
 			const float text_width = font->width(font->userdata, font->height, current->name, nk_strlen(current->name));
 			text_pos.x -= text_width / 2.0f;
 			text_pos.y -= font->height / 2.0f;
 
 			nk_draw_text(canvas, nk_rect(text_pos.x, text_pos.y, text_width, font->height), current->name, nk_strlen(current->name), font,
-			             nk_rgba(0, 0, 0, 0), nk_rgba(255, 255, 255, 255));
+			             nk_rgba(0, 0, 0, 0), fck_ui_cached_colour_table[NK_COLOR_TEXT]);
 		}
 		index = index + 1;
 		current = current->next;
@@ -824,8 +828,8 @@ static const fck_nk_pie_item *fck_nk_pie_execute(fck_nk nk, float radius)
 
 	pie->hovered = current_hovered;
 
-	nk_fill_circle(canvas, nk_rect(center.x - 15.0f, center.y - 15.0f, 30.0f, 30.0f), nk_rgba(30, 30, 30, 255));
-	nk_stroke_circle(canvas, nk_rect(center.x - 15.0f, center.y - 15.0f, 30.0f, 30.0f), 1.5f, nk_rgba(100, 100, 100, 255));
+	nk_fill_circle(canvas, nk_rect(center.x - 15.0f, center.y - 15.0f, 30.0f, 30.0f), fck_ui_cached_colour_table[NK_COLOR_BUTTON]);
+	nk_stroke_circle(canvas, nk_rect(center.x - 15.0f, center.y - 15.0f, 30.0f, 30.0f), 1.5f, fck_ui_cached_colour_table[NK_COLOR_BORDER]);
 	return selected;
 }
 
@@ -1718,8 +1722,6 @@ static int fck_nk_pie_api_happened(fck_nk_pie_item *item)
 	item->value = 0;
 	return value;
 }
-
-static struct nk_color fck_ui_cached_colour_table[NK_COLOR_COUNT];
 
 fck_nk_colour fck_ui_get_style_colour(enum nk_style_colors style)
 {

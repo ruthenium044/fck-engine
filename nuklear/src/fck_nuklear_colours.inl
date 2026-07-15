@@ -3,8 +3,8 @@
 
 #define fck_clr_perfect_base {20, 23, 25, 255}
 #define fck_clr_perfect_background { 31, 35, 41, 255}
-#define fck_crl_perfect_highlight {75, 166, 0, 255}
-#define fck_clr_perfect_clicked {65, 148, 0, 255}
+#define fck_crl_perfect_highlight {55, 146, 0, 255}
+#define fck_clr_perfect_clicked {45, 128, 0, 255}
 #define fck_clr_perfect_border {95, 178, 0, 255}
 
 #define fck_clr_dark_border {51, 55, 67, 255}

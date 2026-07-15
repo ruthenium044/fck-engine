@@ -10,13 +10,19 @@ target_sources(${PROJECT_NAME} PRIVATE "main.c")
 target_sources(${PROJECT_NAME} PRIVATE "fck_db.c")
 target_sources(${PROJECT_NAME} PRIVATE "fck_db.h")
 target_sources(${PROJECT_NAME} PRIVATE "fck_serialiser.h")
-target_sources(${PROJECT_NAME} PRIVATE "fck_serialiser_text.c")
-target_sources(${PROJECT_NAME} PRIVATE "fck_serialiser_text.h")
 target_sources(${PROJECT_NAME} PRIVATE "fck_serialiser_json.c")
 target_sources(${PROJECT_NAME} PRIVATE "fck_serialiser_json.h")
 target_sources(${PROJECT_NAME} PRIVATE "yyjson.c")
 target_sources(${PROJECT_NAME} PRIVATE "yyjson.h")
 
+
+#if(MSVC)
+#    target_compile_options(${PROJECT_NAME} PRIVATE /W4 /WX /we4244)
+#else()
+#    target_compile_options(${PROJECT_NAME} PRIVATE
+#        -Weverything
+#    )
+#endif()
 
 find_package(api)
 find_package(os)

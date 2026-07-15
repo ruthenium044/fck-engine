@@ -18,7 +18,6 @@
 
 #include "fck_serialiser.h"
 #include "fck_serialiser_json.h"
-#include "fck_serialiser_text.h"
 
 #define fck_multidir_child_capacity 255
 #define fck_multidir_bitset_capacity 4
@@ -76,7 +75,6 @@ typedef struct fck_db_section
 {
 	fck_file_watcher watcher;
 	char path[420];
-	char database_path[420];
 	char scope[256];
 } fck_db_section;
 
@@ -611,82 +609,12 @@ static void fck_db_api_import_file(fck_db external, fck_db_section *section, con
 		const fck_file file = os->fs->open(absolute, "r");
 		fck_assert(os->fs->is_valid(file));
 		const fckc_size_t size = os->fs->size(file);
-		payload = kll_malloc(db->allocator, size);
+		payload = (fck_db_element *)kll_malloc(db->allocator, size);
 		os->fs->read(file, payload, size);
 		os->fs->close(file);
 
 		loader = &null_loader;
 		os->io->log("No loader for: %s (%s)", ext, absolute);
-	}
-
-	char meta_buffer[1024];
-	const char *meta = fck_db_make_meta_path(meta_buffer, fck_arraysize(meta_buffer), section->database_path, relative);
-
-	// try red
-	int loaded = 0;
-	fck_file file = os->fs->open(meta, "r");
-	if (os->fs->is_valid(file))
-	{
-		const fckc_i64 size = os->fs->size(file);
-		char *buffer = (char *)kll_malloc(temp, size + 1);
-		os->fs->read(file, buffer, size);
-		buffer[size] = '\0';
-
-		const fckc_size_t read = os->fs->read(file, (void *)buffer, size);
-		fck_assert(read == 0);
-		fck_serialiser *reader = serialiser_json->reader(db->allocator, buffer, size);
-		fck_serialiser_element *query = reader->query(reader, "/path");
-
-		if (query && query->type == fck_serialiser_string && query->count == 1)
-		{
-			fck_assert(strcmp(query->values->as_string, relative) == 0);
-
-			query = reader->query(reader, "/loader/type");
-			if (query && query->type == fck_serialiser_u64 && query->count == 1)
-			{
-				const fckc_u64 type = query->values->as_u64;
-				if (type == loader->type)
-				{
-					query = reader->query(reader, "/loader/name");
-					if (query && query->type == fck_serialiser_string && query->count == 1)
-					{
-						// I think for this, I should let it fall through and the name should just get updated?
-						if (strcmp(query->values->as_string, loader->name) == 0)
-						{
-							loaded = 1;
-						}
-					}
-				}
-			}
-		}
-		os->fs->close(file);
-	}
-
-	if (loaded == 0)
-	{
-		fck_serialiser *writer = serialiser_json->writer(db->allocator);
-
-		const fckc_u64 time = to_u64(os->chrono->now());
-		fck_serialiser_params params;
-		params.name = "path";
-		writer->string(writer, &params, (void **)&relative, 1);
-		params.name = "loader";
-		writer->push(writer, &params);
-		params.name = "type";
-		writer->u16(writer, &params, &loader->type, 1);
-		params.name = "name";
-		writer->string(writer, &params, (void **)&loader->name, 1);
-		writer->pop(writer);
-
-		const void *buffer = writer->buffer(writer);
-		const fckc_size_t size = writer->at(writer);
-
-		file = os->fs->open(meta, "w+");
-		fck_assert(os->fs->is_valid(file));
-		os->fs->write(file, buffer, size);
-		os->fs->close(file);
-
-		writer->destroy(writer);
 	}
 
 	const fckc_size_t scope_len = strlen(section->scope) + 1; // for / separator
@@ -777,12 +705,8 @@ static void fck_db_api_remove_path(fck_db external, fck_db_section *section, fck
 	fck_multidir_remove_entry(&db->database.header, &db->database.root, id);
 	char buffer[1024];
 
-	const char *full_path = fck_db_make_full_path(buffer, fck_arraysize(buffer), section->path, relative);
-	const char *meta = fck_db_make_meta_path(buffer, fck_arraysize(buffer), section->database_path, relative);
-	if (meta)
-	{
-		os->fs->remove(meta);
-	}
+	//const char *full_path = fck_db_make_full_path(buffer, fck_arraysize(buffer), section->path, relative);
+	// TODO
 }
 
 static void fck_db_api_hotreload(fck_db external)
@@ -853,10 +777,6 @@ static void fck_db_section_init(fck_db_section *section, const char *scope, cons
 		const fckc_size_t len = strlen(path) + 1;
 		memcpy(section->path, path, len);
 	}
-	const char *database = fck_db_make_database_path(section->database_path, fck_arraysize(section->database_path), path);
-	fck_assert(database);
-
-	os->fs->create_directory(database);
 }
 
 static void fck_db_api_import_directory(fck_db external, const char *scope, const char *path)

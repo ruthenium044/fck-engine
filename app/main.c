@@ -608,6 +608,9 @@ static app_gameloop *app_gameloops_add(kll_allocator *allocator, app_gameloops *
 	return current;
 }
 
+// Goal: We want to use fck_png_asset everywhere instead of sht_image_view
+// Direction: Lazy on-demand resolution
+// Extra: When we receive a newer timestamp, we would also like to update the resolved state
 typedef struct fck_png_asset
 {
 	fck_db_element base;

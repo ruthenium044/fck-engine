@@ -364,6 +364,7 @@ static int fck_filesystem_remove(const char *path)
 	{
 		return 1;
 	}
+
 	return 0;
 }
 

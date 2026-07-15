@@ -1,7 +1,0 @@
-{
-    "path": "textured.fs",
-    "loader": {
-        "type": 3,
-        "name": "shader"
-    }
-}

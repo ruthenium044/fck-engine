@@ -10,22 +10,7 @@ if(MSVC)
     target_compile_options(${PROJECT_NAME} PRIVATE /W4 /WX /we4244)
 else()
     target_compile_options(${PROJECT_NAME} PRIVATE
-        -Wall 
-        -Wextra 
-        -Wconversion
-        -Wdouble-promotion
-        -Wpedantic 
-        -Wnull-dereference
-        -Wimplicit-int-float-conversion
-        -Werror
-        -Wformat=2
-        -Wshadow
-        -Wpointer-arith
-        -Wcast-align
-        -Wwrite-strings
-        -Wmissing-prototypes
-        -Wstrict-prototypes
-        -Wold-style-definition
+        -Weverything
     )
 endif()
 

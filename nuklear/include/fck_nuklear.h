@@ -21,6 +21,43 @@ typedef enum fck_nuklear_theme
 	fck_nk_theme_count
 } fck_nuklear_theme;
 
+typedef enum fck_nk_style_colors
+{
+	FCK_NK_COLOR_TEXT,
+	FCK_NK_COLOR_WINDOW,
+	FCK_NK_COLOR_HEADER,
+	FCK_NK_COLOR_BORDER,
+	FCK_NK_COLOR_BUTTON,
+	FCK_NK_COLOR_BUTTON_HOVER,
+	FCK_NK_COLOR_BUTTON_ACTIVE,
+	FCK_NK_COLOR_TOGGLE,
+	FCK_NK_COLOR_TOGGLE_HOVER,
+	FCK_NK_COLOR_TOGGLE_CURSOR,
+	FCK_NK_COLOR_SELECT,
+	FCK_NK_COLOR_SELECT_ACTIVE,
+	FCK_NK_COLOR_SLIDER,
+	FCK_NK_COLOR_SLIDER_CURSOR,
+	FCK_NK_COLOR_SLIDER_CURSOR_HOVER,
+	FCK_NK_COLOR_SLIDER_CURSOR_ACTIVE,
+	FCK_NK_COLOR_PROPERTY,
+	FCK_NK_COLOR_EDIT,
+	FCK_NK_COLOR_EDIT_CURSOR,
+	FCK_NK_COLOR_COMBO,
+	FCK_NK_COLOR_CHART,
+	FCK_NK_COLOR_CHART_COLOR,
+	FCK_NK_COLOR_CHART_COLOR_HIGHLIGHT,
+	FCK_NK_COLOR_SCROLLBAR,
+	FCK_NK_COLOR_SCROLLBAR_CURSOR,
+	FCK_NK_COLOR_SCROLLBAR_CURSOR_HOVER,
+	FCK_NK_COLOR_SCROLLBAR_CURSOR_ACTIVE,
+	FCK_NK_COLOR_TAB_HEADER,
+	FCK_NK_COLOR_KNOB,
+	FCK_NK_COLOR_KNOB_CURSOR,
+	FCK_NK_COLOR_KNOB_CURSOR_HOVER,
+	FCK_NK_COLOR_KNOB_CURSOR_ACTIVE,
+	FCK_NK_COLOR_COUNT
+}fck_nk_style_colors;
+
 typedef struct fck_nk_rect
 {
 	float x;
@@ -159,7 +196,7 @@ typedef struct fck_nuklear_api
 	void (*set_theme)(fck_nk nk, fck_nuklear_theme theme);
 	fck_nuklear_theme (*get_theme)(fck_nk nk);
 	// TODO: Fix this up, maybe provide our own style colour? 
-	fck_nk_colour (*get_style_colour)(enum fck_nk_style_colors style);
+	fck_nk_colour (*get_style_colour)(fck_nk_style_colors style);
 
 	int (*control_point)(fck_nk nk, const void *pointer, float *x, float *y, float size, fck_nk_colour on, fck_nk_colour off);
 	int (*translation)(fck_nk nk, const void *pointer, float *x, float *y, float w, float h);

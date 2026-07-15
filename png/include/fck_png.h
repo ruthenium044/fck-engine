@@ -3,6 +3,7 @@
 
 #define fck_png_api_name "fck-png"
 
+// TODO: Do not name it png, it can actually load more than that
 typedef struct fck_png
 {
 	void *data;

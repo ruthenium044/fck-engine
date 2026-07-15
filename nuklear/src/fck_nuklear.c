@@ -1731,9 +1731,9 @@ static int fck_nk_pie_api_happened(fck_nk_pie_item *item)
 	return value;
 }
 
-static fck_nk_colour fck_ui_get_style_colour(int style)
+static fck_nk_colour fck_ui_get_style_colour(enum fck_nk_style_colors style)
 {
-	const struct nk_color colour = fck_ui_cached_colour_table[style];
+	const struct nk_color colour = fck_ui_cached_colour_table[(enum nk_style_colors)style];
 	fck_nk_colour final_colour = {colour.r, colour.g, colour.b, colour.a};
 	return final_colour;
 }

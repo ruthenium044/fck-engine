@@ -28,6 +28,8 @@
 #include <fck_sprite.h>
 
 #include "fck_db.h"
+#include "../nuklear/src/nuklear.h"
+#include "../nuklear/src/fck_nuklear_colours.inl"
 
 static void purge_files(const char *pattern)
 {
@@ -975,7 +977,7 @@ int main(int argc, char **argv)
 			if (command->is_ok(command_buffer))
 			{
 				{
-					const fck_nk_colour colour = nk->get_style_colour(1);
+					const fck_nk_colour colour = nk->get_style_colour(FCK_NK_COLOR_WINDOW);
 
 					sht_render_desc desc = {
 						.colour = {.view = color_target,

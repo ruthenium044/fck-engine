@@ -6,9 +6,6 @@
 #define fck_db_api_name "fck-db"
 #define fck_db_loader_interface_name "fck-db-loader"
 
-#define fck_db_item_meta_extension "fck"
-#define fck_db_path_extension "db.fck"
-
 struct kll_allocator;
 struct fck_api_registry;
 
@@ -21,6 +18,7 @@ typedef struct fck_db_element
 {
 	fck_db_type type;
 	fckc_i64 timestamp;
+	fckc_size_t size;
 } fck_db_element;
 
 typedef union fck_db_id {
@@ -59,10 +57,6 @@ typedef struct fck_db_api
 	fck_db_element *(*get)(fck_db db, const char *path);
 	void (*close)(fck_db db);
 } fck_db_api;
-
-// TODO: Remove all the .db.fck junk for now, let's keep it simple and path-based
-// ITERATION 1!! !11!
-extern fck_db_api *fck_db_load(struct fck_api_registry *apis, void *old);
 
 // Utility for convenience
 

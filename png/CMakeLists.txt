@@ -7,6 +7,8 @@ include_guard(GLOBAL)
 find_package(fckc)
 find_package(os)
 find_package(api)
+find_package(render)
+find_package(db)
 
 add_library(${PROJECT_NAME})
 add_library(${PROJECT_NAME}-interface INTERFACE)
@@ -26,4 +28,4 @@ target_include_directories(${PROJECT_NAME} INTERFACE "${CMAKE_CURRENT_SOURCE_DIR
 target_sources(${PROJECT_NAME} PRIVATE "src/stb_image.h")
 target_sources(${PROJECT_NAME} PRIVATE "src/fck_png.c")
 
-target_link_libraries(${PROJECT_NAME} PUBLIC fck::os fck::api-interface)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::os fck::kll fck::api-interface fck::render fck::db-interface)

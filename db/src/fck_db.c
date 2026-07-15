@@ -16,9 +16,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "fck_serialiser.h"
-#include "fck_serialiser_json.h"
-
 #define fck_multidir_child_capacity 255
 #define fck_multidir_bitset_capacity 4
 #define fck_multidir_bitset_chunk_capacity 64
@@ -248,8 +245,9 @@ static fck_db_element *fck_multidir_add_entry(fck_db_header *header, fck_multidi
 		fck_multidir *next = current->dir.children + subid;
 		current = next;
 	}
-	// We now know current is a leaf!
+
 	current->entry.element = element;
+	
 	current->entry.name = name;
 
 	for (fckc_size_t index = 0; index < indirections; index++)
@@ -515,36 +513,6 @@ static fck_db_id fck_db_id_from_path(const char *path, fckc_u16 type)
 	return id;
 }
 
-static const char *fck_db_make_meta_path(char *buffer, fckc_size_t size, const char *dir, const char *path)
-{
-	if (!buffer || size == 0 || !dir || !path)
-	{
-		return NULL;
-	}
-
-	const fckc_size_t dir_len = strlen(dir);
-	const int need_separator = (dir_len > 0 && dir[dir_len - 1] != '/' && path[0] != '/');
-	const int written = snprintf(buffer, size, need_separator ? "%s/%s.%s" : "%s%s.%s", dir, path, fck_db_item_meta_extension);
-
-	if (written < 0 || (fckc_size_t)written >= size)
-	{
-		return NULL;
-	}
-
-	char *path_start = buffer + dir_len + (need_separator ? 1 : 0);
-	char *ext_start = strrchr(path_start, '.');
-
-	for (char *p = path_start; p < ext_start; p++)
-	{
-		if (*p == '/' || *p == '\\')
-		{
-			*p = '.';
-		}
-	}
-
-	return buffer;
-}
-
 static const char *fck_db_make_full_path(char *buffer, fckc_size_t size, const char *dir, const char *path)
 {
 	if (!buffer || size == 0 || !dir || !path)
@@ -562,21 +530,6 @@ static const char *fck_db_make_full_path(char *buffer, fckc_size_t size, const c
 	return buffer;
 }
 
-static const char *fck_db_make_database_path(char *buffer, fckc_size_t size, const char *path)
-{
-	if (!buffer || size == 0 || !path)
-	{
-		return NULL;
-	}
-
-	const int written = snprintf(buffer, size, "%s.%s", path, fck_db_path_extension);
-	if (written < 0 || (fckc_size_t)written >= size)
-	{
-		return NULL;
-	}
-	return buffer;
-}
-
 static void fck_db_api_import_file(fck_db external, fck_db_section *section, const char *relative)
 {
 	fck_db_private *db = external.opaque;
@@ -584,10 +537,6 @@ static void fck_db_api_import_file(fck_db external, fck_db_section *section, con
 	kll_arena *temp = kll->arena->create(db->allocator, 512);
 	const char *ext = fck_db_api_file_extension(relative);
 	fck_assert(ext);
-	if (strcmp(ext, fck_db_item_meta_extension) == 0)
-	{
-		return;
-	}
 
 	char absolute_buffer[1024];
 	const char *absolute = fck_db_make_full_path(absolute_buffer, fck_arraysize(absolute_buffer), section->path, relative);
@@ -705,8 +654,8 @@ static void fck_db_api_remove_path(fck_db external, fck_db_section *section, fck
 	fck_multidir_remove_entry(&db->database.header, &db->database.root, id);
 	char buffer[1024];
 
-	//const char *full_path = fck_db_make_full_path(buffer, fck_arraysize(buffer), section->path, relative);
-	// TODO
+	// const char *full_path = fck_db_make_full_path(buffer, fck_arraysize(buffer), section->path, relative);
+	//  TODO
 }
 
 static void fck_db_api_hotreload(fck_db external)
@@ -726,9 +675,9 @@ static void fck_db_api_hotreload(fck_db external)
 				break;
 			}
 
-			for (fckc_size_t index = 0; index < result; index++)
+			for (fckc_size_t change_index = 0; change_index < result; change_index++)
 			{
-				fck_file_watcher_event *change = changes + index;
+				fck_file_watcher_event *change = changes + change_index;
 				if (strstr(change->path, ".db.fck"))
 				{
 					continue;
@@ -866,7 +815,7 @@ static fck_db_loader_interface directory_loader = {
 	.supports = fck_directory_supports,
 };
 
-fck_db_api *fck_db_load(fck_api_registry *registry, void *old)
+FCK_EXPORT_API fck_db_api *fck_db_load(fck_api_registry *registry, void *old)
 {
 	apis = registry;
 	apis->add(fck_db_api_name, &db_api);

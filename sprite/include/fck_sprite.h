@@ -10,6 +10,7 @@ struct kll_allocator;
 struct sht_image_view;
 struct sht_driver;
 struct sht_command_buffer;
+struct fck_png_asset;
 
 typedef struct fck_sprite_transform
 {
@@ -46,7 +47,7 @@ typedef struct fck_sprites
 // ... Something like this... we gotta see
 typedef struct fck_sprite_batch_api
 {
-	fck_sprite_batch_id (*add)(fck_sprites *sprites, const char *name, const struct sht_image_view *view, float sw, float sh);
+	fck_sprite_batch_id (*add)(fck_sprites *sprites, const char *name, struct fck_png_asset* asset, float sw, float sh);
 	int (*remove)(fck_sprites *sprites, fck_sprite_batch_id index);
 
 	struct sht_image_view *(*image_view)(struct fck_sprites *sprites, fck_sprite_batch_id index);

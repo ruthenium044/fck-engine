@@ -27,7 +27,7 @@
 #include <fck_gameloop.h>
 #include <fck_sprite.h>
 
-#include "fck_db.h"
+#include <fck_db.h>
 
 static void purge_files(const char *pattern)
 {
@@ -75,28 +75,6 @@ typedef struct app_screen
 	float sprite_width;
 	float sprite_height;
 } app_screen;
-
-// Streamline this shit
-static sht_image app_load_image(sht_driver driver, const void *pixels, sht_format format, int width, int height)
-{
-	sht_memory *memory = driver.vt->memory(driver);
-	const sht_image_configuration config = {
-		.format = format,
-		.height = to_u32(height),
-		.width = to_u32(width),
-		.transfer = sht_transfer_target,
-		.usage = sht_image_usage_sampled,
-	};
-
-	sht_image image = memory->image->create(memory->bump, &config, sht_memory_gpu);
-	if (!memory->image->is_ok(&image))
-	{
-		return image;
-	}
-	const fckc_size_t size = (fckc_size_t)width * height * 4;
-	driver.vt->upload_image(driver, &image, pixels, size);
-	return image;
-}
 
 typedef struct app_sprite_pie_items
 {
@@ -542,7 +520,7 @@ static void *app_sprite_implementation_constructor(void *self, void *userdata)
 	fck_sprite_id *component = (fck_sprite_id *)self;
 	const fck_sprite_batch_id id = impl->sprite->batches->index(impl->sprites, 0);
 	fck_sprite_transform *transform = impl->sprite->add(impl->sprites, id);
-	transform->scale = 2.0f;
+	transform->scale = 10.0f;
 	*component = impl->sprite->indexof(impl->sprites, id, transform);
 	return component;
 }
@@ -606,39 +584,11 @@ static app_gameloop *app_gameloops_add(kll_allocator *allocator, app_gameloops *
 	return current;
 }
 
-// Goal: We want to use fck_png_asset everywhere instead of sht_image_view
-// Direction: Lazy on-demand resolution
-// Extra: When we receive a newer timestamp, we would also like to update the resolved state
-typedef struct fck_png_asset
-{
-	fck_db_element base;
-	fck_png value;
-} fck_png_asset;
-
 typedef struct fck_shader_asset
 {
 	fck_db_element base;
 	fck_glsl_object value;
 } fck_shader_asset;
-
-static fck_db_element *fck_png_import(fck_api_registry *registry, const char *file)
-{
-	os->io->log("Load PNG: %s", file);
-	fck_png_api *png = (fck_png_api *)registry->find(fck_png_api_name);
-	const fck_png value = png->load(file);
-	fck_png_asset *asset = (fck_png_asset *)kll_malloc(kll->system, sizeof(*asset));
-	asset->value = value;
-	asset->base.type = fck_db_asset;
-	asset->base.timestamp = os->chrono->now();
-	return &asset->base;
-}
-
-static fckc_size_t fck_png_supports(const char ***extensions)
-{
-	static const char *supported[] = {"png"};
-	*extensions = supported;
-	return fck_arraysize(supported);
-}
 
 static fck_db_element *fck_shader_import(fck_api_registry *registry, const char *file)
 {
@@ -678,6 +628,7 @@ static fck_db_element *fck_shader_import(fck_api_registry *registry, const char 
 	asset->value = shader_object;
 	asset->base.type = fck_db_asset;
 	asset->base.timestamp = os->chrono->now();
+	asset->base.size = sizeof(*asset);
 	return &asset->base;
 }
 static fckc_size_t fck_shader_supports(const char ***extensions)
@@ -711,13 +662,6 @@ int main(int argc, char **argv)
 		plugins->load(current);
 	}
 
-	fck_db_loader_interface png_loader = {
-		.type = 2,
-		.name = "png",
-		.import = fck_png_import,
-		.supports = fck_png_supports,
-	};
-
 	fck_db_loader_interface shader_loader = {
 		.type = 3,
 		.name = "shader",
@@ -725,9 +669,6 @@ int main(int argc, char **argv)
 		.supports = fck_shader_supports,
 	};
 
-	fck_db_load(registry, NULL);
-
-	registry->add(fck_db_loader_interface_name, &png_loader);
 	registry->add(fck_db_loader_interface_name, &shader_loader);
 
 	fck_input *input = (fck_input *)registry->find(fck_input_api_name);
@@ -819,24 +760,12 @@ int main(int argc, char **argv)
 	app_sprite_pie_items sprite_pie;
 	app_sprite_pie_items_init(nk, &sprite_pie, root);
 
-	//fck_db_element* txt_asset = (fck_db_element*)db->get(assets, "app/configuration/config.txt");
+	// fck_db_element* txt_asset = (fck_db_element*)db->get(assets, "app/configuration/config.txt");
 	fck_png_asset *bg_png_asset = (fck_png_asset *)db->get(assets, "app/bg-mockup.png");
 	fck_png_asset *bird_png_asset = (fck_png_asset *)db->get(assets, "app/bird-sheet.png");
 	fck_png_asset *items_png_asset = (fck_png_asset *)db->get(assets, "app/items-sheet.png");
 	fck_shader_asset *sprite_vs = (fck_shader_asset *)db->get(assets, "app/sprite.vs");
 	fck_shader_asset *sprite_fs = (fck_shader_asset *)db->get(assets, "app/sprite.fs");
-
-	const sht_image background_image =
-		app_load_image(driver, bg_png_asset->value.data, sht_format_r8g8b8a8_unorm, bg_png_asset->value.width, bg_png_asset->value.height);
-	const sht_image_view background_image_view = memory->image->view(memory->bump, background_image, sht_format_r8g8b8a8_unorm);
-
-	const sht_image bird_image = app_load_image(driver, bird_png_asset->value.data, sht_format_r8g8b8a8_unorm, bird_png_asset->value.width,
-	                                            bird_png_asset->value.height);
-	const sht_image_view bird_image_view = memory->image->view(memory->bump, bird_image, sht_format_r8g8b8a8_unorm);
-
-	const sht_image items_image = app_load_image(driver, items_png_asset->value.data, sht_format_r8g8b8a8_unorm,
-	                                             items_png_asset->value.width, items_png_asset->value.height);
-	const sht_image_view items_image_view = memory->image->view(memory->bump, items_image, sht_format_r8g8b8a8_unorm);
 
 	sht_image depth_image = {0};
 	sht_image_view depth_view = {0};
@@ -870,15 +799,11 @@ int main(int argc, char **argv)
 	// Then we could also move the whole render pass there?
 	// const fck_sprite_batch_id empty_batch = sprite->batches->add(&sprites, "Empty", &white_view, 32.0f, 32.0f);
 	// fck_assert(empty_batch.value == 0);
-	const fck_sprite_batch_id background_batch = sprite->batches->add(&sprites, "Background", &background_image_view, 132.0f, 72.0f);
-	const fck_sprite_batch_id birds_batch = sprite->batches->add(&sprites, "Birds", &bird_image_view, 32.0f, 32.0f);
-	const fck_sprite_batch_id items_batch = sprite->batches->add(&sprites, "Items", &items_image_view, 16.0f, 16.0f);
-
-	const float temp_transform_scale = 10.0f;
+	const fck_sprite_batch_id background_batch = sprite->batches->add(&sprites, "Background", bg_png_asset, 132.0f, 72.0f);
+	const fck_sprite_batch_id birds_batch = sprite->batches->add(&sprites, "Birds", bird_png_asset, 32.0f, 32.0f);
+	const fck_sprite_batch_id items_batch = sprite->batches->add(&sprites, "Items", items_png_asset, 16.0f, 16.0f);
 
 	fckc_u64 time_point = os->chrono->ms();
-
-	fckc_u64 accumulator = 0;
 
 	// fckc_u32 selected_batch_index = 0;
 	// fckc_u32 selected_transform_index = 0;

@@ -21,6 +21,7 @@ typedef enum fck_nuklear_theme
 	fck_nk_theme_count
 } fck_nuklear_theme;
 
+// TODO: make them lowercase
 typedef enum fck_nk_style_colors
 {
 	FCK_NK_COLOR_TEXT,

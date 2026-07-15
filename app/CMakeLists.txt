@@ -7,8 +7,6 @@ project(fck-app)
 
 add_executable(${PROJECT_NAME})
 target_sources(${PROJECT_NAME} PRIVATE "main.c")
-target_sources(${PROJECT_NAME} PRIVATE "fck_db.c")
-target_sources(${PROJECT_NAME} PRIVATE "fck_db.h")
 target_sources(${PROJECT_NAME} PRIVATE "fck_serialiser.h")
 target_sources(${PROJECT_NAME} PRIVATE "fck_serialiser_json.c")
 target_sources(${PROJECT_NAME} PRIVATE "fck_serialiser_json.h")
@@ -38,6 +36,7 @@ find_package(nuklear)
 find_package(sprite)
 find_package(ec)
 find_package(gameloop)
+find_package(db)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::hash)
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::os)
@@ -54,6 +53,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE fck::shader-interface)
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::gfx-interface)
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::sprite-interface)
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::ec-interface)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::db-interface)
 
 # this needs to get substituted well...
 target_compile_definitions(${PROJECT_NAME} PRIVATE

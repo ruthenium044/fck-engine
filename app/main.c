@@ -28,8 +28,6 @@
 #include <fck_sprite.h>
 
 #include "fck_db.h"
-#include "../nuklear/src/nuklear.h"
-#include "../nuklear/src/fck_nuklear_colours.inl"
 
 static void purge_files(const char *pattern)
 {

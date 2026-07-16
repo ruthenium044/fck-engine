@@ -403,35 +403,41 @@ static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugin
 	{
 		//// TODO: we shall not create through sprite anymore, we need to create through ec
 		//// Sprite is a resource!
-		 if (nk->pie->happened(&pie->add_bird))
+		if (nk->pie->happened(&pie->add_bird))
 		{
-			//I tired ;-;
-		 	fck_entity entity = ec->entity->create(world);
-			const fck_component_id component_id = ec->registry->id(world, "sprite");
-			ec->component->add(world, entity, component_id);
+			{
+				const fck_sprite_transform baseline = {
+					.scale = 10.0f,
+				};
 
-			//const fck_sprite_batch_id id = sprite->batches->find_by_name(sprites, "Birds");
-			//fck_sprite_transform *transform = sprite->add(sprites, id);
+				const fck_entity entity = ec->entity->create(world);
+				const fck_sprite_batch_id batch_id = sprite->batches->find_by_name(sprites, "Birds");
+				fck_sprite_transform *transform = sprite->add(sprites, batch_id);
+				*transform = baseline;
+				nk->pie->apply_position(view, &transform->x, &transform->y);
+
+				const fck_sprite_id sprite_id = sprite->indexof(sprites, batch_id, transform);
+				ec->component->set(world, entity, sprite_component_id, &sprite_id);
+
+				nk->set_selection(view, transform);
+				*selected_entity = entity;
+			}
+			// const fck_sprite_batch_id id = sprite->batches->find_by_name(sprites, "Birds");
+			// fck_sprite_transform *transform = sprite->add(sprites, id);
 			//// Pie api is a bit clunky
-			//const fck_sprite_transform baseline = {
-			//	.scale = 10.0f,
-			//};
-			//*transform = baseline;
-			//nk->pie->apply_position(view, &transform->x, &transform->y);
-			//nk->set_selection(view, transform);
-		 }
+		}
 
 		/* if (nk->pie->happened(&pie->add_item))
 		{
-			const fck_sprite_batch_id id = sprite->batches->find_by_name(sprites, "Items");
-			fck_sprite_transform *transform = sprite->add(sprites, id);
-			 Pie api is a bit clunky
-			const fck_sprite_transform baseline = {
-				.scale = 10.0f,
-			};
-			*transform = baseline;
-			nk->pie->apply_position(view, &transform->x, &transform->y);
-			nk->set_selection(view, transform);
+		    const fck_sprite_batch_id id = sprite->batches->find_by_name(sprites, "Items");
+		    fck_sprite_transform *transform = sprite->add(sprites, id);
+		     Pie api is a bit clunky
+		    const fck_sprite_transform baseline = {
+		        .scale = 10.0f,
+		    };
+		    *transform = baseline;
+		    nk->pie->apply_position(view, &transform->x, &transform->y);
+		    nk->set_selection(view, transform);
 		 }*/
 
 		{

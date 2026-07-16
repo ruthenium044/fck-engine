@@ -107,7 +107,7 @@ typedef struct fck_ec_entity_api
 
 typedef struct fck_ec_component_api
 {
-	int (*add)(fck_ec ec, fck_entity entity, fck_component_id id);
+	void* (*add)(fck_ec ec, fck_entity entity, fck_component_id id);
 	// data can be NULL -> zeroes out memory
 	int (*set)(fck_ec ec, fck_entity entity, fck_component_id id, const void *data);
 	int (*remove)(fck_ec ec, fck_entity entity, fck_component_id id);

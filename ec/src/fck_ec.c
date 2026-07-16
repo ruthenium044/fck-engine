@@ -969,7 +969,7 @@ static const char *fck_ec_api_components_nameof(fck_ec ec, fck_component_id id)
 	return NULL;
 }
 
-static int fck_ec_api_component_add(fck_ec ec, fck_entity entity, fck_component_id id)
+static void *fck_ec_api_component_add(fck_ec ec, fck_entity entity, fck_component_id id)
 {
 	fck_ec_private *ec_private = ec.opaque;
 	const fckc_u32 result = fck_entity_storage_api_get(&ec_private->all, entity);
@@ -978,13 +978,10 @@ static int fck_ec_api_component_add(fck_ec ec, fck_entity entity, fck_component_
 		fck_entity_components *components = fck_ec_api_components_resolve(ec, id);
 		if (components)
 		{
-			if (fck_entity_component_api_add(components, entity))
-			{
-				return 1;
-			}
+			return fck_entity_component_api_add(components, entity);
 		}
 	}
-	return 0;
+	return NULL;
 }
 
 static int fck_ec_api_component_set(fck_ec ec, fck_entity entity, fck_component_id id, const void *data)

@@ -4,6 +4,7 @@
 #include <fckc_inttypes.h>
 
 #define fck_db_api_name "fck-db"
+
 #define fck_db_loader_interface_name "fck-db-loader"
 
 struct kll_allocator;
@@ -11,19 +12,19 @@ struct fck_api_registry;
 
 typedef enum fck_db_type
 {
-	fck_db_asset,
+	fck_db_type_asset,
 } fck_db_type;
 
-typedef struct fck_db_element
+typedef struct fck_db_asset
 {
 	fck_db_type type;
 	fckc_i64 timestamp;
 	fckc_size_t size;
-} fck_db_element;
+	
+} fck_db_asset;
 
 typedef union fck_db_id {
 	fckc_u64 value;
-
 	struct
 	{
 		fckc_u64 type : 16;
@@ -38,6 +39,16 @@ typedef struct fck_db
 	struct fck_db_private *opaque;
 } fck_db;
 
+struct fck_db_api;
+
+typedef struct fck_db_loader_args
+{
+	struct fck_db_api *api;
+	struct fck_db db;
+	struct fck_api_registry *registry;
+	fck_db_id target;
+} fck_db_loader_args;
+
 typedef struct fck_db_loader_interface
 {
 	// For now we set this one manually for the loaders!
@@ -45,8 +56,7 @@ typedef struct fck_db_loader_interface
 	fckc_u16 type;
 
 	fckc_u16 pad[3];
-
-	fck_db_element *(*import)(struct fck_api_registry *registry, const char *file);
+	fck_db_asset *(*import)(const fck_db_loader_args *args, const char *file);
 	fckc_size_t (*supports)(const char ***extensions);
 } fck_db_loader_interface;
 
@@ -54,7 +64,10 @@ typedef struct fck_db_api
 {
 	fck_db (*create)(struct kll_allocator *allocator, const char *path);
 	void (*hotreload)(fck_db db);
-	fck_db_element *(*get)(fck_db db, const char *path);
+
+	fck_db_asset* (*get_from_id)(fck_db db, fck_db_id id);
+
+	fck_db_asset *(*get)(fck_db db, const char *path);
 	void (*close)(fck_db db);
 } fck_db_api;
 

@@ -597,14 +597,14 @@ static app_gameloop *app_gameloops_add(kll_allocator *allocator, app_gameloops *
 
 typedef struct fck_shader_asset
 {
-	fck_db_element base;
+	fck_db_asset base;
 	fck_spirv_object value;
 } fck_shader_asset;
 
-static fck_db_element *fck_shader_import(fck_api_registry *registry, const char *file)
+static fck_db_asset *fck_shader_import(const fck_db_loader_args *args, const char *file)
 {
 	os->io->log("Load Shader: %s", file);
-	fck_shader_api *shader = (fck_shader_api *)registry->find(fck_shader_api_name);
+	fck_shader_api *shader = (fck_shader_api *)args->registry->find(fck_shader_api_name);
 
 	const char *ext = fck_db_extension(file);
 
@@ -632,12 +632,12 @@ static fck_db_element *fck_shader_import(fck_api_registry *registry, const char 
 	fck_assert(shader->is_ok(compiler));
 
 	fck_file file_handle = os->fs->open(file, "r");
-	fck_shader_desc desc = (fck_shader_desc){type, file, "main"};
+	fck_shader_desc desc = {.type = to_u32(type), .file = file, .entry_point = "main"};
 	fck_glsl_object shader_object = compiler.create_glsl_from_file(&compiler, &desc, &file_handle);
 	fck_shader_asset *asset = (fck_shader_asset *)kll_malloc(kll->system, sizeof(*asset));
 	os->fs->close(file_handle);
 	asset->value = compiler.create_spirv(&compiler, &shader_object.generic);
-	asset->base.type = fck_db_asset;
+	asset->base.type = fck_db_type_asset;
 	asset->base.timestamp = os->chrono->now();
 	asset->base.size = sizeof(*asset);
 
@@ -694,7 +694,7 @@ int main(int argc, char **argv)
 	fck_ec_api *ec = (fck_ec_api *)registry->find(fck_ec_api_name);
 	fck_db_api *db = (fck_db_api *)registry->find(fck_db_api_name);
 
-	const fck_db assets = db->create(kll->system, fck_resource_path);
+	fck_db assets = db->create(kll->system, fck_resource_path);
 	app_gameloops loops = {0};
 	// We can create a new ec
 	fck_ec world = ec->core->create(kll->system, 32);
@@ -797,7 +797,7 @@ int main(int argc, char **argv)
 		depth_view = memory->image->view(memory->bump, depth_image, sht_format_undefined);
 	}
 
-	fck_sprites sprites = sprite->create(kll->system, &driver);
+	fck_sprites sprites = sprite->create(kll->system, &assets, &driver);
 
 	app_sprite_implementation sprite_implementation = {.sprite = sprite, .sprites = &sprites};
 	const fck_component_id sprite_id = ec->registry->declare(world, "sprite", sizeof(fck_sprite_id));

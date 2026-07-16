@@ -544,8 +544,28 @@ static fck_os_api std_api = {
 
 fck_os_api *os = &std_api;
 
+static int fck_file_watcher_is_temp_file(const char *filename)
+{
+	const char *ext = strrchr(filename, '.');
+
+	const fckc_size_t len = strlen(filename);
+	if (len > 0 && filename[len - 1] == '~')
+	{
+		return 1;
+	}
+
+	if (ext != NULL)
+	{
+		if (strcmp(ext, ".TMP") == 0 || strcmp(ext, ".tmp") == 0 || strcmp(ext, ".bak") == 0)
+		{
+			return true;
+		}
+	}
+	return 0;
+}
+
 // TODO: We need all this shit for UNIX
-#ifndef __WIN32__
+#ifdef _WIN32
 #include <windows.h> // !NOLINT
 
 #include <WinBase.h>
@@ -555,6 +575,7 @@ fck_os_api *os = &std_api;
 #include <ioapiset.h>
 #include <minwinbase.h>
 #include <minwindef.h>
+#include <string.h>
 #include <stringapiset.h>
 #include <synchapi.h>
 #include <winnt.h>
@@ -632,10 +653,18 @@ fckc_size_t fck_file_watcher_changes(fck_file_watcher watcher, fck_file_watcher_
 
 		const FILE_NOTIFY_INFORMATION *notify_info = (FILE_NOTIFY_INFORMATION *)(fs->buffer + fs->offset);
 		const int len = notify_info->FileNameLength / sizeof(WCHAR);
-		const int filenamelen = WideCharToMultiByte(CP_ACP, 0, notify_info->FileName, len, event->path, sizeof(event->path), NULL, NULL);
+		const int supported_len = sizeof(event->path) - 1;
+		int filenamelen = WideCharToMultiByte(CP_UTF8, 0, notify_info->FileName, len, event->path, supported_len, NULL, NULL);
+		if (filenamelen < 0)
+		{
+			filenamelen = 0;
+		}
 		event->path[filenamelen] = '\0';
+		if (fck_file_watcher_is_temp_file(event->path))
+		{
+			goto go_next;
+		}
 
-		(void)filenamelen;
 		switch (notify_info->Action)
 		{
 		case FILE_ACTION_ADDED:
@@ -658,6 +687,7 @@ fckc_size_t fck_file_watcher_changes(fck_file_watcher watcher, fck_file_watcher_
 		}
 		count = count + 1;
 
+	go_next:
 		if (notify_info->NextEntryOffset == 0)
 		{
 			break;
@@ -689,21 +719,182 @@ void fck_file_watcher_destroy(fck_file_watcher watcher)
 	CloseHandle(fs->handle);
 	SDL_free(fs);
 }
-#else // !__WIN32__
-// TODO: Uniiiiix
-static fck_file_watcher fck_file_watcher_create(const char *path)
+#elif defined(__APPLE__)
+
+#include <CoreServices/CoreServices.h>
+#include <pthread.h>
+#include <string.h>
+
+#define FCK_MAC_BUFFER_SIZE 1024
+
+typedef struct fck_file_watcher_macos
 {
-	return (fck_file_watcher){.handle = (void *)NULL};
-}
-static fckc_size_t fck_file_watcher_changes(fck_file_watcher watcher, fck_file_watcher_event *events, fckc_size_t capacity)
+	FSEventStreamRef stream;
+	dispatch_queue_t queue;
+	pthread_mutex_t mutex;
+
+	// Ring buffer to hold events between background GCD thread and main polling thread
+	fck_file_watcher_event events[FCK_MAC_BUFFER_SIZE];
+	int head;
+	int tail;
+} fck_file_watcher_macos;
+typedef struct fck_file_watcher_macos
 {
-	(void)watcher;
-	(void)events;
-	(void)capacity;
-	return 0;
-}
-static void fck_file_watcher_destroy(fck_file_watcher watcher)
+	FSEventStreamRef stream;
+	dispatch_queue_t queue;
+	pthread_mutex_t mutex;
+
+	// Store the absolute root path to strip it later
+	char root_path[1024];
+	size_t root_len;
+
+	fck_file_watcher_event events[FCK_MAC_BUFFER_SIZE];
+	int head;
+	int tail;
+} fck_file_watcher_macos;
+
+static void fck_fsevent_callback(ConstFSEventStreamRef streamRef, void *clientCallBackInfo, size_t numEvents, void *eventPaths,
+                                 const FSEventStreamEventFlags eventFlags[], const FSEventStreamEventId eventIds[])
 {
-	(void)watcher;
+	fck_file_watcher_macos *fs = (fck_file_watcher_macos *)clientCallBackInfo;
+	char **paths = (char **)eventPaths;
+
+	pthread_mutex_lock(&fs->mutex);
+
+	for (size_t i = 0; i < numEvents; i++)
+	{
+		const char *absolute = paths[i];
+		const char *relative = absolute;
+
+		if (strncmp(absolute, fs->root_path, fs->root_len) == 0)
+		{
+			relative = absolute + fs->root_len;
+			if (*relative == '/')
+				relative++;
+		}
+
+		if (fck_file_watcher_is_temp_file(relative))
+			continue;
+		if (!(eventFlags[i] & kFSEventStreamEventFlagItemIsFile))
+			continue;
+
+		int next_tail = (fs->tail + 1) % FCK_MAC_BUFFER_SIZE;
+		if (next_tail == fs->head)
+			break;
+
+		fck_file_watcher_event *event = &fs->events[fs->tail];
+		event->time = os->chrono->ms();
+		strncpy(event->path, relative, sizeof(event->path) - 1);
+		event->path[sizeof(event->path) - 1] = '\0';
+
+		// --- RENAMING LOGIC ---
+		// If the file was renamed, FSEvents marks it with the Renamed flag.
+		// We determine if it's the "Old" or "New" name by checking if it exists
+		// on disk. If it's gone, it's the old path (deleted). If it's here,
+		// it's the new path (created).
+		if (eventFlags[i] & kFSEventStreamEventFlagItemRenamed)
+		{
+			if (access(absolute, F_OK) == -1) // File no longer exists = Deleted
+			{
+				event->type = fck_file_deleted;
+			}
+			else // File exists = Created/Renamed to this
+			{
+				event->type = fck_file_created;
+			}
+		}
+		else if (eventFlags[i] & kFSEventStreamEventFlagItemCreated)
+		{
+			event->type = fck_file_created;
+		}
+		else if (eventFlags[i] & kFSEventStreamEventFlagItemRemoved)
+		{
+			event->type = fck_file_deleted;
+		}
+		else
+		{
+			event->type = fck_file_modified;
+		}
+
+		fs->tail = next_tail;
+	}
+
+	pthread_mutex_unlock(&fs->mutex);
 }
+
+fck_file_watcher fck_file_watcher_create(const char *path)
+{
+	fck_file_watcher_macos *fs = (fck_file_watcher_macos *)SDL_malloc(sizeof(*fs));
+	if (!fs)
+		return (fck_file_watcher){.handle = (void *)NULL};
+
+	// Save root path info
+	strncpy(fs->root_path, path, sizeof(fs->root_path) - 1);
+	fs->root_len = strlen(fs->root_path);
+
+	fs->head = 0;
+	fs->tail = 0;
+	pthread_mutex_init(&fs->mutex, NULL);
+
+	CFStringRef pathRef = CFStringCreateWithCString(NULL, path, kCFStringEncodingUTF8);
+	CFArrayRef pathsToWatch = CFArrayCreate(NULL, (const void **)&pathRef, 1, NULL);
+
+	FSEventStreamContext context = {0, fs, NULL, NULL, NULL};
+	const FSEventStreamCreateFlags flags = kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagNoDefer;
+
+	fs->stream = FSEventStreamCreate(NULL, &fck_fsevent_callback, &context, pathsToWatch, kFSEventStreamEventIdSinceNow, 0.1, flags);
+	fs->queue = dispatch_queue_create("fck_file_watcher_queue", NULL);
+	FSEventStreamSetDispatchQueue(fs->stream, fs->queue);
+	FSEventStreamStart(fs->stream);
+
+	CFRelease(pathsToWatch);
+	CFRelease(pathRef);
+	return (fck_file_watcher){.handle = (void *)fs};
+}
+
+fckc_size_t fck_file_watcher_changes(fck_file_watcher watcher, fck_file_watcher_event *events, fckc_size_t capacity)
+{
+	fck_file_watcher_macos *fs = (fck_file_watcher_macos *)watcher.handle;
+	if (fs == NULL)
+	{
+		return 0;
+	}
+
+	fckc_size_t count = 0;
+
+	// Lock the ring buffer so the background thread doesn't write while we read
+	pthread_mutex_lock(&fs->mutex);
+
+	while (fs->head != fs->tail && count < capacity)
+	{
+		// Pop the event off our ring buffer and into the user's array
+		events[count] = fs->events[fs->head];
+
+		fs->head = (fs->head + 1) % FCK_MAC_BUFFER_SIZE;
+		count++;
+	}
+
+	pthread_mutex_unlock(&fs->mutex);
+
+	return count;
+}
+
+void fck_file_watcher_destroy(fck_file_watcher watcher)
+{
+	if (!watcher.handle)
+	{
+		return;
+	}
+	fck_file_watcher_macos *fs = (fck_file_watcher_macos *)watcher.handle;
+
+	// Stop and release Apple's stream and queues
+	FSEventStreamStop(fs->stream);
+	FSEventStreamInvalidate(fs->stream);
+	FSEventStreamRelease(fs->stream);
+	dispatch_release(fs->queue);
+
+	pthread_mutex_destroy(&fs->mutex);
+	SDL_free(fs);
+}
+
 #endif

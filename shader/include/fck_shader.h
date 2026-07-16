@@ -17,7 +17,6 @@ typedef enum fck_shader_language
 
 typedef enum fck_shader_stage_type
 {
-	// TODO: Fix this up so we have unknown or something - Something breaks in the sht driver
 	fck_shader_unkown = 0,
 	fck_shader_vertex = 1,
 	fck_shader_fragment = 2,

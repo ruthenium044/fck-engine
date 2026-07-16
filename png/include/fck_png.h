@@ -19,7 +19,7 @@ typedef struct fck_png
 
 typedef struct fck_png_asset_api
 {
-	// TODO: Make it possible to create assets from memory! 
+	// TODO: Make it possible to create assets from memory!
 	struct sht_image_view *(*resolve)(struct fck_png_asset *asset, struct sht_driver *driver);
 } fck_png_asset_api;
 

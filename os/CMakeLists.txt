@@ -16,14 +16,29 @@ endif()
 
 add_library(fck::os ALIAS ${PROJECT_NAME})
 
+include(FetchContent)
+FetchContent_Declare(
+    SDL
+    GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+    GIT_TAG release-3.2.24
+    GIT_PROGRESS TRUE
+    GIT_SHALLOW TRUE
+    SYSTEM
+)
+FetchContent_MakeAvailable(SDL)
+
+target_link_libraries(${PROJECT_NAME} PUBLIC SDL3::SDL3)
+
 if(APPLE)
-    target_sources(${PROJECT_NAME} PRIVATE "src/fck_os.macos.c")
+    #target_sources(${PROJECT_NAME} PRIVATE "src/fck_os.macos.c")
     # TODO: Dlete this branch - was a nice exercise, but fuck it
     find_package(kll)
-    target_link_libraries(${PROJECT_NAME} PUBLIC fck::fckc fck::events fck::kll
+    target_link_libraries(${PROJECT_NAME} PRIVATE 
+    "-framework CoreServices"
     "-framework AppKit"
     "-framework CoreVideo"
-    "-framework Cocoa"     
+    "-framework Cocoa"
+    "-framework CoreServices"
     "-framework QuartzCore")
 else()
     target_sources(${PROJECT_NAME} PRIVATE "src/fck_os.sdl.c")
@@ -34,19 +49,7 @@ else()
     #    set(SDL_SHARED OFF CACHE BOOL "" FORCE)
     #    set(SDL_STATIC ON CACHE BOOL "" FORCE)
     #endif()
-
-    include(FetchContent)
-    FetchContent_Declare(
-        SDL
-        GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
-        GIT_TAG release-3.2.24
-        GIT_PROGRESS TRUE
-        GIT_SHALLOW TRUE
-        SYSTEM
-    )
-    FetchContent_MakeAvailable(SDL)
-
-    target_link_libraries(${PROJECT_NAME} PUBLIC SDL3::SDL3)
+   # target_link_libraries(${PROJECT_NAME} PUBLIC SDL3::SDL3)
 endif()
 
 target_sources(${PROJECT_NAME} PRIVATE "include/fck_os.h")

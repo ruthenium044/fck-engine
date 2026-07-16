@@ -12,6 +12,7 @@
 #include <kll.h>
 #include <kll_malloc.h>
 
+#include <fck_db.h>
 #include <fck_gfx.h>
 #include <sht_render.h>
 
@@ -712,7 +713,7 @@ static fck_sprite_id fck_sprite_api_invalid(void)
 	return index;
 }
 
-static struct fck_sprites fck_sprite_api_create(struct kll_allocator *allocator, sht_driver *driver)
+static struct fck_sprites fck_sprite_api_create(struct kll_allocator *allocator, fck_db *db, sht_driver *driver)
 {
 	fck_gfx_api *gfx = (fck_gfx_api *)apis->find(fck_gfx_api_name);
 
@@ -753,9 +754,9 @@ static struct fck_sprites fck_sprite_api_create(struct kll_allocator *allocator,
 	}
 
 	fck_sprites *external_sprites = fck_sprites_to_external(&sprites, &external);
-	// TODO: Fix up a default thing again - Maybe not making it part of the batch? Reserve 0 to be NULL? Idk! :D 
-	//const fck_sprite_batch_id empty_batch = fck_sprite_batch_api_add(external_sprites, "Empty", &sprites.white_view, 32.0f, 32.0f);
-	//fck_assert(empty_batch.value == 0);
+	// TODO: Fix up a default thing again - Maybe not making it part of the batch? Reserve 0 to be NULL? Idk! :D
+	// const fck_sprite_batch_id empty_batch = fck_sprite_batch_api_add(external_sprites, "Empty", &sprites.white_view, 32.0f, 32.0f);
+	// fck_assert(empty_batch.value == 0);
 	return *external_sprites;
 }
 

@@ -11,6 +11,12 @@
 #include <kll.h>
 #include <kll_malloc.h>
 
+#include <fckc_assert.h>
+#include <fckc_inttypes.h>
+
+#include <stddef.h>
+#include <string.h>
+
 static fck_png fck_png_api_load(const char *path)
 {
 	fck_png png;
@@ -41,10 +47,18 @@ typedef struct fck_png_resolved
 
 typedef struct fck_png_asset
 {
-	fck_db_element base;
+	fck_db_asset base;
 	fck_png value;
 	fck_png_resolved resolved;
 } fck_png_asset;
+
+static sht_image fck_png_upload_image_on_gpu(sht_driver driver, sht_image image, const void *pixels, sht_format format, int width,
+                                             int height)
+{
+	const fckc_size_t size = (fckc_size_t)width * height * 4;
+	driver.vt->upload_image(driver, &image, pixels, size);
+	return image;
+}
 
 static sht_image fck_png_load_image_on_gpu(sht_driver driver, const void *pixels, sht_format format, int width, int height)
 {
@@ -62,36 +76,57 @@ static sht_image fck_png_load_image_on_gpu(sht_driver driver, const void *pixels
 	{
 		return image;
 	}
-	const fckc_size_t size = (fckc_size_t)width * height * 4;
-	driver.vt->upload_image(driver, &image, pixels, size);
+	fck_png_upload_image_on_gpu(driver, image, pixels, format, width, height);
 	return image;
 }
 
 static sht_image_view *fck_png_asset_resolve(fck_png_asset *asset, sht_driver *driver)
 {
 	sht_memory *memory = driver->vt->memory(*driver);
-	if (!memory->image->is_ok(&asset->resolved.image))
+	if (asset->base.timestamp > asset->resolved.timestamp)
 	{
-		const sht_format format = sht_format_r8g8b8a8_unorm;
-		asset->resolved.image = fck_png_load_image_on_gpu(*driver, asset->value.data, format, asset->value.width, asset->value.height);
-		asset->resolved.view = memory->image->view(memory->bump, asset->resolved.image, format);
-		asset->resolved.timestamp = os->chrono->now();
+		if (asset->value.data != NULL)
+		{
+			if (memory->image->is_ok(&asset->resolved.image))
+			{
+				driver->vt->idle(*driver);
+				memory->image->discard(memory->bump, &asset->resolved.view);
+				memory->image->destroy(memory->bump, &asset->resolved.image);
+			}
+
+			const sht_format format = sht_format_r8g8b8a8_unorm;
+			asset->resolved.image = fck_png_load_image_on_gpu(*driver, asset->value.data, format, asset->value.width, asset->value.height);
+			asset->resolved.view = memory->image->view(memory->bump, asset->resolved.image, format);
+			asset->resolved.timestamp = os->chrono->now();
+		}
 	}
 	return &asset->resolved.view;
 }
 
-static fck_db_element *fck_png_import(fck_api_registry *registry, const char *file)
+static fck_db_asset *fck_png_import(const fck_db_loader_args *args, const char *file)
 {
 	os->io->log("Load PNG: %s", file);
-	fck_png_api *png = (fck_png_api *)registry->find(fck_png_api_name);
-	const fck_png value = png->load(file);
-	fck_png_asset *asset = (fck_png_asset *)kll_malloc(kll->system, sizeof(*asset));
-	memset(asset, 0, sizeof(*asset));
-	asset->value = value;
-	asset->base.type = fck_db_asset;
-	asset->base.timestamp = os->chrono->now();
-	asset->base.size = sizeof(*asset);
-	return &asset->base;
+
+	fck_png_asset *asset = (fck_png_asset *)args->api->get_from_id(args->db, args->target);
+	if (asset)
+	{
+		fck_assert(asset->base.size = sizeof(*asset));
+		fck_png_api_free(asset->value);
+		asset->value = fck_png_api_load(file);
+		asset->base.type = fck_db_type_asset;
+		asset->base.timestamp = os->chrono->now();
+		return &asset->base;
+	}
+	{
+		const fck_png value = fck_png_api_load(file);
+		fck_png_asset *asset = (fck_png_asset *)kll_malloc(kll->system, sizeof(*asset));
+		memset(asset, 0, sizeof(*asset));
+		asset->value = value;
+		asset->base.type = fck_db_type_asset;
+		asset->base.timestamp = os->chrono->now();
+		asset->base.size = sizeof(*asset);
+		return &asset->base;
+	}
 }
 
 static fckc_size_t fck_png_supports(const char ***extensions)

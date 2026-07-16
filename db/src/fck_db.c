@@ -43,7 +43,7 @@ typedef struct fck_db_header
 typedef struct fck_multidir_entry
 {
 	const char *name; // ?
-	fck_db_element *element;
+	fck_db_asset *element;
 } fck_multidir_entry;
 
 union fck_multidir;
@@ -151,7 +151,7 @@ static int fck_multidir_id_is_ok(fckc_u8 e0, fckc_u8 e1, fckc_u8 e2, fckc_u8 e3)
 	return 1;
 }
 
-static fck_db_element *fck_multidir_resolve(fck_multidir *root, fck_db_id id)
+static fck_db_asset *fck_multidir_resolve(fck_multidir *root, fck_db_id id)
 {
 	fckc_u8 e[4];
 	fck_db_id_extract(id, &e[0], &e[1], &e[2], &e[3]);
@@ -209,8 +209,8 @@ static int fck_multidir_empty(fck_multidir *dir)
 	return 1;
 }
 
-static fck_db_element *fck_multidir_add_entry(fck_db_header *header, fck_multidir *root, fck_db_id id, const char *name,
-                                              fck_db_element *element)
+static fck_db_asset *fck_multidir_add_entry(fck_db_header *header, fck_multidir *root, fck_db_id id, const char *name,
+                                            fck_db_asset *element)
 {
 	fckc_u8 e[4];
 	const fckc_size_t indirections = fck_arraysize(e);
@@ -247,7 +247,6 @@ static fck_db_element *fck_multidir_add_entry(fck_db_header *header, fck_multidi
 	}
 
 	current->entry.element = element;
-	
 	current->entry.name = name;
 
 	for (fckc_size_t index = 0; index < indirections; index++)
@@ -260,7 +259,7 @@ static fck_db_element *fck_multidir_add_entry(fck_db_header *header, fck_multidi
 	return current->entry.element;
 }
 
-static fck_db_element *fck_multidir_remove_entry(fck_db_header *header, fck_multidir *root, fck_db_id id)
+static fck_db_asset *fck_multidir_remove_entry(fck_db_header *header, fck_multidir *root, fck_db_id id)
 {
 	fckc_u8 e[4];
 	const fckc_size_t indirections = fck_arraysize(e);
@@ -294,7 +293,7 @@ static fck_db_element *fck_multidir_remove_entry(fck_db_header *header, fck_mult
 		current = next;
 	}
 	// We now know current is a leaf!
-	fck_db_element *stored = current->entry.element;
+	fck_db_asset *stored = current->entry.element;
 
 	for (fckc_size_t index = 0; index < indirections; index++)
 	{
@@ -530,6 +529,8 @@ static const char *fck_db_make_full_path(char *buffer, fckc_size_t size, const c
 	return buffer;
 }
 
+static fck_db_api db_api;
+
 static void fck_db_api_import_file(fck_db external, fck_db_section *section, const char *relative)
 {
 	fck_db_private *db = external.opaque;
@@ -548,22 +549,10 @@ static void fck_db_api_import_file(fck_db external, fck_db_section *section, con
 
 	fck_db_loader_interface null_loader = {.name = "none", .type = to_u16(~0)};
 	fck_db_loader_interface *loader = fck_db_ext_map_find(&db->loaders, ext);
-	fck_db_element *payload;
-	if (loader)
+	fck_db_asset *payload;
+	if (!loader)
 	{
-		payload = loader->import(apis, absolute);
-	}
-	else
-	{
-		const fck_file file = os->fs->open(absolute, "r");
-		fck_assert(os->fs->is_valid(file));
-		const fckc_size_t size = os->fs->size(file);
-		payload = (fck_db_element *)kll_malloc(db->allocator, size);
-		os->fs->read(file, payload, size);
-		os->fs->close(file);
-
 		loader = &null_loader;
-		os->io->log("No loader for: %s (%s)", ext, absolute);
 	}
 
 	const fckc_size_t scope_len = strlen(section->scope) + 1; // for / separator
@@ -597,6 +586,17 @@ static void fck_db_api_import_file(fck_db external, fck_db_section *section, con
 		}
 	}
 	const fck_db_id id = fck_db_id_from_path(relative_path, loader->type);
+	if (loader->import)
+	{
+		const fck_db_loader_args args = {
+			.api = &db_api,
+			.registry = apis,
+			.db = external,
+			.target = id,
+		};
+		payload = loader->import(&args, absolute);
+	}
+
 	fck_multidir_add_entry(&db->database.header, &db->database.root, id, relative_path, payload);
 	kll->arena->destroy(temp);
 }
@@ -700,7 +700,7 @@ static void fck_db_api_hotreload(fck_db external)
 				case fck_file_modified: {
 					os->io->log("Modified: %s", change->path);
 					const fck_db_id id = fck_db_api_id_from_path(external, scoped_path);
-					fck_multidir_remove_entry(&db->database.header, &db->database.root, id);
+					// fck_multidir_remove_entry(&db->database.header, &db->database.root, id);
 					fck_db_api_import_file(external, section, change->path);
 					break;
 				}
@@ -751,7 +751,13 @@ static void fck_db_api_import_directory(fck_db external, const char *scope, cons
 	os->glob->free(paths);
 }
 
-static fck_db_element *fck_db_api_get(fck_db external, const char *path)
+static fck_db_asset *fck_db_api_get_from_id(fck_db external, fck_db_id id)
+{
+	fck_db_private *db = (fck_db_private *)external.opaque;
+	return fck_multidir_resolve(&db->database.root, id);
+}
+
+static fck_db_asset *fck_db_api_get(fck_db external, const char *path)
 {
 	fck_db_private *db = (fck_db_private *)external.opaque;
 	const fck_db_id id = fck_db_api_id_from_path(external, path);
@@ -784,9 +790,10 @@ static fck_db_api db_api = {
 	.hotreload = fck_db_api_hotreload,
 	.close = fck_db_api_close,
 	.get = fck_db_api_get,
+	.get_from_id = fck_db_api_get_from_id,
 };
 
-static fck_db_element *fck_directory_import(fck_api_registry *registry, const char *path)
+static fck_db_asset *fck_directory_import(const fck_db_loader_args *args, const char *path)
 {
 	fck_path_info info;
 	if (os->fs->info(path, &info))

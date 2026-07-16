@@ -587,7 +587,7 @@ static app_gameloop *app_gameloops_add(kll_allocator *allocator, app_gameloops *
 typedef struct fck_shader_asset
 {
 	fck_db_element base;
-	fck_glsl_object value;
+	fck_spirv_object value;
 } fck_shader_asset;
 
 static fck_db_element *fck_shader_import(fck_api_registry *registry, const char *file)
@@ -596,8 +596,8 @@ static fck_db_element *fck_shader_import(fck_api_registry *registry, const char 
 	fck_shader_api *shader = (fck_shader_api *)registry->find(fck_shader_api_name);
 
 	const char *ext = fck_db_extension(file);
-	// I have no unknown yet...
-	fck_shader_stage_type type = fck_shader_compute;
+
+	fck_shader_stage_type type = fck_shader_unkown;
 	if (ext)
 	{
 		if (strcmp(ext, "vert") == 0)
@@ -622,13 +622,16 @@ static fck_db_element *fck_shader_import(fck_api_registry *registry, const char 
 
 	fck_file file_handle = os->fs->open(file, "r");
 	fck_shader_desc desc = (fck_shader_desc){type, file, "main"};
-	const fck_glsl_object shader_object = compiler.create_glsl_from_file(&compiler, &desc, &file_handle);
+	fck_glsl_object shader_object = compiler.create_glsl_from_file(&compiler, &desc, &file_handle);
 	fck_shader_asset *asset = (fck_shader_asset *)kll_malloc(kll->system, sizeof(*asset));
 	os->fs->close(file_handle);
-	asset->value = shader_object;
+	asset->value = compiler.create_spirv(&compiler, &shader_object.generic);
 	asset->base.type = fck_db_asset;
 	asset->base.timestamp = os->chrono->now();
 	asset->base.size = sizeof(*asset);
+
+	compiler.destroy(&compiler, &shader_object.generic);
+	compiler.shutdown(&compiler);
 	return &asset->base;
 }
 static fckc_size_t fck_shader_supports(const char ***extensions)

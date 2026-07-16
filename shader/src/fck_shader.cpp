@@ -46,8 +46,27 @@ static fck_shader_generic fck_shader_create_generic(struct fck_shader_compiler *
 
 static fck_spirv_object fck_shader_create_spirv(struct fck_shader_compiler *compiler, fck_shader_generic *shader)
 {
-	// MAPS ONE TO ONE FOR NOW! THIS CAN BREAK!
-	const shaderc_shader_kind shader_kind = (shaderc_shader_kind)(fck_shader_stage_type)shader->desc.type;
+	shaderc_shader_kind shader_kind;
+
+	switch (shader->desc.type)
+	{
+	case fck_shader_unkown:
+		shader_kind = shaderc_glsl_infer_from_source;
+		break;
+	case fck_shader_vertex:
+		shader_kind = shaderc_vertex_shader;
+		break;
+	case fck_shader_fragment:
+		shader_kind = shaderc_fragment_shader;
+		break;
+	case fck_shader_compute:
+		shader_kind = shaderc_compute_shader;
+		break;
+	default: 
+		shader_kind = shaderc_glsl_infer_from_source;
+		break;
+	}
+
 	if (shader->language == fck_shader_spirv)
 	{
 		return {};

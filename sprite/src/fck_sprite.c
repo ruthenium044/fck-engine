@@ -810,7 +810,7 @@ static void fck_sprite_api_present(fck_sprites *external, const struct sht_comma
 			command->index_buffer(*buffer, &sprites.indices.buffer, 0);
 
 			sht_bss *bss = gfx->bss(sprites.gfx);
-			sht_graphics_pipeline *pipeline = gfx->pipeline(sprites.gfx); //
+			sht_graphics_pipeline *pipeline = gfx->pipeline(sprites.gfx);
 
 			const fck_sprite_screen screen = {
 				.width = (float)extent.width,

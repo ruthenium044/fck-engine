@@ -8,7 +8,7 @@
 #include <string.h>
 
 #define fck_apis_hash_map_capacity 256
-#define fck_apis_hash_map_bucket_capacity 16
+#define fck_apis_hash_map_bucket_capacity 64
 #define fck_apis_name_lookup_capacity fck_apis_hash_map_capacity *fck_apis_hash_map_bucket_capacity
 
 typedef struct fck_apis_bucket

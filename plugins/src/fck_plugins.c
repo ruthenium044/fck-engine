@@ -137,6 +137,13 @@ static fckc_size_t fck_plugin_cache_newest_shared_library(fck_plugins_hashmap *m
 	char *api = os->glob->match(target, "fck-*" fck_plugin_extension);
 	if (api)
 	{
+		// Hardcoded filter for these two
+		if (strcmp("fck-api" fck_plugin_extension, target) == 0 || //
+		    strcmp("fck-plugins" fck_plugin_extension, target) == 0)
+		{
+			return 0;
+		}
+
 		const fckc_size_t result = fck_plugins_hashmap_add(map, target);
 		if (!result)
 		{
@@ -178,7 +185,12 @@ static void *fck_plugin_load_shared_library(fck_plugins_hashmap *map, fck_api_re
 	fck_plugins_hashmap_entry *entry = map->entries + result - 1;
 
 	const char *path = entry->path;
+	// #if defined(_WIN32) || defined(_WIN64)
 	const char *so_load_path = fck_plugin_create_temp_dll(entry->path, entry->modified, path_buffer, sizeof(path_buffer));
+	// #else
+	//	const char *so_load_path = entry->path;
+	// #endif
+
 	const fck_shared_object so = os->so->load(so_load_path);
 
 	if (os->so->is_ok(so))
@@ -289,15 +301,15 @@ static fckc_u32 fck_plugins_api_hotreload(void)
 					os->io->log("Unknown: %s", change->path);
 					break;
 				case fck_file_deleted:
-					plugin_hotreload_generation = plugin_hotreload_generation + 1;
-					os->io->log("Deleted: %s", change->path);
+					// plugin_hotreload_generation = plugin_hotreload_generation + 1;
+					//  os->io->log("Deleted: %s", change->path);
 					break;
 				case fck_file_modified:
-					plugin_hotreload_generation = plugin_hotreload_generation + 1;
-					os->io->log("Modified: %s", change->path);
+					// plugin_hotreload_generation = plugin_hotreload_generation + 1;
+					//  os->io->log("Modified: %s", change->path);
 					break;
 				case fck_file_created: {
-					os->io->log("Created: %s", change->path);
+					// os->io->log("Created: %s", change->path);
 					const fckc_size_t result = fck_plugin_cache_newest_shared_library(&plugin_map, change->path);
 					if (result)
 					{

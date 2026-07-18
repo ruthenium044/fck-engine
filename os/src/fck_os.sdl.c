@@ -662,7 +662,7 @@ fckc_size_t fck_file_watcher_changes(fck_file_watcher watcher, fck_file_watcher_
 
 		fck_file_watcher_event *event = events + count;
 		// Meh, maybe we get away with approximate time stamps provided by the one and only, me!
-		event->time = os->chrono->ms();
+		event->time = os->chrono->now();
 
 		const FILE_NOTIFY_INFORMATION *notify_info = (FILE_NOTIFY_INFORMATION *)(fs->buffer + fs->offset);
 		const int len = notify_info->FileNameLength / sizeof(WCHAR);
@@ -758,10 +758,13 @@ typedef struct fck_file_watcher_macos
 static void fck_fsevent_callback(ConstFSEventStreamRef streamRef, void *clientCallBackInfo, size_t numEvents, void *eventPaths,
                                  const FSEventStreamEventFlags eventFlags[], const FSEventStreamEventId eventIds[])
 {
+	fck_file_watcher_macos *fs;
+	char **paths;
 	(void)streamRef;
 	(void)eventIds;
-	fck_file_watcher_macos *fs = (fck_file_watcher_macos *)clientCallBackInfo;
-	char **paths = (char **)eventPaths;
+
+	fs = (fck_file_watcher_macos *)clientCallBackInfo;
+	paths = (char **)eventPaths;
 
 	pthread_mutex_lock(&fs->mutex);
 
@@ -782,12 +785,12 @@ static void fck_fsevent_callback(ConstFSEventStreamRef streamRef, void *clientCa
 		if (!(eventFlags[i] & kFSEventStreamEventFlagItemIsFile))
 			continue;
 
-		int next_tail = (fs->tail + 1) % FCK_MAC_BUFFER_SIZE;
+		const int next_tail = (fs->tail + 1) % FCK_MAC_BUFFER_SIZE;
 		if (next_tail == fs->head)
 			break;
 
 		fck_file_watcher_event *event = &fs->events[fs->tail];
-		event->time = os->chrono->ms();
+		event->time = os->chrono->now();
 		strncpy(event->path, relative, sizeof(event->path) - 1);
 		event->path[sizeof(event->path) - 1] = '\0';
 

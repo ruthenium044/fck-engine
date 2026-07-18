@@ -35,6 +35,10 @@ static int fck_shared_object_is_valid(fck_shared_object so)
 
 static fck_shared_object fck_shared_object_load(const char *path)
 {
+	if (path == NULL)
+	{
+		return (fck_shared_object){.handle = NULL};
+	}
 	// This is fucked, this is fucked, this is fucked, this is fucked
 	char real_path[512];
 
@@ -56,6 +60,10 @@ static fck_shared_object fck_shared_object_load(const char *path)
 	}
 
 	SDL_SharedObject *so = SDL_LoadObject(path);
+	if (so == NULL)
+	{
+		os->io->log("FAILED SO LOAD %s", SDL_GetError());
+	}
 	return (fck_shared_object){.handle = (void *)so};
 }
 
@@ -228,6 +236,11 @@ static void *fck_window_native(fck_window window, const char *name)
 	{
 		const SDL_PropertiesID properties = SDL_GetWindowProperties(to_sdl_window(window));
 		return SDL_GetPointerProperty(properties, SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, NULL);
+	}
+	if (!SDL_strcmp(name, "macos.view"))
+	{
+		const SDL_PropertiesID properties = SDL_GetWindowProperties(to_sdl_window(window));
+		return SDL_GetPointerProperty(properties, SDL_PROP_WINDOW_COCOA_METAL_VIEW_TAG_NUMBER, NULL);
 	}
 
 	return NULL;
@@ -733,17 +746,6 @@ typedef struct fck_file_watcher_macos
 	dispatch_queue_t queue;
 	pthread_mutex_t mutex;
 
-	// Ring buffer to hold events between background GCD thread and main polling thread
-	fck_file_watcher_event events[FCK_MAC_BUFFER_SIZE];
-	int head;
-	int tail;
-} fck_file_watcher_macos;
-typedef struct fck_file_watcher_macos
-{
-	FSEventStreamRef stream;
-	dispatch_queue_t queue;
-	pthread_mutex_t mutex;
-
 	// Store the absolute root path to strip it later
 	char root_path[1024];
 	size_t root_len;
@@ -756,6 +758,8 @@ typedef struct fck_file_watcher_macos
 static void fck_fsevent_callback(ConstFSEventStreamRef streamRef, void *clientCallBackInfo, size_t numEvents, void *eventPaths,
                                  const FSEventStreamEventFlags eventFlags[], const FSEventStreamEventId eventIds[])
 {
+	(void)streamRef;
+	(void)eventIds;
 	fck_file_watcher_macos *fs = (fck_file_watcher_macos *)clientCallBackInfo;
 	char **paths = (char **)eventPaths;
 

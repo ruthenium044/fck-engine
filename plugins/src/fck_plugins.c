@@ -13,6 +13,7 @@
 
 #define fck_plugins_hashmap_capacity 128
 
+// TODO : On UNIX we DO NOT NEED THE TEMP COPY!
 typedef struct fck_plugins_hashmap_entry
 {
 	char path[424];
@@ -119,7 +120,7 @@ static const char *fck_plugin_create_temp_dll(const char *path, fckc_i64 salt, c
 	fck_assert(result == size);
 	os->fs->close(so_file);
 
-	// We can fail here when we already loaded something... Maybe we can check first? 
+	// We can fail here when we already loaded something... Maybe we can check first?
 	const char *temp_path = fck_temporary_shared_object_name(path, salt, buffer, buffer_size);
 	const fck_file temp_file = os->fs->open(temp_path, "w");
 	result = os->fs->write(temp_file, mem, size);
@@ -130,10 +131,10 @@ static const char *fck_plugin_create_temp_dll(const char *path, fckc_i64 salt, c
 	return temp_path;
 }
 
-// Ye, this is shit lmao 
+// Ye, this is shit lmao
 static fckc_size_t fck_plugin_cache_newest_shared_library(fck_plugins_hashmap *map, const char *target)
 {
-	char *api = os->glob->match(target, "fck-*.dll");
+	char *api = os->glob->match(target, "fck-*" fck_plugin_extension);
 	if (api)
 	{
 		const fckc_size_t result = fck_plugins_hashmap_add(map, target);
@@ -143,6 +144,7 @@ static fckc_size_t fck_plugin_cache_newest_shared_library(fck_plugins_hashmap *m
 		}
 
 		fck_plugins_hashmap_entry *entry = map->entries + result - 1;
+		fck_path_info info;
 		const fckc_i64 modified = os->fs->modified(target);
 		if (modified > entry->modified || !os->so->is_ok(entry->shared_object))
 		{
@@ -154,10 +156,10 @@ static fckc_size_t fck_plugin_cache_newest_shared_library(fck_plugins_hashmap *m
 	return 0;
 }
 
-static void fck_purge_temporary_file(fck_plugins_hashmap_entry* entry)
+static void fck_purge_temporary_file(fck_plugins_hashmap_entry *entry)
 {
 	char buffer[1024];
-	const char* path = fck_temporary_shared_object_name(entry->path, entry->modified, buffer, sizeof(buffer));
+	const char *path = fck_temporary_shared_object_name(entry->path, entry->modified, buffer, sizeof(buffer));
 
 	os->io->log("Purge Temporary File: %.*s", strlen(path), path);
 	os->fs->remove(path);
@@ -181,7 +183,8 @@ static void *fck_plugin_load_shared_library(fck_plugins_hashmap *map, fck_api_re
 
 	if (os->so->is_ok(so))
 	{
-		char *extension = os->glob->find(path, ".dll");
+
+		char *extension = os->glob->find(path, fck_plugin_extension);
 		const fckc_size_t length = (fckc_size_t)extension - (fckc_size_t)path;
 
 		char buffer[1024];
@@ -294,6 +297,7 @@ static fckc_u32 fck_plugins_api_hotreload(void)
 					os->io->log("Modified: %s", change->path);
 					break;
 				case fck_file_created: {
+					os->io->log("Created: %s", change->path);
 					const fckc_size_t result = fck_plugin_cache_newest_shared_library(&plugin_map, change->path);
 					if (result)
 					{
@@ -329,10 +333,10 @@ static void fck_plugins_api_root(const char *path)
 	}
 
 	char **paths;
-	const fckc_size_t results = os->glob->directory(path, "*.dll", &paths);
+	const fckc_size_t results = os->glob->directory(path, "*" fck_plugin_extension, &paths);
 	for (fckc_size_t index = 0; index < results; index++)
 	{
-		const char* path = paths[index];
+		const char *path = paths[index];
 		(void)fck_plugin_cache_newest_shared_library(&plugin_map, path);
 	}
 	os->glob->free(paths);

@@ -5,18 +5,29 @@
 
 #define fck_plugins_api_name "fck-plugins"
 
-typedef struct fck_plugins_api {
+#if defined(_WIN32) || defined(_WIN64)
+#define fck_plugin_extension ".dll"
+#elif defined(__APPLE__) && defined(__MACH__)
+#define fck_plugin_extension ".dylib"
+#elif defined(__unix__) || defined(__unix) || defined(__linux__)
+#define fck_plugin_extension ".so"
+#else
+#error "Unsupported platform: unknown shared object extension"
+#endif
+
+typedef struct fck_plugins_api
+{
 	fckc_u32 (*hotreload)(void);
 
-	// TODO: Nice to list all that shit! :) 
-	const char* (*loaded)(const char* prev);
-	const char* (*unloaded)(const char* prev);
+	// TODO: Nice to list all that shit! :)
+	const char *(*loaded)(const char *prev);
+	const char *(*unloaded)(const char *prev);
 
-	void (*root)(const char* path);
+	void (*root)(const char *path);
 
-	void* (*load)(const char* path);
-	void (*unload)(const char* path);
+	void *(*load)(const char *path);
+	void (*unload)(const char *path);
 	void (*shutdown)(void);
-}fck_plugins_api;
+} fck_plugins_api;
 
 #endif // !FCK_PLUGINS_H_INCLUDED

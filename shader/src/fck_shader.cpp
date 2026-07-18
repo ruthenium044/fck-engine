@@ -62,7 +62,7 @@ static fck_spirv_object fck_shader_create_spirv(struct fck_shader_compiler *comp
 	case fck_shader_compute:
 		shader_kind = shaderc_compute_shader;
 		break;
-	default: 
+	default:
 		shader_kind = shaderc_glsl_infer_from_source;
 		break;
 	}

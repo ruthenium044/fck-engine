@@ -607,7 +607,6 @@ static fck_db_asset *fck_shader_import(const fck_db_loader_args *args, const cha
 	fck_shader_api *shader = (fck_shader_api *)args->registry->find(fck_shader_api_name);
 
 	const char *ext = fck_db_extension(file);
-
 	fck_shader_stage_type type = fck_shader_unkown;
 	if (ext)
 	{
@@ -643,6 +642,7 @@ static fck_db_asset *fck_shader_import(const fck_db_loader_args *args, const cha
 
 	compiler.destroy(&compiler, &shader_object.generic);
 	compiler.shutdown(&compiler);
+
 	return &asset->base;
 }
 static fckc_size_t fck_shader_supports(const char ***extensions)
@@ -657,10 +657,10 @@ int main(int argc, char **argv)
 	// TODO: We need to setup stable editor entities, or something like that
 	load_config(argc, argv);
 
-	purge_files("temp-*.dll");
+	purge_files("temp-*" fck_plugin_extension);
 
-	fck_api_registry *registry = fck_api_registry_load("fck-api.dll");
-	fck_plugins_api *plugins = fck_plugins_load(registry, "fck-plugins.dll");
+	fck_api_registry *registry = fck_api_registry_load("fck-api" fck_plugin_extension);
+	fck_plugins_api *plugins = fck_plugins_load(registry, "fck-plugins" fck_plugin_extension);
 
 	plugins->root(os->fs->executable());
 
@@ -693,7 +693,13 @@ int main(int argc, char **argv)
 	fck_sprite_api *sprite = (fck_sprite_api *)registry->find(fck_sprite_api_name);
 	fck_ec_api *ec = (fck_ec_api *)registry->find(fck_ec_api_name);
 	fck_db_api *db = (fck_db_api *)registry->find(fck_db_api_name);
-
+	fck_assert(input);
+	fck_assert(render);
+	fck_assert(png);
+	fck_assert(nk);
+	fck_assert(gfx);
+	fck_assert(ec);
+	fck_assert(db);
 	fck_db assets = db->create(kll->system, fck_resource_path);
 	app_gameloops loops = {0};
 	// We can create a new ec
@@ -734,12 +740,13 @@ int main(int argc, char **argv)
 
 	// We have to do this a bit smarter... Maybe not now
 	// os->win->text_input_start(window);
-
+	os->io->log("General Data Setup");
 	const sht_instance instance = render->load(sht_header_version);
 	if (!render->is_ok(instance))
 	{
 		return 0;
 	}
+	os->io->log("Trying to setup renderer...");
 
 	sht_driver driver = instance.vt->start(instance, &window);
 	if (!instance.vt->is_ok(driver))
@@ -961,7 +968,7 @@ int main(int argc, char **argv)
 	}
 
 	plugins->shutdown();
-	purge_files("temp-*.dll");
+	purge_files("temp-*" fck_plugin_extension);
 
 	os->win->destroy(window);
 

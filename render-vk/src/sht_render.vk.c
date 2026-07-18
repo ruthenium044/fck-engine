@@ -363,8 +363,11 @@ static VkResult sht_vk_instance_init(sht_vk_instance *vk)
 	appInfo.apiVersion = VK_MAKE_VERSION(1, 0, 0);
 
 	// Wait a fucking second lol
+#if defined(_WIN32)
 	vk->so = os->so->load("vulkan-1.dll");
-
+#else // We handle unix later
+	vk->so = os->so->load("libvulkan.1.dylib");
+#endif
 	sht_vk_load_function(vk, vk->so, CreateInstance);
 	sht_vk_load_function(vk, vk->so, DestroyInstance);
 
@@ -401,6 +404,8 @@ static VkResult sht_vk_instance_init(sht_vk_instance *vk)
 	createInfo.pfnUserCallback = sht_vk_debug_callback;
 	createInfo.pUserData = NULL;
 	instance_create_info.pNext = (const void *)&createInfo;
+
+	os->io->log("%d", vk->CreateInstance ? 1 : 0);
 
 	return sht_vk_error(vk->CreateInstance(&instance_create_info, default_allocation_callbacks, &vk->instance));
 }
@@ -1228,11 +1233,31 @@ static VkResult sht_vk_driver_init(sht_vk_driver *driver, sht_vk_queues *queues)
 	queue_info.queueCount = 1;
 	queue_info.pQueuePriorities = queue_priorities;
 
-	fckc_size_t instance_extension_count = 0;
-	const char *instance_extension_names[16];
-	// instance_extension_names[instance_extension_count++] = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
-	// sht_vk_platform_adjust_extensions(instance_extension_names, &instance_extension_count);
-	instance_extension_names[instance_extension_count++] = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
+	fckc_size_t device_extension_count = 0;
+	const char *device_extension_names[16];
+	device_extension_names[device_extension_count++] = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
+
+	VkExtensionProperties available_extensions[256];
+	fckc_u32 available_extension_count = 0;
+
+	if (driver->gpu->EnumerateDeviceExtensionProperties(driver->gpu->device, NULL, &available_extension_count, NULL))
+	{
+		os->io->log("Failed to count physical device extension properties");
+		available_extension_count = 0;
+	}
+	available_extension_count = fck_min(available_extension_count, fck_arraysize(available_extensions));
+
+	if (!driver->gpu->EnumerateDeviceExtensionProperties(driver->gpu->device, NULL, &available_extension_count, available_extensions))
+	{
+		for (fckc_u32 index = 0; index < available_extension_count; ++index)
+		{
+			if (strcmp(available_extensions[index].extensionName, "VK_KHR_portability_subset") == 0)
+			{
+				device_extension_names[device_extension_count++] = "VK_KHR_portability_subset";
+				break;
+			}
+		}
+	}
 
 	VkDeviceCreateInfo device_info = {0};
 	// Deprecated
@@ -1244,8 +1269,8 @@ static VkResult sht_vk_driver_init(sht_vk_driver *driver, sht_vk_queues *queues)
 	device_info.pNext = NULL;
 	device_info.queueCreateInfoCount = 1;
 	device_info.pQueueCreateInfos = &queue_info;
-	device_info.ppEnabledExtensionNames = instance_extension_names;
-	device_info.enabledExtensionCount = instance_extension_count;
+	device_info.ppEnabledExtensionNames = device_extension_names;
+	device_info.enabledExtensionCount = device_extension_count;
 	device_info.pEnabledFeatures = NULL;
 
 	sht_vk_crash(driver->CreateDevice(driver->gpu->device, &device_info, default_allocation_callbacks, &driver->device));
@@ -1556,9 +1581,11 @@ static VkResult sht_vk_swapchain_init(sht_vk_swapchain *swapchain, sht_vk_driver
 		}
 	}
 
+	// TODO: Let higher-level configure this:
+	// enum present_mode { prevent_tearing, asap, etc. }
 	// The FIFO present mode is guaranteed by the spec to be supported
 	// FIFO can also be the most sluggish one (at least on my device) We need to find a good selection method here!
-	VkPresentModeKHR swapchain_present_mode = VK_PRESENT_MODE_FIFO_KHR; // we can also use queried present modes
+	VkPresentModeKHR swapchain_present_mode = VK_PRESENT_MODE_IMMEDIATE_KHR; // we can also use queried present modes
 	fckc_u32 desired_swapchain_image_count = surface_capabilities.minImageCount;
 	if (sht_test(available, (1 << VK_PRESENT_MODE_MAILBOX_KHR)))
 	{
@@ -1951,8 +1978,7 @@ static sht_image_view sht_swapchain_wait_and_acquire(sht_swapchain swapchain, fc
 
 	fckc_u32 image_index;
 	result = sc->AcquireNextImageKHR(device, sc->swapchain, timeout, *completed, VK_NULL_HANDLE, &image_index);
-	if (result ==
-	    VK_ERROR_OUT_OF_DATE_KHR /*|| (result == VK_SUBOPTIMAL_KHR)*/ /* SUBOPTIMAL just means we have more surface than we need... */)
+	if (result == VK_ERROR_OUT_OF_DATE_KHR)
 	{
 		*index = sht_swapchain_needs_resize;
 		sht_vk_resize(sc);

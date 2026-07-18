@@ -577,7 +577,7 @@ static fck_glsl_reflection_type *fck_glsl_reflection_declare_type(fck_glsl_refle
 
 		if (type->name == NULL)
 		{
-			type->name = kll_format(reflection->names_arena, name);
+			type->name = kll_format(reflection->names_arena, "%s", name);
 			type->first = NULL;
 			return type;
 		}
@@ -602,7 +602,8 @@ static fck_glsl_reflection_variable *fck_glsl_reflection_add_field(fck_glsl_refl
 	fck_glsl_reflection_variable *variable = (fck_glsl_reflection_variable *)kll_malloc(reflection->variables_arena, size);
 
 	variable->type = type;
-	variable->name = kll_format(reflection->names_arena, name);
+
+	variable->name = kll_format(reflection->names_arena, "%s", name);
 	variable->next = NULL;
 	variable->binding = -1;
 	variable->qualifiers = fck_glsl_reflection_declaration_qualifier_none;
@@ -791,7 +792,7 @@ static void fck_glsl_reflection_api_free(fck_glsl_reflection *reflection)
 
 static int fck_glsl_reflection_api_is(const fck_glsl_reflection_type *type, const char *name)
 {
-	if(type == NULL) 
+	if (type == NULL)
 	{
 		return 0;
 	}
@@ -808,7 +809,7 @@ static fck_glsl_reflection_api glsl_reflection_api = {
 
 #include <fck_apis.h>
 
-FCK_EXPORT_API fck_glsl_reflection_api* fck_glsl_reflection_load(fck_api_registry* registry, void* old)
+FCK_EXPORT_API fck_glsl_reflection_api *fck_glsl_reflection_load(fck_api_registry *registry, void *old)
 {
 	registry->add(fck_glsl_reflection_api_name, &glsl_reflection_api);
 	return &glsl_reflection_api;

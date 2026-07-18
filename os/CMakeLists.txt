@@ -41,7 +41,6 @@ if(APPLE)
     "-framework CoreServices"
     "-framework QuartzCore")
 else()
-    target_sources(${PROJECT_NAME} PRIVATE "src/fck_os.sdl.c")
     #if(BUILD_SHARED_LIBS)
     #    set(SDL_SHARED ON CACHE BOOL "" FORCE)
     #    set(SDL_STATIC OFF CACHE BOOL "" FORCE)
@@ -49,9 +48,10 @@ else()
     #    set(SDL_SHARED OFF CACHE BOOL "" FORCE)
     #    set(SDL_STATIC ON CACHE BOOL "" FORCE)
     #endif()
-   # target_link_libraries(${PROJECT_NAME} PUBLIC SDL3::SDL3)
+    # target_link_libraries(${PROJECT_NAME} PUBLIC SDL3::SDL3)
 endif()
-
+target_sources(${PROJECT_NAME} PRIVATE "src/fck_os.sdl.c")
+    
 target_sources(${PROJECT_NAME} PRIVATE "include/fck_os.h")
 target_include_directories(${PROJECT_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 

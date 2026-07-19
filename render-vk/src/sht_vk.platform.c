@@ -113,7 +113,7 @@ VkBool32 sht_vk_gpu_select(sht_vk_instance *vk, sht_vk_gpu *gpu, const char *nam
 VkResult sht_vk_platform_init(sht_vk_instance *vk, sht_vk_platform *platform, sht_vk_gpu *gpu, fck_window window, VkSurfaceKHR *out_surface)
 {
 #if defined(_WIN32)
-	{                                                                    uint32_t queueFamilyIndex);
+	{
 		struct
 		{
 			sht_vk_declare(CreateWin32SurfaceKHR);

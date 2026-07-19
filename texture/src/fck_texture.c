@@ -1,4 +1,4 @@
-#include "fck_png.h"
+#include "fck_texture.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "fck_db.h"
@@ -17,9 +17,9 @@
 #include <stddef.h>
 #include <string.h>
 
-static fck_png fck_png_api_load(const char *path)
+static fck_texture fck_texture_api_load(const char *path)
 {
-	fck_png png;
+	fck_texture png;
 	png.data = stbi_load(path, &png.width, &png.height, &png.channels, 0);
 	if (png.data == NULL)
 	{
@@ -28,39 +28,39 @@ static fck_png fck_png_api_load(const char *path)
 	return png;
 }
 
-static int fck_png_api_is_ok(fck_png png)
+static int fck_texture_api_is_ok(fck_texture png)
 {
 	return png.data != NULL;
 }
 
-static void fck_png_api_free(fck_png png)
+static void fck_texture_api_free(fck_texture png)
 {
 	stbi_image_free(png.data);
 }
 
-typedef struct fck_png_resolved
+typedef struct fck_texture_resolved
 {
 	fckc_i64 timestamp;
 	sht_image image;
 	sht_image_view view;
-} fck_png_resolved;
+} fck_texture_resolved;
 
-typedef struct fck_png_asset
+typedef struct fck_texture_asset
 {
 	fck_db_asset base;
-	fck_png value;
-	fck_png_resolved resolved;
-} fck_png_asset;
+	fck_texture value;
+	fck_texture_resolved resolved;
+} fck_texture_asset;
 
-static sht_image fck_png_upload_image_on_gpu(sht_driver driver, sht_image image, const void *pixels, sht_format format, int width,
-                                             int height)
+static sht_image fck_texture_upload_image_on_gpu(sht_driver driver, sht_image image, const void *pixels, sht_format format, int width,
+                                                 int height)
 {
 	const fckc_size_t size = (fckc_size_t)width * height * 4;
 	driver.vt->upload_image(driver, &image, pixels, size);
 	return image;
 }
 
-static sht_image fck_png_load_image_on_gpu(sht_driver driver, const void *pixels, sht_format format, int width, int height)
+static sht_image fck_texture_load_image_on_gpu(sht_driver driver, const void *pixels, sht_format format, int width, int height)
 {
 	sht_memory *memory = driver.vt->memory(driver);
 	const sht_image_configuration config = {
@@ -76,11 +76,11 @@ static sht_image fck_png_load_image_on_gpu(sht_driver driver, const void *pixels
 	{
 		return image;
 	}
-	fck_png_upload_image_on_gpu(driver, image, pixels, format, width, height);
+	fck_texture_upload_image_on_gpu(driver, image, pixels, format, width, height);
 	return image;
 }
 
-static sht_image_view *fck_png_asset_resolve(fck_png_asset *asset, sht_driver *driver)
+static sht_image_view *fck_texture_asset_resolve(fck_texture_asset *asset, sht_driver *driver)
 {
 	sht_memory *memory = driver->vt->memory(*driver);
 	if (asset->base.timestamp > asset->resolved.timestamp)
@@ -95,7 +95,8 @@ static sht_image_view *fck_png_asset_resolve(fck_png_asset *asset, sht_driver *d
 			}
 
 			const sht_format format = sht_format_r8g8b8a8_unorm;
-			asset->resolved.image = fck_png_load_image_on_gpu(*driver, asset->value.data, format, asset->value.width, asset->value.height);
+			asset->resolved.image =
+				fck_texture_load_image_on_gpu(*driver, asset->value.data, format, asset->value.width, asset->value.height);
 			asset->resolved.view = memory->image->view(memory->bump, asset->resolved.image, format);
 			asset->resolved.timestamp = os->chrono->now();
 		}
@@ -103,23 +104,23 @@ static sht_image_view *fck_png_asset_resolve(fck_png_asset *asset, sht_driver *d
 	return &asset->resolved.view;
 }
 
-static fck_db_asset *fck_png_import(const fck_db_loader_args *args, const char *file)
+static fck_db_asset *fck_texture_import(const fck_db_loader_args *args, const char *file)
 {
 	os->io->log("Load PNG: %s", file);
 
-	fck_png_asset *asset = (fck_png_asset *)args->api->get_from_id(args->db, args->target);
+	fck_texture_asset *asset = (fck_texture_asset *)args->api->get_from_id(args->db, args->target);
 	if (asset)
 	{
 		fck_assert(asset->base.size = sizeof(*asset));
-		fck_png_api_free(asset->value);
-		asset->value = fck_png_api_load(file);
+		fck_texture_api_free(asset->value);
+		asset->value = fck_texture_api_load(file);
 		asset->base.type = fck_db_type_asset;
 		asset->base.timestamp = os->chrono->now();
 		return &asset->base;
 	}
 	{
-		const fck_png value = fck_png_api_load(file);
-		fck_png_asset *asset = (fck_png_asset *)kll_malloc(kll->system, sizeof(*asset));
+		const fck_texture value = fck_texture_api_load(file);
+		fck_texture_asset *asset = (fck_texture_asset *)kll_malloc(kll->system, sizeof(*asset));
 		memset(asset, 0, sizeof(*asset));
 		asset->value = value;
 		asset->base.type = fck_db_type_asset;
@@ -129,35 +130,35 @@ static fck_db_asset *fck_png_import(const fck_db_loader_args *args, const char *
 	}
 }
 
-static fckc_size_t fck_png_supports(const char ***extensions)
+static fckc_size_t fck_texture_supports(const char ***extensions)
 {
 	static const char *supported[] = {"png"};
 	*extensions = supported;
 	return fck_arraysize(supported);
 }
 
-static fck_png_asset_api png_asset_api = {
-	.resolve = fck_png_asset_resolve,
+static fck_texture_asset_api png_asset_api = {
+	.resolve = fck_texture_asset_resolve,
 };
 
-static fck_png_api png_api = {
+static fck_texture_api png_api = {
 	.asset = &png_asset_api,
-	.load = fck_png_api_load,
-	.is_ok = fck_png_api_is_ok,
-	.free = fck_png_api_free,
+	.load = fck_texture_api_load,
+	.is_ok = fck_texture_api_is_ok,
+	.free = fck_texture_api_free,
 };
 
 static fck_db_loader_interface png_loader = {
 	.type = 2,
 	.name = "png",
-	.import = fck_png_import,
-	.supports = fck_png_supports,
+	.import = fck_texture_import,
+	.supports = fck_texture_supports,
 };
 
-FCK_EXPORT_API fck_png_api *fck_png_load(fck_api_registry *registry, void *params)
+FCK_EXPORT_API fck_texture_api *fck_texture_load(fck_api_registry *registry, void *params)
 {
 	registry->add(fck_db_loader_interface_name, &png_loader);
 
-	registry->add(fck_png_api_name, &png_api);
+	registry->add(fck_texture_api_name, &png_api);
 	return &png_api;
 }

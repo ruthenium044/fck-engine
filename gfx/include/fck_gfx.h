@@ -18,6 +18,7 @@ struct sht_graphics_pipeline;
 
 struct kll_allocator;
 
+// Instead of this thing, we want to use fck_shader_asset
 typedef struct fck_gfx_shader
 {
 	const char *name;

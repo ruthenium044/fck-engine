@@ -465,7 +465,7 @@ static fck_db_ext_map fck_db_ext_map_create(kll_allocator *allocator)
 		{
 			const char *ext = extensions[ext_index];
 			const int result = fck_db_ext_map_add(&map, ext, loader);
-			fck_assert(result);
+			fck_assert(result && "Trying to apply duplicated loader");
 		}
 	}
 

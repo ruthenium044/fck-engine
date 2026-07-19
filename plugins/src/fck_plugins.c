@@ -113,7 +113,7 @@ static const char *fck_temporary_shared_object_name(const char *path, fckc_i64 s
 
 static const char *fck_plugin_create_temp_dll(const char *path, fckc_i64 salt, char *buffer, fckc_size_t buffer_size)
 {
-	const fck_file so_file = os->fs->open(path, "r");
+	const fck_file so_file = os->fs->open(path, "rb");
 	const fckc_i64 size = os->fs->size(so_file);
 	void *mem = malloc(size);
 	fckc_size_t result = os->fs->read(so_file, mem, size);
@@ -122,7 +122,7 @@ static const char *fck_plugin_create_temp_dll(const char *path, fckc_i64 salt, c
 
 	// We can fail here when we already loaded something... Maybe we can check first?
 	const char *temp_path = fck_temporary_shared_object_name(path, salt, buffer, buffer_size);
-	const fck_file temp_file = os->fs->open(temp_path, "w");
+	const fck_file temp_file = os->fs->open(temp_path, "wb");
 	result = os->fs->write(temp_file, mem, size);
 	fck_assert(result == size);
 	os->fs->close(temp_file);

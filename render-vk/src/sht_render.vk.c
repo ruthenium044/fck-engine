@@ -2719,7 +2719,7 @@ static VkResult sht_vk_shader_module_load(sht_vk_driver *driver, fck_shader_desc
 	fck_shader_api *shader_api = (fck_shader_api *)apis->find(fck_shader_api_name);
 	fck_shader_compiler compiler = shader_api->create();
 
-	const fck_file shader_source = os->fs->open(path, "r");
+	const fck_file shader_source = os->fs->open(path, "rb");
 
 	const fckc_size_t size = os->fs->size(shader_source);
 	char *text = (char *)kll_malloc(kll->system, size);

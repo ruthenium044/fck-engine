@@ -84,12 +84,12 @@ static struct fck_gfx fck_gfx_api_create(kll_allocator *allocator, sht_driver *d
 	const char *fragment_path = info->fragment->path;
 	const char *fragment_name = info->fragment->name;
 
-	fck_file vert_file = os->fs->open(vertex_path, "r");
+	fck_file vert_file = os->fs->open(vertex_path, "rb");
 	fck_shader_desc vert_desc = (fck_shader_desc){fck_shader_vertex, vertex_name, "main"};
 	fck_glsl_object vert = {0};
 	vert = compiler.create_glsl_from_file(&compiler, &vert_desc, &vert_file);
 
-	fck_file frag_file = os->fs->open(fragment_path, "r");
+	fck_file frag_file = os->fs->open(fragment_path, "rb");
 	fck_shader_desc frag_desc = (fck_shader_desc){fck_shader_fragment, fragment_name, "main"};
 	fck_glsl_object frag = {0};
 	frag = compiler.create_glsl_from_file(&compiler, &frag_desc, &frag_file);

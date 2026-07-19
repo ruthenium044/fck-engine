@@ -32,7 +32,6 @@ target_link_libraries(${PROJECT_NAME} PUBLIC SDL3::SDL3)
 if(APPLE)
     #target_sources(${PROJECT_NAME} PRIVATE "src/fck_os.macos.c")
     # TODO: Dlete this branch - was a nice exercise, but fuck it
-    find_package(kll)
     target_link_libraries(${PROJECT_NAME} PRIVATE 
     "-framework CoreServices"
     "-framework AppKit"
@@ -40,15 +39,6 @@ if(APPLE)
     "-framework Cocoa"
     "-framework CoreServices"
     "-framework QuartzCore")
-else()
-    #if(BUILD_SHARED_LIBS)
-    #    set(SDL_SHARED ON CACHE BOOL "" FORCE)
-    #    set(SDL_STATIC OFF CACHE BOOL "" FORCE)
-    #else()
-    #    set(SDL_SHARED OFF CACHE BOOL "" FORCE)
-    #    set(SDL_STATIC ON CACHE BOOL "" FORCE)
-    #endif()
-    # target_link_libraries(${PROJECT_NAME} PUBLIC SDL3::SDL3)
 endif()
 target_sources(${PROJECT_NAME} PRIVATE "src/fck_os.sdl.c")
     
@@ -56,8 +46,4 @@ target_sources(${PROJECT_NAME} PRIVATE "include/fck_os.h")
 target_include_directories(${PROJECT_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
 find_package(fckc)
-
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::fckc)
-
-add_executable(${PROJECT_NAME}-test "test/main.c")
-target_link_libraries(${PROJECT_NAME}-test PRIVATE ${PROJECT_NAME} PRIVATE fck::fckc)

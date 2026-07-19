@@ -18,7 +18,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <fck_png.h>
+#include <fck_texture.h>
 
 #include <fck_gfx.h>
 #include <fck_nuklear.h>
@@ -630,7 +630,7 @@ static fck_db_asset *fck_shader_import(const fck_db_loader_args *args, const cha
 	fck_shader_compiler compiler = shader->create();
 	fck_assert(shader->is_ok(compiler));
 
-	fck_file file_handle = os->fs->open(file, "r");
+	fck_file file_handle = os->fs->open(file, "rb");
 	fck_shader_desc desc = {.type = to_u32(type), .file = file, .entry_point = "main"};
 	fck_glsl_object shader_object = compiler.create_glsl_from_file(&compiler, &desc, &file_handle);
 	fck_shader_asset *asset = (fck_shader_asset *)kll_malloc(kll->system, sizeof(*asset));
@@ -687,7 +687,7 @@ int main(int argc, char **argv)
 
 	fck_input *input = (fck_input *)registry->find(fck_input_api_name);
 	sht_render_api *render = (sht_render_api *)registry->find(sht_render_api_name);
-	fck_png_api *png = (fck_png_api *)registry->find(fck_png_api_name);
+	fck_texture_api *png = (fck_texture_api *)registry->find(fck_texture_api_name);
 	fck_nuklear_api *nk = (fck_nuklear_api *)registry->find(fck_nuklear_api_name);
 	fck_gfx_api *gfx = (fck_gfx_api *)registry->find(fck_gfx_api_name);
 	fck_sprite_api *sprite = (fck_sprite_api *)registry->find(fck_sprite_api_name);
@@ -782,9 +782,9 @@ int main(int argc, char **argv)
 	app_sprite_pie_items_init(nk, &sprite_pie, root);
 
 	// fck_db_element* txt_asset = (fck_db_element*)db->get(assets, "app/configuration/config.txt");
-	fck_png_asset *bg_png_asset = (fck_png_asset *)db->get(assets, "app/bg-mockup.png");
-	fck_png_asset *bird_png_asset = (fck_png_asset *)db->get(assets, "app/bird-sheet.png");
-	fck_png_asset *items_png_asset = (fck_png_asset *)db->get(assets, "app/items-sheet.png");
+	fck_texture_asset *bg_png_asset = (fck_texture_asset *)db->get(assets, "app/bg-mockup.png");
+	fck_texture_asset *bird_png_asset = (fck_texture_asset *)db->get(assets, "app/bird-sheet.png");
+	fck_texture_asset *items_png_asset = (fck_texture_asset *)db->get(assets, "app/items-sheet.png");
 	fck_shader_asset *sprite_vs = (fck_shader_asset *)db->get(assets, "app/sprite.vs");
 	fck_shader_asset *sprite_fs = (fck_shader_asset *)db->get(assets, "app/sprite.fs");
 

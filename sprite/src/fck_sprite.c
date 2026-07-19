@@ -1,7 +1,7 @@
 
 #include "fck_sprite.h"
 
-#include <fck_png.h>
+#include <fck_texture.h>
 
 #include <fckc_apidef.h>
 #include <fckc_assert.h>
@@ -24,7 +24,7 @@ typedef struct fck_sprite_batch
 {
 	kll_allocator *allocator;
 
-	fck_png_asset *asset;
+	fck_texture_asset *asset;
 
 	fck_sprite_transform *transforms;
 
@@ -90,7 +90,7 @@ static fck_sprites *fck_sprites_to_external(fck_sprites_internal *internal_sprit
 
 /* Implementation */
 
-static fck_sprite_batch fck_sprite_batch_create(kll_allocator *allocator, fck_png_asset *asset)
+static fck_sprite_batch fck_sprite_batch_create(kll_allocator *allocator, fck_texture_asset *asset)
 {
 	const fck_sprite_batch batch = {
 		.allocator = allocator,
@@ -158,7 +158,7 @@ static int fck_sprite_batch_remove(fck_sprite_batch *batch, fckc_u32 index)
 	return 0;
 }
 
-static fck_sprite_stable_batch fck_sprite_stable_batch_create(kll_allocator *a, fck_png_asset *asset, float sw, float sh)
+static fck_sprite_stable_batch fck_sprite_stable_batch_create(kll_allocator *a, fck_texture_asset *asset, float sw, float sh)
 {
 	fck_sprite_stable_batch batch = {0};
 	batch.sprite_width = sw;
@@ -379,7 +379,7 @@ static fckc_u32 fck_sprites_find_batch(fck_sprites_internal *sprites, const char
 	return 0;
 }
 
-static fckc_u32 fck_sprites_register_batch(fck_sprites_internal *sprites, const char *name, fck_png_asset *asset, float sw, float sh)
+static fckc_u32 fck_sprites_register_batch(fck_sprites_internal *sprites, const char *name, fck_texture_asset *asset, float sw, float sh)
 {
 	{
 		const fckc_u32 result = fck_sprites_find_batch(sprites, name);
@@ -494,7 +494,7 @@ static int fck_sprites_remove_by_name(fck_sprites_internal *sprites, fckc_u32 in
 	return 0;
 }
 
-static fck_sprite_batch_id fck_sprite_batch_api_add(fck_sprites *external, const char *name, fck_png_asset *asset, float sw, float sh)
+static fck_sprite_batch_id fck_sprite_batch_api_add(fck_sprites *external, const char *name, fck_texture_asset *asset, float sw, float sh)
 {
 	fck_sprites_internal sprites = {0};
 	fck_sprites_to_internal(external, &sprites);
@@ -561,7 +561,7 @@ static struct sht_image_view *fck_sprite_batch_api_image_view(fck_sprites *exter
 	fck_sprite_stable_batch *batch = fck_sprites_get_batch(&sprites, index.value);
 	if (batch)
 	{
-		fck_png_api *png = (fck_png_api *)apis->find(fck_png_api_name);
+		fck_texture_api *png = (fck_texture_api *)apis->find(fck_texture_api_name);
 		return png->asset->resolve(batch->base.asset, sprites.driver);
 	}
 	return NULL;
@@ -771,7 +771,7 @@ typedef struct fck_sprite_screen
 static void fck_sprite_api_present(fck_sprites *external, const struct sht_command_buffer *buffer, fckc_u32 frame_index)
 {
 	fck_gfx_api *gfx = (fck_gfx_api *)apis->find(fck_gfx_api_name);
-	fck_png_api *png = (fck_png_api *)apis->find(fck_png_api_name);
+	fck_texture_api *png = (fck_texture_api *)apis->find(fck_texture_api_name);
 
 	fck_sprites_internal sprites = {0};
 	fck_sprites_to_internal(external, &sprites);

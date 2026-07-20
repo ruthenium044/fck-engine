@@ -103,7 +103,7 @@ static fckc_size_t fck_plugins_hashmap_find(fck_plugins_hashmap *map, const char
 
 static const char *fck_temporary_shared_object_name(const char *path, fckc_i64 salt, char *buffer, fckc_size_t buffer_size)
 {
-	const int result = snprintf(buffer, buffer_size, "temp-(%lld)-%s", salt, path);
+	const int result = snprintf(buffer, buffer_size, "temp-%s-(%lld)", path, salt);
 	if (result > 0)
 	{
 		return buffer;

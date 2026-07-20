@@ -327,17 +327,22 @@ static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugin
 
 					fck_component_names_iterator name_it = ec->registry->iterator(world);
 					const char *component_names[16];
-					component_names[0] = "Add Component";
-					const fckc_u32 names_result = ec->registry->names(&name_it, &component_names[1], fck_arraysize(component_names) - 1);
-					const int component_selection = nk->elements->dropdown(view, 0, component_names, names_result + 1);
+					const fckc_u32 names_result = ec->registry->names(&name_it, &component_names[0], fck_arraysize(component_names));
 
-					if (component_selection)
+					for (int i = 0; i < names_result; i++)
 					{
-						os->io->log("Add Component");
-
-						const char *component_name = component_names[component_selection];
+						const char *component_name = component_names[i];
 						const fck_component_id component_id = ec->registry->id(world, component_name);
-						ec->component->add(world, entity, component_id);
+						char title[256];
+						if (!ec->component->get(world, entity, component_id))
+						{
+							snprintf(title, sizeof(title), "Add %s component", component_name);
+							if (nk->elements->button(view, title))
+							{
+								os->io->log("Add Component");
+								ec->component->add(world, entity, component_id);
+							}
+						}
 					}
 
 					if (nk->elements->button(view, "Remove Entity"))
@@ -773,6 +778,7 @@ int main(int argc, char **argv)
 	app_sprite_pie_items_init(nk, &sprite_pie, root);
 
 	// fck_db_element* txt_asset = (fck_db_element*)db->get(assets, "app/configuration/config.txt");
+	fck_texture_asset *debug_png_asset = (fck_texture_asset *)db->get(assets, "app/debug.png");
 	fck_texture_asset *bg_png_asset = (fck_texture_asset *)db->get(assets, "app/bg-mockup.png");
 	fck_texture_asset *bird_png_asset = (fck_texture_asset *)db->get(assets, "app/bird-sheet.png");
 	fck_texture_asset *items_png_asset = (fck_texture_asset *)db->get(assets, "app/items-sheet.png");
@@ -811,6 +817,7 @@ int main(int argc, char **argv)
 	// Then we could also move the whole render pass there?
 	// const fck_sprite_batch_id empty_batch = sprite->batches->add(&sprites, "Empty", &white_view, 32.0f, 32.0f);
 	// fck_assert(empty_batch.value == 0);
+	const fck_sprite_batch_id debug_batch = sprite->batches->add(&sprites, "Debug", debug_png_asset, 8.0f, 8.0f);
 	const fck_sprite_batch_id background_batch = sprite->batches->add(&sprites, "Background", bg_png_asset, 132.0f, 72.0f);
 	const fck_sprite_batch_id birds_batch = sprite->batches->add(&sprites, "Birds", bird_png_asset, 32.0f, 32.0f);
 	const fck_sprite_batch_id items_batch = sprite->batches->add(&sprites, "Items", items_png_asset, 16.0f, 16.0f);

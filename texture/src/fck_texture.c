@@ -114,7 +114,6 @@ static fck_db_asset *fck_texture_import(const fck_db_loader_args *args, const ch
 		fck_assert(asset->base.size = sizeof(*asset));
 		fck_texture_api_free(asset->value);
 		asset->value = fck_texture_api_load(file);
-		asset->base.type = fck_db_type_asset;
 		asset->base.timestamp = os->chrono->now();
 		return &asset->base;
 	}
@@ -123,7 +122,6 @@ static fck_db_asset *fck_texture_import(const fck_db_loader_args *args, const ch
 		fck_texture_asset *asset = (fck_texture_asset *)kll_malloc(kll->system, sizeof(*asset));
 		memset(asset, 0, sizeof(*asset));
 		asset->value = value;
-		asset->base.type = fck_db_type_asset;
 		asset->base.timestamp = os->chrono->now();
 		asset->base.size = sizeof(*asset);
 		return &asset->base;

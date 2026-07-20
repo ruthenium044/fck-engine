@@ -632,7 +632,6 @@ static fck_db_asset *fck_shader_import(const fck_db_loader_args *args, const cha
 	fck_shader_asset *asset = (fck_shader_asset *)kll_malloc(kll->system, sizeof(*asset));
 	os->fs->close(file_handle);
 	asset->value = shader_object;
-	asset->base.type = fck_db_type_asset;
 	asset->base.timestamp = os->chrono->now();
 	asset->base.size = sizeof(*asset);
 

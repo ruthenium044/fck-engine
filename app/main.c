@@ -195,6 +195,26 @@ static void fck_settings_editor(fck_sprite_api *sprite, fck_nuklear_api *nk, fck
 	}
 }
 
+fck_entity fck_create_entity_sprite(const char *item_name, fck_ec_api *ec, fck_ec world, fck_sprite_api *sprite, fck_sprites *sprites,
+                                    fck_nuklear_api *nk, fck_nk view, fck_component_id sprite_component_id)
+{
+	const fck_sprite_transform baseline = {
+		.scale = 10.0f,
+	};
+
+	const fck_entity entity = ec->entity->create(world);
+	const fck_sprite_batch_id batch_id = sprite->batches->find_by_name(sprites, item_name);
+	fck_sprite_transform *transform = sprite->add(sprites, batch_id);
+	*transform = baseline;
+	nk->pie->apply_position(view, &transform->x, &transform->y);
+
+	const fck_sprite_id sprite_id = sprite->indexof(sprites, batch_id, transform);
+	ec->component->set(world, entity, sprite_component_id, &sprite_id);
+
+	nk->set_selection(view, transform);
+	return entity;
+}
+
 static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugins_api *plugins, fck_sprite_api *sprite, fck_nuklear_api *nk,
                                         fck_nk view, app_sprite_pie_items *pie, fck_sprites *sprites, fck_entity *selected_entity)
 {
@@ -401,44 +421,15 @@ static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugin
 	}
 
 	{
-		//// TODO: we shall not create through sprite anymore, we need to create through ec
-		//// Sprite is a resource!
 		if (nk->pie->happened(&pie->add_bird))
 		{
-			{
-				const fck_sprite_transform baseline = {
-					.scale = 10.0f,
-				};
-
-				const fck_entity entity = ec->entity->create(world);
-				const fck_sprite_batch_id batch_id = sprite->batches->find_by_name(sprites, "Birds");
-				fck_sprite_transform *transform = sprite->add(sprites, batch_id);
-				*transform = baseline;
-				nk->pie->apply_position(view, &transform->x, &transform->y);
-
-				const fck_sprite_id sprite_id = sprite->indexof(sprites, batch_id, transform);
-				ec->component->set(world, entity, sprite_component_id, &sprite_id);
-
-				nk->set_selection(view, transform);
-				*selected_entity = entity;
-			}
-			// const fck_sprite_batch_id id = sprite->batches->find_by_name(sprites, "Birds");
-			// fck_sprite_transform *transform = sprite->add(sprites, id);
-			//// Pie api is a bit clunky
+			*selected_entity = fck_create_entity_sprite("Birds", ec, world, sprite, sprites, nk, view, sprite_component_id);
 		}
 
-		/* if (nk->pie->happened(&pie->add_item))
+		if (nk->pie->happened(&pie->add_item))
 		{
-		    const fck_sprite_batch_id id = sprite->batches->find_by_name(sprites, "Items");
-		    fck_sprite_transform *transform = sprite->add(sprites, id);
-		     Pie api is a bit clunky
-		    const fck_sprite_transform baseline = {
-		        .scale = 10.0f,
-		    };
-		    *transform = baseline;
-		    nk->pie->apply_position(view, &transform->x, &transform->y);
-		    nk->set_selection(view, transform);
-		 }*/
+			*selected_entity = fck_create_entity_sprite("Items", ec, world, sprite, sprites, nk, view, sprite_component_id);
+		}
 
 		{
 			if (nk->pie->happened(&pie->remove) && is_selected_entity_ok)
@@ -598,7 +589,7 @@ static app_gameloop *app_gameloops_add(kll_allocator *allocator, app_gameloops *
 typedef struct fck_shader_asset
 {
 	fck_db_asset base;
-	fck_spirv_object value;
+	fck_glsl_object value;
 } fck_shader_asset;
 
 static fck_db_asset *fck_shader_import(const fck_db_loader_args *args, const char *file)
@@ -635,7 +626,7 @@ static fck_db_asset *fck_shader_import(const fck_db_loader_args *args, const cha
 	fck_glsl_object shader_object = compiler.create_glsl_from_file(&compiler, &desc, &file_handle);
 	fck_shader_asset *asset = (fck_shader_asset *)kll_malloc(kll->system, sizeof(*asset));
 	os->fs->close(file_handle);
-	asset->value = compiler.create_spirv(&compiler, &shader_object.generic);
+	asset->value = shader_object;
 	asset->base.type = fck_db_type_asset;
 	asset->base.timestamp = os->chrono->now();
 	asset->base.size = sizeof(*asset);

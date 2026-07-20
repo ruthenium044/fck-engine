@@ -830,6 +830,8 @@ int main(int argc, char **argv)
 	int is_running = 1;
 	while (is_running)
 	{
+		os->chrono->sleep(16);
+
 		const fck_nk_control control = nk->control(view);
 		if (control.close)
 		{

@@ -35,12 +35,13 @@ static int fck_shared_object_is_valid(fck_shared_object so)
 
 static fck_shared_object fck_shared_object_load(const char *path)
 {
+	char real_path[512];
+
 	if (path == NULL)
 	{
 		return (fck_shared_object){.handle = NULL};
 	}
 	// This is fucked, this is fucked, this is fucked, this is fucked
-	char real_path[512];
 
 	// Portable code stinks
 	// const char *path_delim_backslash = SDL_strrchr(path, '\\');
@@ -463,6 +464,12 @@ static void fck_glob_free(char **paths)
 	SDL_free((void *)paths);
 }
 
+static void fck_chrono_sleep(fckc_u64 ms)
+{
+	const fckc_u64 ns = SDL_MS_TO_NS(ms);
+	SDL_DelayNS(ns);
+}
+
 static fckc_i64 fck_chrono_now(void)
 {
 	SDL_Time ticks;
@@ -520,8 +527,9 @@ static fck_window_api window_api = {
 };
 
 static fck_chrono_api chrono_api = {
-	.ms = SDL_GetTicks,
 	.now = fck_chrono_now,
+	.ms = SDL_GetTicks,
+	.sleep = fck_chrono_sleep,
 };
 
 static fck_io_api io_api = {

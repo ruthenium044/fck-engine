@@ -96,6 +96,7 @@ typedef struct fck_chrono_api
 {
 	fckc_u64 (*ms)(void);
 	fckc_i64 (*now)(void);
+	void (*sleep)(fckc_u64 ms);
 } fck_chrono_api;
 
 typedef struct fck_file

@@ -27,3 +27,4 @@ target_link_libraries(${PROJECT_NAME} PUBLIC fck::fckc fck::os)
 
 add_executable(${PROJECT_NAME}-test test/main.c)
 target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
+

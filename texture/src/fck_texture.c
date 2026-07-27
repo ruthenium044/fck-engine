@@ -108,7 +108,7 @@ static fck_db_asset *fck_texture_import(const fck_db_loader_args *args, const ch
 {
 	os->io->log("Load PNG: %s", file);
 
-	fck_texture_asset *asset = (fck_texture_asset *)args->api->get_from_id(args->db, args->target);
+	fck_texture_asset *asset = (fck_texture_asset *)args->api->asset->get(args->db, args->target);
 	if (asset)
 	{
 		fck_assert(asset->base.size = sizeof(*asset));

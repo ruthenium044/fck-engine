@@ -3,6 +3,7 @@
 #ifndef FCKC_ATOMIC_H_INCLUDED
 #define FCKC_ATOMIC_H_INCLUDED
 
+// TODO: Get rid of SAD_, that is SUPER old
 #if defined(_MSC_VER) && (_MSC_VER >= 1900) && !defined(__clang__)
 #include <intrin.h>
 #define SAD_MSVC_AVAILABLE 1

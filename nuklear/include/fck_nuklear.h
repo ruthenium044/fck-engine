@@ -57,7 +57,7 @@ typedef enum fck_nk_style_colors
 	FCK_NK_COLOR_KNOB_CURSOR_HOVER,
 	FCK_NK_COLOR_KNOB_CURSOR_ACTIVE,
 	FCK_NK_COLOR_COUNT
-}fck_nk_style_colors;
+} fck_nk_style_colors;
 
 typedef struct fck_nk_rect
 {
@@ -122,7 +122,7 @@ typedef struct fck_nk_control
 typedef struct fck_nuklear_hamburger_api
 {
 	fck_nk_hamburger_item *(*push)(fck_nk nk, fck_nk_hamburger_item *item);
-	int (*used)(fck_nk nk, fck_nk_hamburger_item* item);
+	int (*used)(fck_nk nk, fck_nk_hamburger_item *item);
 } fck_nuklear_hamburger_api;
 
 typedef struct fck_nuklear_pie_api
@@ -196,7 +196,7 @@ typedef struct fck_nuklear_api
 
 	void (*set_theme)(fck_nk nk, fck_nuklear_theme theme);
 	fck_nuklear_theme (*get_theme)(fck_nk nk);
-	// TODO: Fix this up, maybe provide our own style colour? 
+	// TODO: Fix this up, maybe provide our own style colour?
 	fck_nk_colour (*get_style_colour)(fck_nk_style_colors style);
 
 	int (*control_point)(fck_nk nk, const void *pointer, float *x, float *y, float size, fck_nk_colour on, fck_nk_colour off);
@@ -205,6 +205,7 @@ typedef struct fck_nuklear_api
 	void (*set_selection)(fck_nk nk, const void *pointer);
 	int (*select)(fck_nk nk, const void *pointer, float x, float y, float w, float h, fck_nk_colour on);
 
+	// TODO: Maybe remove
 	int (*to_screen)(fck_nk nk, float *x, float *y);
 
 	fck_nk_control (*control)(fck_nk nk);

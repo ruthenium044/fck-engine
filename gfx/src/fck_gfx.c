@@ -46,11 +46,11 @@ static fckc_size_t fck_gfx_bindings_add(sht_stage_flags stage, const fck_glsl_re
 	fck_glsl_reflection_api *glsl_reflection = (fck_glsl_reflection_api *)apis->find(fck_glsl_reflection_api_name);
 
 	sht_binding *binding = bindings + count;
+	binding->id = var->binding;
+	binding->stages = stage;
 	if (sht_test(var->qualifiers, fck_glsl_reflection_declaration_qualifier_uniform))
 	{
 		fck_assert(count < capacity);
-		binding->id = var->binding;
-		binding->stages = stage;
 		binding->type = sht_binding_uniform;
 		if (glsl_reflection->is(type, "sampler2D"))
 		{
@@ -61,8 +61,6 @@ static fckc_size_t fck_gfx_bindings_add(sht_stage_flags stage, const fck_glsl_re
 	if (sht_test(var->qualifiers, fck_glsl_reflection_declaration_qualifier_buffer))
 	{
 		fck_assert(count < capacity);
-		binding->id = var->binding;
-		binding->stages = stage;
 		binding->type = sht_binding_storage;
 		count = count + 1;
 	}
@@ -100,7 +98,6 @@ static struct fck_gfx fck_gfx_api_create(kll_allocator *allocator, sht_driver *d
 
 	fck_glsl_reflection_api *glsl_reflection = (fck_glsl_reflection_api *)apis->find(fck_glsl_reflection_api_name);
 	{
-
 		struct fck_glsl_reflection *reflection = glsl_reflection->reflect(vert.generic.source, fck_glsl_reflection_global);
 		const fck_glsl_reflection_type *global = glsl_reflection->type_of(reflection, fck_glsl_reflection_global);
 		const fck_glsl_reflection_variable *current = global->first;
@@ -179,6 +176,8 @@ static struct sht_bss *fck_gfx_api_bss(fck_gfx gfx)
 static struct sht_graphics_pipeline *fck_gfx_api_pipeline(fck_gfx gfx)
 {
 	fck_gfx_internal *gfx_internal = (fck_gfx_internal *)gfx.handle;
+	// In here we can do a nice and dandy resolve for the shaders
+	// Else, maybe a fck_gfx_asset would also make sense?
 	return &gfx_internal->pipeline;
 }
 

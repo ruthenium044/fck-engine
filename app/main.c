@@ -640,6 +640,7 @@ static fck_db_asset *fck_shader_import(const fck_db_loader_args *args, const cha
 
 	return &asset->base;
 }
+
 static fckc_size_t fck_shader_supports(const char ***extensions)
 {
 	static const char *supported[] = {"vert", "frag", "vs", "fs"};
@@ -652,7 +653,7 @@ int main(int argc, char **argv)
 	// TODO: We need to setup stable editor entities, or something like that
 	load_config(argc, argv);
 
-	purge_files("temp-*" fck_plugin_extension);
+	purge_files("temp-fck-*");
 
 	fck_api_registry *registry = fck_api_registry_load("fck-api" fck_plugin_extension);
 	fck_plugins_api *plugins = fck_plugins_load(registry, "fck-plugins" fck_plugin_extension);
@@ -695,7 +696,14 @@ int main(int argc, char **argv)
 	fck_assert(gfx);
 	fck_assert(ec);
 	fck_assert(db);
-	fck_db assets = db->create(kll->system, fck_resource_path);
+
+	fck_db assets = db->create(kll->system);
+
+	const fck_db_undo_scope undo = db->undo->create(kll->system);
+
+	fck_db_id item = db->object->create(assets, "Test");
+	db->setup(assets, "app", fck_resource_path);
+
 	app_gameloops loops = {0};
 	// We can create a new ec
 	fck_ec world = ec->core->create(kll->system, 32);
@@ -777,12 +785,12 @@ int main(int argc, char **argv)
 	app_sprite_pie_items_init(nk, &sprite_pie, root);
 
 	// fck_db_element* txt_asset = (fck_db_element*)db->get(assets, "app/configuration/config.txt");
-	fck_texture_asset *debug_png_asset = (fck_texture_asset *)db->get(assets, "app/debug.png");
-	fck_texture_asset *bg_png_asset = (fck_texture_asset *)db->get(assets, "app/bg-mockup.png");
-	fck_texture_asset *bird_png_asset = (fck_texture_asset *)db->get(assets, "app/bird-sheet.png");
-	fck_texture_asset *items_png_asset = (fck_texture_asset *)db->get(assets, "app/items-sheet.png");
-	fck_shader_asset *sprite_vs = (fck_shader_asset *)db->get(assets, "app/sprite.vs");
-	fck_shader_asset *sprite_fs = (fck_shader_asset *)db->get(assets, "app/sprite.fs");
+	fck_texture_asset *debug_png_asset = (fck_texture_asset *)db->asset->find(assets, "app/debug.png");
+	fck_texture_asset *bg_png_asset = (fck_texture_asset *)db->asset->find(assets, "app/bg-mockup.png");
+	fck_texture_asset *bird_png_asset = (fck_texture_asset *)db->asset->find(assets, "app/bird-sheet.png");
+	fck_texture_asset *items_png_asset = (fck_texture_asset *)db->asset->find(assets, "app/items-sheet.png");
+	fck_shader_asset *sprite_vs = (fck_shader_asset *)db->asset->find(assets, "app/sprite.vs");
+	fck_shader_asset *sprite_fs = (fck_shader_asset *)db->asset->find(assets, "app/sprite.fs");
 
 	sht_image depth_image = {0};
 	sht_image_view depth_view = {0};
@@ -823,8 +831,40 @@ int main(int argc, char **argv)
 
 	fckc_u64 time_point = os->chrono->ms();
 
-	// fckc_u32 selected_batch_index = 0;
-	// fckc_u32 selected_transform_index = 0;
+	{
+		const fck_db_accessor accessor = db->object->edit(assets, item);
+
+		accessor.edit->asset(accessor, "texture", to_fck_db_asset(debug_png_asset));
+		accessor.edit->f32(accessor, "x", 10.0f);
+		accessor.edit->f32(accessor, "y", 10.0f);
+		accessor.edit->reference(accessor, "self", item);
+
+		accessor.edit->commit(accessor, fck_db_no_undo);
+
+		const fck_db_accessor reader = db->object->read(assets, item);
+		os->io->log("Version: %lu", reader.read->version(reader));
+
+		fckc_u32 it = 0;
+		fck_db_named_property property = {0};
+		while (reader.read->iterate(reader, &it, &property))
+		{
+			switch (property.value.type)
+			{
+			case fck_db_type_f32:
+				os->io->log("Name: %s - %f", property.name, property.value.f32);
+				break;
+			case fck_db_type_none:
+				break;
+			case fck_db_type_i32:
+			case fck_db_type_memory:
+			case fck_db_type_asset:
+			case fck_db_type_reference:
+				os->io->log("Name: %s", property.name);
+				break;
+			}
+		}
+	}
+
 	fck_entity selected_entity = ec->entity->invalid(world);
 	int is_running = 1;
 	while (is_running)
@@ -886,6 +926,65 @@ int main(int argc, char **argv)
 		{
 			if (nk->begin(view))
 			{
+				if (nk->panel->begin_label(view, "db", 400.f))
+				{
+					if (nk->panel->push(view, "Game Loops"))
+					{
+						const fck_db_accessor reader = db->object->read(assets, item);
+
+						nk->elements->i32(view, "Version", 0, reader.read->version(reader), 65000, 1);
+						fckc_u32 it = 0;
+						fck_db_named_property property = {0};
+						while (reader.read->iterate(reader, &it, &property))
+						{
+							fck_db_property previous = {0};
+							memcpy(&previous, &property.value, sizeof(previous));
+							switch (property.value.type)
+							{
+							case fck_db_type_none:
+								break;
+							case fck_db_type_i32:
+								property.value.i32 = nk->elements->i32(view, property.name, -1000, property.value.i32, 1000, 1.0f);
+								break;
+							case fck_db_type_f32:
+								property.value.f32 = nk->elements->f32(view, property.name, -1000.0f, property.value.f32, 1000.0f, 1.0f);
+								break;
+							case fck_db_type_memory:
+							case fck_db_type_reference:
+							case fck_db_type_asset:
+								nk->elements->label(view, "<NO DISPLAY>");
+								break;
+							}
+
+							if (memcmp(&previous, &property.value, sizeof(previous)) != 0)
+							{
+								os->io->log("Changed");
+								const fck_db_accessor accessor = db->object->edit(assets, item);
+								accessor.edit->variant(accessor, property.name, &property.value);
+								accessor.edit->commit(accessor, undo);
+							}
+						}
+
+						if (nk->elements->button(view, "Undo"))
+						{
+							if (db->undo->undo(assets, undo))
+							{
+								os->io->log("Undid");
+							}
+						}
+						if (nk->elements->button(view, "Redo"))
+						{
+							if (db->undo->redo(assets, undo))
+							{
+								os->io->log("Redid");
+							}
+						}
+
+						nk->panel->pop(view);
+					}
+					nk->panel->end(view);
+				}
+
 				if (nk->panel->begin_label(view, "Loops", 400.f))
 				{
 					if (nk->panel->push(view, "Game Loops"))
@@ -967,7 +1066,7 @@ int main(int argc, char **argv)
 	}
 
 	plugins->shutdown();
-	purge_files("temp-*" fck_plugin_extension);
+	purge_files("temp-fck-*");
 
 	os->win->destroy(window);
 

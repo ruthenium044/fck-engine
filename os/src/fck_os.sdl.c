@@ -101,14 +101,13 @@ static SDL_Window *to_sdl_window(fck_window window)
 static SDL_HitTestResult fck_custom_hit_test(SDL_Window *win, const SDL_Point *area, void *data)
 {
 	fck_sdl_window *sdl = (fck_sdl_window *)data;
-
-	int w, h;
-	SDL_GetWindowSize(win, &w, &h);
-
 	const int title_bar_height = to_int(sdl->config.title_bar_height);
 	const int resize_border = to_int(sdl->config.resize_line_width);
 	const int button_zone = to_int(sdl->config.button_area_width);
 	const int menu_zone = to_int(sdl->config.menu_area_width);
+
+	int w, h;
+	SDL_GetWindowSize(win, &w, &h);
 
 	if (area->y < resize_border)
 	{
@@ -199,22 +198,22 @@ static int fck_window_api_is_valid(fck_window window)
 
 static int fck_window_api_resize(fck_window window, int width, int height)
 {
-	return (int)SDL_SetWindowSize(to_sdl_window(window), width, height);
+	return SDL_SetWindowSize(to_sdl_window(window), width, height) ? 1 : 0;
 }
 
 static int fck_window_api_text_input_start(fck_window window)
 {
-	return (int)SDL_StartTextInput(to_sdl_window(window));
+	return SDL_StartTextInput(to_sdl_window(window)) ? 1 : 0;
 }
 
 static int fck_window_api_text_input_stop(fck_window window)
 {
-	return (int)SDL_StopTextInput(to_sdl_window(window));
+	return SDL_StopTextInput(to_sdl_window(window)) ? 1 : 0;
 }
 
 static int fck_window_api_size(fck_window window, int *width, int *height)
 {
-	return (int)SDL_GetWindowSize(to_sdl_window(window), width, height);
+	return SDL_GetWindowSize(to_sdl_window(window), width, height) ? 1 : 0;
 }
 
 static void *fck_window_native(fck_window window, const char *name)
@@ -249,12 +248,12 @@ static void *fck_window_native(fck_window window, const char *name)
 
 static int fck_clipboard_api_set(const char *text)
 {
-	return (int)SDL_SetClipboardText(text);
+	return SDL_SetClipboardText(text) ? 1 : 0;
 }
 
 static int fck_clipboard_api_has(void)
 {
-	return (int)SDL_HasClipboardText();
+	return SDL_HasClipboardText() ? 1 : 0;
 }
 
 static fck_clipboard fck_clipboard_api_receive(void)
@@ -329,7 +328,7 @@ static fckc_size_t fck_filesystem_write(fck_file file, const void *ptr, fckc_siz
 
 static fckc_i64 fck_filesystem_flush(fck_file file)
 {
-	return (fckc_i64)SDL_FlushIO((SDL_IOStream *)file.handle);
+	return SDL_FlushIO((SDL_IOStream *)file.handle) ? 1 : 0;
 }
 
 static int fck_filesystem_create_directory(const char *path)
@@ -410,6 +409,7 @@ static char *fck_glob_find(const char *str, const char *substring)
 
 static char *fck_glob_match(const char *str, const char *pattern)
 {
+	// This function takes the luxury of casting const away so it can return non-const
 	const char *s = str;
 	const char *p = pattern;
 	const char *s_fallback = NULL;
@@ -529,6 +529,7 @@ static fck_window_api window_api = {
 static fck_chrono_api chrono_api = {
 	.now = fck_chrono_now,
 	.ms = SDL_GetTicks,
+	.ns = SDL_GetTicksNS,
 	.sleep = fck_chrono_sleep,
 };
 
@@ -869,13 +870,12 @@ fck_file_watcher fck_file_watcher_create(const char *path)
 
 fckc_size_t fck_file_watcher_changes(fck_file_watcher watcher, fck_file_watcher_event *events, fckc_size_t capacity)
 {
+	fckc_size_t count = 0;
 	fck_file_watcher_macos *fs = (fck_file_watcher_macos *)watcher.handle;
 	if (fs == NULL)
 	{
 		return 0;
 	}
-
-	fckc_size_t count = 0;
 
 	// Lock the ring buffer so the background thread doesn't write while we read
 	pthread_mutex_lock(&fs->mutex);
@@ -896,11 +896,11 @@ fckc_size_t fck_file_watcher_changes(fck_file_watcher watcher, fck_file_watcher_
 
 void fck_file_watcher_destroy(fck_file_watcher watcher)
 {
+	fck_file_watcher_macos *fs = (fck_file_watcher_macos *)watcher.handle;
 	if (!watcher.handle)
 	{
 		return;
 	}
-	fck_file_watcher_macos *fs = (fck_file_watcher_macos *)watcher.handle;
 
 	// Stop and release Apple's stream and queues
 	FSEventStreamStop(fs->stream);

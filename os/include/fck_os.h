@@ -95,6 +95,9 @@ typedef struct fck_clipboard_api
 typedef struct fck_chrono_api
 {
 	fckc_u64 (*ms)(void);
+	fckc_u64 (*ns)(void);
+	// Maybe calling time (out of application) today
+	// And now is the local application-related now...
 	fckc_i64 (*now)(void);
 	void (*sleep)(fckc_u64 ms);
 } fck_chrono_api;
@@ -120,11 +123,11 @@ typedef enum fck_path_type
 
 typedef struct fck_path_info
 {
-	fck_path_type type;
+	fck_alias(fck_path_type, fckc_u64) type;
 	fckc_u64 size;
 	fckc_i64 created;
 	fckc_i64 modified;
-	fckc_i64 accessed; 
+	fckc_i64 accessed;
 } fck_path_info;
 
 // This is ok
@@ -140,10 +143,10 @@ typedef struct fck_filesystem_api
 	fckc_size_t (*write)(fck_file, const void *ptr, fckc_size_t size);
 	fckc_i64 (*flush)(fck_file);
 
-	int (*create_directory)(const char* path);
+	int (*create_directory)(const char *path);
 
 	// Path utilities - Maybe path api?
-	int (*info)(const char* path, fck_path_info* info);
+	int (*info)(const char *path, fck_path_info *info);
 
 	int (*remove)(const char *path);
 	// TODO: Remove this, use info instead
@@ -172,8 +175,8 @@ typedef enum fck_file_watcher_event_type
 typedef struct fck_file_watcher_event
 {
 	fck_alias(fck_file_watcher_event_type, fckc_u32) type;
-	fckc_i64 time;
 	char path[420]; // blaze it
+	fckc_i64 time;
 } fck_file_watcher_event;
 
 typedef struct fck_file_watcher

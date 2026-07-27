@@ -25,9 +25,18 @@ typedef struct fck_gfx_shader
 	const char *path;
 } fck_gfx_shader;
 
+// typedef enum fck_gfx_target_flags
+// {
+//	fck_gfx_target_colour = 1 << 0,
+//	fck_gfx_target_depth = 1 << 1
+// } fck_gfx_target_flags;
+
 typedef struct fck_gfx_create_info
 {
 	// This is not so elegant - Instead of boolean configuration always prefer more explicit settings
+	// fck_gfx_target_flags flags;
+	// const fck_shader_asset *vs;
+	// const fck_shader_asset *fs;
 	const int has_depth;
 	const fck_gfx_shader *vertex;
 	const fck_gfx_shader *fragment;

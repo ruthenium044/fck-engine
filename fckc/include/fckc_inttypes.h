@@ -60,13 +60,13 @@ typedef uintptr_t fckc_uintptr;
 #ifndef alignof
 // The issue with this shit here is that alignof behaves slightly different
 // The fallback using offsetof actually does not allow passing in non-type input
-// while the compiler extensions do...
+// while some compiler extensions do...
 #if defined(__GNUC__) || defined(__clang__)
 #define alignof(type) __alignof__(type)
 #elif defined(_MSC_VER)
 #define alignof(type) __alignof(type)
 #else
-#define alignof(type) offsetof(struct { char c; type t; }, t)
+#define alignof(type) (offsetof(struct { char c; type t; }, t)
 #endif
 #endif
 
@@ -76,7 +76,7 @@ typedef uintptr_t fckc_uintptr;
 #define fckc_concat(x, y) fckc_concat_implementation(x, y)
 #define fckc_pad(n) char fckc_concat(_padding_, __LINE__)[n]
 
-#define fckc_pointer_add(ptr, offset) ((void*)((fckc_u8*)(ptr) + (offset)))
+#define fckc_pointer_add(ptr, offset) ((void *)((fckc_u8 *)(ptr) + (offset)))
 
 #define fck_kilobytes(x) ((fckc_size_t)(x) * 1024UL)
 #define fck_megabytes(x) ((fckc_size_t)(x) * 1024UL * 1024UL)

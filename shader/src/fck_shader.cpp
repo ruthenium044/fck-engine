@@ -4,6 +4,7 @@ extern "C"
 {
 #include "fck_shader.h"
 #include <fck_apis.h>
+#include <fck_db.h>
 #include <fck_os.h>
 #include <fckc_assert.h>
 #include <kll.h>
@@ -233,4 +234,62 @@ extern "C"
 		registry->add(fck_shader_api_name, &shader_api);
 		return &shader_api;
 	}
+
+	static fck_db_asset *fck_shader_import(const fck_db_loader_args *args, const char *file)
+	{
+		os->io->log("Load Shader: %s", file);
+		fck_shader_api *shader = (fck_shader_api *)args->registry->find(fck_shader_api_name);
+
+		const char *ext = fck_db_extension(file);
+		fck_shader_stage_type type = fck_shader_unkown;
+		if (ext)
+		{
+			if (strcmp(ext, "vert") == 0)
+			{
+				type = fck_shader_vertex;
+			}
+			else if (strcmp(ext, "vs") == 0)
+			{
+				type = fck_shader_vertex;
+			}
+			else if (strcmp(ext, "frag") == 0)
+			{
+				type = fck_shader_fragment;
+			}
+			else if (strcmp(ext, "fs") == 0)
+			{
+				type = fck_shader_fragment;
+			}
+		}
+		fck_shader_compiler compiler = shader->create();
+		fck_assert(shader->is_ok(compiler));
+
+		fck_file file_handle = os->fs->open(file, "rb");
+		fck_shader_desc desc = {.type = to_u32(type), .file = file, .entry_point = "main"};
+		fck_glsl_object shader_object = compiler.create_glsl_from_file(&compiler, &desc, &file_handle);
+		fck_shader_asset *asset = (fck_shader_asset *)kll_malloc(kll->system, sizeof(*asset));
+		os->fs->close(file_handle);
+		asset->value = shader_object;
+		asset->base.timestamp = os->chrono->now();
+		asset->base.size = sizeof(*asset);
+
+		compiler.destroy(&compiler, &shader_object.generic);
+		compiler.shutdown(&compiler);
+
+		return &asset->base;
+	}
+
+	static fckc_size_t fck_shader_supports(const char ***extensions)
+	{
+		static const char *supported[] = {"vert", "frag", "vs", "fs"};
+		*extensions = supported;
+		return fck_arraysize(supported);
+	}
+
+	fck_db_loader_interface shader_loader = {
+		.name = "shader",
+		.type = 3,
+		.import = fck_shader_import,
+		.supports = fck_shader_supports,
+	};
 }

@@ -17,6 +17,7 @@ find_package(fckc)
 find_package(os)
 find_package(kll)
 find_package(api)
+find_package(db)
 
 add_library(${PROJECT_NAME})
 add_library(${PROJECT_NAME}-interface INTERFACE)
@@ -40,4 +41,4 @@ target_link_libraries(${PROJECT_NAME}-interface INTERFACE fck::fckc)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC ${PROJECT_NAME}-interface)
 
-target_link_libraries(${PROJECT_NAME} PRIVATE fck::kll fck::api-interface fck::os Vulkan::Vulkan Vulkan::shaderc_combined Vulkan::dxc_lib)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::kll fck::api-interface fck::os Vulkan::Vulkan Vulkan::shaderc_combined Vulkan::dxc_lib fck::db-interface)

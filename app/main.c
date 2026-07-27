@@ -590,7 +590,7 @@ static app_gameloop *app_gameloops_add(kll_allocator *allocator, app_gameloops *
 	memset(current, 0, sizeof(*current));
 	return current;
 }
-
+// this too, declatarion in header
 typedef struct fck_shader_asset
 {
 	fck_db_asset base;
@@ -671,13 +671,6 @@ int main(int argc, char **argv)
 	{
 		plugins->load(current);
 	}
-
-	fck_db_loader_interface shader_loader = {
-		.type = 3,
-		.name = "shader",
-		.import = fck_shader_import,
-		.supports = fck_shader_supports,
-	};
 
 	registry->add(fck_db_loader_interface_name, &shader_loader);
 

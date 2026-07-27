@@ -590,63 +590,6 @@ static app_gameloop *app_gameloops_add(kll_allocator *allocator, app_gameloops *
 	memset(current, 0, sizeof(*current));
 	return current;
 }
-// this too, declatarion in header
-typedef struct fck_shader_asset
-{
-	fck_db_asset base;
-	fck_glsl_object value;
-} fck_shader_asset;
-
-static fck_db_asset *fck_shader_import(const fck_db_loader_args *args, const char *file)
-{
-	os->io->log("Load Shader: %s", file);
-	fck_shader_api *shader = (fck_shader_api *)args->registry->find(fck_shader_api_name);
-
-	const char *ext = fck_db_extension(file);
-	fck_shader_stage_type type = fck_shader_unkown;
-	if (ext)
-	{
-		if (strcmp(ext, "vert") == 0)
-		{
-			type = fck_shader_vertex;
-		}
-		else if (strcmp(ext, "vs") == 0)
-		{
-			type = fck_shader_vertex;
-		}
-		else if (strcmp(ext, "frag") == 0)
-		{
-			type = fck_shader_fragment;
-		}
-		else if (strcmp(ext, "fs") == 0)
-		{
-			type = fck_shader_fragment;
-		}
-	}
-	fck_shader_compiler compiler = shader->create();
-	fck_assert(shader->is_ok(compiler));
-
-	fck_file file_handle = os->fs->open(file, "rb");
-	fck_shader_desc desc = {.type = to_u32(type), .file = file, .entry_point = "main"};
-	fck_glsl_object shader_object = compiler.create_glsl_from_file(&compiler, &desc, &file_handle);
-	fck_shader_asset *asset = (fck_shader_asset *)kll_malloc(kll->system, sizeof(*asset));
-	os->fs->close(file_handle);
-	asset->value = shader_object;
-	asset->base.timestamp = os->chrono->now();
-	asset->base.size = sizeof(*asset);
-
-	compiler.destroy(&compiler, &shader_object.generic);
-	compiler.shutdown(&compiler);
-
-	return &asset->base;
-}
-
-static fckc_size_t fck_shader_supports(const char ***extensions)
-{
-	static const char *supported[] = {"vert", "frag", "vs", "fs"};
-	*extensions = supported;
-	return fck_arraysize(supported);
-}
 
 int main(int argc, char **argv)
 {
@@ -671,8 +614,6 @@ int main(int argc, char **argv)
 	{
 		plugins->load(current);
 	}
-
-	registry->add(fck_db_loader_interface_name, &shader_loader);
 
 	fck_input *input = (fck_input *)registry->find(fck_input_api_name);
 	sht_render_api *render = (sht_render_api *)registry->find(sht_render_api_name);

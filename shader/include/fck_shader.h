@@ -1,7 +1,6 @@
 #ifndef FCK_SHADER_H_INCLUDED
 #define FCK_SHADER_H_INCLUDED
 
-#include <fck_db.h>
 #include <fckc_inttypes.h>
 
 #define fck_shader_api_name "fck_shader"
@@ -60,11 +59,7 @@ typedef struct fck_hlsl_object
 	fck_shader_generic generic;
 } fck_hlsl_object;
 
-typedef struct fck_shader_asset
-{
-	fck_db_asset base;
-	fck_glsl_object value;
-} fck_shader_asset;
+typedef struct fck_shader_asset fck_shader_asset;
 
 struct fck_file;
 struct fck_shader_compiler;

@@ -224,16 +224,17 @@ static int fck_shader_api_is_ok(fck_shader_compiler compiler)
 
 extern "C"
 {
+	typedef struct fck_shader_asset
+	{
+		fck_db_asset base;
+		fck_glsl_object value;
+	} fck_shader_asset;
+
+
 	static fck_shader_api shader_api = {
 		fck_shader_compiler_create,
 		fck_shader_api_is_ok,
 	};
-
-	FCK_EXPORT_API void *fck_shader_load(fck_api_registry *registry, void *old)
-	{
-		registry->add(fck_shader_api_name, &shader_api);
-		return &shader_api;
-	}
 
 	static fck_db_asset *fck_shader_import(const fck_db_loader_args *args, const char *file)
 	{
@@ -265,7 +266,7 @@ extern "C"
 		fck_assert(shader->is_ok(compiler));
 
 		fck_file file_handle = os->fs->open(file, "rb");
-		fck_shader_desc desc = {.type = to_u32(type), .file = file, .entry_point = "main"};
+		fck_shader_desc desc = {to_u32(type), file, "main"};
 		fck_glsl_object shader_object = compiler.create_glsl_from_file(&compiler, &desc, &file_handle);
 		fck_shader_asset *asset = (fck_shader_asset *)kll_malloc(kll->system, sizeof(*asset));
 		os->fs->close(file_handle);
@@ -286,10 +287,23 @@ extern "C"
 		return fck_arraysize(supported);
 	}
 
-	fck_db_loader_interface shader_loader = {
-		.name = "shader",
-		.type = 3,
-		.import = fck_shader_import,
-		.supports = fck_shader_supports,
-	};
+	static fck_db_loader_interface fck_db_loader_interface_create_cpp()
+	{
+		fck_db_loader_interface result{};
+		result.name = "shader";
+		result.type = 3;
+		result.import = fck_shader_import;
+		result.supports = fck_shader_supports;
+
+		return result;
+	}
+
+	fck_db_loader_interface shader_loader = fck_db_loader_interface_create_cpp();
+
+	FCK_EXPORT_API void *fck_shader_load(fck_api_registry *registry, void *old)
+	{
+		registry->add(fck_shader_api_name, &shader_api);
+		registry->add(fck_db_loader_interface_name, &shader_loader);
+		return &shader_api;
+	}
 }

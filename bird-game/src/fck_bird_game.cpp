@@ -30,16 +30,19 @@ typedef struct fck_bird_game
 
 static fck_bird_game *fck_to_bird_game(fck_gameloop loop)
 {
-	// https://en.cppreference.com/cpp/language/reinterpret_cast
 	fck_bird_game *game = reinterpret_cast<fck_bird_game *>(loop.handle);
 	return game;
 }
 
+void *operator new(std::size_t size, kll_allocator *alloc)
+{
+	void *memory = kll_malloc(alloc, sizeof(fck_bird_game));
+	return memory;
+}
+
 static fck_gameloop fck_bird_game_create(kll_allocator *allocator, const fck_gameloop_create_parameters *params)
 {
-	// Placement-new allocated memory: https://en.cppreference.com/cpp/language/new
-	void *memory = kll_malloc(allocator, sizeof(fck_bird_game));
-	fck_bird_game *game = new (memory) fck_bird_game();
+	fck_bird_game *game = new (allocator) fck_bird_game();
 
 	game->allocator = allocator;
 	const fck_gameloop gameloop = {.handle = (void *)game};
@@ -60,18 +63,15 @@ static int fck_bird_game_edit(fck_gameloop loop, const fck_gameloop_edit_paramet
 
 	if (nk->panel->begin_label(view, "Bird - Game", 400.0f))
 	{
-
 		nk->panel->end(view);
 	}
 
 	return 1;
 }
 
-// Reference-ish: https://cppreference.com/cpp/ranges
 template <typename T>
 struct fck_component_view
 {
-	// C++ Iterator: https://cppreference.com/cpp/iterator
 	struct Iterator
 	{
 		const fck_entity *entities;
@@ -133,7 +133,6 @@ static int fck_bird_game_tick(fck_gameloop loop, const fck_gameloop_tick_paramet
 	fck_ec *state = params->state;
 	fck_ec_api *ec = params->ec;
 
-	// Structured Bindings: https://en.cppreference.com/cpp/language/structured_binding
 	for (auto [entity, id] : fck_make_view<fck_sprite_id>(params->state, params->ec, "sprite"))
 	{
 		os->io->log("%d %d", id.batch.value, id.entry.value);

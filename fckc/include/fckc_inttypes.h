@@ -58,7 +58,7 @@ typedef uintptr_t fckc_uintptr;
 #endif
 
 #ifndef alignof
-#if defined(__cplusplus) && __cplusplus >= 201103L
+#if defined(__cplusplus)
 	// Native alignof is already available, do nothing.
 // The issue with this shit here is that alignof behaves slightly different
 // The fallback using offsetof actually does not allow passing in non-type input

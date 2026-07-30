@@ -373,8 +373,8 @@ static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugin
 				for (fckc_u32 index = 0; index < count; index++)
 				{
 					const fck_entity entity = entities[index];
-
 					writer->push(writer, "entity");
+					writer->u32(writer, "index", &index, 1);
 
 					fck_archetype_iterator it = ec->archetype->iterator(world, entity);
 					fck_component_id component_id;
@@ -400,16 +400,17 @@ static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugin
 				// const fck_db_accessor reader = db->object->read(assets, item);
 				// float x = reader.read->f32(reader, "x");
 				// float y = reader.read->f32(reader, "y");
-
-				char *buffer = (char *)writer->buffer(writer);
-
 				{
-					fck_file file = os->fs->open("fck_some_data.json", "w");
-					os->fs->write(file, buffer, strlen(buffer));
-					os->fs->close(file);
-				}
+					char *buffer = (char *)writer->buffer(writer);
 
-				os->io->log("%s", buffer);
+					{
+						fck_file file = os->fs->open("fck_some_data.json", "w");
+						os->fs->write(file, buffer, strlen(buffer));
+						os->fs->close(file);
+					}
+
+					os->io->log("%s", buffer);
+				}
 			}
 		}
 

@@ -369,7 +369,6 @@ static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugin
 			if (nk->elements->button(view, "Save to Disk"))
 			{
 				fck_serialiser *writer = serialiser_json->writer(kll->system);
-
 				for (fckc_u32 index = 0; index < count; index++)
 				{
 					const fck_entity entity = entities[index];
@@ -900,11 +899,14 @@ int main(int argc, char **argv)
 		nk->input->end(view);
 
 		{
-			const fck_gameloop_tick_parameters tick_parameters = {.apis = registry, .ec = ec, .state = &world, .sprites = &sprites};
-			for (fckc_size_t index = 0; index < loops.count; index++)
+			if (control.body == 0)
 			{
-				app_gameloop *gameloop = loops.values + index;
-				gameloop->i->tick(gameloop->o, &tick_parameters);
+				const fck_gameloop_tick_parameters tick_parameters = {.apis = registry, .ec = ec, .state = &world, .sprites = &sprites};
+				for (fckc_size_t index = 0; index < loops.count; index++)
+				{
+					app_gameloop *gameloop = loops.values + index;
+					gameloop->i->tick(gameloop->o, &tick_parameters);
+				}
 			}
 		}
 
@@ -953,7 +955,7 @@ int main(int argc, char **argv)
 							}
 						}
 
-						//if (nk->elements->button(view, "Save to Disk")) //
+						// if (nk->elements->button(view, "Save to Disk")) //
 						//{
 						//	const fck_db_accessor reader = db->object->read(assets, item);
 						//	float x = reader.read->f32(reader, "x");

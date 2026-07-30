@@ -235,8 +235,6 @@ static int fck_bird_game_tick(fck_gameloop loop, const fck_gameloop_tick_paramet
 	fck_bird_game *game = fck_to_bird_game(loop);
 	fck_ec *state = params->state;
 	fck_ec_api *ec = params->ec;
-
-	//ec->query.
 	
 	fck_sprite_api *sprite_api = (fck_sprite_api *)params->apis->find(fck_sprite_api_name);
 

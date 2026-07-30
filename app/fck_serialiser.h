@@ -65,6 +65,7 @@ typedef struct fck_serialiser
 
 	void (*destroy)(struct fck_serialiser *s);
 
+	//TODO: add array thaaaanks
 	void (*push)(struct fck_serialiser *s, const char *name);
 	void (*pop)(struct fck_serialiser *s);
 

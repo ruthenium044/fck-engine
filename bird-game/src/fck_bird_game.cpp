@@ -236,23 +236,15 @@ static int fck_bird_game_tick(fck_gameloop loop, const fck_gameloop_tick_paramet
 	fck_ec *state = params->state;
 	fck_ec_api *ec = params->ec;
 
+	//ec->query.
+	
+	fck_sprite_api *sprite_api = (fck_sprite_api *)params->apis->find(fck_sprite_api_name);
+
 	for (auto [entity, id] : fck_make_view<fck_sprite_id>(params->state, params->ec, "sprite"))
 	{
-		os->io->log("%d %d", id.batch.value, id.entry.value);
+		fck_sprite_transform *transform = sprite_api->get(params->sprites, id);
+		//transform->x = transform->x + 0.1f;
 	}
-
-	for (auto id : fck_make_component_view<fck_sprite_id>(params->state, params->ec, "sprite"))
-	{
-		os->io->log("%d %d", id.batch.value, id.entry.value);
-	}
-
-	for (auto entity : fck_make_entity_view(params->state, params->ec, "sprite"))
-	{
-		os->io->log("%d %d", entity.generation, entity.index);
-	}
-
-	std::vector<int> vec;
-	std::vector<float> data;
 
 	return 1;
 }

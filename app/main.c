@@ -219,7 +219,8 @@ fck_entity fck_create_entity_sprite(const char *item_name, fck_ec_api *ec, fck_e
 }
 
 static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugins_api *plugins, fck_sprite_api *sprite, fck_nuklear_api *nk,
-                                        fck_nk view, app_sprite_pie_items *pie, fck_sprites *sprites, fck_entity *selected_entity)
+                                        fck_nk view, app_sprite_pie_items *pie, fck_sprites *sprites, fck_entity *selected_entity,
+                                        fck_db assets, fck_db_api *db, fck_db_id item)
 {
 	const int is_selected_entity_ok = ec->entity->is_ok(world, *selected_entity);
 	if (!is_selected_entity_ok)
@@ -364,6 +365,52 @@ static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugin
 				ec->entity->create(world);
 			}
 			nk->panel->pop(view);
+
+			if (nk->elements->button(view, "Save to Disk"))
+			{
+				fck_serialiser *writer = serialiser_json->writer(kll->system);
+
+				for (fckc_u32 index = 0; index < count; index++)
+				{
+					const fck_entity entity = entities[index];
+
+					writer->push(writer, "entity");
+
+					fck_archetype_iterator it = ec->archetype->iterator(world, entity);
+					fck_component_id component_id;
+					while (ec->archetype->get(&it, &component_id, 1))
+					{
+						if (sprite_component_id.value == component_id.value)
+						{
+							void *opaque_component = ec->component->get(world, entity, component_id);
+							fck_sprite_id *sprite_component = (fck_sprite_id *)opaque_component;
+							fck_sprite_transform *transform = sprite->get(sprites, *sprite_component);
+							fck_assert(transform);
+
+							writer->push(writer, "sprite");
+							writer->f32(writer, "x", &transform->x, 1);
+							writer->f32(writer, "y", &transform->y, 1);
+							writer->pop(writer);
+						}
+					}
+
+					writer->pop(writer);
+				}
+
+				// const fck_db_accessor reader = db->object->read(assets, item);
+				// float x = reader.read->f32(reader, "x");
+				// float y = reader.read->f32(reader, "y");
+
+				char *buffer = (char *)writer->buffer(writer);
+
+				{
+					fck_file file = os->fs->open("fck_some_data.json", "w");
+					os->fs->write(file, buffer, strlen(buffer));
+					os->fs->close(file);
+				}
+
+				os->io->log("%s", buffer);
+			}
 		}
 
 		if (nk->panel->push(view, "Sprite Transforms"))
@@ -905,43 +952,43 @@ int main(int argc, char **argv)
 							}
 						}
 
-						if (nk->elements->button(view, "Save to Disk"))
-						{
-							const fck_db_accessor reader = db->object->read(assets, item);
-							float x = reader.read->f32(reader, "x");
-							float y = reader.read->f32(reader, "y");
+						//if (nk->elements->button(view, "Save to Disk")) //
+						//{
+						//	const fck_db_accessor reader = db->object->read(assets, item);
+						//	float x = reader.read->f32(reader, "x");
+						//	float y = reader.read->f32(reader, "y");
 
-							fck_serialiser *writer = serialiser_json->writer(kll->system);
-							const char* name = "position";
-							writer->push(writer, name);
-							name = "x";
-							writer->f32(writer, name, &x, 1);
-							name = "y";
-							writer->f32(writer, name, &y, 1);
-							writer->pop(writer);
+						//	fck_serialiser *writer = serialiser_json->writer(kll->system);
+						//	const char *name = "position";
+						//	writer->push(writer, name);
+						//	name = "x";
+						//	writer->f32(writer, name, &x, 1);
+						//	name = "y";
+						//	writer->f32(writer, name, &y, 1);
+						//	writer->pop(writer);
 
-							char *buffer = (char *)writer->buffer(writer);
+						//	char *buffer = (char *)writer->buffer(writer);
 
-							{
-								fck_file file = os->fs->open("fck_some_data.json", "w");
-								os->fs->write(file, buffer, strlen(buffer));
-								os->fs->close(file);
-							}
-							{
-								fck_file file = os->fs->open("fck_some_data.json", "r");
-								const fckc_i64 size = os->fs->size(file);
-								void *memory = kll_malloc(kll->system, size);
-								os->fs->read(file, memory, size);
+						//	{
+						//		fck_file file = os->fs->open("fck_some_data.json", "w");
+						//		os->fs->write(file, buffer, strlen(buffer));
+						//		os->fs->close(file);
+						//	}
+						//	{
+						//		fck_file file = os->fs->open("fck_some_data.json", "r");
+						//		const fckc_i64 size = os->fs->size(file);
+						//		void *memory = kll_malloc(kll->system, size);
+						//		os->fs->read(file, memory, size);
 
-								fck_serialiser *jreader = serialiser_json->reader(kll->system, (fckc_char *)memory, size);
-								x = (float)jreader->query(jreader, "/position/x")->values->as_f64;
-								y = (float)jreader->query(jreader, "/position/y")->values->as_f64;
+						//		fck_serialiser *jreader = serialiser_json->reader(kll->system, (fckc_char *)memory, size);
+						//		x = (float)jreader->query(jreader, "/position/x")->values->as_f64;
+						//		y = (float)jreader->query(jreader, "/position/y")->values->as_f64;
 
-								kll_free(kll->system, memory);
-							}
+						//		kll_free(kll->system, memory);
+						//	}
 
-							os->io->log("%s", buffer);
-						}
+						//	os->io->log("%s", buffer);
+						//}
 
 						if (nk->elements->button(view, "Undo"))
 						{
@@ -977,7 +1024,8 @@ int main(int argc, char **argv)
 					nk->panel->end(view);
 				}
 
-				fck_sprite_transform_editor(ec, world, plugins, sprite, nk, view, &sprite_pie, &sprites, &selected_entity);
+				fck_sprite_transform_editor(ec, world, plugins, sprite, nk, view, &sprite_pie, &sprites, &selected_entity, assets, db,
+				                            item);
 
 				const fck_gameloop_edit_parameters edit_parameters = {.apis = registry, .ec = ec, .state = &world, .view = &view, .nk = nk};
 				for (fckc_size_t index = 0; index < loops.count; index++)

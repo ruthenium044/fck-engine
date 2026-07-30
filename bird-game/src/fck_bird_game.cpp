@@ -1,4 +1,6 @@
 
+#include "../../db/include/fck_db.h"
+
 extern "C"
 {
 #include <fckc_apidef.h>
@@ -22,6 +24,7 @@ extern "C"
 
 #include <tuple>
 #include <vector>
+#include <algorithm>
 
 typedef struct fck_bird_game
 {
@@ -91,9 +94,16 @@ struct fck_component_view
 			T &component_data;
 		};
 
-		reference operator*() const
+		auto operator*() const
 		{
-			return {*current, data[current->index]};
+			if constexpr (std::is_same<T, fck_entity>::value)
+			{
+				return *current;
+			}
+			else
+			{
+				return reference{*current, data[current->index]};
+			}
 		}
 
 		iterator &operator++()
@@ -218,17 +228,6 @@ static auto fck_make_entity_view(fck_ec *state, fck_ec_api *ec, const char *comp
 	const fckc_u32 count = ec->component->dense(*state, comp_id, &entities);
 
 	return fck_component_entity_view{entities, count};
-}
-
-template <typename T>
-static auto fck_make_component_view(fck_ec *state, fck_ec_api *ec, const char *component_name)
-{
-	const fck_component_id comp_id = ec->registry->id(*state, component_name);
-	const fck_entity *entities;
-	const fckc_u32 count = ec->component->dense(*state, comp_id, &entities);
-	T *data = reinterpret_cast<T *>(ec->component->buffer(*state, comp_id));
-
-	return fck_component_data_view<T>{entities, data, count};
 }
 
 static int fck_bird_game_tick(fck_gameloop loop, const fck_gameloop_tick_parameters *params)

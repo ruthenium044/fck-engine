@@ -50,6 +50,10 @@ typedef struct fck_component_definition
 	void *userdata;
 } fck_component_definition;
 
+// This is not really needed, 
+// all the members of the defined query_struct should be pointers
+// or in other words, references to the memory
+// It works, but it needs to get a little redesigned for read-write possibilities
 typedef struct fck_query_component
 {
 	fck_component_id id;

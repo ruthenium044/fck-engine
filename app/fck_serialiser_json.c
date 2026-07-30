@@ -19,13 +19,13 @@ typedef struct fck_json_writer
 	fckc_size_t final_len;
 } fck_json_writer;
 
-static void fck_json_writer_push(struct fck_serialiser *s, struct fck_serialiser_params *p)
+static void fck_json_writer_push(struct fck_serialiser *s, const char *name)
 {
 	fck_json_writer *w = (fck_json_writer *)s;
 	yyjson_mut_val *parent = w->stack[w->stack_top];
 	yyjson_mut_val *child = yyjson_mut_obj(w->doc);
 
-	yyjson_mut_obj_add_val(w->doc, parent, p->name, child);
+	yyjson_mut_obj_add_val(w->doc, parent, name, child);
 	w->stack[++w->stack_top] = child;
 }
 
@@ -39,13 +39,13 @@ static void fck_json_writer_pop(struct fck_serialiser *s)
 }
 
 #define DEFINE_FCK_JSON_WRITER_FUNC(TYPE_NAME, T, YY_MUT_CREATOR)                                                                          \
-	static void fck_json_writer_##TYPE_NAME(struct fck_serialiser *s, struct fck_serialiser_params *p, T *v, fckc_size_t c)                \
+	static void fck_json_writer_##TYPE_NAME(struct fck_serialiser *s, const char *name, T *v, fckc_size_t c)                \
 	{                                                                                                                                      \
 		fck_json_writer *w = (fck_json_writer *)s;                                                                                         \
 		yyjson_mut_val *parent = w->stack[w->stack_top];                                                                                   \
 		if (c == 1)                                                                                                                        \
 		{                                                                                                                                  \
-			yyjson_mut_obj_add_val(w->doc, parent, p->name, YY_MUT_CREATOR(w->doc, v[0]));                                                 \
+			yyjson_mut_obj_add_val(w->doc, parent, name, YY_MUT_CREATOR(w->doc, v[0]));                                                 \
 		}                                                                                                                                  \
 		else                                                                                                                               \
 		{                                                                                                                                  \
@@ -54,7 +54,7 @@ static void fck_json_writer_pop(struct fck_serialiser *s)
 			{                                                                                                                              \
 				yyjson_mut_arr_add_val(arr, YY_MUT_CREATOR(w->doc, v[i]));                                                                 \
 			}                                                                                                                              \
-			yyjson_mut_obj_add_val(w->doc, parent, p->name, arr);                                                                          \
+			yyjson_mut_obj_add_val(w->doc, parent, name, arr);                                                                          \
 		}                                                                                                                                  \
 	}
 
@@ -69,14 +69,14 @@ DEFINE_FCK_JSON_WRITER_FUNC(u64, fckc_u64, yyjson_mut_uint)
 DEFINE_FCK_JSON_WRITER_FUNC(f32, fckc_f32, yyjson_mut_real)
 DEFINE_FCK_JSON_WRITER_FUNC(f64, fckc_f64, yyjson_mut_real)
 
-static void fck_json_writer_string(struct fck_serialiser *s, struct fck_serialiser_params *p, void **v, fckc_size_t c)
+static void fck_json_writer_string(struct fck_serialiser *s, const char *name, void **v, fckc_size_t c)
 {
 	fck_json_writer *w = (fck_json_writer *)s;
 	yyjson_mut_val *parent = w->stack[w->stack_top];
 
 	if (c == 1)
 	{
-		yyjson_mut_obj_add_str(w->doc, parent, p->name, (const char *)v[0]);
+		yyjson_mut_obj_add_str(w->doc, parent, name, (const char *)v[0]);
 	}
 	else
 	{
@@ -85,7 +85,7 @@ static void fck_json_writer_string(struct fck_serialiser *s, struct fck_serialis
 		{
 			yyjson_mut_arr_add_str(w->doc, arr, (const char *)v[i]);
 		}
-		yyjson_mut_obj_add_val(w->doc, parent, p->name, arr);
+		yyjson_mut_obj_add_val(w->doc, parent, name, arr);
 	}
 }
 
@@ -450,11 +450,11 @@ static fck_serialiser_iterator *fck_json_iterator_create(fck_serialiser *s)
 
 /* --- Classical Reader Implementation Functions --- */
 
-static void fck_json_reader_push(struct fck_serialiser *s, struct fck_serialiser_params *p)
+static void fck_json_reader_push(struct fck_serialiser *s, const char *name)
 {
 	fck_json_reader *r = (fck_json_reader *)s;
 	yyjson_val *parent = r->stack[r->stack_top];
-	yyjson_val *child = yyjson_obj_get(parent, p->name);
+	yyjson_val *child = yyjson_obj_get(parent, name);
 
 	r->stack[++r->stack_top] = child;
 }
@@ -469,11 +469,11 @@ static void fck_json_reader_pop(struct fck_serialiser *s)
 }
 
 #define DEFINE_FCK_JSON_READER_FUNC(TYPE_NAME, T, CAST_MACRO, YY_GETTER)                                                                   \
-	static void fck_json_reader_##TYPE_NAME(struct fck_serialiser *s, struct fck_serialiser_params *p, T *v, fckc_size_t c)                \
+	static void fck_json_reader_##TYPE_NAME(struct fck_serialiser *s, const char *name, T *v, fckc_size_t c)                \
 	{                                                                                                                                      \
 		fck_json_reader *r = (fck_json_reader *)s;                                                                                         \
 		yyjson_val *parent = r->stack[r->stack_top];                                                                                       \
-		yyjson_val *val = yyjson_obj_get(parent, p->name);                                                                                 \
+		yyjson_val *val = yyjson_obj_get(parent, name);                                                                                 \
 		if (!val)                                                                                                                          \
 		{                                                                                                                                  \
 			memset(v, 0, sizeof(T) * to_size_t(c));                                                                                        \
@@ -519,11 +519,11 @@ DEFINE_FCK_JSON_READER_FUNC(u64, fckc_u64, to_u64, yyjson_get_uint)
 DEFINE_FCK_JSON_READER_FUNC(f32, fckc_f32, to_f32, yyjson_get_real)
 DEFINE_FCK_JSON_READER_FUNC(f64, fckc_f64, to_f64, yyjson_get_real)
 
-static void fck_json_reader_string(struct fck_serialiser *s, struct fck_serialiser_params *p, void **v, fckc_size_t c)
+static void fck_json_reader_string(struct fck_serialiser *s, const char *name, void **v, fckc_size_t c)
 {
 	fck_json_reader *r = (fck_json_reader *)s;
 	yyjson_val *parent = r->stack[r->stack_top];
-	yyjson_val *val = yyjson_obj_get(parent, p->name);
+	yyjson_val *val = yyjson_obj_get(parent, name);
 
 	if (!val)
 	{

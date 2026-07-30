@@ -5,11 +5,6 @@
 
 struct kll_allocator;
 
-typedef struct fck_serialiser_params
-{
-	const char *name;
-} fck_serialiser_params;
-
 // TODO: Make these flags... Since we can only use them for querying...
 typedef enum fck_serialiser_primitive
 {
@@ -44,10 +39,10 @@ typedef union fck_serialiser_value {
 
 typedef struct fck_serialiser_element
 {
-	fck_serialiser_primitive type;
 	const char *name;
 	fck_serialiser_value *values;
 	fckc_size_t count;
+	fck_serialiser_primitive type;
 } fck_serialiser_element;
 
 struct fck_serialiser_iterator;
@@ -70,21 +65,21 @@ typedef struct fck_serialiser
 
 	void (*destroy)(struct fck_serialiser *s);
 
-	void (*push)(struct fck_serialiser *s, struct fck_serialiser_params *p);
+	void (*push)(struct fck_serialiser *s, const char *name);
 	void (*pop)(struct fck_serialiser *s);
 
-	void (*i8)(struct fck_serialiser *s, struct fck_serialiser_params *p, fckc_i8 *v, fckc_size_t c);
-	void (*i16)(struct fck_serialiser *s, struct fck_serialiser_params *p, fckc_i16 *v, fckc_size_t c);
-	void (*i32)(struct fck_serialiser *s, struct fck_serialiser_params *p, fckc_i32 *v, fckc_size_t c);
-	void (*i64)(struct fck_serialiser *s, struct fck_serialiser_params *p, fckc_i64 *v, fckc_size_t c);
-	void (*u8)(struct fck_serialiser *s, struct fck_serialiser_params *p, fckc_u8 *v, fckc_size_t c);
-	void (*u16)(struct fck_serialiser *s, struct fck_serialiser_params *p, fckc_u16 *v, fckc_size_t c);
-	void (*u32)(struct fck_serialiser *s, struct fck_serialiser_params *p, fckc_u32 *v, fckc_size_t c);
-	void (*u64)(struct fck_serialiser *s, struct fck_serialiser_params *p, fckc_u64 *v, fckc_size_t c);
-	void (*f32)(struct fck_serialiser *s, struct fck_serialiser_params *p, fckc_f32 *v, fckc_size_t c);
-	void (*f64)(struct fck_serialiser *s, struct fck_serialiser_params *p, fckc_f64 *v, fckc_size_t c);
+	void (*i8)(struct fck_serialiser *s, const char *name, fckc_i8 *v, fckc_size_t c);
+	void (*i16)(struct fck_serialiser *s, const char *name, fckc_i16 *v, fckc_size_t c);
+	void (*i32)(struct fck_serialiser *s, const char *name, fckc_i32 *v, fckc_size_t c);
+	void (*i64)(struct fck_serialiser *s, const char *name, fckc_i64 *v, fckc_size_t c);
+	void (*u8)(struct fck_serialiser *s, const char *name, fckc_u8 *v, fckc_size_t c);
+	void (*u16)(struct fck_serialiser *s, const char *name, fckc_u16 *v, fckc_size_t c);
+	void (*u32)(struct fck_serialiser *s, const char *name, fckc_u32 *v, fckc_size_t c);
+	void (*u64)(struct fck_serialiser *s, const char *name, fckc_u64 *v, fckc_size_t c);
+	void (*f32)(struct fck_serialiser *s, const char *name, fckc_f32 *v, fckc_size_t c);
+	void (*f64)(struct fck_serialiser *s, const char *name, fckc_f64 *v, fckc_size_t c);
 
-	void (*string)(struct fck_serialiser *s, struct fck_serialiser_params *p, void **v, fckc_size_t c);
+	void (*string)(struct fck_serialiser *s, const char *name, void **v, fckc_size_t c);
 
 	void *(*buffer)(struct fck_serialiser *s);
 	fckc_size_t (*at)(struct fck_serialiser *s);

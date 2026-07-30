@@ -1,4 +1,7 @@
 
+#include "fck_serialiser.h"
+#include "fck_serialiser_json.h"
+
 #include <ctype.h>
 #include <fck_apis.h>
 #include <fck_hash.h>
@@ -849,7 +852,7 @@ int main(int argc, char **argv)
 		nk->input->end(view);
 
 		{
-			const fck_gameloop_tick_parameters tick_parameters = {.apis = registry, .ec = ec, .state = &world};
+			const fck_gameloop_tick_parameters tick_parameters = {.apis = registry, .ec = ec, .state = &world, .sprites = &sprites};
 			for (fckc_size_t index = 0; index < loops.count; index++)
 			{
 				app_gameloop *gameloop = loops.values + index;
@@ -862,41 +865,82 @@ int main(int argc, char **argv)
 			{
 				if (nk->panel->begin_label(view, "db", 400.f))
 				{
-					if (nk->panel->push(view, "Game Loops"))
+					if (nk->panel->push(view, "Example"))
 					{
-						const fck_db_accessor reader = db->object->read(assets, item);
-
-						nk->elements->i32(view, "Version", 0, reader.read->version(reader), 65000, 1);
-						fckc_u32 it = 0;
-						fck_db_named_property property = {0};
-						while (reader.read->iterate(reader, &it, &property))
 						{
-							fck_db_property previous = {0};
-							memcpy(&previous, &property.value, sizeof(previous));
-							switch (property.value.type)
+							const fck_db_accessor reader = db->object->read(assets, item);
+
+							nk->elements->i32(view, "Version", 0, reader.read->version(reader), 65000, 1);
+							fckc_u32 it = 0;
+							fck_db_named_property property = {0};
+							while (reader.read->iterate(reader, &it, &property))
 							{
-							case fck_db_type_none:
-								break;
-							case fck_db_type_i32:
-								property.value.i32 = nk->elements->i32(view, property.name, -1000, property.value.i32, 1000, 1.0f);
-								break;
-							case fck_db_type_f32:
-								property.value.f32 = nk->elements->f32(view, property.name, -1000.0f, property.value.f32, 1000.0f, 1.0f);
-								break;
-							case fck_db_type_memory:
-							case fck_db_type_reference:
-							case fck_db_type_asset:
-								nk->elements->label(view, "<NO DISPLAY>");
-								break;
+								fck_db_property previous = {0};
+								memcpy(&previous, &property.value, sizeof(previous));
+								switch (property.value.type)
+								{
+								case fck_db_type_none:
+									break;
+								case fck_db_type_i32:
+									property.value.i32 = nk->elements->i32(view, property.name, -1000, property.value.i32, 1000, 1.0f);
+									break;
+								case fck_db_type_f32:
+									property.value.f32 =
+										nk->elements->f32(view, property.name, -1000.0f, property.value.f32, 1000.0f, 1.0f);
+									break;
+								case fck_db_type_memory:
+								case fck_db_type_reference:
+								case fck_db_type_asset:
+									nk->elements->label(view, "<NO DISPLAY>");
+									break;
+								}
+
+								if (memcmp(&previous, &property.value, sizeof(previous)) != 0)
+								{
+									os->io->log("Changed");
+									const fck_db_accessor accessor = db->object->edit(assets, item);
+									accessor.edit->variant(accessor, property.name, &property.value);
+									accessor.edit->commit(accessor, undo);
+								}
+							}
+						}
+
+						if (nk->elements->button(view, "Save to Disk"))
+						{
+							const fck_db_accessor reader = db->object->read(assets, item);
+							float x = reader.read->f32(reader, "x");
+							float y = reader.read->f32(reader, "y");
+
+							fck_serialiser *writer = serialiser_json->writer(kll->system);
+							const char* name = "position";
+							writer->push(writer, name);
+							name = "x";
+							writer->f32(writer, name, &x, 1);
+							name = "y";
+							writer->f32(writer, name, &y, 1);
+							writer->pop(writer);
+
+							char *buffer = (char *)writer->buffer(writer);
+
+							{
+								fck_file file = os->fs->open("fck_some_data.json", "w");
+								os->fs->write(file, buffer, strlen(buffer));
+								os->fs->close(file);
+							}
+							{
+								fck_file file = os->fs->open("fck_some_data.json", "r");
+								const fckc_i64 size = os->fs->size(file);
+								void *memory = kll_malloc(kll->system, size);
+								os->fs->read(file, memory, size);
+
+								fck_serialiser *jreader = serialiser_json->reader(kll->system, (fckc_char *)memory, size);
+								x = (float)jreader->query(jreader, "/position/x")->values->as_f64;
+								y = (float)jreader->query(jreader, "/position/y")->values->as_f64;
+
+								kll_free(kll->system, memory);
 							}
 
-							if (memcmp(&previous, &property.value, sizeof(previous)) != 0)
-							{
-								os->io->log("Changed");
-								const fck_db_accessor accessor = db->object->edit(assets, item);
-								accessor.edit->variant(accessor, property.name, &property.value);
-								accessor.edit->commit(accessor, undo);
-							}
+							os->io->log("%s", buffer);
 						}
 
 						if (nk->elements->button(view, "Undo"))

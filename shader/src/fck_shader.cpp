@@ -230,7 +230,6 @@ extern "C"
 		fck_glsl_object value;
 	} fck_shader_asset;
 
-
 	static fck_shader_api shader_api = {
 		fck_shader_compiler_create,
 		fck_shader_api_is_ok,
@@ -291,7 +290,7 @@ extern "C"
 	{
 		fck_db_loader_interface result{};
 		result.name = "shader";
-		result.type = 3;
+		result.type = "shader";
 		result.import = fck_shader_import;
 		result.supports = fck_shader_supports;
 

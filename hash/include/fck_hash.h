@@ -21,10 +21,6 @@ static fck_hash_int fck_hash(const char *str, int length)
 	for (int index = 0; index < length; index++)
 	{
 		const char c = str[index];
-		if (c == 0)
-		{
-			break;
-		}
 		hash = ((hash << 5) + hash) + (unsigned char)c;
 	}
 	return hash;

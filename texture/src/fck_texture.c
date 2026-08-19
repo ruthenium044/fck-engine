@@ -130,7 +130,7 @@ static fck_db_asset *fck_texture_import(const fck_db_loader_args *args, const ch
 
 static fckc_size_t fck_texture_supports(const char ***extensions)
 {
-	static const char *supported[] = {"png"};
+	static const char *supported[] = {"png", "jpg"};
 	*extensions = supported;
 	return fck_arraysize(supported);
 }
@@ -147,7 +147,7 @@ static fck_texture_api png_api = {
 };
 
 static fck_db_loader_interface png_loader = {
-	.type = 2,
+	.type = "texture",
 	.name = "png",
 	.import = fck_texture_import,
 	.supports = fck_texture_supports,

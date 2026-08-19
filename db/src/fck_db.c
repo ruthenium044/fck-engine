@@ -16,117 +16,61 @@
 #include <stdio.h>
 #include <string.h>
 
-#define fck_multidir_child_capacity 255
-#define fck_multidir_bitset_capacity 4
-#define fck_multidir_bitset_chunk_capacity 64
+#include <fckc_atomic.h>
+
+#include <fck_serialiser.h>
+
+#include "fck_db_core.inl"
+#include "fck_db_object_page_table.h"
+
+#include "fck_db_accessor_edit.h"
+#include "fck_db_accessor_ok.h"
+#include "fck_db_accessor_read.h"
+
+#include "fck_db_id_set.h"
+
+#define fck_db_id_tombstone_type to_u16(65535)
+
+#define fck_db_private_serialiser_seperator "_"
+#define fck_db_private_uuid fck_db_private_serialiser_seperator "uuid"
+#define fck_db_private_name fck_db_private_serialiser_seperator "name"
+// It actually does not make any fucking sense to safe this one to disk lol
+// It is like storing a fucking pointer
+// #define fck_db_private_id fck_db_private_serialiser_seperator "id"
+#define fck_db_private_signature fck_db_private_serialiser_seperator "signature"
 
 static fck_api_registry *apis = NULL;
+static fck_db_api *db_api;
 
-typedef struct fck_db_ext_map_entry
+typedef struct fck_db_guid
 {
-	const char *extension;
-	fck_db_loader_interface *loader;
-} fck_db_ext_map_entry;
+	// Will totally not get utilised!
+	fckc_u64 time;
+	fckc_u32 rand;
+	// Can never be 0, maybe we hardcode 1 to in progress...
+	fckc_atomic_u32 signal;
+} fck_db_guid;
 
-typedef struct fck_db_ext_map
+typedef struct fck_db_guid_key
 {
-	fck_db_ext_map_entry *entries;
-	fckc_size_t capacity;
-} fck_db_ext_map;
+	fckc_u64 value : 62;
+	fckc_u64 ok : 1;
+	fckc_u64 tomb : 1;
+} fck_db_guid_key;
 
-typedef struct fck_db_header
+typedef struct fck_db_guid_key_value
 {
-	kll_allocator *allocator;
-	// TODO: better strategy for strings?
-} fck_db_header;
+	fck_db_guid_key state;
+	fck_db_guid guid;
+	fck_db_id id;
+} fck_db_guid_key_value;
 
-struct fck_db_property_instance;
-typedef struct fck_db_property_instance
+typedef struct fck_db_guid_id_map
 {
-	const char *name;
-	fck_db_type type;
-	fckc_u32 offset;
-} fck_db_property_instance;
-
-typedef struct fck_db_object
-{
-	fck_db_property_instance *properties;
-	void *data;
-
-	fckc_size_t at;
-	fckc_size_t size;
-
-	fckc_u32 capacity;
-	fckc_u32 count;
-
-	fckc_u32 version;
-} fck_db_object;
-
-typedef struct fck_db_memory
-{
+	fck_db_guid_key_value *values;
 	fckc_size_t count;
 	fckc_size_t capacity;
-	fckc_u8 data[1];
-} fck_db_memory;
-
-typedef struct fck_multidir_entry
-{
-	const char *name;
-	fck_db_object object;
-} fck_multidir_entry;
-
-union fck_multidir;
-typedef union fck_multidir {
-	struct
-	{
-		fckc_u64 ok[fck_multidir_bitset_capacity];
-		union fck_multidir *children;
-	} dir;
-
-	fck_multidir_entry entry;
-} fck_multidir;
-
-typedef struct fck_database
-{
-	fck_db_header header;
-	fck_multidir root;
-} fck_database;
-
-typedef struct fck_db_section
-{
-	fck_file_watcher watcher;
-	char path[420];
-	char scope[256];
-} fck_db_section;
-
-typedef struct fck_db_private
-{
-	kll_allocator *allocator;
-	kll_arena *strings;
-
-	fck_db_ext_map loaders;
-
-	fck_database database;
-	fck_db_section sections[16];
-	fckc_size_t sections_count;
-
-	fckc_u8 id_factory[4];
-} fck_db_private;
-
-typedef struct fck_db_undo_unit
-{
-	fck_db_id target;
-	fck_db_id copy;
-} fck_db_undo_unit;
-
-typedef struct fck_db_undo_scope_private
-{
-	struct kll_allocator *allocator;
-	fck_db_undo_unit units[16];
-	fckc_u32 cursor;
-	fckc_u32 front;
-	fckc_u32 back;
-} fck_db_undo_scope_private;
+} fck_db_guid_id_map;
 
 static fck_db_object fck_db_object_clone(kll_allocator *allocator, const fck_db_object *obj)
 {
@@ -169,12 +113,12 @@ static void fck_db_object_free(kll_allocator *allocator, fck_db_object *obj)
 	obj->count = obj->capacity = 0;
 }
 
-static int fck_db_property_is_used(const fck_db_property_instance *property)
+int fck_db_property_is_used(const fck_db_property_instance *property)
 {
-	return property->name && property->type != ~0;
+	return property->name && property->type != fck_db_type_none;
 }
 
-static fckc_size_t fck_db_object_find(fck_db_object *instance, fck_db_type type, const char *name)
+fckc_size_t fck_db_object_find(fck_db_object *instance, fck_db_type type, const char *name)
 {
 	const fckc_size_t len = strlen(name);
 	const fckc_u64 hash = to_u64(fck_hash(name, len));
@@ -208,10 +152,8 @@ static fckc_size_t fck_db_object_add_ng(fck_db_object *instance, fck_db_type typ
 	{
 		const fckc_u64 slot = (hash + index) % capacity;
 		fck_db_property_instance *property = instance->properties + slot;
-		if (property->name == NULL || property->type == ~0)
+		if (property->name == NULL || property->type == fck_db_type_none)
 		{
-			// Add
-			instance->count = instance->count + 1;
 			property->type = type;
 			property->name = name;
 			property->offset = offset;
@@ -227,11 +169,13 @@ static void fck_db_object_adjust_offsets(fck_db_object *instance, fckc_size_t of
 	for (fckc_u64 index = 0; index < capacity; index++)
 	{
 		fck_db_property_instance *property = instance->properties + index;
-		if (property->name == NULL || property->type == ~0)
+		if (property->name == NULL || property->type == fck_db_type_none)
 		{
 			continue;
 		}
-
+		// This will break completely since we completely IGNORE alignment
+		// We could fix that easily by having a union and work with that
+		// Most of our types (and it is internally controlled) work on 8 byte alignment!
 		if (property->offset > offset)
 		{
 			property->offset = property->offset - size;
@@ -245,7 +189,7 @@ static void fck_db_object_adjust_offsets(fck_db_object *instance, fckc_size_t of
 	instance->at = instance->at - size;
 }
 
-static fckc_size_t fck_db_object_remove(fck_db_object *instance, fck_db_type type, const char *name, fckc_size_t size)
+fckc_size_t fck_db_object_remove(fck_db_object *instance, fck_db_type type, const char *name, fckc_size_t size)
 {
 	const fckc_size_t len = strlen(name);
 	const fckc_u64 hash = to_u64(fck_hash(name, len));
@@ -259,18 +203,19 @@ static fckc_size_t fck_db_object_remove(fck_db_object *instance, fck_db_type typ
 		{
 			return to_size_t(0);
 		}
-		if ((type == fck_db_type_none || type == property->type) && strcmp(property->name, name) == 0)
+		if (type == property->type && strcmp(property->name, name) == 0)
 		{
-			property->type = ~0;
 			fck_db_object_adjust_offsets(instance, property->offset, size);
+			property->type = fck_db_type_none;
 			property->offset = 0;
+			instance->count = instance->count - 1;
 			return slot;
 		}
 	}
 	return 0;
 }
 
-static fckc_size_t fck_db_object_add(fck_db_header *header, fck_db_object *instance, fck_db_type type, const char *name)
+fckc_size_t fck_db_object_add(kll_allocator *allocator, fck_db_object *instance, fck_db_type type, const char *name)
 {
 	const fckc_size_t result = fck_db_object_find(instance, type, name);
 	if (result)
@@ -282,7 +227,7 @@ static fckc_size_t fck_db_object_add(fck_db_header *header, fck_db_object *insta
 	{
 		const fckc_u32 capacity = instance->capacity ? instance->capacity * 2 : 8;
 		const fckc_size_t total = capacity * sizeof(*instance->properties);
-		fck_db_property_instance *props = (fck_db_property_instance *)kll_malloc(header->allocator, total);
+		fck_db_property_instance *props = (fck_db_property_instance *)kll_malloc(allocator, total);
 		memset(props, 0, total);
 
 		const fckc_u32 old_capacity = instance->capacity;
@@ -290,20 +235,35 @@ static fckc_size_t fck_db_object_add(fck_db_header *header, fck_db_object *insta
 
 		instance->properties = props;
 		instance->capacity = capacity;
+		instance->count = 0;
 		if (previous)
 		{
 
 			for (fckc_u32 index = 0; index < old_capacity; index++)
 			{
 				fck_db_property_instance *property = previous + index;
-				const fckc_size_t result = fck_db_object_add_ng(instance, property->type, property->name, property->offset);
-				fck_assert(result);
+				if (property->type != fck_db_type_none)
+				{
+					const fckc_size_t result = fck_db_object_add_ng(instance, property->type, property->name, property->offset);
+					fck_assert(result);
+					if (result)
+					{
+						instance->count = instance->count + 1;
+					}
+				}
 			}
-			kll_free(header->allocator, previous);
+			kll_free(allocator, previous);
 		}
 	}
 
-	return fck_db_object_add_ng(instance, type, name, instance->size);
+	{
+		const fckc_size_t result = fck_db_object_add_ng(instance, type, name, instance->size);
+		if (result)
+		{
+			instance->count = instance->count + 1;
+		}
+		return result;
+	}
 }
 
 static inline fckc_u64 fck_db_random_next_rotl(const fckc_u64 x, int k)
@@ -320,32 +280,12 @@ static inline fckc_u64 fck_db_random_splitmix64(fckc_u64 *state)
 	return z ^ (z >> 31);
 }
 
-static void fck_db_id_extract(fck_db_id id, fckc_u8 *e0, fckc_u8 *e1, fckc_u8 *e2, fckc_u8 *e3)
-{
-	id.index = id.index ^ 0xFFFFFFFFU;
-	if (e0)
-	{
-		*e0 = (fckc_u8)((id.index >> 24) & 0xFF);
-	}
-	if (e1)
-	{
-		*e1 = (fckc_u8)((id.index >> 16) & 0xFF);
-	}
-	if (e2)
-	{
-		*e2 = (fckc_u8)((id.index >> 8) & 0xFF);
-	}
-	if (e3)
-	{
-		*e3 = (fckc_u8)(id.index & 0xFF);
-	}
-}
-
-static fck_db_id fck_db_id_make(fckc_u8 e0, fckc_u8 e1, fckc_u8 e2, fckc_u8 e3)
+static fck_db_id fck_db_id_make(fckc_u8 e0, fckc_u8 e1, fckc_u8 e2, fckc_u8 e3, fck_db_type type)
 {
 	fck_db_id id = {0};
 	id.index = ((fckc_u32)e0 << 24) | ((fckc_u32)e1 << 16) | ((fckc_u32)e2 << 8) | (fckc_u32)e3;
 	id.index = id.index ^ 0xFFFFFFFFU;
+	id.type = type;
 	return id;
 }
 
@@ -368,202 +308,6 @@ static int fck_multidir_id_is_ok(fckc_u8 e0, fckc_u8 e1, fckc_u8 e2, fckc_u8 e3)
 		return 0;
 	}
 	return 1;
-}
-
-static fck_multidir_entry *fck_multidir_resolve(fck_multidir *root, fck_db_id id)
-{
-	fckc_u8 e[4];
-	fck_db_id_extract(id, &e[0], &e[1], &e[2], &e[3]);
-	const int is_ok = fck_multidir_id_is_ok(e[0], e[1], e[2], e[3]);
-	if (!is_ok)
-	{
-		return NULL;
-	}
-
-	fck_multidir *current = root;
-	for (fckc_size_t index = 0; index < fck_arraysize(e); index++)
-	{
-		if (current->dir.children == NULL)
-		{
-			return NULL;
-		}
-		const fckc_u8 subid = e[index];
-		fck_multidir *next = current->dir.children + subid;
-		current = next;
-	}
-
-	return &current->entry;
-}
-
-static void fck_multidir_bit_set_ok(fck_multidir *dir, const fckc_u8 subid)
-{
-	const fckc_u8 chunk = subid / fck_multidir_bitset_chunk_capacity;
-	const fckc_u8 local = subid % fck_multidir_bitset_chunk_capacity;
-	dir->dir.ok[chunk] = dir->dir.ok[chunk] | (1LLU << local);
-}
-
-static int fck_multidir_bit_is_ok(const fck_multidir *dir, const fckc_u8 subid)
-{
-	const fckc_u8 chunk = subid / fck_multidir_bitset_chunk_capacity;
-	const fckc_u8 local = subid % fck_multidir_bitset_chunk_capacity;
-	return (dir->dir.ok[chunk] & (1LLU << local)) == (1LLU << local);
-}
-
-static void fck_multidir_bit_clear_ok(fck_multidir *dir, const fckc_u8 subid)
-{
-	const fckc_u8 chunk = subid / fck_multidir_bitset_chunk_capacity;
-	const fckc_u8 local = subid % fck_multidir_bitset_chunk_capacity;
-	dir->dir.ok[chunk] = dir->dir.ok[chunk] & ~(1LLU << local);
-}
-
-static int fck_multidir_empty(fck_multidir *dir)
-{
-	for (fckc_size_t chunk = 0; chunk < fck_arraysize(dir->dir.ok); chunk++)
-	{
-		if (dir->dir.ok[chunk])
-		{
-			return 0;
-		}
-	}
-	return 1;
-}
-
-static fck_multidir_entry *fck_multidir_add_entry(fck_db_header *header, fck_multidir *root, fck_db_id id, const char *name)
-{
-	fckc_u8 e[4];
-	const fckc_size_t indirections = fck_arraysize(e);
-	fck_db_id_extract(id, &e[0], &e[1], &e[2], &e[3]);
-	const int is_ok = fck_multidir_id_is_ok(e[0], e[1], e[2], e[3]);
-	if (!is_ok)
-	{
-		return NULL;
-	}
-
-	kll_allocator *allocator = header->allocator;
-
-	fck_multidir *parents[fck_arraysize(e)];
-
-	fck_multidir *current = root;
-	for (fckc_size_t index = 0; index < indirections; index++)
-	{
-		const fckc_u8 subid = e[index];
-		if (subid == 0xFF)
-		{
-			return NULL;
-		}
-
-		if (current->dir.children == NULL)
-		{
-			const fckc_size_t total = fck_multidir_child_capacity * sizeof(*current->dir.children);
-			current->dir.children = (fck_multidir *)kll_malloc(allocator, total);
-			memset(current->dir.children, 0, total);
-		}
-
-		parents[index] = current;
-		fck_multidir *next = current->dir.children + subid;
-		current = next;
-	}
-
-	current->entry.name = name;
-
-	for (fckc_size_t index = 0; index < indirections; index++)
-	{
-		const fckc_u8 subid = e[index];
-		fck_multidir *dir = parents[index];
-		fck_multidir_bit_set_ok(dir, subid);
-	}
-
-	return &current->entry;
-}
-
-static fck_multidir_entry *fck_multidir_remove_entry(fck_db_header *header, fck_multidir *root, fck_db_id id)
-{
-	fckc_u8 e[4];
-	const fckc_size_t indirections = fck_arraysize(e);
-	fck_db_id_extract(id, &e[0], &e[1], &e[2], &e[3]);
-	const int is_ok = fck_multidir_id_is_ok(e[0], e[1], e[2], e[3]);
-	if (!is_ok)
-	{
-		return NULL;
-	}
-
-	kll_allocator *allocator = header->allocator;
-
-	fck_multidir *parents[fck_arraysize(e)];
-	fck_multidir *current = root;
-	for (fckc_size_t index = 0; index < indirections; index++)
-	{
-		const fckc_u8 subid = e[index];
-		if (subid == 0xFF)
-		{
-			return NULL;
-		}
-
-		if (!fck_multidir_bit_is_ok(current, subid))
-		{
-			return NULL;
-		}
-		fck_assert(current->dir.children);
-
-		parents[index] = current;
-		fck_multidir *next = current->dir.children + subid;
-		current = next;
-	}
-
-	for (fckc_size_t index = 0; index < indirections; index++)
-	{
-		const fckc_size_t inverse = indirections - index - 1;
-		const fckc_u8 subid = e[inverse];
-		fck_multidir *dir = parents[inverse];
-		fck_multidir_bit_clear_ok(dir, subid);
-		if (fck_multidir_empty(dir))
-		{
-			kll_free(allocator, dir->dir.children);
-			dir->dir.children = NULL;
-			continue;
-		}
-		break;
-	}
-
-	return &current->entry;
-}
-
-static int fck_multidir_ctz64(fckc_u64 v)
-{
-	static const int bit_positions[64] = {
-		0,  1, 2,  7,  3,  13, 8,  19, 4,  25, 14, 28, 9,  34, 20, 40, 5,  17, 26, 38, 15, 46, 29, 48, 10, 31, 35, 54, 21, 50, 41, 57,
-		63, 6, 12, 18, 24, 27, 33, 39, 16, 37, 45, 47, 30, 53, 49, 56, 62, 11, 23, 32, 36, 44, 52, 55, 61, 22, 43, 51, 60, 42, 59, 58,
-	};
-	return bit_positions[(to_u64((v & (0ULL - v)) * 0x0218A392CD3D5DBFULL)) >> 58];
-}
-
-static void fck_multidir_iterate_fast(fck_multidir *root, int level)
-{
-	for (fckc_size_t chunk_index = 0; chunk_index < fck_arraysize(root->dir.ok); chunk_index++)
-	{
-		const int chunk_offset = chunk_index * fck_multidir_bitset_chunk_capacity;
-		fckc_u64 current = root->dir.ok[chunk_index];
-		while (current)
-		{
-			const int index = fck_multidir_ctz64(current);
-			const int child_index = index + chunk_offset;
-			fck_multidir *child = root->dir.children + child_index;
-			if (level != 3)
-			{
-				fck_multidir_iterate_fast(child, level + 1);
-			}
-			else
-			{
-				os->io->log(child->entry.name);
-			}
-			current = current & (current - 1ULL);
-		}
-	}
-}
-
-static void fck_multidir_iterate(fck_multidir *root)
-{
-	fck_multidir_iterate_fast(root, 0);
 }
 
 static const char *fck_db_api_file_extension(const char *path)
@@ -686,7 +430,7 @@ static void fck_db_ext_map_destroy(kll_allocator *allocator, fck_db_ext_map *map
 	map->capacity = 0;
 }
 
-static fck_db_id fck_db_id_from_path(const char *path, fckc_u16 type)
+static fck_db_id fck_db_id_from_path(const char *path, const char *type_name)
 {
 	fckc_u32 hash = 2166136261U;
 
@@ -702,8 +446,18 @@ static fck_db_id fck_db_id_from_path(const char *path, fckc_u16 type)
 		hash *= 16777619U;
 	}
 
-	hash ^= (fckc_u32)type << 16;
+	if (type_name)
+	{
+		while (*type_name)
+		{
+			char c = *type_name++;
+			if (c >= 'A' && c <= 'Z')
+				c += 32;
 
+			hash ^= (fckc_u8)c;
+			hash *= 16777619U;
+		}
+	}
 	fckc_u8 e[4];
 	for (int i = 0; i < 4; i++)
 	{
@@ -713,10 +467,7 @@ static fck_db_id fck_db_id_from_path(const char *path, fckc_u16 type)
 			e[i] = 0xFE;
 		}
 	}
-	fck_db_id id = fck_db_id_make(e[0], e[1], e[2], e[3]);
-	id.type = type;
-	id.generation = 0;
-
+	fck_db_id id = fck_db_id_make(e[0], e[1], e[2], e[3], fck_db_type_object);
 	return id;
 }
 
@@ -737,35 +488,217 @@ static const char *fck_db_make_full_path(char *buffer, fckc_size_t size, const c
 	return buffer;
 }
 
-static fck_db_api db_api;
-
-static void *fck_db_edit_api_lazy_find(fck_db external, fck_db_object *obj, fck_db_type type, const char *property, fckc_size_t s,
-                                       fckc_size_t a)
+static fck_db_id fck_db_id_advance(fck_db_id id)
 {
-	fck_db_private *db = external.opaque;
-	fckc_size_t result = fck_db_object_add(&db->database.header, obj, type, property);
-	fck_assert(result);
+	fckc_u8 e[4];
 
-	fck_db_property_instance *prop = obj->properties + result - 1;
-	if (prop->offset == obj->size)
+	fck_db_object_page_id_extract(~id.index, &e[0], &e[1], &e[2], &e[3]);
+
+	const fckc_size_t iterations = fck_arraysize(e);
+	e[iterations - 1] = e[iterations - 1] + 1;
+	for (fckc_size_t index = 1; index < iterations; index++)
 	{
-		prop->offset = fckc_align(obj->at, a);
-		obj->at = prop->offset + s;
-
-		if (obj->at >= obj->size)
+		const fckc_size_t inverse = iterations - index - 1;
+		if (e[inverse] == 0xFF)
 		{
-			const fckc_size_t capacity = obj->size ? obj->size * 2 : 64;
-			void *data = kll_malloc(db->allocator, capacity);
-			if (obj->data)
-			{
-				memcpy(data, obj->data, obj->size);
-				kll_free(db->allocator, obj->data);
-			}
-			obj->size = capacity;
-			obj->data = data;
+			e[inverse] = 0;
+			e[inverse + 1] = e[inverse + 1] + 1;
 		}
 	}
-	return (void *)fckc_pointer_add(obj->data, prop->offset);
+
+	return fck_db_id_make(e[0], e[1], e[2], e[3], fck_db_type_object);
+}
+
+static fck_db_id fck_db_id_create_and_next(fck_db_private *db)
+{
+	fckc_u8 *e = db->id_factory;
+	const fckc_size_t iterations = fck_arraysize(db->id_factory);
+
+	for (fckc_size_t i = iterations; i > 0; i--)
+	{
+		const fckc_size_t index = i - 1;
+		e[index] = e[index] + 1;
+
+		if (e[index] == 0xFF)
+		{
+			e[index] = 0;
+			continue;
+		}
+		break;
+	}
+
+	os->io->log("Id: %d \t- %d \t- %d \t- %d", to_int(e[0]), to_int(e[1]), to_int(e[2]), to_int(e[3]));
+	fck_db_id id = fck_db_id_make(e[0], e[1], e[2], e[3], fck_db_type_object);
+	return id;
+}
+
+static fck_db_id fck_db_id_create_from_uuid(fck_db_private *db, fck_db_uuid uuid)
+{
+	const fckc_u32 hash = (fckc_u32)uuid.values[0] ^ (fckc_u32)uuid.values[1];
+
+	fckc_u8 e[4];
+	for (int i = 0; i < 4; i++)
+	{
+		e[i] = (fckc_u8)((hash >> (i * 8)) & 0xFF);
+		if (e[i] == 0xFF)
+		{
+			e[i] = 0xFE;
+		}
+	}
+
+	fck_db_id id = fck_db_id_make(e[0], e[1], e[2], e[3], fck_db_type_object);
+	return id;
+}
+
+fck_db_object *fck_db_resolve_object(fck_db_object_page_table *table, fck_db_id id)
+{
+	return fck_db_object_page_table_resolve(table, ~id.index);
+}
+
+fck_db_object *fck_db_ensure_object(fck_db_object_page_table *table, fck_db_id id)
+{
+	return fck_db_object_page_table_ensure(table, ~id.index);
+}
+
+fck_db_object *fck_db_add_object(fck_db_object_page_table *table, fck_db_id id)
+{
+	return fck_db_object_page_table_add(table, ~id.index);
+}
+
+int fck_db_remove_object(fck_db_object_page_table *table, fck_db_id id)
+{
+	return fck_db_object_page_table_remove(table, ~id.index);
+}
+
+static fck_db_id fck_db_object_api_create(fck_db external, const char *name)
+{
+	fck_db_private *db = external.opaque;
+	const fck_db_id id = fck_db_id_create_and_next(db);
+	// We may have to try again if this one already exists... No check for that yet... Oh boy
+	fck_db_object *entry = fck_db_add_object(db->page_table, id);
+	fck_assert(entry);
+	entry->name = name;
+	return id;
+}
+
+static fck_db_id fck_db_object_api_create_from_uuid(fck_db external, const char *name, fck_db_uuid uuid)
+{
+	fck_db_private *db = external.opaque;
+	const fck_db_id id = fck_db_id_create_from_uuid(db, uuid);
+	// We may have to try again if this one already exists... No check for that yet... Oh boy
+	fck_db_object *entry = fck_db_add_object(db->page_table, id);
+	fck_assert(entry);
+	return id;
+}
+
+static fck_db_accessor fck_db_object_api_edit(fck_db external, fck_db_id id)
+{
+	fck_db_private *db = external.opaque;
+	fck_db_object *entry = fck_db_resolve_object(db->page_table, id);
+	fck_assert(entry);
+
+	// fck_db_object_api_create(id, entry->name);
+	const fck_db_id temp = fck_db_object_api_create(external, entry->name); // fck_db_id_advance(id);
+
+	fck_db_object *copy = fck_db_resolve_object(db->page_table, temp);
+	*copy = fck_db_object_clone(db->allocator, entry);
+
+	fck_db_accessor accessor = {
+		.original = id,
+		.inflight = temp,
+		.edit = db_edit,
+		.read = db_read,
+		.ok = db_ok,
+		.db = external,
+		.obj = copy,
+	};
+
+	return accessor;
+}
+
+static fck_db_accessor fck_db_object_api_read(fck_db external, fck_db_id id)
+{
+	fck_db_private *db = external.opaque;
+	fck_db_object *entry = fck_db_resolve_object(db->page_table, id);
+	fck_assert(entry);
+
+	fck_db_accessor accessor = {
+		.original = id,
+		.inflight = id,
+		.db = external,
+		.edit = NULL,
+		.ok = db_ok,
+		.read = db_read,
+		.obj = entry,
+	};
+
+	return accessor;
+}
+
+static void fck_db_object_api_destroy(fck_db external, fck_db_id id)
+{
+	fck_db_private *db = external.opaque;
+	fck_db_remove_object(db->page_table, id);
+}
+
+static fck_db_undo_scope fck_db_undo_api_create(struct kll_allocator *allocator)
+{
+	fck_db_undo_scope result = {0};
+	result.opaque = (fck_db_undo_scope_private *)kll_malloc(allocator, sizeof(*result.opaque));
+	memset(result.opaque, 0, sizeof(*result.opaque));
+	result.opaque->allocator = allocator;
+	return result;
+}
+
+static void fck_db_undo_api_destroy(fck_db_undo_scope scope)
+{
+	kll_free(scope.opaque->allocator, scope.opaque);
+}
+
+static int fck_db_undo_api_undo(fck_db external, fck_db_undo_scope scope)
+{
+	fck_db_private *db = external.opaque;
+	fck_db_undo_scope_private *undo_scope = scope.opaque;
+
+	if (undo_scope->cursor == undo_scope->back)
+	{
+		return 0;
+	}
+	undo_scope->cursor = (undo_scope->cursor - 1) % fck_arraysize(undo_scope->units);
+
+	fck_db_undo_unit *unit = undo_scope->units + undo_scope->cursor;
+
+	fck_db_object *target = fck_db_resolve_object(db->page_table, unit->target);
+	fck_db_object *copy = fck_db_resolve_object(db->page_table, unit->copy);
+
+	const fck_db_object temp = *target;
+	*target = *copy;
+	*copy = temp;
+
+	return 1;
+}
+
+static int fck_db_undo_api_redo(fck_db external, fck_db_undo_scope scope)
+{
+	fck_db_private *db = external.opaque;
+	fck_db_undo_scope_private *undo_scope = scope.opaque;
+
+	if (undo_scope->cursor == undo_scope->front)
+	{
+		return 0;
+	}
+	fck_db_undo_unit *unit = undo_scope->units + undo_scope->cursor;
+
+	fck_db_object *target = fck_db_resolve_object(db->page_table, unit->target);
+	fck_db_object *copy = fck_db_resolve_object(db->page_table, unit->copy);
+
+	const fck_db_object temp = *target;
+	*target = *copy;
+	*copy = temp;
+
+	undo_scope->cursor = (undo_scope->cursor + 1) % fck_arraysize(undo_scope->units);
+
+	return 1;
 }
 
 static void fck_db_api_import_file(fck_db external, fck_db_section *section, const char *relative)
@@ -784,9 +717,10 @@ static void fck_db_api_import_file(fck_db external, fck_db_section *section, con
 	}
 	temp->reset(temp);
 
-	fck_db_loader_interface null_loader = {.name = "none", .type = to_u16(~0)};
+	// ZERO IS ALWAYS RESERVED TO BE INVALID!
+	fck_db_loader_interface null_loader = {.name = "none", .type = NULL};
 	fck_db_loader_interface *loader = fck_db_ext_map_find(&db->loaders, ext);
-	fck_db_asset *payload;
+	fck_db_asset *payload = NULL;
 	if (!loader)
 	{
 		loader = &null_loader;
@@ -826,7 +760,7 @@ static void fck_db_api_import_file(fck_db external, fck_db_section *section, con
 	if (loader->import)
 	{
 		const fck_db_loader_args args = {
-			.api = &db_api,
+			.api = db_api,
 			.registry = apis,
 			.db = external,
 			.target = id,
@@ -834,9 +768,16 @@ static void fck_db_api_import_file(fck_db external, fck_db_section *section, con
 		payload = loader->import(&args, absolute);
 	}
 
-	fck_multidir_entry *entry = fck_multidir_add_entry(&db->database.header, &db->database.root, id, relative_path);
-	void *dst = fck_db_edit_api_lazy_find(external, &entry->object, fck_db_type_asset, "_", sizeof(fck_db_asset *), sizeof(fck_db_asset *));
-	memcpy(dst, &payload, sizeof(fck_db_asset *));
+	fck_db_object *entry = fck_db_ensure_object(db->page_table, id);
+	entry->name = relative_path;
+
+	const fck_db_accessor accessor = fck_db_object_api_edit(external, id);
+	accessor.edit->asset(accessor, "asset", payload);
+	// accessor.edit->i32(accessor, "type", loader->type);
+	accessor.edit->commit(accessor, fck_db_no_undo);
+
+	/*void* dst = fck_db_edit_api_lazy_find(external, &entry->object, fck_db_type_asset, "asset", sizeof(fck_db_asset*),
+	sizeof(fck_db_asset*)); memcpy(dst, &payload, sizeof(fck_db_asset*));*/
 
 	kll->arena->destroy(temp);
 }
@@ -851,7 +792,7 @@ static fck_db_id fck_db_api_id_from_path(fck_db external, const char *path)
 	const fckc_size_t path_len = dot ? (fckc_size_t)(dot - path) : strlen(path);
 	if (path_len >= sizeof(base_path))
 	{
-		return fck_db_id_make(255, 255, 255, 255);
+		return fck_db_id_make(255, 255, 255, 255, fck_db_type_object);
 	}
 
 	memcpy(base_path, path, path_len);
@@ -859,7 +800,7 @@ static fck_db_id fck_db_api_id_from_path(fck_db external, const char *path)
 	fck_db_loader_interface *loader = fck_db_ext_map_find(&db->loaders, ext);
 	if (!loader)
 	{
-		return fck_db_id_from_path(base_path, to_u16(~0));
+		return fck_db_id_from_path(base_path, NULL);
 	}
 	const fck_db_id id = fck_db_id_from_path(base_path, loader->type);
 	return id;
@@ -893,7 +834,7 @@ static void fck_db_api_remove_path(fck_db external, fck_db_section *section, fck
 	(void)section;
 	(void)relative;
 	fck_db_private *db = (fck_db_private *)external.opaque;
-	fck_multidir_remove_entry(&db->database.header, &db->database.root, id);
+	fck_db_remove_object(db->page_table, id);
 	char buffer[1024];
 
 	// const char *full_path = fck_db_make_full_path(buffer, fck_arraysize(buffer), section->path, relative);
@@ -988,7 +929,7 @@ static void fck_db_api_setup(fck_db external, const char *scope, const char *pat
 		fck_db_api_import_file(external, section, relative);
 	}
 
-	fck_multidir_iterate(&db->database.root);
+	// fck_multidir_iterate(db->page_table.root);
 
 	os->glob->free(paths);
 }
@@ -996,21 +937,18 @@ static void fck_db_api_setup(fck_db external, const char *scope, const char *pat
 static fck_db_asset *fck_db_asset_api_get(fck_db external, fck_db_id id)
 {
 	fck_db_private *db = (fck_db_private *)external.opaque;
-	fck_multidir_entry *entry = fck_multidir_resolve(&db->database.root, id);
+	fck_db_object *entry = fck_db_resolve_object(db->page_table, id);
 	if (entry)
 	{
 		// TODO: Internally, in db, we should use the same code-paths as accessor!!!
-		fck_db_object *obj = &entry->object;
-		const fckc_size_t result = fck_db_object_find(&entry->object, fck_db_type_asset, "_");
-		if (result == 0)
+		const fck_db_accessor accessor = fck_db_object_api_read(external, id);
+		fck_db_asset *asset = accessor.read->asset(accessor, "asset");
+
+		if (asset == NULL)
 		{
 			return NULL;
 		}
-		fck_db_property_instance *prop = obj->properties + result - 1;
-		fckc_u8 *src = (fckc_u8 *)fckc_pointer_add(obj->data, prop->offset);
-		fck_db_asset *value;
-		memcpy(&value, src, sizeof(fck_db_asset *));
-		return value;
+		return asset;
 	}
 	return NULL;
 }
@@ -1033,11 +971,11 @@ static fck_db fck_db_api_create(kll_allocator *allocator)
 	fck_db_private *db = (fck_db_private *)kll_malloc(allocator, sizeof(*db));
 	memset(db, 0, sizeof(*db));
 	const fck_db result = {.opaque = db};
+
 	db->allocator = allocator;
 	db->strings = kll->arena->create(allocator, 512);
-	db->database.header.allocator = allocator;
+	db->page_table = fck_db_object_page_table_alloc(allocator);
 	db->loaders = fck_db_ext_map_create(allocator);
-
 	// fck_db_api_import_directory(result, "app", path);
 
 	return result;
@@ -1046,438 +984,555 @@ static fck_db fck_db_api_create(kll_allocator *allocator)
 static void fck_db_api_close(fck_db db)
 {
 	fck_db_ext_map_destroy(db.opaque->allocator, &db.opaque->loaders);
+	fck_db_object_page_table_free(db.opaque->page_table);
 	kll_free(db.opaque->allocator, db.opaque);
 }
 
-static fck_db_id fck_db_id_advance(fck_db_id id)
+static fckc_u32 fck_xorshift32(fckc_u32 *state)
 {
-	fckc_u8 e[4];
+	fckc_u32 x = *state;
+	x ^= x << 13;
+	x ^= x >> 17;
+	x ^= x << 5;
+	*state = x;
+	fck_assert(x);
+	return x;
+}
 
-	fck_db_id_extract(id, &e[0], &e[1], &e[2], &e[3]);
+static fck_db_uuid fck_generate_uuid(void)
+{
+	fck_db_uuid uuid;
 
-	const fckc_size_t iterations = fck_arraysize(e);
-	e[iterations - 1] = e[iterations - 1] + 1;
-	for (fckc_size_t index = 1; index < iterations; index++)
+	fckc_u32 rng_state = (fckc_u32)os->chrono->now() ^ (fckc_u32)(fckc_uintptr)&uuid;
+	const fckc_u32 part1 = fck_xorshift32(&rng_state);
+	const fckc_u32 part2 = fck_xorshift32(&rng_state);
+	uuid.values[0] = (fckc_i32)part1;
+	uuid.values[1] = (fckc_i32)part2;
+
+	return uuid;
+}
+
+static int fck_db_guid_store(fck_db_guid *guid, fckc_u64 time, fckc_u32 rand, fckc_u32 signal)
+{
+	if (signal == 0)
 	{
-		const fckc_size_t inverse = iterations - index - 1;
-		if (e[inverse] == 0xFF)
-		{
-			e[inverse] = 0;
-			e[inverse + 1] = e[inverse + 1] + 1;
-		}
+		return 0;
 	}
+	guid->time = time;
+	guid->rand = rand;
+	const fckc_u32 old = fckc_u32_cas(&guid->signal, 0, signal);
 
-	return fck_db_id_make(e[0], e[1], e[2], e[3]);
-}
-
-static fck_db_id fck_db_id_create_and_next(fck_db_private *db)
-{
-	fckc_u8 *e = db->id_factory;
-	const fckc_size_t iterations = fck_arraysize(db->id_factory);
-
-	e[iterations - 1] = e[iterations - 1] + 1;
-	for (fckc_size_t index = 1; index < iterations; index++)
+	if (old == 0)
 	{
-		const fckc_size_t inverse = iterations - index - 1;
-		if (e[inverse] == 0xFF)
-		{
-			e[inverse] = 0;
-			e[inverse + 1] = e[inverse + 1] + 1;
-		}
+		return 1;
 	}
-
-	const fck_db_id id = fck_db_id_make(e[0], e[1], e[2], e[3]);
-	return id;
-}
-
-static void *fck_db_read_api_opaque(fck_db_accessor accessor, fck_db_type type, const char *property)
-{
-	fck_db_private *db = accessor.db.opaque;
-	fck_db_object *obj = accessor.obj;
-
-	const fckc_size_t result = fck_db_object_find(obj, type, property);
-	if (result == 0)
-	{
-		return NULL;
-	}
-	fck_db_property_instance *prop = obj->properties + result - 1;
-	fckc_u8 *src = (fckc_u8 *)fckc_pointer_add(obj->data, prop->offset);
-	return src;
-}
-
-static void fck_db_edit_api_i32(fck_db_accessor accessor, const char *property, fckc_i32 value)
-{
-	void *dst = fck_db_edit_api_lazy_find(accessor.db, accessor.obj, fck_db_type_i32, property, sizeof(fckc_i32), alignof(fckc_i32));
-	memcpy(dst, &value, sizeof(value));
-}
-
-static void fck_db_edit_api_f32(fck_db_accessor accessor, const char *property, fckc_f32 value)
-{
-	void *dst = fck_db_edit_api_lazy_find(accessor.db, accessor.obj, fck_db_type_f32, property, sizeof(fckc_f32), alignof(fckc_f32));
-	memcpy(dst, &value, sizeof(value));
-}
-
-static void fck_db_edit_api_asset(fck_db_accessor accessor, const char *property, fck_db_asset *value)
-{
-	const fckc_size_t s = sizeof(fck_db_asset *);
-	const fckc_size_t a = alignof(fck_db_asset *);
-	void *dst = fck_db_edit_api_lazy_find(accessor.db, accessor.obj, fck_db_type_asset, property, s, a);
-	memcpy(dst, &value, sizeof(fck_db_asset *));
-}
-
-static void fck_db_edit_api_reference(fck_db_accessor accessor, const char *property, fck_db_id value)
-{
-	const fckc_size_t s = sizeof(fck_db_asset *);
-	const fckc_size_t a = alignof(fck_db_asset *);
-	void *dst = fck_db_edit_api_lazy_find(accessor.db, accessor.obj, fck_db_type_reference, property, s, a);
-	memcpy(dst, &value, sizeof(fck_db_asset *));
-}
-
-static void fck_db_edit_api_memory(fck_db_accessor accessor, const char *property, const void *data, fckc_size_t size)
-{
-	void *current = fck_db_read_api_opaque(accessor, fck_db_type_f32, property);
-	const fckc_size_t total = offsetof(fck_db_memory, data[size]);
-	if (current)
-	{
-		fck_db_memory *memory = (fck_db_memory *)current;
-		if (total <= memory->capacity)
-		{
-			// Very lovely hot-path!
-			memcpy(memory->data, data, size);
-			memory->count = size;
-			return;
-		}
-		else
-		{
-			// Remove old entry, we re-add further down
-			const fckc_size_t result = fck_db_object_remove(accessor.obj, fck_db_type_memory, property, total);
-			fck_assert(result);
-		}
-	}
-
-	{
-		void *dst = fck_db_edit_api_lazy_find(accessor.db, accessor.obj, fck_db_type_memory, property, total, alignof(fck_db_memory));
-		fck_db_memory *memory = (fck_db_memory *)dst;
-		memcpy((void *)memory->data, data, size);
-		memory->capacity = size;
-		memory->count = size;
-	}
-}
-
-static void fck_db_edit_api_variant(fck_db_accessor accessor, const char *property, const fck_db_property *value)
-{
-	switch (value->type)
-	{
-	case fck_db_type_none:
-		return;
-	case fck_db_type_i32:
-		fck_db_edit_api_i32(accessor, property, value->i32);
-		break;
-	case fck_db_type_f32:
-		fck_db_edit_api_f32(accessor, property, value->f32);
-		break;
-	case fck_db_type_memory:
-		fck_db_edit_api_memory(accessor, property, value->memory.data, value->memory.size);
-		break;
-	case fck_db_type_reference:
-		fck_db_edit_api_reference(accessor, property, value->reference);
-		break;
-	case fck_db_type_asset:
-		fck_db_edit_api_asset(accessor, property, value->asset);
-		break;
-	}
-	return;
-}
-
-static void fck_db_edit_api_commit(fck_db_accessor accessor, fck_db_undo_scope external)
-{
-	// TODO: How do we invalidate the accessor???
-	fck_db_private *db = accessor.db.opaque;
-	fck_db_object *obj = accessor.obj;
-
-	fck_multidir_entry *original = fck_multidir_resolve(&db->database.root, accessor.original);
-	fck_multidir_entry *inflight = fck_multidir_resolve(&db->database.root, accessor.inflight);
-
-	// Swap out the objects - This needs to be done way more elegantly in the future
-	// But for now I need to port assets away
-	fck_db_object temp = original->object;
-	original->object = inflight->object;
-	inflight->object = temp;
-
-	fck_db_undo_scope_private *undo = external.opaque;
-	if (undo)
-	{
-		// Too lazy to fully implement it for now!
-		fck_db_undo_unit *unit = undo->units + undo->cursor;
-		unit->target = accessor.original;
-		unit->copy = accessor.inflight;
-
-		const fckc_u32 next_cursor = (undo->cursor + 1) % fck_arraysize(undo->units);
-		const int push_back = next_cursor == undo->back;
-		if (push_back)
-		{
-			// Since we overwrite the back, we push the back one forward!
-			undo->back = (next_cursor + 1) % fck_arraysize(undo->units);
-		}
-		// Front is always equal to cursor when committing
-		undo->cursor = next_cursor;
-		undo->front = next_cursor;
-	}
-}
-
-struct fck_db_edit_api db_edit_api = {
-	.variant = fck_db_edit_api_variant,
-	.i32 = fck_db_edit_api_i32,
-	.f32 = fck_db_edit_api_f32,
-	.asset = fck_db_edit_api_asset,
-	.memory = fck_db_edit_api_memory,
-	.reference = fck_db_edit_api_reference,
-	.commit = fck_db_edit_api_commit,
-};
-
-static fckc_i32 fck_db_read_api_i32(fck_db_accessor accessor, const char *property)
-{
-	const void *src = fck_db_read_api_opaque(accessor, fck_db_type_i32, property);
-	fck_assert(src);
-	fckc_i32 value;
-	memcpy(&value, src, sizeof(value));
-	return value;
-}
-
-static fckc_f32 fck_db_read_api_f32(fck_db_accessor accessor, const char *property)
-{
-	const void *src = fck_db_read_api_opaque(accessor, fck_db_type_f32, property);
-	fck_assert(src);
-	fckc_f32 value;
-	memcpy(&value, src, sizeof(value));
-	return value;
-}
-
-static fck_db_asset *fck_db_read_api_asset(fck_db_accessor accessor, const char *property)
-{
-	const void *src = fck_db_read_api_opaque(accessor, fck_db_type_asset, property);
-	fck_assert(src);
-	fck_db_asset *value;
-	memcpy(&value, src, sizeof(fck_db_asset *));
-	return value;
-}
-
-static fck_db_id fck_db_read_api_reference(fck_db_accessor accessor, const char *property)
-{
-	const void *src = fck_db_read_api_opaque(accessor, fck_db_type_reference, property);
-	fck_assert(src);
-	fck_db_id value;
-	memcpy(&value, src, sizeof(value));
-	return value;
-}
-
-static fckc_size_t fck_db_read_api_memory(fck_db_accessor accessor, const char *property, const void **data)
-{
-	const void *src = fck_db_read_api_opaque(accessor, fck_db_type_memory, property);
-	fck_assert(src);
-	fck_db_memory *memory = (fck_db_memory *)src;
-	*data = (const void *)memory->data;
-	return memory->count;
-}
-
-static fck_db_property fck_db_make_variant(fck_db_type type, const fckc_u8 *data, fckc_size_t offset)
-{
-	fck_db_property result = {0};
-	const fckc_u8 *src = (fckc_u8 *)fckc_pointer_add(data, offset);
-	result.type = type;
-	switch (type)
-	{
-	case fck_db_type_none:
-		break;
-	case fck_db_type_i32:
-		memcpy(&result.i32, src, sizeof(result.i32));
-		break;
-	case fck_db_type_f32:
-		memcpy(&result.f32, src, sizeof(result.f32));
-		break;
-	case fck_db_type_memory: {
-		fck_db_memory *memory = (fck_db_memory *)src;
-		result.memory.data = (const void *)memory->data;
-		result.memory.size = memory->count;
-	}
-	break;
-	case fck_db_type_reference:
-		memcpy(&result.reference, src, sizeof(result.reference));
-		break;
-	case fck_db_type_asset:
-		memcpy(&result.asset, src, sizeof(fck_db_asset *));
-		break;
-	}
-	return result;
-}
-
-static fck_db_property fck_db_read_api_variant(fck_db_accessor accessor, const char *property)
-{
-	fck_db_property result = {0};
-
-	fck_db_private *db = accessor.db.opaque;
-	fck_db_object *obj = accessor.obj;
-
-	const fckc_size_t at = fck_db_object_find(obj, fck_db_type_none, property);
-	if (at)
-	{
-		const fck_db_property_instance *prop = obj->properties + at - 1;
-		result = fck_db_make_variant(prop->type, obj->data, prop->offset);
-	}
-	return result;
-}
-
-static fckc_u32 fck_db_object_api_iterate(fck_db_accessor accessor, fckc_u32 *offset, fck_db_named_property *property)
-{
-	fck_db_private *db = accessor.db.opaque;
-	fck_db_object *obj = accessor.obj;
-
-	for (*offset = *offset + 1; *offset <= obj->capacity; *offset = *offset + 1)
-	{
-		const fck_db_property_instance *prop = obj->properties + (*offset - 1);
-		if (fck_db_property_is_used(prop))
-		{
-			property->value = fck_db_make_variant(prop->type, obj->data, prop->offset);
-			property->name = prop->name;
-			return *offset;
-		}
-	}
-
-	*offset = 0;
 	return 0;
 }
 
-static fckc_u32 fck_db_object_api_version(fck_db_accessor accessor)
+static int fck_db_guid_load(fck_db_guid *src, fckc_u64 *time, fckc_u32 *rand, fckc_u32 *signal)
 {
-	fck_db_object *obj = accessor.obj;
-	return obj->version;
+	const fckc_u32 sig = fckc_u32_load(&src->signal);
+	if (sig == 0)
+	{
+		return 0;
+	}
+
+	*time = src->time;
+	*rand = src->rand;
+	*signal = sig;
+	return 1;
 }
 
-struct fck_db_read_api db_read_api = {
-	.iterate = fck_db_object_api_iterate,
-	.version = fck_db_object_api_version,
-	.variant = fck_db_read_api_variant,
-	.i32 = fck_db_read_api_i32,
-	.f32 = fck_db_read_api_f32,
-	.asset = fck_db_read_api_asset,
-	.reference = fck_db_read_api_reference,
-	.memory = fck_db_read_api_memory,
-};
-
-static fck_db_id fck_db_object_api_create(fck_db external, const char *name)
+static int fck_db_guid_is_ok(fck_db_guid *guid)
 {
-	fck_db_private *db = external.opaque;
-	const fck_db_id id = fck_db_id_create_and_next(db);
-	fck_multidir_entry *entry = fck_multidir_add_entry(&db->database.header, &db->database.root, id, name);
-	fck_assert(entry);
-	return id;
+	return fckc_u32_load(&guid->signal);
 }
 
-static fck_db_accessor fck_db_object_api_edit(fck_db external, fck_db_id id)
+static void fck_db_guid_generate(fckc_u64 *time, fckc_u32 *rand, fckc_u32 *signal)
 {
-	fck_db_private *db = external.opaque;
-	fck_multidir_entry *entry = fck_multidir_resolve(&db->database.root, id);
-	fck_assert(entry);
-
-	// fck_db_object_api_create(id, entry->name);
-	const fck_db_id temp = fck_db_object_api_create(external, entry->name); // fck_db_id_advance(id);
-	fck_multidir_entry *copy = fck_multidir_add_entry(&db->database.header, &db->database.root, temp, entry->name);
-	copy->object = fck_db_object_clone(db->allocator, &entry->object);
-
-	fck_db_accessor accessor = {
-		.original = id,
-		.inflight = temp,
-		.edit = &db_edit_api,
-		.db = db,
-		.read = &db_read_api,
-		.obj = &copy->object,
-	};
-
-	return accessor;
+	fckc_u32 rng_state = (fckc_u32)os->chrono->now() ^ (fckc_u32)(fckc_uintptr)time;
+	*time = (fckc_u64)os->chrono->now();
+	*rand = ((fckc_u64)fck_xorshift32(&rng_state) << 32) | (fckc_u64)fck_xorshift32(&rng_state);
+	*signal = fck_xorshift32(&rng_state);
+	// fckc_spin(!fck_db_guid_store(slot, time, rand_val, signal));
 }
 
-static fck_db_accessor fck_db_object_api_read(fck_db external, fck_db_id id)
+static fckc_u64 fck_db_guid_raw_hash(fckc_u64 time, fckc_u32 rand, fckc_u32 signal)
 {
-	fck_db_private *db = external.opaque;
-	fck_multidir_entry *entry = fck_multidir_resolve(&db->database.root, id);
-	fck_assert(entry);
-
-	fck_db_accessor accessor = {
-		.original = id,
-		.inflight = id,
-		.edit = NULL,
-		.db = db,
-		.read = &db_read_api,
-		.obj = &entry->object,
-	};
-
-	return accessor;
+	fckc_u64 hash = fck_hash_combine(time, (to_u64(rand) << 32) | to_u64(signal));
+	// Extract two bits for the state...
+	hash = hash & to_u64(~0LLU >> 2);
+	return hash;
 }
 
-static void fck_db_object_api_destroy(fck_db external, fck_db_id id)
+static int fck_db_guid_equals(fck_db_guid *guid, fckc_u64 time, fckc_u32 rand, fckc_u32 signal)
 {
-	fck_db_private *db = external.opaque;
-	fck_multidir_remove_entry(&db->database.header, &db->database.root, id);
+	fckc_u64 t;
+	fckc_u32 r;
+	fckc_u32 s;
+	if (fck_db_guid_load(guid, &t, &r, &s))
+	{
+		return time == t && rand == r && signal == s;
+	}
+	return 0;
 }
 
-static fck_db_undo_scope fck_db_undo_api_create(struct kll_allocator *allocator)
+static fckc_u64 fck_db_guid_id_map_probe(fck_db_guid_id_map *map, fckc_u64 hash)
 {
-	fck_db_undo_scope result = {0};
-	result.opaque = kll_malloc(allocator, sizeof(*result.opaque));
-	memset(result.opaque, 0, sizeof(*result.opaque));
-	result.opaque->allocator = allocator;
+	for (fckc_size_t index = 0; index < map->capacity; index++)
+	{
+		const fckc_size_t slot = (hash + index) % map->capacity;
+		fck_db_guid_key_value *item = map->values + slot;
+		if (!item->state.ok || item->state.tomb)
+		{
+			return slot + 1;
+		}
+	}
+	fck_assert(0 && "out of capacity - this should NOT happen");
+	return 0;
+}
+
+static fckc_u64 fck_db_guid_id_map_find(fck_db_guid_id_map *map, fckc_u64 time, fckc_u32 rand, fckc_u32 signal)
+{
+	const fckc_u64 hash = fck_db_guid_raw_hash(time, rand, signal);
+
+	for (fckc_size_t index = 0; index < map->capacity; index++)
+	{
+		const fckc_size_t slot = (hash + index) % map->capacity;
+		fck_db_guid_key_value *item = map->values + slot;
+		if (!item->state.ok)
+		{
+			break;
+		}
+		if (!item->state.tomb && item->state.value == hash)
+		{
+			if (fck_db_guid_equals(&item->guid, time, rand, signal))
+			{
+				return slot + 1;
+			}
+		}
+	}
+	return 0;
+}
+
+static fckc_u64 fck_db_guid_id_map_next(fck_db_guid_id_map *map, fckc_u64 *value)
+{
+	for (fckc_size_t index = *value; index < map->capacity; index++)
+	{
+		const fck_db_guid_key_value *item = map->values + index;
+		if (item->state.ok)
+		{
+			// Asset that item->state.tomb is 0?
+			*value = index + 1;
+			return *value;
+		}
+	}
+	return 0;
+}
+
+static fckc_u64 fck_db_guid_id_map_add(fck_db_guid_id_map *map, fckc_u64 hash, fckc_u64 time, fckc_u32 rand, fckc_u32 signal, fck_db_id id)
+{
+	const fckc_u64 result = fck_db_guid_id_map_probe(map, hash);
+	if (result)
+	{
+		fck_db_guid_key_value *item = map->values + result - 1;
+		item->state.ok = 1;
+		item->state.tomb = 0;
+		item->state.value = hash;
+		item->id = id;
+		// When we lock the map later, we should maintain exclusive access here!
+		fck_db_guid_store(&item->guid, time, rand, signal);
+		map->count = map->count + 1;
+	}
 	return result;
 }
 
-static void fck_db_undo_api_destroy(fck_db_undo_scope scope)
+static fckc_u64 fck_db_guid_id_map_grow_add(fck_db_guid_id_map *map, fckc_u64 time, fckc_u32 rand, fckc_u32 signal, fck_db_id id)
 {
-	kll_free(scope.opaque->allocator, scope.opaque);
+	{
+		const fckc_u64 result = fck_db_guid_id_map_find(map, time, rand, signal);
+		if (result)
+		{
+			return result;
+		}
+	}
+
+	// TODO: Locking! :-D
+	if (map->count > map->capacity / 2)
+	{
+		const fckc_size_t capacity = map->capacity ? 32 : map->capacity * 4;
+		const fckc_size_t total = sizeof(*map->values) * capacity;
+		fck_db_guid_key_value *values = (fck_db_guid_key_value *)kll_malloc(kll->system, total);
+		memset(values, 0, total);
+
+		fck_db_guid_id_map next = {.values = values, .capacity = capacity};
+		fckc_u64 it = 0;
+		while (fck_db_guid_id_map_next(map, &it))
+		{
+			fck_db_guid_key_value *item = map->values + it - 1;
+			if (item->state.ok)
+			{
+				fckc_u64 t;
+				fckc_u32 r;
+				fckc_u32 s;
+				if (fck_db_guid_load(&item->guid, &t, &r, &s))
+				{
+					fck_db_guid_id_map_add(&next, item->state.value, t, r, s, item->id);
+				}
+			}
+		}
+
+		kll_free(kll->system, map->values);
+		*map = next;
+	}
+
+	{
+		const fckc_u64 hash = fck_db_guid_raw_hash(time, rand, signal);
+		const fckc_u64 result = fck_db_guid_id_map_add(map, hash, time, rand, signal, id);
+		return result;
+	}
 }
 
-static int fck_db_undo_api_undo(fck_db external, fck_db_undo_scope scope)
+static void fck_db_object_uuid_mapping(fck_db external, fck_db_id id, fck_db_object *obj)
 {
+	fckc_u64 time;
+	fckc_u32 rand;
+	fckc_u32 signal;
+	fck_db_guid_generate(&time, &rand, &signal);
+
 	fck_db_private *db = external.opaque;
-	fck_db_undo_scope_private *undo_scope = scope.opaque;
 
-	if (undo_scope->cursor == undo_scope->back)
-	{
-		return 0;
-	}
-	undo_scope->cursor = (undo_scope->cursor - 1) % fck_arraysize(undo_scope->units);
-
-	fck_db_undo_unit *unit = undo_scope->units + undo_scope->cursor;
-
-	fck_multidir_entry *target = fck_multidir_resolve(&db->database.root, unit->target);
-	fck_multidir_entry *copy = fck_multidir_resolve(&db->database.root, unit->copy);
-
-	fck_db_object temp = target->object;
-	target->object = copy->object;
-	copy->object = temp;
-
-	return 1;
+	db->page_table;
 }
 
-static int fck_db_undo_api_redo(fck_db external, fck_db_undo_scope scope)
+static void fck_db_object_uuid_set(fck_db external, fck_db_id id, fck_db_uuid uuid)
+{
+	// TODO: UUID to ID mapping? we know id to uuid since we store it in the object
+	// But maybe back and forth mapping would be better...
+	fck_db_private *db = external.opaque;
+	fck_db_object *entry = fck_db_resolve_object(db->page_table, id);
+	if (entry->uuid.values[0] == 0 && entry->uuid.values[1] == 0)
+	{
+		entry->uuid = uuid;
+		fck_db_object_uuid_mapping(external, id, entry);
+	}
+	else
+	{
+		fck_assert(entry->uuid.values[0] == uuid.values[0] && entry->uuid.values[1] == uuid.values[1]);
+	}
+}
+
+static fck_db_uuid fck_db_object_uuid_maybe_generate_and_get(fck_db external, fck_db_id id)
 {
 	fck_db_private *db = external.opaque;
-	fck_db_undo_scope_private *undo_scope = scope.opaque;
-
-	if (undo_scope->cursor == undo_scope->front)
+	fck_db_object *entry = fck_db_resolve_object(db->page_table, id);
+	if (entry->uuid.values[0] == 0 && entry->uuid.values[1] == 0)
 	{
-		return 0;
+		entry->uuid = fck_generate_uuid();
+		fck_db_object_uuid_mapping(external, id, entry);
 	}
-	fck_db_undo_unit *unit = undo_scope->units + undo_scope->cursor;
+	return entry->uuid;
+}
 
-	fck_multidir_entry *target = fck_multidir_resolve(&db->database.root, unit->target);
-	fck_multidir_entry *copy = fck_multidir_resolve(&db->database.root, unit->copy);
+static fckc_u64 fck_db_object_uuid_to_u64(fck_db_uuid uuid)
+{
+	return ((fckc_u64)uuid.values[1] << 32) | ((fckc_u64)uuid.values[0] & 0xFFFFFFFFULL);
+}
 
-	fck_db_object temp = target->object;
-	target->object = copy->object;
-	copy->object = temp;
+static fck_db_uuid fck_db_object_u64_to_uuid(fckc_u64 val)
+{
+	fck_db_uuid uuid;
+	uuid.values[0] = (fckc_u32)(val & 0xFFFFFFFFULL);
+	uuid.values[1] = (fckc_u32)(val >> 32);
+	return uuid;
+}
 
-	undo_scope->cursor = (undo_scope->cursor + 1) % fck_arraysize(undo_scope->units);
+static void fck_db_object_save_recursively(kll_arena *arena, fck_serialiser *serialiser, fck_db external, const char *scope, fck_db_id id);
 
-	return 1;
+static void fck_db_object_serialise(kll_arena *arena, fck_serialiser *serialiser, fck_db external, fck_db_id id)
+{
+	fck_db_private *db = external.opaque;
+	fck_db_object *entry = fck_db_resolve_object(db->page_table, id);
+	if (entry == NULL)
+	{
+		return;
+	}
+	const fck_db_uuid uuid = fck_db_object_uuid_maybe_generate_and_get(external, id);
+	fckc_u64 uuid_u64 = fck_db_object_uuid_to_u64(entry->uuid);
+
+	serialiser->string(serialiser, fck_db_private_name, (void **)&entry->name, 1);
+	serialiser->u64(serialiser, fck_db_private_uuid, &uuid_u64, 1);
+
+	const fck_db_accessor reader = fck_db_object_api_read(external, id);
+
+	const char **names = (const char **)kll_malloc(arena, entry->count * sizeof(const char *));
+	fckc_u64 *types = (fckc_u64 *)kll_malloc(arena, entry->count * sizeof(fckc_u64));
+	fckc_size_t index = 0;
+
+	fckc_u32 it = 0;
+	fck_db_named_property named_property = {0};
+	while (reader.read->iterate(reader, &it, &named_property))
+	{
+		const fckc_u64 type = to_u64(named_property.value.type);
+		names[index] = named_property.name;
+		types[index] = type;
+		index = index + 1;
+	}
+
+	serialiser->push(serialiser, fck_db_private_signature);
+	serialiser->string(serialiser, "_names", (void **)names, index);
+	serialiser->u64(serialiser, "_types", types, index);
+	serialiser->pop(serialiser);
+
+	it = 0;
+	while (reader.read->iterate(reader, &it, &named_property))
+	{
+		const char *key = named_property.name;
+		char buffer[128];
+		fck_db_property *property = &named_property.value;
+		switch (property->type)
+		{
+		case fck_db_type_none:
+			break;
+		case fck_db_type_i32:
+			serialiser->i32(serialiser, key, &property->i32, 1);
+			break;
+		case fck_db_type_f32:
+			// Easy
+			serialiser->f32(serialiser, key, &property->f32, 1);
+			break;
+		case fck_db_type_memory:
+			// Binary array?
+			property->memory;
+			break;
+		case fck_db_type_object:
+			fck_db_object_save_recursively(arena, serialiser, external, key, property->object);
+			break;
+		case fck_db_type_reference: {
+			const fck_db_uuid uuid = fck_db_object_uuid_maybe_generate_and_get(external, property->object);
+			fckc_u64 value = fck_db_object_uuid_to_u64(uuid);
+			serialiser->u64(serialiser, key, &value, 1);
+			break;
+		}
+		case fck_db_type_asset:
+			// TODO: Making asset a referencable from disk format
+			property->asset;
+			break;
+		case fck_db_type_object_set: {
+			fck_db_id *id = NULL;
+			serialiser->push(serialiser, key);
+			// Add count
+			// Make a name key[Index] for the children
+			fckc_u32 index = 0;
+			while (db_id_set->iterate(property->set, &id))
+			{
+				snprintf(buffer, sizeof(buffer), "[%u]", index);
+				fck_db_object_save_recursively(arena, serialiser, external, buffer, *id);
+				index++;
+			}
+			serialiser->pop(serialiser);
+			break;
+		}
+		}
+	}
+}
+
+static void fck_db_object_save_recursively(kll_arena *arena, fck_serialiser *serialiser, fck_db external, const char *scope, fck_db_id id)
+{
+	serialiser->push(serialiser, scope);
+	fck_db_object_serialise(arena, serialiser, external, id);
+	serialiser->pop(serialiser);
+}
+
+static void fck_db_object_api_save(fck_serialiser *serialiser, fck_db external, fck_db_id id)
+{
+	kll_arena *arena = kll->arena->create(kll->system, 4096);
+	fck_db_object_serialise(arena, serialiser, external, id);
+	kll->arena->destroy(arena);
+}
+
+static fck_serialiser_element *fck_db_serialiser_query(fck_serialiser *serialiser, const char *path, const char *variable)
+{
+	char buffer[1024];
+	int result;
+	if (path == NULL || path[0] == '\0')
+	{
+		result = snprintf(buffer, sizeof(buffer), "/%s", variable);
+	}
+	else
+	{
+		result = snprintf(buffer, sizeof(buffer), "/%s/%s", path, variable);
+	}
+	fck_assert(result >= 0 && result < sizeof(buffer));
+	fck_serialiser_element *element = serialiser->query(serialiser, buffer);
+	return element;
+}
+
+static void fck_db_deserialise_skip_scope(fck_serialiser_iterator *it, fck_serialiser_element *element)
+{
+	int indent = 0;
+	while (it->next(it, element))
+	{
+		if (element->type == fck_serialiser_push)
+		{
+			indent = indent + 1;
+			continue;
+		}
+
+		if (element->type == fck_serialiser_pop)
+		{
+			if (indent == 0)
+			{
+				break;
+			}
+			indent = indent - 1;
+		}
+	}
+}
+
+static fck_db_id fck_db_deserialise_object(fck_db external, fck_serialiser *s, fck_serialiser_iterator *it, fck_serialiser_element *element)
+{
+	fck_assert(element->type == fck_serialiser_push);
+
+	fck_serialiser_element *object_name = fck_db_serialiser_query(s, element->name, fck_db_private_name);
+	fck_assert(object_name->count == 1);
+	fck_assert(object_name->type == fck_serialiser_string);
+
+	fck_serialiser_element *object_uuid = fck_db_serialiser_query(s, element->name, fck_db_private_uuid);
+	fck_assert(object_uuid->count == 1);
+	fck_assert(object_uuid->type == fck_serialiser_u64);
+
+	const fck_db_id temp = fck_db_object_api_create(external, object_name->values->as_string);
+	fck_db_object_uuid_set(external, temp, fck_db_object_u64_to_uuid(object_uuid->values->as_u64));
+
+	fck_serialiser_element *signature_names = fck_db_serialiser_query(s, element->name, fck_db_private_signature "/_names");
+	fck_serialiser_element *signature_values = fck_db_serialiser_query(s, element->name, fck_db_private_signature "/_types");
+
+	fck_assert(signature_names->count == signature_values->count);
+
+	{
+		// Reserve relevant data
+		const fck_db_accessor editor = fck_db_object_api_edit(external, temp);
+		for (fckc_size_t index = 0; index < signature_names->count; index++)
+		{
+			const char *name = signature_names->values[index].as_string;
+			const fckc_u64 type = signature_values->values[index].as_u64;
+			const fck_db_property property = {.type = (fck_db_type)type};
+			editor.edit->variant(editor, name, &property);
+		}
+		editor.edit->commit(editor, fck_db_no_undo);
+	}
+	{
+		const fck_db_accessor reader = fck_db_object_api_read(external, temp);
+		const fck_db_accessor editor = fck_db_object_api_edit(external, temp);
+
+		while (it->next(it, element))
+		{
+			if (element->type == fck_serialiser_pop)
+			{
+				break;
+			}
+
+			// Due to paths having '/', we need to account for it
+			// TODO: Fix this - Stupid hiccup with paths...
+			const char *name = element->name; //+ prefix_len;
+			if (strcmp(name, fck_db_private_name) == 0)
+			{
+				continue;
+			}
+			if (strcmp(name, fck_db_private_uuid) == 0)
+			{
+				continue;
+			}
+			if (strcmp(name, fck_db_private_signature) == 0)
+			{
+				fck_db_deserialise_skip_scope(it, element);
+				continue;
+			}
+
+			// Not so simple cases
+			const fck_db_property current = reader.read->variant(reader, name);
+			switch (current.type)
+			{
+			case fck_db_type_none:
+				// Uuuummmm... Might be string
+				// We should handle this
+				fck_assert(0 && "Handle this");
+				continue;
+			case fck_db_type_reference: {
+				// fck_db_accessor reader = fck_db_object_api_read(external, current.object);
+				// reader.read->reference(reader, "uuid");
+			}
+				continue;
+			case fck_db_type_memory:
+			case fck_db_type_asset:
+			case fck_db_type_object:
+				editor.edit->object(editor, name, fck_db_deserialise_object(external, s, it, element));
+				continue;
+			case fck_db_type_object_set:
+				fck_db_deserialise_skip_scope(it, element);
+				continue;
+
+			case fck_db_type_i32:
+				editor.edit->i32(editor, name, to_i32(element->values->as_i32));
+				break;
+			case fck_db_type_f32:
+				editor.edit->f32(editor, name, to_f32(element->values->as_f64));
+				break;
+			}
+		}
+
+		editor.edit->commit(editor, fck_db_no_undo);
+	}
+	return temp;
+}
+
+static void fck_db_print(fck_db external, fck_db_id id)
+{
+	const fck_db_accessor reader = fck_db_object_api_read(external, id);
+	fckc_u32 it = 0;
+	fck_db_named_property property = {0};
+	while (reader.read->iterate(reader, &it, &property))
+	{
+		switch (property.value.type)
+		{
+		case fck_db_type_f32:
+			os->io->log("Name: %s - %f", property.name, property.value.f32);
+			break;
+		case fck_db_type_none:
+			break;
+		case fck_db_type_i32:
+			os->io->log("Name: %s - %d", property.name, property.value.i32);
+			break;
+		case fck_db_type_memory:
+		case fck_db_type_object:
+			fck_db_print(external, property.value.object);
+			break;
+		case fck_db_type_asset:
+		case fck_db_type_reference:
+			break;
+		}
+	}
+}
+
+static void fck_db_deserialise(fck_db external, fck_db_type type, fck_serialiser *serialiser, fck_serialiser_iterator *it)
+{
+	fck_serialiser_element element;
+	it->next(it, &element);
+	if (element.type != fck_serialiser_push)
+	{
+		os->io->log("Weird that we ended up here, we should be in an object scope");
+		return;
+	}
+
+	const fck_db_id temp = fck_db_deserialise_object(external, serialiser, it, &element);
+	fck_db_print(external, temp);
+}
+
+static void fck_db_object_api_load(fck_serialiser *serialiser, fck_db external)
+{
+	fck_serialiser_iterator *it = serialiser->iterator(serialiser);
+	fck_db_deserialise(external, fck_db_type_object, serialiser, it);
 }
 
 static fck_db_object_api db_object_api = {
@@ -1485,6 +1540,8 @@ static fck_db_object_api db_object_api = {
 	.destroy = fck_db_object_api_destroy,
 	.read = fck_db_object_api_read,
 	.edit = fck_db_object_api_edit,
+	.save = fck_db_object_api_save,
+	.load = fck_db_object_api_load,
 };
 
 static fck_db_asset_api db_asset_api = {
@@ -1497,17 +1554,6 @@ static fck_db_undo_api db_undo_api = {
 	.destroy = fck_db_undo_api_destroy,
 	.undo = fck_db_undo_api_undo,
 	.redo = fck_db_undo_api_redo,
-};
-
-static fck_db_api db_api = {
-	.object = &db_object_api,
-	.asset = &db_asset_api,
-	.undo = &db_undo_api,
-
-	.create = fck_db_api_create,
-	.setup = fck_db_api_setup,
-	.hotreload = fck_db_api_hotreload,
-	.close = fck_db_api_close,
 };
 
 static fck_db_asset *fck_directory_import(const fck_db_loader_args *args, const char *path)
@@ -1534,7 +1580,7 @@ static fckc_size_t fck_directory_supports(const char ***extensions)
 }
 
 static fck_db_loader_interface directory_loader = {
-	.type = 1,
+	.type = "direcotry",
 	.name = "directory",
 	.import = fck_directory_import,
 	.supports = fck_directory_supports,
@@ -1542,10 +1588,24 @@ static fck_db_loader_interface directory_loader = {
 
 FCK_EXPORT_API fck_db_api *fck_db_load(fck_api_registry *registry, void *old)
 {
+	static fck_db_api api = {
+		.object = &db_object_api,
+		.asset = &db_asset_api,
+		.undo = &db_undo_api,
+
+		.create = fck_db_api_create,
+		.setup = fck_db_api_setup,
+		.hotreload = fck_db_api_hotreload,
+		.close = fck_db_api_close,
+	};
+	// Runtime resolved addresses...
+	api.set = db_id_set;
+	db_api = &api;
+
 	(void)old;
 	apis = registry;
-	apis->add(fck_db_api_name, &db_api);
+	apis->add(fck_db_api_name, db_api);
 	apis->add(fck_db_loader_interface_name, &directory_loader);
 
-	return &db_api;
+	return db_api;
 }

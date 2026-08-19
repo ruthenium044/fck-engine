@@ -60,7 +60,7 @@ typedef struct fck_serialiser
 	fck_serialiser_iterator *(*iterator)(struct fck_serialiser *s);
 
 	// Optional - Can be NULL - By convention only valid inbetween the query calls!
-	// A new query can invalidate the previous one! :)
+	// Returned pointer can get freed via kll_free or reset by arena...
 	fck_serialiser_element *(*query)(struct fck_serialiser *s, const char *path);
 
 	void (*destroy)(struct fck_serialiser *s);

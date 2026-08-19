@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <fckc_assert.h>
 #include <fck_os.h>
 
 struct kll_memory_buffer_page;
@@ -107,6 +108,13 @@ typedef struct kLl_arena_implementation
 // kll_allocator is base of kll_arena - Polymorphic in layout
 static void *kll_arena_realloc(struct kll_allocator *arena, void *ptr, fckc_size_t size, const char *file, fckc_size_t line)
 {
+	if (size == 0)
+	{
+		return NULL;
+	}
+	
+	fck_assert(ptr == NULL && "Not supporting realloc in arena yet");
+
 	(void)file;
 	(void)line;
 

@@ -1,8 +1,10 @@
 #include "fck_serialiser_json.h"
-#include "fck_serialiser.h"
+
+#include <fck_serialiser.h>
 #include <fckc_inttypes.h>
 
 #include <kll.h>
+#include <kll_format.h>
 #include <kll_malloc.h>
 
 #include "yyjson.h"
@@ -11,6 +13,7 @@
 typedef struct fck_json_writer
 {
 	fck_serialiser base;
+	kll_arena *strings;
 	kll_allocator *allocator;
 	yyjson_mut_doc *doc;
 	yyjson_mut_val *stack[64];
@@ -19,12 +22,42 @@ typedef struct fck_json_writer
 	fckc_size_t final_len;
 } fck_json_writer;
 
-static void fck_json_writer_push(struct fck_serialiser *s, const char *name)
+typedef struct fck_json_reader_node
+{
+	fck_serialiser_primitive type;
+	const char *name;
+	fck_serialiser_value *values;
+	fckc_size_t count;
+} fck_json_reader_node;
+
+typedef struct fck_json_reader
+{
+	fck_serialiser base;
+	kll_arena *arena;
+	yyjson_doc *doc;
+	yyjson_val *stack[64];
+	int stack_top;
+
+	fck_json_reader_node *nodes;
+	fckc_size_t node_count;
+	fckc_size_t node_capacity;
+
+	// fck_serialiser_element query_element;
+} fck_json_reader;
+
+typedef struct fck_json_iterator_internal
+{
+	fck_serialiser_iterator base;
+	fck_json_reader *reader;
+	size_t current_index;
+} fck_json_iterator_internal;
+
+static void fck_json_writer_push(struct fck_serialiser *s, const char *n)
 {
 	fck_json_writer *w = (fck_json_writer *)s;
 	yyjson_mut_val *parent = w->stack[w->stack_top];
 	yyjson_mut_val *child = yyjson_mut_obj(w->doc);
-
+	const char *name = kll_format(w->strings, "%s", n);
 	yyjson_mut_obj_add_val(w->doc, parent, name, child);
 	w->stack[++w->stack_top] = child;
 }
@@ -39,13 +72,14 @@ static void fck_json_writer_pop(struct fck_serialiser *s)
 }
 
 #define DEFINE_FCK_JSON_WRITER_FUNC(TYPE_NAME, T, YY_MUT_CREATOR)                                                                          \
-	static void fck_json_writer_##TYPE_NAME(struct fck_serialiser *s, const char *name, T *v, fckc_size_t c)                \
+	static void fck_json_writer_##TYPE_NAME(struct fck_serialiser *s, const char *n, T *v, fckc_size_t c)                                  \
 	{                                                                                                                                      \
 		fck_json_writer *w = (fck_json_writer *)s;                                                                                         \
+		const char *name = kll_format(w->strings, "%s", n);                                                                                \
 		yyjson_mut_val *parent = w->stack[w->stack_top];                                                                                   \
 		if (c == 1)                                                                                                                        \
 		{                                                                                                                                  \
-			yyjson_mut_obj_add_val(w->doc, parent, name, YY_MUT_CREATOR(w->doc, v[0]));                                                 \
+			yyjson_mut_obj_add_val(w->doc, parent, name, YY_MUT_CREATOR(w->doc, v[0]));                                                    \
 		}                                                                                                                                  \
 		else                                                                                                                               \
 		{                                                                                                                                  \
@@ -54,7 +88,7 @@ static void fck_json_writer_pop(struct fck_serialiser *s)
 			{                                                                                                                              \
 				yyjson_mut_arr_add_val(arr, YY_MUT_CREATOR(w->doc, v[i]));                                                                 \
 			}                                                                                                                              \
-			yyjson_mut_obj_add_val(w->doc, parent, name, arr);                                                                          \
+			yyjson_mut_obj_add_val(w->doc, parent, name, arr);                                                                             \
 		}                                                                                                                                  \
 	}
 
@@ -69,11 +103,11 @@ DEFINE_FCK_JSON_WRITER_FUNC(u64, fckc_u64, yyjson_mut_uint)
 DEFINE_FCK_JSON_WRITER_FUNC(f32, fckc_f32, yyjson_mut_real)
 DEFINE_FCK_JSON_WRITER_FUNC(f64, fckc_f64, yyjson_mut_real)
 
-static void fck_json_writer_string(struct fck_serialiser *s, const char *name, void **v, fckc_size_t c)
+static void fck_json_writer_string(struct fck_serialiser *s, const char *n, void **v, fckc_size_t c)
 {
 	fck_json_writer *w = (fck_json_writer *)s;
 	yyjson_mut_val *parent = w->stack[w->stack_top];
-
+	const char *name = kll_format(w->strings, "%s", n);
 	if (c == 1)
 	{
 		yyjson_mut_obj_add_str(w->doc, parent, name, (const char *)v[0]);
@@ -118,6 +152,7 @@ static void fck_json_writer_destroy(struct fck_serialiser *s)
 		free(w->final_buffer);
 	}
 	yyjson_mut_doc_free(w->doc);
+	kll_free(w->strings, w);
 	kll_free(w->allocator, w);
 }
 
@@ -128,6 +163,8 @@ static fck_serialiser *fck_json_writer_create(kll_allocator *allocator)
 	{
 		return NULL;
 	}
+
+	w->strings = kll->arena->create(allocator, 256);
 
 	w->allocator = allocator;
 	w->doc = yyjson_mut_doc_new(NULL);
@@ -163,37 +200,7 @@ static fck_serialiser *fck_json_writer_create(kll_allocator *allocator)
 
 /* --- Reader Structure and Structural Flattening System --- */
 
-typedef struct fck_json_reader_node
-{
-	fck_serialiser_primitive type;
-	const char *name;
-	fck_serialiser_value *values;
-	fckc_size_t count;
-} fck_json_reader_node;
-
-typedef struct fck_json_reader
-{
-	fck_serialiser base;
-	kll_allocator *arena;
-	yyjson_doc *doc;
-	yyjson_val *stack[64];
-	int stack_top;
-
-	fck_json_reader_node *nodes;
-	fckc_size_t node_count;
-	fckc_size_t node_capacity;
-
-	fck_serialiser_element query_element;
-} fck_json_reader;
-
-typedef struct fck_json_iterator_internal
-{
-	fck_serialiser_iterator base;
-	fck_json_reader *reader;
-	size_t current_index;
-} fck_json_iterator_internal;
-
-static fckc_char *fck_json_strdup(kll_allocator *allocator, const fckc_char *src)
+static fckc_char *fck_json_strdup(kll_arena *allocator, const fckc_char *src)
 {
 	if (!src)
 	{
@@ -212,8 +219,20 @@ static void fck_json_reader_grow(fck_json_reader *r)
 {
 	if (r->node_count >= r->node_capacity)
 	{
-		r->node_capacity = (r->node_capacity == 0) ? to_size_t(64) : r->node_capacity * to_size_t(2);
-		r->nodes = (fck_json_reader_node *)kll_realloc(r->arena, r->nodes, sizeof(fck_json_reader_node) * to_size_t(r->node_capacity));
+		size_t new_capacity = (r->node_capacity == 0) ? to_size_t(64) : r->node_capacity * to_size_t(2);
+		fck_json_reader_node *new_nodes = (fck_json_reader_node *)kll_malloc(r->arena, sizeof(fck_json_reader_node) * new_capacity);
+
+		if (r->nodes != NULL)
+		{
+			if (r->node_count > 0)
+			{
+				memcpy(new_nodes, r->nodes, sizeof(fck_json_reader_node) * r->node_count);
+			}
+			kll_free(r->arena, r->nodes);
+		}
+
+		r->nodes = new_nodes;
+		r->node_capacity = new_capacity;
 	}
 }
 
@@ -340,6 +359,8 @@ static fck_serialiser_element *fck_json_reader_query(struct fck_serialiser *s, c
 		return NULL;
 	}
 
+	fck_serialiser_element *query_element = (fck_serialiser_element *)kll_malloc(r->arena, sizeof(*query_element));
+
 	const int is_arr = yyjson_is_arr(target);
 	const fckc_size_t count = is_arr ? to_size_t(yyjson_arr_size(target)) : to_size_t(1);
 
@@ -350,62 +371,62 @@ static fck_serialiser_element *fck_json_reader_query(struct fck_serialiser *s, c
 	yyjson_val *first_item = is_arr ? yyjson_arr_get(target, 0) : target;
 
 	// Reset values for this query
-	r->query_element.count = count;
-	r->query_element.values = (fck_serialiser_value *)kll_malloc(r->arena, sizeof(void *) * count);
-	r->query_element.name = path;
+	query_element->count = count;
+	query_element->values = (fck_serialiser_value *)kll_malloc(r->arena, sizeof(void *) * count);
+	query_element->name = path;
 
 	if (yyjson_is_str(first_item))
 	{
-		r->query_element.type = fck_serialiser_string;
+		query_element->type = fck_serialiser_string;
 		for (fckc_size_t i = 0; i < count; i++)
 		{
 			yyjson_val *item = is_arr ? yyjson_arr_get(target, (size_t)i) : target;
 			const char *str = yyjson_get_str(item);
-			r->query_element.values[i].as_string = fck_json_strdup(r->arena, (const fckc_char *)str);
+			query_element->values[i].as_string = fck_json_strdup(r->arena, (const fckc_char *)str);
 		}
 	}
 	else if (yyjson_is_sint(first_item))
 	{
-		r->query_element.type = fck_serialiser_i64;
+		query_element->type = fck_serialiser_i64;
 		for (fckc_size_t i = 0; i < count; i++)
 		{
 			yyjson_val *item = is_arr ? yyjson_arr_get(target, (size_t)i) : target;
 			int64_t *val = (int64_t *)kll_malloc(r->arena, sizeof(int64_t));
 			*val = yyjson_get_sint(item);
-			r->query_element.values[i].as_i64 = *val;
+			query_element->values[i].as_i64 = *val;
 		}
 	}
 	else if (yyjson_is_uint(first_item))
 	{
-		r->query_element.type = fck_serialiser_u64;
+		query_element->type = fck_serialiser_u64;
 		for (fckc_size_t i = 0; i < count; i++)
 		{
 			yyjson_val *item = is_arr ? yyjson_arr_get(target, (size_t)i) : target;
 			uint64_t *val = (uint64_t *)kll_malloc(r->arena, sizeof(uint64_t));
 			*val = yyjson_get_uint(item);
-			r->query_element.values[i].as_u64 = *val;
+			query_element->values[i].as_u64 = *val;
 		}
 	}
 	else if (yyjson_is_real(first_item))
 	{
-		r->query_element.type = fck_serialiser_f64;
+		query_element->type = fck_serialiser_f64;
 		for (fckc_size_t i = 0; i < count; i++)
 		{
 			yyjson_val *item = is_arr ? yyjson_arr_get(target, (size_t)i) : target;
 			double *val = (double *)kll_malloc(r->arena, sizeof(double));
 			*val = yyjson_get_real(item);
-			r->query_element.values[i].as_f64 = *val;
+			query_element->values[i].as_f64 = *val;
 		}
 	}
 	else
 	{
 		// Target is an Object, Null, or unsupported type
-		kll_free(r->arena, r->query_element.values);
-		r->query_element.values = NULL;
+		kll_free(r->arena, query_element->values);
+		query_element->values = NULL;
 		return NULL;
 	}
 
-	return &r->query_element;
+	return query_element;
 }
 
 static fck_serialiser_element *fck_json_iterator_next(fck_serialiser_iterator *it, fck_serialiser_element *element)
@@ -469,11 +490,11 @@ static void fck_json_reader_pop(struct fck_serialiser *s)
 }
 
 #define DEFINE_FCK_JSON_READER_FUNC(TYPE_NAME, T, CAST_MACRO, YY_GETTER)                                                                   \
-	static void fck_json_reader_##TYPE_NAME(struct fck_serialiser *s, const char *name, T *v, fckc_size_t c)                \
+	static void fck_json_reader_##TYPE_NAME(struct fck_serialiser *s, const char *name, T *v, fckc_size_t c)                               \
 	{                                                                                                                                      \
 		fck_json_reader *r = (fck_json_reader *)s;                                                                                         \
 		yyjson_val *parent = r->stack[r->stack_top];                                                                                       \
-		yyjson_val *val = yyjson_obj_get(parent, name);                                                                                 \
+		yyjson_val *val = yyjson_obj_get(parent, name);                                                                                    \
 		if (!val)                                                                                                                          \
 		{                                                                                                                                  \
 			memset(v, 0, sizeof(T) * to_size_t(c));                                                                                        \
@@ -618,13 +639,15 @@ static void fck_json_reader_destroy(struct fck_serialiser *s)
 
 static fck_serialiser *fck_json_reader_create(kll_allocator *allocator, const fckc_char *source, fckc_size_t length)
 {
-	fck_json_reader *r = (fck_json_reader *)kll_malloc(allocator, sizeof(fck_json_reader));
+	kll_arena *arena = kll->arena->create(allocator, 4096);
+
+	fck_json_reader *r = (fck_json_reader *)kll_malloc(arena, sizeof(fck_json_reader));
 	if (!r)
 	{
 		return NULL;
 	}
 
-	r->arena = allocator;
+	r->arena = arena;
 	r->doc = yyjson_read((const char *)source, to_size_t(length), 0);
 	r->stack[0] = r->doc ? yyjson_doc_get_root(r->doc) : NULL;
 	r->stack_top = 0;

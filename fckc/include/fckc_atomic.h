@@ -45,6 +45,8 @@ void _ReadWriteBarrier(void);
 #define fckc_fence() __asm__ __volatile__("" : : : "memory")
 #endif
 
+#define fckc_spin(condition) while((condition)) {}
+
 // prefer:
 // fckc_loadp, fckc_load32, fckc_load16...
 

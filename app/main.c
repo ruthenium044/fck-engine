@@ -1,6 +1,6 @@
 
-#include "fck_serialiser.h"
 #include "fck_serialiser_json.h"
+#include <fck_serialiser.h>
 
 #include <ctype.h>
 #include <fck_apis.h>
@@ -685,7 +685,31 @@ int main(int argc, char **argv)
 
 	const fck_db_undo_scope undo = db->undo->create(kll->system);
 
+	const fck_db_id subitem = db->object->create(assets, "Sub");
+	{
+		fck_db_accessor editor = db->object->edit(assets, subitem);
+		editor.edit->i32(editor, "x", 5);
+		editor.edit->i32(editor, "value", 420);
+		editor.edit->commit(editor, fck_db_no_undo);
+	}
 	fck_db_id item = db->object->create(assets, "Test");
+
+	fck_db_id_set *set = db->set->create(kll->system, 16);
+	db->set->add(kll->system, &set, db->object->create(assets, "Test/Child"));
+	db->set->add(kll->system, &set, db->object->create(assets, "Test/Child"));
+	db->set->add(kll->system, &set, db->object->create(assets, "Test/Child"));
+	db->set->add(kll->system, &set, db->object->create(assets, "Test/Child"));
+	db->set->add(kll->system, &set, db->object->create(assets, "Test/Child"));
+	const fck_db_id to_remove = db->object->create(assets, "Test/Child");
+	db->set->add(kll->system, &set, to_remove);
+	db->set->add(kll->system, &set, db->object->create(assets, "Test/Child"));
+	db->set->add(kll->system, &set, db->object->create(assets, "Test/Child"));
+	db->set->remove(set, to_remove);
+	db->set->add(kll->system, &set, db->object->create(assets, "Test/Child"));
+	db->set->add(kll->system, &set, db->object->create(assets, "Test/Child"));
+	db->set->add(kll->system, &set, db->object->create(assets, "Test/Child"));
+	db->set->add(kll->system, &set, db->object->create(assets, "Test/Child"));
+
 	db->setup(assets, "app", fck_resource_path);
 
 	app_gameloops loops = {0};
@@ -822,6 +846,9 @@ int main(int argc, char **argv)
 		accessor.edit->f32(accessor, "x", 10.0f);
 		accessor.edit->f32(accessor, "y", 10.0f);
 		accessor.edit->reference(accessor, "self", item);
+		accessor.edit->object(accessor, "subitem", subitem);
+		accessor.edit->set(accessor, "children", set);
+		accessor.edit->string(accessor, "some string", "Hello Editor! Very long long string");
 
 		accessor.edit->commit(accessor, fck_db_no_undo);
 
@@ -853,7 +880,7 @@ int main(int argc, char **argv)
 	int is_running = 1;
 	while (is_running)
 	{
-		os->chrono->sleep(16);
+		os->chrono->sleep(4);
 
 		const fck_nk_control control = nk->control(view);
 		if (control.close)
@@ -938,8 +965,23 @@ int main(int argc, char **argv)
 									property.value.f32 =
 										nk->elements->f32(view, property.name, -1000.0f, property.value.f32, 1000.0f, 1.0f);
 									break;
-								case fck_db_type_memory:
 								case fck_db_type_reference:
+								case fck_db_type_object:
+									nk->elements->label(view, "%s: %lu - %lu", property.name, property.value.object.generation,
+									                    property.value.object.index);
+									break;
+								case fck_db_type_object_set: {
+									fck_db_id *id = NULL;
+									while (db->set->iterate(property.value.set, &id))
+									{
+										nk->elements->label(view, "%s: %lu - %lu", property.name, id->generation, id->index);
+									}
+									break;
+								}
+								case fck_db_type_string: {
+									nk->elements->label(view, "%s: %s", property.name, property.value.string);
+								}
+								case fck_db_type_memory:
 								case fck_db_type_asset:
 									nk->elements->label(view, "<NO DISPLAY>");
 									break;
@@ -952,6 +994,15 @@ int main(int argc, char **argv)
 									accessor.edit->variant(accessor, property.name, &property.value);
 									accessor.edit->commit(accessor, undo);
 								}
+							}
+
+							if (nk->elements->button(view, "bump"))
+							{
+								char buffer[256];
+								snprintf(buffer, sizeof(buffer), "Hello Tick[%llu]", now);
+								const fck_db_accessor accessor = db->object->edit(assets, item);
+								accessor.edit->string(accessor, "some string", buffer);
+								accessor.edit->commit(accessor, undo);
 							}
 						}
 
@@ -1006,6 +1057,21 @@ int main(int argc, char **argv)
 							{
 								os->io->log("Redid");
 							}
+						}
+
+						if (nk->elements->button(view, "Save"))
+						{
+							fck_serialiser *writer = serialiser_json->writer(kll->system);
+							db->object->save(writer, assets, item);
+							char *buffer = (char *)writer->buffer(writer);
+							const fckc_size_t size = writer->at(writer);
+							os->io->log(buffer);
+
+							fck_serialiser *reader = serialiser_json->reader(kll->system, buffer, size);
+							db->object->load(reader, assets);
+
+							writer->destroy(writer);
+							reader->destroy(reader);
 						}
 
 						nk->panel->pop(view);

@@ -6,6 +6,8 @@
 struct fck_serialiser;
 struct kll_allocator;
 
+// This one is porbably full with leaks lol
+
 typedef struct fck_serialiser_json_api
 {
 	struct fck_serialiser *(*writer)(struct kll_allocator *allocator);

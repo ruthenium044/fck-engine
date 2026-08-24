@@ -5,6 +5,7 @@
 
 #include <fck_os.h>
 #include <fckc_inttypes.h>
+#include <fckc_atomic.h>
 
 struct kll_allocator;
 struct kll_arena;
@@ -114,5 +115,6 @@ fck_db_object *fck_db_add_object(struct fck_db_object_page_table *table, fck_db_
 int fck_db_remove_object(struct fck_db_object_page_table *table, fck_db_id id);
 
 int fck_db_property_is_used(const fck_db_property_instance *property);
+fck_db_id fck_db_id_make(fckc_u8 e0, fckc_u8 e1, fckc_u8 e2, fckc_u8 e3, fck_db_type type);
 
 #endif // !FCK_DB_CORE_INL_INCLUDED

@@ -50,6 +50,7 @@ typedef union fck_db_id {
 } fck_db_id;
 
 typedef struct fck_db_id_set fck_db_id_set;
+
 typedef struct fck_db_property
 {
 	fck_db_type type;
@@ -92,7 +93,7 @@ typedef struct fck_db
 {
 	struct fck_db_private *opaque;
 } fck_db;
-
+ 
 struct fck_db_api;
 
 typedef struct fck_db_loader_args

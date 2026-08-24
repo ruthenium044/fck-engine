@@ -87,4 +87,6 @@ typedef uintptr_t fckc_uintptr;
 // Rename to fck_test
 #define sht_test(mask, flag) (((mask) & (flag)) == (flag))
 
+#define fck_bitmask(value) ((value) >= 64 ? ~0ULL : ((1ULL << (value)) - 1ULL))
+
 #endif // !FCKC_INTTYPES_H_INCLUDED

@@ -2,6 +2,7 @@
 #include "fck_db_accessor_edit.h"
 
 #include "fck_db_accessor_read.h"
+#include "fck_db_object_properties.h"
 
 #include "fck_db.h"
 #include "fck_db_core.inl"
@@ -14,11 +15,31 @@
 
 #include <string.h>
 
+static fckc_size_t fck_db_edit_next_power_2(fckc_size_t n)
+{
+	if (n <= 1)
+		return 1;
+
+	n--;
+	n |= n >> 1;
+	n |= n >> 2;
+	n |= n >> 4;
+	n |= n >> 8;
+	n |= n >> 16;
+
+#if SIZE_MAX > 0xFFFFFFFFU
+	n |= n >> 32;
+#endif
+
+	n++;
+	return n;
+}
+
 static void *fck_db_edit_api_lazy_find(fck_db external, fck_db_object *obj, fck_db_type type, const char *property, fckc_size_t s,
                                        fckc_size_t a)
 {
 	fck_db_private *db = external.opaque;
-	const fckc_size_t result = fck_db_object_add(db->allocator, obj, type, property);
+	const fckc_size_t result = db_properties->add(db->allocator, obj, type, property);
 	fck_assert(result);
 
 	fck_db_property_instance *prop = obj->properties + result - 1;
@@ -29,7 +50,7 @@ static void *fck_db_edit_api_lazy_find(fck_db external, fck_db_object *obj, fck_
 
 		if (obj->at >= obj->size)
 		{
-			const fckc_size_t capacity = obj->size ? obj->at : 64;
+			const fckc_size_t capacity = fck_db_edit_next_power_2(obj->at);
 			void *data = kll_malloc(db->allocator, capacity);
 			if (obj->data)
 			{
@@ -65,16 +86,16 @@ static void fck_db_edit_api_asset(fck_db_accessor accessor, const char *property
 
 static void fck_db_edit_api_reference(fck_db_accessor accessor, const char *property, fck_db_id value)
 {
-	const fckc_size_t s = sizeof(fck_db_asset *);
-	const fckc_size_t a = alignof(fck_db_asset *);
+	const fckc_size_t s = sizeof(value);
+	const fckc_size_t a = alignof(value);
 	void *dst = fck_db_edit_api_lazy_find(accessor.db, accessor.obj, fck_db_type_reference, property, s, a);
 	memcpy(dst, &value, sizeof(value));
 }
 
 static void fck_db_edit_api_object(fck_db_accessor accessor, const char *property, fck_db_id value)
 {
-	const fckc_size_t s = sizeof(fck_db_asset *);
-	const fckc_size_t a = alignof(fck_db_asset *);
+	const fckc_size_t s = sizeof(value);
+	const fckc_size_t a = alignof(value);
 	void *dst = fck_db_edit_api_lazy_find(accessor.db, accessor.obj, fck_db_type_object, property, s, a);
 	memcpy(dst, &value, sizeof(value));
 }
@@ -97,7 +118,7 @@ static void fck_db_edit_api_any_buffer(fck_db_accessor accessor, const char *pro
 		{
 			// Remove old entry, we re-add further down
 			const fckc_size_t old_total = offsetof(fck_db_memory, data[memory->capacity]);
-			const fckc_size_t result = fck_db_object_remove(accessor.obj, type, property, old_total);
+			const fckc_size_t result = db_properties->remove(accessor.obj, type, property, old_total);
 			fck_assert(result);
 		}
 	}
@@ -114,6 +135,15 @@ static void fck_db_edit_api_any_buffer(fck_db_accessor accessor, const char *pro
 static void fck_db_edit_api_memory(fck_db_accessor accessor, const char *property, const void *data, fckc_size_t size)
 {
 	fck_db_edit_api_any_buffer(accessor, property, fck_db_type_memory, data, size);
+}
+
+static void *fck_db_edit_api_userdata(fck_db_accessor accessor, const char *property, const void *data, fckc_size_t size)
+{
+	// Should work for now...
+	fck_db_edit_api_any_buffer(accessor, property, fck_db_type_memory, data, size);
+	void *current = db_read->untyped(accessor, fck_db_type_memory, property);
+	fck_db_memory *memory = (fck_db_memory *)current;
+	return (void *)memory->data;
 }
 
 static void fck_db_edit_api_string(fck_db_accessor accessor, const char *property, const char *value)
@@ -133,7 +163,7 @@ static void fck_db_edit_api_object_set(fck_db_accessor accessor, const char *pro
 	if (current)
 	{
 		// Let's always remove... For now!
-		const fckc_size_t result = fck_db_object_remove(accessor.obj, fck_db_type_object_set, property, total);
+		const fckc_size_t result = db_properties->remove(accessor.obj, fck_db_type_object_set, property, total);
 		fck_assert(result);
 	}
 
@@ -233,6 +263,7 @@ static fck_db_edit_api db_edit_api = {
 	.set = fck_db_edit_api_object_set,
 	.commit = fck_db_edit_api_commit,
 	.string = fck_db_edit_api_string,
+	.userdata = fck_db_edit_api_userdata,
 };
 
 fck_db_edit_api *db_edit = &db_edit_api;

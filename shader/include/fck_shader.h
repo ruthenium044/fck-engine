@@ -3,9 +3,12 @@
 
 #include <fckc_inttypes.h>
 
-#define fck_shader_api_name "fck_shader"
+#define fck_shader_api_name "fck-shader"
+#define fck_category_shader "fck-shader"
 
 struct fck_file;
+
+struct fck_db_asset;
 
 typedef enum fck_shader_language
 {
@@ -59,8 +62,6 @@ typedef struct fck_hlsl_object
 	fck_shader_generic generic;
 } fck_hlsl_object;
 
-typedef struct fck_shader_asset fck_shader_asset;
-
 struct fck_file;
 struct fck_shader_compiler;
 
@@ -91,8 +92,19 @@ typedef struct fck_shader_compiler
 // TODO: This api is a bit rubbish... We should include shader::destroy in the shader_api
 // Same applies to all the getters that do not need the compiler!!
 
+typedef struct fck_shader_asset_api
+{
+	// TODO: Make it possible to create assets from memory!
+
+	// Better name for this...
+	int (*dirty)(const struct fck_db_asset *asset);
+	fck_glsl_object (*resolve)(const struct fck_db_asset *asset);
+} fck_shader_asset_api;
+
 typedef struct fck_shader_api
 {
+	fck_shader_asset_api *asset;
+
 	fck_shader_compiler (*create)(void);
 	int (*is_ok)(fck_shader_compiler compiler);
 } fck_shader_api;

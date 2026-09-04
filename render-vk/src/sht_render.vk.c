@@ -1805,21 +1805,22 @@ static void sht_vk_descriptor_pool_storage_key_release(sht_vk_driver *driver, sh
 	{
 		// Or we defer it and call it a GC huehuehuehue
 		driver->DestroyPipelineLayout(driver->device, key->entry->pipeline_layout, default_allocation_callbacks);
+		key->entry->pipeline_layout = VK_NULL_HANDLE;
 		driver->DestroyDescriptorSetLayout(driver->device, key->entry->layout, default_allocation_callbacks);
+		key->entry->layout = VK_NULL_HANDLE;
 		for (fckc_size_t index = 0; index < fck_arraysize(key->entry->dynamic_pools); index++)
 		{
 			driver->DestroyDescriptorPool(driver->device, key->entry->dynamic_pools[index], default_allocation_callbacks);
+			key->entry->dynamic_pools[index] = VK_NULL_HANDLE;
 		}
 		driver->DestroyDescriptorPool(driver->device, key->entry->constant_pool, default_allocation_callbacks);
+		key->entry->constant_pool = VK_NULL_HANDLE;
 	}
 	key->entry = NULL;
 }
 
-static void sht_bss_destroy(sht_bss *bss)
+static void sht_vk_bss_destroy(sht_vk_bss *vk_bss, sht_vk_driver *driver)
 {
-	sht_vk_bss *vk_bss = (sht_vk_bss *)bss->handle;
-	sht_vk_driver *driver = (sht_vk_driver *)bss->owner;
-
 	sht_vk_descriptor_pool_storage_key_release(driver, &vk_bss->pool_storage_key);
 
 	for (fckc_size_t index = 0; index < fck_arraysize(vk_bss->buffer_backends); index++)
@@ -1834,7 +1835,34 @@ static void sht_bss_destroy(sht_bss *bss)
 			}
 		}
 	}
+}
 
+static void sht_bss_destroy(sht_bss *bss)
+{
+	sht_vk_bss *vk_bss = (sht_vk_bss *)bss->handle;
+	sht_vk_driver *driver = (sht_vk_driver *)bss->owner;
+
+	/* Let's do this when refcount hits 0
+	sht_vk_descriptor_pool_storage_key_release(driver, &vk_bss->pool_storage_key);
+
+	for (fckc_size_t index = 0; index < fck_arraysize(vk_bss->buffer_backends); index++)
+	{
+	    sht_bss_buffer_backends *backend = vk_bss->buffer_backends + index;
+	    for (fckc_size_t id = 0; id < fck_arraysize(backend->buffers); id++)
+	    {
+	        sht_buffer *buffer = backend->buffers + id;
+	        if (driver->memory.is_ok(*buffer))
+	        {
+	            driver->memory.free(driver->memory.bump, buffer);
+	        }
+	    }
+	}*/
+
+	vk_bss->refcount = vk_bss->refcount - 1;
+	if (vk_bss->refcount < 0)
+	{
+		sht_vk_bss_destroy(vk_bss, driver);
+	}
 	// Only free if VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT is set!
 	// for (fckc_size_t index = 0; index < fck_arraysize(vk_bss->sets); index++)
 	//{
@@ -1843,14 +1871,32 @@ static void sht_bss_destroy(sht_bss *bss)
 	//}
 
 	sht_invalidate(bss);
-	sht_invalidate(vk_bss);
+	// sht_invalidate(vk_bss);
 }
 
 static sht_bss sht_bss_create(sht_driver driver, sht_binding_desc *desc)
 {
 	sht_vk_driver *vk_driver = sht_driver_to_vk(driver);
-	sht_vk_bss *vk_bss = vk_driver->storages.bss.handles + vk_driver->storages.bss.count;
-	vk_driver->storages.bss.count = vk_driver->storages.bss.count + 1;
+
+	sht_vk_bss *vk_bss = NULL;
+	for (fckc_size_t index = 0; index < vk_driver->storages.bss.count; index++)
+	{
+		// Find free bss
+		if (vk_driver->storages.bss.handles[index].refcount < 0)
+		{
+			vk_bss = vk_driver->storages.bss.handles + index;
+			fck_assert(vk_bss->refcount == -1); // I do not want to overflow :(
+		}
+	}
+
+	if (vk_bss == NULL)
+	{
+		vk_bss = vk_driver->storages.bss.handles + vk_driver->storages.bss.count;
+		vk_driver->storages.bss.count = vk_driver->storages.bss.count + 1;
+	}
+
+	vk_bss->refcount = 1;
+
 	sht_vk_assert(vk_driver->storages.bss.count < fck_arraysize(vk_driver->storages.bss.handles));
 	sht_invalidate(vk_bss);
 	memset(vk_bss, 0, sizeof(*vk_bss));
@@ -1978,17 +2024,19 @@ static sht_image_view sht_swapchain_wait_and_acquire(sht_swapchain swapchain, fc
 
 	fckc_u32 image_index;
 	result = sc->AcquireNextImageKHR(device, sc->swapchain, timeout, *completed, VK_NULL_HANDLE, &image_index);
-	if (result == VK_ERROR_OUT_OF_DATE_KHR)
+	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
 	{
 		*index = sht_swapchain_needs_resize;
 		sht_vk_resize(sc);
 		return (sht_image_view){0};
 	}
+
 	if (result != VK_SUCCESS)
 	{
 		sht_vk_error(result);
 		return (sht_image_view){0};
 	}
+
 	// We map the image index to the frame index. This sync/frame index now owns the swapchain image!!
 	sync->frame_index_to_swapchain_image_index[sync->index] = image_index;
 	// BANGER!
@@ -2003,6 +2051,7 @@ static sht_image_view sht_swapchain_wait_and_acquire(sht_swapchain swapchain, fc
 		while (current != start)
 		{
 			sht_vk_bss *bss = (sht_vk_bss *)current;
+
 			sht_vk_bss_node *current_node = current->values + sync->index;
 			sht_vk_bss_nodes *next = current_node->next;
 
@@ -2019,6 +2068,15 @@ static sht_image_view sht_swapchain_wait_and_acquire(sht_swapchain swapchain, fc
 
 			sht_bss_buffer_backends *buffer_backend = bss->buffer_backends + sync->index;
 			memset(buffer_backend->offsets, 0, sizeof(buffer_backend->offsets));
+
+			bss->refcount = bss->refcount - 1;
+			if (bss->refcount < 0)
+			{
+				sht_vk_bss_destroy(bss, driver);
+
+				// Out of mind, out of sight!
+				os->io->log("I THINK WE CAN FREE!!!");
+			}
 		}
 		root->next = &driver->storages.bss.inflight;
 		root->prev = &driver->storages.bss.inflight;
@@ -2028,7 +2086,10 @@ static sht_image_view sht_swapchain_wait_and_acquire(sht_swapchain swapchain, fc
 	for (fckc_size_t index = 0; index < pool_count; index++)
 	{
 		sht_vk_descriptor_pool_storage_entry *entry = driver->storages.descriptor_pool.entries + index;
-		driver->ResetDescriptorPool(driver->device, entry->dynamic_pools[sync->index], 0);
+		if (entry->layout != VK_NULL_HANDLE)
+		{
+			driver->ResetDescriptorPool(driver->device, entry->dynamic_pools[sync->index], 0);
+		}
 	}
 
 	return sht_swapchain_get_view(swapchain, image_index);
@@ -3364,22 +3425,21 @@ static sht_vk_graphics_pipeline *sht_vk_graphics_pipeline_find(sht_vk_graphics_p
 	for (;;)
 	{
 		sht_graphics_pipeline_key const *key = storage->keys + at;
-		if (key->invalid == 1)
+		if (key->invalid == 0)
 		{
-			continue;
-		}
-		if (key->hash == 0)
-		{
-			return NULL;
-		}
-		if (key->hash == handle.hash)
-		{
-			if (key->generation != handle.generation)
+			if (key->hash == 0)
 			{
-				// Maybe log error
 				return NULL;
 			}
-			return storage->handles + at;
+			if (key->hash == handle.hash)
+			{
+				if (key->generation != handle.generation)
+				{
+					// Maybe log error
+					return NULL;
+				}
+				return storage->handles + at;
+			}
 		}
 		at = (at + 1) % fck_arraysize(storage->handles);
 	}
@@ -3594,6 +3654,8 @@ static void sht_command_buffer_bss(sht_command_buffer command, sht_bss bss)
 	sht_vk_bss_node *current = vk_bss->nodes.values + index;
 	if (current->next == NULL)
 	{
+		vk_bss->refcount = vk_bss->refcount + 1;
+
 		sht_vk_bss_nodes *inflight_nodes = &api->driver->storages.bss.inflight;
 		sht_vk_bss_nodes *tail_nodes = inflight->prev;
 		sht_vk_bss_nodes *bss_nodes = &vk_bss->nodes;

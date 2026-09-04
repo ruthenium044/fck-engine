@@ -4,6 +4,7 @@
 // TODO
 #include <fck_glsl_reflection.h>
 
+#include <fck_db.h>
 #include <fck_os.h>
 #include <fck_shader.h>
 
@@ -15,9 +16,10 @@
 #include <fckc_assert.h>
 #include <fckc_inttypes.h>
 
-#include <stddef.h>
-
 #include <fck_apis.h>
+
+#include <stddef.h>
+#include <string.h>
 
 static fck_api_registry *apis;
 
@@ -25,6 +27,10 @@ typedef struct fck_gfx_internal
 {
 	sht_bss bss;
 	sht_graphics_pipeline pipeline;
+
+	fck_shader_api *shader;
+	sht_driver *driver;
+	fck_gfx_create_info info;
 } fck_gfx_internal;
 
 static fckc_size_t fck_gfx_bindings_add(sht_stage_flags stage, const fck_glsl_reflection_variable *var, sht_binding *bindings,
@@ -67,30 +73,15 @@ static fckc_size_t fck_gfx_bindings_add(sht_stage_flags stage, const fck_glsl_re
 	return count;
 }
 
-static struct fck_gfx fck_gfx_api_create(kll_allocator *allocator, sht_driver *driver, const fck_gfx_create_info *info)
+static void fck_gfx_initialize(fck_gfx_internal *gfx, sht_driver *driver, const fck_gfx_create_info *info)
 {
-	fck_gfx_internal *gfx = (fck_gfx_internal *)kll_malloc(allocator, sizeof(*gfx));
-
-	fck_shader_api *shader = (fck_shader_api *)apis->find(fck_shader_api_name);
+	fck_shader_api *shader = gfx->shader;
 
 	fck_shader_compiler compiler = shader->create();
 	fck_assert(shader->is_ok(compiler));
 
-	const char *vertex_path = info->vertex->path;
-	const char *vertex_name = info->vertex->name;
-
-	const char *fragment_path = info->fragment->path;
-	const char *fragment_name = info->fragment->name;
-
-	fck_file vert_file = os->fs->open(vertex_path, "rb");
-	fck_shader_desc vert_desc = (fck_shader_desc){fck_shader_vertex, vertex_name, "main"};
-	fck_glsl_object vert = {0};
-	vert = compiler.create_glsl_from_file(&compiler, &vert_desc, &vert_file);
-
-	fck_file frag_file = os->fs->open(fragment_path, "rb");
-	fck_shader_desc frag_desc = (fck_shader_desc){fck_shader_fragment, fragment_name, "main"};
-	fck_glsl_object frag = {0};
-	frag = compiler.create_glsl_from_file(&compiler, &frag_desc, &frag_file);
+	fck_glsl_object vert = shader->asset->resolve(info->vertex);
+	fck_glsl_object frag = shader->asset->resolve(info->fragment);
 
 	// Setup Reflection
 	sht_binding bindings[16];
@@ -156,26 +147,54 @@ static struct fck_gfx fck_gfx_api_create(kll_allocator *allocator, sht_driver *d
 		.raster = raster_desc,
 	};
 
-	os->fs->close(vert_file);
-	os->fs->close(frag_file);
-
 	gfx->pipeline = driver->vt->graphics_pipeline->create(*driver, gfx->bss, &graphic_desc);
-
-	compiler.destroy(&compiler, &vert.generic);
-	compiler.destroy(&compiler, &frag.generic);
 	compiler.shutdown(&compiler);
+}
+
+static struct fck_gfx fck_gfx_api_create(kll_allocator *allocator, sht_driver *driver, const fck_gfx_create_info *info)
+{
+	fck_gfx_internal *gfx = (fck_gfx_internal *)kll_malloc(allocator, sizeof(*gfx));
+	memset(gfx, 0, sizeof(*gfx));
+	gfx->driver = driver;
+	gfx->info = *info;
+
+	fck_shader_api *shader = (fck_shader_api *)apis->find(fck_shader_api_name);
+	gfx->shader = shader;
+
+	// fck_gfx_initialize(gfx, driver, info);
 	return (fck_gfx){.handle = gfx};
+}
+
+void static fck_gfx_api_maybe_reload(fck_gfx gfx)
+{
+	fck_gfx_internal *gfx_internal = (fck_gfx_internal *)gfx.handle;
+	const int vs_dirty = gfx_internal->shader->asset->dirty(gfx_internal->info.vertex);
+	const int fs_dirty = gfx_internal->shader->asset->dirty(gfx_internal->info.fragment);
+	if (vs_dirty || fs_dirty)
+	{
+		sht_driver *driver = gfx_internal->driver;
+		if (driver->vt->graphics_pipeline->is_ok(gfx_internal->pipeline))
+		{
+			driver->vt->idle(*driver);
+			driver->vt->bss->destroy(&gfx_internal->bss);
+			driver->vt->graphics_pipeline->destroy(gfx_internal->pipeline);
+		}
+		// TODO: We need to implement do not reload on error and keep the old one!!
+		fck_gfx_initialize(gfx_internal, gfx_internal->driver, &gfx_internal->info);
+	}
 }
 
 static struct sht_bss *fck_gfx_api_bss(fck_gfx gfx)
 {
 	fck_gfx_internal *gfx_internal = (fck_gfx_internal *)gfx.handle;
+	fck_gfx_api_maybe_reload(gfx);
 	return &gfx_internal->bss;
 }
 
 static struct sht_graphics_pipeline *fck_gfx_api_pipeline(fck_gfx gfx)
 {
 	fck_gfx_internal *gfx_internal = (fck_gfx_internal *)gfx.handle;
+	fck_gfx_api_maybe_reload(gfx);
 	// In here we can do a nice and dandy resolve for the shaders
 	// Else, maybe a fck_gfx_asset would also make sense?
 	return &gfx_internal->pipeline;

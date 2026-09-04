@@ -710,7 +710,7 @@ int main(int argc, char **argv)
 	db->set->add(kll->system, &set, db->object->create(assets, "Test/Child"));
 	db->set->add(kll->system, &set, db->object->create(assets, "Test/Child"));
 
-	db->setup(assets, "app", fck_resource_path);
+	db->asset->setup(assets, "app", fck_resource_path);
 
 	app_gameloops loops = {0};
 	// We can create a new ec
@@ -768,7 +768,8 @@ int main(int argc, char **argv)
 	const sht_swapchain swapchain = driver.vt->swapchain(driver);
 	sht_command_buffer_vt *command = driver.vt->command_buffer;
 
-	fck_nk view = nk->create(kll->system, &window, &driver);
+	const fck_nuklear_create_args nuklear_create_args = {.driver = &driver, .window = &window, .db = &assets};
+	fck_nk view = nk->create(kll->system, &nuklear_create_args);
 	nk->set_theme(view, fck_nk_theme_ruta);
 
 	fck_nk_hamburger_item help_menu_item = {
@@ -793,12 +794,12 @@ int main(int argc, char **argv)
 	app_sprite_pie_items_init(nk, &sprite_pie, root);
 
 	// fck_db_element* txt_asset = (fck_db_element*)db->get(assets, "app/configuration/config.txt");
-	fck_texture_asset *debug_png_asset = (fck_texture_asset *)db->asset->find(assets, "app/debug.png");
-	fck_texture_asset *bg_png_asset = (fck_texture_asset *)db->asset->find(assets, "app/bg-mockup.png");
-	fck_texture_asset *bird_png_asset = (fck_texture_asset *)db->asset->find(assets, "app/bird-sheet.png");
-	fck_texture_asset *items_png_asset = (fck_texture_asset *)db->asset->find(assets, "app/items-sheet.png");
-	fck_shader_asset *sprite_vs = (fck_shader_asset *)db->asset->find(assets, "app/sprite.vs");
-	fck_shader_asset *sprite_fs = (fck_shader_asset *)db->asset->find(assets, "app/sprite.fs");
+	const fck_db_asset *debug_png_asset = db->asset->find(assets, "app/debug.png");
+	const fck_db_asset *bg_png_asset = db->asset->find(assets, "app/bg-mockup.png");
+	const fck_db_asset *bird_png_asset = db->asset->find(assets, "app/bird-sheet.png");
+	const fck_db_asset *items_png_asset = db->asset->find(assets, "app/items-sheet.png");
+	const fck_db_asset *sprite_vs = db->asset->find(assets, "app/sprite.vs");
+	const fck_db_asset *sprite_fs = db->asset->find(assets, "app/sprite.fs");
 
 	sht_image depth_image = {0};
 	sht_image_view depth_view = {0};
@@ -816,7 +817,8 @@ int main(int argc, char **argv)
 		depth_view = memory->image->view(memory->bump, depth_image, sht_format_undefined);
 	}
 
-	fck_sprites sprites = sprite->create(kll->system, &assets, &driver);
+	const fck_sprite_create_args sprite_create_args = {.db = &assets, .driver = &driver};
+	fck_sprites sprites = sprite->create(kll->system, &sprite_create_args);
 
 	app_sprite_implementation sprite_implementation = {.sprite = sprite, .sprites = &sprites};
 	const fck_component_id sprite_id = ec->registry->declare(world, "sprite", sizeof(fck_sprite_id));
@@ -899,7 +901,7 @@ int main(int argc, char **argv)
 		// TODO: Make render-vk hotreloadable :)
 		// How hard can it be?
 		plugins->hotreload();
-		db->hotreload(assets);
+		db->asset->hotreload(assets);
 
 		nk->input->begin(view);
 
@@ -1076,6 +1078,29 @@ int main(int argc, char **argv)
 
 						nk->panel->pop(view);
 					}
+
+					if (nk->panel->push(view, "Asset Example"))
+					{
+						/*
+						const fck_db_accessor reader = db->object->read(assets, ((fck_db_asset *)bg_png_asset)->id);
+
+						// TODO: Combine these two into one - The ergonomics is terrible
+						fckc_u32 it = 0;
+						fck_db_named_property property = {0};
+						while (reader.read->iterate(reader, &it, &property))
+						{
+						    if (property.value.type == fck_db_type_string)
+						    {
+						        nk->elements->label(view, "%s: %s", property.name, property.value.string);
+						    }
+						    else
+						    {
+						        nk->elements->label(view, "DO NOT CARE: %s", property.name);
+						    }
+						}
+						nk->panel->pop(view);*/
+					}
+
 					nk->panel->end(view);
 				}
 

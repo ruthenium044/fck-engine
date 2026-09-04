@@ -8,6 +8,7 @@
 #include <fckc_inttypes.h>
 
 #include <fck_apis.h>
+#include <fck_db.h>
 #include <fck_hash.h>
 #include <fck_input.h>
 #include <fck_mouse.h>
@@ -249,9 +250,18 @@ static fck_nk_os_window fck_nk_os_window_create(fck_window window)
 	return os_window;
 }
 
-static fck_nk fck_nk_api_create(kll_allocator *allocator, fck_window *window, sht_driver *driver)
+static fck_nk fck_nk_api_create(kll_allocator *allocator, const fck_nuklear_create_args *args)
 {
+	sht_driver *driver = args->driver;
+	fck_window *window = args->window;
+
 	sht_memory *memory = driver->vt->memory(*driver);
+
+	fck_db_api *db = (fck_db_api *)apis->find(fck_db_api_name);
+
+	db->asset->setup(*args->db, "nuklear", fck_nuklear_resource_path);
+	const fck_db_asset *vertex = db->asset->find(*args->db, "nuklear/vertex.vert");
+	const fck_db_asset *fragment = db->asset->find(*args->db, "nuklear/fragment.frag");
 
 	fck_nk_private *nk;
 	const fckc_size_t offset = fckc_align(sizeof(*nk), alignof(struct nk_context));
@@ -293,19 +303,9 @@ static fck_nk fck_nk_api_create(kll_allocator *allocator, fck_window *window, sh
 
 	nk_buffer_init_default(&nk->commands);
 
-	const fck_gfx_shader vertex = {
-		.name = "nuklear-vertex",
-		.path = fck_nuklear_resource_path "vertex.vert",
-	};
-
-	const fck_gfx_shader fragment = {
-		.name = "nuklear-fragment",
-		.path = fck_nuklear_resource_path "fragment.frag",
-	};
-
 	const fck_gfx_create_info create_info = {
-		.vertex = &vertex,
-		.fragment = &fragment,
+		.vertex = vertex,
+		.fragment = fragment,
 	};
 
 	fck_gfx_api *gfx = (fck_gfx_api *)apis->find(fck_gfx_api_name);

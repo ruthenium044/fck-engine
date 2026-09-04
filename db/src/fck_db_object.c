@@ -57,8 +57,8 @@ static fck_db_object fck_db_object_clone(kll_allocator *allocator, const fck_db_
 	fck_db_property_instance *props = (fck_db_property_instance *)kll_malloc(allocator, total);
 	memcpy(props, obj->properties, total);
 
-	void *data = kll_malloc(allocator, obj->at);
-	memcpy(data, obj->data, obj->at);
+	void *data = kll_malloc(allocator, obj->size);
+	memcpy(data, obj->data, obj->size);
 
 	fck_db_object result = {0};
 	result.version = obj->version + 1 % to_u32(0xFFFFFFFF);

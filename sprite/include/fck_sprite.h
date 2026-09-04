@@ -10,7 +10,7 @@ struct kll_allocator;
 struct sht_image_view;
 struct sht_driver;
 struct sht_command_buffer;
-struct fck_texture_asset;
+struct fck_db_asset;
 
 struct fck_db;
 
@@ -49,7 +49,7 @@ typedef struct fck_sprites
 // ... Something like this... we gotta see
 typedef struct fck_sprite_batch_api
 {
-	fck_sprite_batch_id (*add)(fck_sprites *sprites, const char *name, struct fck_texture_asset *asset, float sw, float sh);
+	fck_sprite_batch_id (*add)(fck_sprites *sprites, const char *name, const struct fck_db_asset *asset, float sw, float sh);
 	int (*remove)(fck_sprites *sprites, fck_sprite_batch_id index);
 
 	struct sht_image_view *(*image_view)(struct fck_sprites *sprites, fck_sprite_batch_id index);
@@ -66,11 +66,17 @@ typedef struct fck_sprite_batch_api
 	fckc_u32 (*names)(fck_sprites *sprites, const char ***out_names);
 } fck_sprite_batch_api;
 
+typedef struct fck_sprite_create_args
+{
+	struct fck_db *db;
+	struct sht_driver *driver;
+} fck_sprite_create_args;
+
 typedef struct fck_sprite_api
 {
 	fck_sprite_batch_api *batches;
 
-	struct fck_sprites (*create)(struct kll_allocator *allocator, struct fck_db *db, struct sht_driver *driver);
+	struct fck_sprites (*create)(struct kll_allocator *allocator, const fck_sprite_create_args *args);
 	void (*destroy)(fck_sprites *sprites);
 
 	fckc_u32 (*transforms)(fck_sprites *sprites, fck_sprite_batch_id index, fck_sprite_transform **out_transforms);

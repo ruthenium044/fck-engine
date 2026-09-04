@@ -811,6 +811,7 @@ static fck_glsl_reflection_api glsl_reflection_api = {
 
 FCK_EXPORT_API fck_glsl_reflection_api *fck_glsl_reflection_load(fck_api_registry *registry, void *old)
 {
+	(void)old;
 	registry->add(fck_glsl_reflection_api_name, &glsl_reflection_api);
 	return &glsl_reflection_api;
 }

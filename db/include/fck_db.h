@@ -13,8 +13,10 @@
 struct kll_allocator;
 struct fck_api_registry;
 
-// Secret object
+// Secret stuff ;)
 struct fck_db_object;
+struct fck_db_section;
+
 struct fck_serialiser;
 
 typedef enum fck_db_type
@@ -31,12 +33,6 @@ typedef enum fck_db_type
 	// fck_db_type_reference_set,
 } fck_db_type;
 
-typedef struct fck_db_asset
-{
-	fckc_i64 timestamp;
-	fckc_size_t size;
-} fck_db_asset;
-
 typedef union fck_db_id {
 	fckc_u64 value;
 	struct
@@ -48,6 +44,15 @@ typedef union fck_db_id {
 		fckc_u64 index : 32;
 	};
 } fck_db_id;
+
+typedef struct fck_db_asset
+{
+	// This one being i64 is a bit awkward...
+	fck_db_id id;
+	fckc_i64 timestamp;
+	const char *category;
+	void *userdata;
+} fck_db_asset;
 
 typedef struct fck_db_id_set fck_db_id_set;
 
@@ -93,7 +98,7 @@ typedef struct fck_db
 {
 	struct fck_db_private *opaque;
 } fck_db;
- 
+
 struct fck_db_api;
 
 typedef struct fck_db_loader_args
@@ -107,10 +112,10 @@ typedef struct fck_db_loader_args
 typedef struct fck_db_loader_interface
 {
 	// For now we set this one manually for the loaders!
-	const char *name; // Maybe call this the type
-	const char *type; // And this is a category
+	const char *category; // And this is a category
 
-	fck_db_asset *(*import)(const fck_db_loader_args *args, const char *file);
+	// void for now!!
+	void *(*import)(const fck_db_loader_args *args, const char *file);
 	fckc_size_t (*supports)(const char ***extensions);
 } fck_db_loader_interface;
 
@@ -142,6 +147,8 @@ typedef struct fck_db_edit_api
 
 	void (*set)(fck_db_accessor accessor, const char *property, const fck_db_id_set *set);
 
+	void *(*userdata)(fck_db_accessor accessor, const char *property, const void *data, fckc_size_t size);
+
 	void (*commit)(fck_db_accessor accessor, fck_db_undo_scope undo);
 } fck_db_edit_api;
 
@@ -159,6 +166,8 @@ typedef struct fck_db_read_api
 	fck_db_id (*object)(fck_db_accessor accessor, const char *property);
 	fckc_size_t (*memory)(fck_db_accessor accessor, const char *property, const void **data);
 	const char *(*string)(fck_db_accessor accessor, const char *property);
+
+	void *(*userdata)(fck_db_accessor accessor, const char *property);
 
 	const fck_db_id_set *(*set)(fck_db_accessor accessor, const char *property);
 } fck_db_read_api;
@@ -202,8 +211,14 @@ typedef struct fck_db_object_api
 
 typedef struct fck_db_asset_api
 {
-	fck_db_asset *(*get)(fck_db db, fck_db_id id);
-	fck_db_asset *(*find)(fck_db db, const char *path);
+	void (*setup)(fck_db external, const char *scope, const char *path);
+	const fck_db_asset *(*get)(fck_db db, fck_db_id id, const char *category);
+	const fck_db_asset *(*find)(fck_db db, const char *path);
+
+	void (*edit)(fck_db_accessor accessor, const char *property, const fck_db_asset *asset);
+	fck_db_asset (*read)(fck_db_accessor accessor, const char *property);
+
+	void (*hotreload)(fck_db external);
 } fck_db_asset_api;
 
 typedef struct fck_db_undo_api
@@ -224,10 +239,6 @@ typedef struct fck_db_api
 	fck_db_undo_api *undo;
 
 	fck_db (*create)(struct kll_allocator *allocator);
-
-	void (*setup)(fck_db db, const char *scope, const char *path);
-
-	void (*hotreload)(fck_db db);
 	void (*close)(fck_db db);
 } fck_db_api;
 

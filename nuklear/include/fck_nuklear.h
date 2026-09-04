@@ -152,6 +152,7 @@ struct fck_window;
 struct sht_driver;
 struct sht_command_buffer;
 struct sht_image_view;
+struct fck_db;
 
 // TODO: Debug loggin on interaction setting!
 typedef struct fck_nuklear_elements_api
@@ -180,11 +181,18 @@ typedef struct fck_nuklear_panel_api
 	void (*pop)(fck_nk nk);
 } fck_nuklear_panel_api;
 
+typedef struct fck_nuklear_create_args
+{
+	struct fck_window *window;
+	struct sht_driver *driver;
+	struct fck_db *db;
+} fck_nuklear_create_args;
+
 // TODO: fck_nk should have an arena so we can create hamburger and pie items through it
 typedef struct fck_nuklear_api
 {
 	// TODO: HMMM, window from driver is also an option
-	fck_nk (*create)(struct kll_allocator *allocator, struct fck_window *window, struct sht_driver *driver);
+	fck_nk (*create)(struct kll_allocator *allocator, const fck_nuklear_create_args *args);
 	fck_nuklear_hamburger_api *hamburger;
 	fck_nuklear_input_api *input;
 	fck_nuklear_pie_api *pie;

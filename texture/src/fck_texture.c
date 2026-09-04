@@ -47,13 +47,11 @@ typedef struct fck_texture_resolved
 
 typedef struct fck_texture_asset
 {
-	fck_db_asset base;
-	fck_texture value;
+	fck_texture textue;
 	fck_texture_resolved resolved;
 } fck_texture_asset;
 
-static sht_image fck_texture_upload_image_on_gpu(sht_driver driver, sht_image image, const void *pixels, sht_format format, int width,
-                                                 int height)
+static sht_image fck_texture_upload_image_on_gpu(sht_driver driver, sht_image image, const void *pixels, int width, int height)
 {
 	const fckc_size_t size = (fckc_size_t)width * height * 4;
 	driver.vt->upload_image(driver, &image, pixels, size);
@@ -76,55 +74,63 @@ static sht_image fck_texture_load_image_on_gpu(sht_driver driver, const void *pi
 	{
 		return image;
 	}
-	fck_texture_upload_image_on_gpu(driver, image, pixels, format, width, height);
+	fck_texture_upload_image_on_gpu(driver, image, pixels, width, height);
 	return image;
 }
 
-static sht_image_view *fck_texture_asset_resolve(fck_texture_asset *asset, sht_driver *driver)
+static sht_image_view *fck_texture_asset_resolve(const fck_db_asset *asset, sht_driver *driver)
 {
-	sht_memory *memory = driver->vt->memory(*driver);
-	if (asset->base.timestamp > asset->resolved.timestamp)
+	if (strcmp(asset->category, fck_category_texture) != 0)
 	{
-		if (asset->value.data != NULL)
-		{
-			if (memory->image->is_ok(&asset->resolved.image))
-			{
-				driver->vt->idle(*driver);
-				memory->image->discard(memory->bump, &asset->resolved.view);
-				memory->image->destroy(memory->bump, &asset->resolved.image);
-			}
-
-			const sht_format format = sht_format_r8g8b8a8_unorm;
-			asset->resolved.image =
-				fck_texture_load_image_on_gpu(*driver, asset->value.data, format, asset->value.width, asset->value.height);
-			asset->resolved.view = memory->image->view(memory->bump, asset->resolved.image, format);
-			asset->resolved.timestamp = os->chrono->now();
-		}
+		return NULL;
 	}
-	return &asset->resolved.view;
+
+	fck_texture_asset *value = asset->userdata;
+
+	if (asset->timestamp >= value->resolved.timestamp)
+	{
+		sht_memory *memory = driver->vt->memory(*driver);
+		if (memory->image->is_ok(&value->resolved.image))
+		{
+			driver->vt->idle(*driver);
+			memory->image->discard(memory->bump, &value->resolved.view);
+			memory->image->destroy(memory->bump, &value->resolved.image);
+		}
+
+		const sht_format format = sht_format_r8g8b8a8_unorm;
+		const int width = value->textue.width;
+		const int height = value->textue.height;
+		value->resolved.image = fck_texture_load_image_on_gpu(*driver, value->textue.data, format, width, height);
+		value->resolved.view = memory->image->view(memory->bump, value->resolved.image, format);
+		value->resolved.timestamp = os->chrono->now();
+	}
+	return &value->resolved.view;
 }
 
-static fck_db_asset *fck_texture_import(const fck_db_loader_args *args, const char *file)
+static void *fck_texture_import(const fck_db_loader_args *args, const char *file)
 {
 	os->io->log("Load PNG: %s", file);
+	// TODO: We should hand around uuid, maybe...
+	{
+		const fck_db_accessor accessor = args->api->object->edit(args->db, args->target);
 
-	fck_texture_asset *asset = (fck_texture_asset *)args->api->asset->get(args->db, args->target);
-	if (asset)
-	{
-		fck_assert(asset->base.size = sizeof(*asset));
-		fck_texture_api_free(asset->value);
-		asset->value = fck_texture_api_load(file);
-		asset->base.timestamp = os->chrono->now();
-		return &asset->base;
-	}
-	{
-		const fck_texture value = fck_texture_api_load(file);
-		fck_texture_asset *asset = (fck_texture_asset *)kll_malloc(kll->system, sizeof(*asset));
-		memset(asset, 0, sizeof(*asset));
-		asset->value = value;
-		asset->base.timestamp = os->chrono->now();
-		asset->base.size = sizeof(*asset);
-		return &asset->base;
+		fck_texture_asset *asset = (fck_texture_asset *)accessor.read->userdata(accessor, fck_category_texture);
+		if (asset == NULL)
+		{
+			fck_texture_asset value = {.resolved.timestamp = os->chrono->now()};
+			asset = (fck_texture_asset *)accessor.edit->userdata(accessor, fck_category_texture, &value, sizeof(value));
+		}
+
+		const fck_texture previous = asset->textue;
+		const fck_texture texture = fck_texture_api_load(file);
+		asset->textue = texture;
+		accessor.edit->commit(accessor, fck_db_no_undo);
+
+		if (fck_texture_api_is_ok(previous))
+		{
+			fck_texture_api_free(previous);
+		}
+		return asset;
 	}
 }
 
@@ -147,16 +153,15 @@ static fck_texture_api png_api = {
 };
 
 static fck_db_loader_interface png_loader = {
-	.type = "texture",
-	.name = "png",
+	.category = fck_category_texture,
 	.import = fck_texture_import,
 	.supports = fck_texture_supports,
 };
 
-FCK_EXPORT_API fck_texture_api *fck_texture_load(fck_api_registry *registry, void *params)
+FCK_EXPORT_API fck_texture_api *fck_texture_load(fck_api_registry *registry, void *old)
 {
+	(void)old;
 	registry->add(fck_db_loader_interface_name, &png_loader);
-
 	registry->add(fck_texture_api_name, &png_api);
 	return &png_api;
 }

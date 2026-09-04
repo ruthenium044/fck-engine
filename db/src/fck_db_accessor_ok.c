@@ -4,10 +4,12 @@
 #include "fck_db_accessor_read.h"
 #include "fck_db_core.inl"
 
+#include "fck_db_object_properties.h"
+
 static int fck_db_ok_api_variant(fck_db_accessor accessor, const char *property)
 {
 	fck_db_object *obj = accessor.obj;
-	const fckc_size_t at = fck_db_object_find(obj, fck_db_type_none, property);
+	const fckc_size_t at = db_properties->find(obj, fck_db_type_none, property);
 	return at != 0;
 }
 

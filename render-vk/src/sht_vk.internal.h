@@ -329,6 +329,10 @@ typedef struct sht_vk_bss
 	// Header
 	sht_vk_bss_nodes nodes;
 
+	// Funny one, >= 0 - Usage
+	// < 0 - 100% not used
+	fckc_i32 refcount;
+
 	// Data
 	sht_vk_binding_desc desc;
 	// VkDescriptorPool pool;

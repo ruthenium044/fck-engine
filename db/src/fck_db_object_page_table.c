@@ -55,6 +55,7 @@ void fck_db_object_page_id_extract(fckc_u32 id, fckc_u8 *e0, fckc_u8 *e1, fckc_u
 	}
 }
 
+#define fck_db_object_page_id_is_ok(e0, e1, e2, e3) (((e0) != 0xFF) && ((e1) != 0xFF) && ((e2) != 0xFF) && ((e3) != 0xFF))
 // static int fck_db_object_page_id_is_ok(fckc_u8 e0, fckc_u8 e1, fckc_u8 e2, fckc_u8 e3)
 //{
 //	if (e0 == 0xFF)
@@ -75,7 +76,6 @@ void fck_db_object_page_id_extract(fckc_u32 id, fckc_u8 *e0, fckc_u8 *e1, fckc_u
 //	}
 //	return 1;
 // }
-#define fck_db_object_page_id_is_ok(e0, e1, e2, e3) (((e0) != 0xFF) && ((e1) != 0xFF) && ((e2) != 0xFF) && ((e3) != 0xFF))
 
 static void fck_db_object_page_bit_set_ok(fck_db_object_page *page, const fckc_u8 subid)
 {

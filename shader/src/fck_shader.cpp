@@ -18,8 +18,7 @@ extern "C"
 
 // We use malloc for now cause lazy!
 
-static fck_shader_generic fck_shader_create_generic(struct fck_shader_compiler *compiler, uint32_t lang, fck_shader_desc *desc,
-                                                    void const *source, fckc_size_t source_size)
+static fck_shader_generic fck_shader_create_generic(fckc_u32 lang, fck_shader_desc *desc, void const *source, fckc_size_t source_size)
 {
 	fck_shader_generic generic;
 	memset(&generic, 0xCF, sizeof(generic));
@@ -70,7 +69,7 @@ static fck_spirv_object fck_shader_create_spirv(struct fck_shader_compiler *comp
 
 	if (shader->language == fck_shader_spirv)
 	{
-		return {};
+		return fck_spirv_object();
 	}
 	// TODO: Make this pretty :)
 	if (shader->language == fck_shader_glsl || shader->language == fck_shader_hlsl)
@@ -104,32 +103,34 @@ static fck_spirv_object fck_shader_create_spirv(struct fck_shader_compiler *comp
 		{
 			const char *error = shaderc_result_get_error_message(result);
 			printf("%s", error);
-			return {};
+			return fck_spirv_object();
 		}
 
 		const size_t size = shaderc_result_get_length(result);
 		const char *source = shaderc_result_get_bytes(result);
 
 		fck_spirv_object spirv;
-		spirv.generic = fck_shader_create_generic(compiler, fck_shader_spirv, &shader->desc, source, size);
+		spirv.generic = fck_shader_create_generic(fck_shader_spirv, &shader->desc, source, size);
 		shaderc_result_release(result);
 		return spirv;
 	}
 
-	return {};
+	return fck_spirv_object();
 }
 
 static fck_glsl_object fck_shader_create_glsl(struct fck_shader_compiler *compiler, fck_shader_desc *desc, const char *source)
 {
+	(void)compiler;
 	fck_glsl_object glsl;
-	glsl.generic = fck_shader_create_generic(compiler, fck_shader_glsl, desc, source, strlen(source));
+	glsl.generic = fck_shader_create_generic(fck_shader_glsl, desc, source, strlen(source));
 	return glsl;
 }
 
 static fck_hlsl_object fck_shader_create_hlsl(struct fck_shader_compiler *compiler, fck_shader_desc *desc, const char *source)
 {
+	(void)compiler;
 	fck_hlsl_object hlsl;
-	hlsl.generic = fck_shader_create_generic(compiler, fck_shader_hlsl, desc, source, strlen(source));
+	hlsl.generic = fck_shader_create_generic(fck_shader_hlsl, desc, source, strlen(source));
 	return hlsl;
 }
 
@@ -159,6 +160,7 @@ static fck_glsl_object fck_shader_create_glsl_from_file(struct fck_shader_compil
 
 static void fck_shader_destroy(struct fck_shader_compiler *compiler, fck_shader_generic *shader)
 {
+	(void)compiler;
 	free((void *)shader->source);
 }
 
@@ -226,16 +228,45 @@ extern "C"
 {
 	typedef struct fck_shader_asset
 	{
-		fck_db_asset base;
+		fckc_i64 timestamp;
 		fck_glsl_object value;
+
 	} fck_shader_asset;
 
+	int fck_shader_asset_api_dirty(const struct fck_db_asset *asset)
+	{
+		if (strcmp(asset->category, fck_category_shader) != 0)
+		{
+			return 0;
+		}
+		fck_shader_asset *data = (fck_shader_asset *)asset->userdata;
+		const int result = data->timestamp <= asset->timestamp;
+		data->timestamp = os->chrono->now();
+		return result;
+	}
+
+	static fck_glsl_object fck_shader_asset_api_resolve(const struct fck_db_asset *asset)
+	{
+		if (strcmp(asset->category, fck_category_shader) != 0)
+		{
+			return fck_glsl_object();
+		}
+		fck_shader_asset *data = (fck_shader_asset *)asset->userdata;
+		return data->value;
+	}
+
+	static fck_shader_asset_api shader_asset_api = {
+		fck_shader_asset_api_dirty,
+		fck_shader_asset_api_resolve,
+	};
+
 	static fck_shader_api shader_api = {
+		&shader_asset_api,
 		fck_shader_compiler_create,
 		fck_shader_api_is_ok,
 	};
 
-	static fck_db_asset *fck_shader_import(const fck_db_loader_args *args, const char *file)
+	static void *fck_shader_import(const fck_db_loader_args *args, const char *file)
 	{
 		os->io->log("Load Shader: %s", file);
 		fck_shader_api *shader = (fck_shader_api *)args->registry->find(fck_shader_api_name);
@@ -244,19 +275,11 @@ extern "C"
 		fck_shader_stage_type type = fck_shader_unkown;
 		if (ext)
 		{
-			if (strcmp(ext, "vert") == 0)
+			if (strcmp(ext, "vert") == 0 || strcmp(ext, "vs") == 0)
 			{
 				type = fck_shader_vertex;
 			}
-			else if (strcmp(ext, "vs") == 0)
-			{
-				type = fck_shader_vertex;
-			}
-			else if (strcmp(ext, "frag") == 0)
-			{
-				type = fck_shader_fragment;
-			}
-			else if (strcmp(ext, "fs") == 0)
+			else if (strcmp(ext, "frag") == 0 || strcmp(ext, "fs") == 0)
 			{
 				type = fck_shader_fragment;
 			}
@@ -264,19 +287,26 @@ extern "C"
 		fck_shader_compiler compiler = shader->create();
 		fck_assert(shader->is_ok(compiler));
 
+		const fck_db_accessor accessor = args->api->object->edit(args->db, args->target);
+
 		fck_file file_handle = os->fs->open(file, "rb");
 		fck_shader_desc desc = {to_u32(type), file, "main"};
 		fck_glsl_object shader_object = compiler.create_glsl_from_file(&compiler, &desc, &file_handle);
-		fck_shader_asset *asset = (fck_shader_asset *)kll_malloc(kll->system, sizeof(*asset));
-		os->fs->close(file_handle);
+
+		fck_shader_asset *asset = (fck_shader_asset *)accessor.read->userdata(accessor, fck_category_shader);
+		if (asset == NULL)
+		{
+			fck_shader_asset value = {.timestamp = os->chrono->now()};
+			asset = (fck_shader_asset *)accessor.edit->userdata(accessor, fck_category_shader, &value, sizeof(value));
+		}
 		asset->value = shader_object;
-		asset->base.timestamp = os->chrono->now();
-		asset->base.size = sizeof(*asset);
+		// Kill the previous one?
+		accessor.edit->commit(accessor, fck_db_no_undo);
 
-		compiler.destroy(&compiler, &shader_object.generic);
+		os->fs->close(file_handle);
+		// compiler.destroy(&compiler, &shader_object.generic);
 		compiler.shutdown(&compiler);
-
-		return &asset->base;
+		return asset;
 	}
 
 	static fckc_size_t fck_shader_supports(const char ***extensions)
@@ -288,12 +318,10 @@ extern "C"
 
 	static fck_db_loader_interface fck_db_loader_interface_create_cpp()
 	{
-		fck_db_loader_interface result{};
-		result.name = "shader";
-		result.type = "shader";
+		fck_db_loader_interface result = {};
+		result.category = fck_category_shader;
 		result.import = fck_shader_import;
 		result.supports = fck_shader_supports;
-
 		return result;
 	}
 
@@ -301,6 +329,7 @@ extern "C"
 
 	FCK_EXPORT_API void *fck_shader_load(fck_api_registry *registry, void *old)
 	{
+		(void)old;
 		registry->add(fck_shader_api_name, &shader_api);
 		registry->add(fck_db_loader_interface_name, &shader_loader);
 		return &shader_api;

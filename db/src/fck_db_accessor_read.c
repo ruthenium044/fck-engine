@@ -4,6 +4,8 @@
 #include "fck_db.h"
 #include "fck_db_core.inl"
 
+#include "fck_db_object_properties.h"
+
 #include <fckc_assert.h>
 #include <fckc_inttypes.h>
 
@@ -13,7 +15,7 @@ static void *fck_db_read_api_untyped(fck_db_accessor accessor, fck_db_type type,
 {
 	fck_db_object *obj = accessor.obj;
 
-	const fckc_size_t result = fck_db_object_find(obj, type, property);
+	const fckc_size_t result = db_properties->find(obj, type, property);
 	if (result == 0)
 	{
 		return NULL;
@@ -48,6 +50,17 @@ static fck_db_asset *fck_db_read_api_asset(fck_db_accessor accessor, const char 
 	fck_db_asset *value;
 	memcpy(&value, src, sizeof(fck_db_asset *));
 	return value;
+}
+
+static void *fck_db_read_api_userdata(fck_db_accessor accessor, const char *property)
+{
+	void *src = fck_db_read_api_untyped(accessor, fck_db_type_memory, property);
+	if (src == NULL)
+	{
+		return NULL;
+	}
+	fck_db_memory *memory = (fck_db_memory *)src;
+	return memory->data;
 }
 
 static fck_db_id fck_db_read_api_reference(fck_db_accessor accessor, const char *property)
@@ -146,7 +159,7 @@ static fck_db_property fck_db_read_api_variant(fck_db_accessor accessor, const c
 	fck_db_private *db = accessor.db.opaque;
 	fck_db_object *obj = accessor.obj;
 
-	const fckc_size_t at = fck_db_object_find(obj, fck_db_type_none, property);
+	const fckc_size_t at = db_properties->find(obj, fck_db_type_none, property);
 	if (at)
 	{
 		const fck_db_property_instance *prop = obj->properties + at - 1;
@@ -162,7 +175,7 @@ static fckc_u32 fck_db_object_api_iterate(fck_db_accessor accessor, fckc_u32 *of
 	for (*offset = *offset + 1; *offset <= obj->capacity; *offset = *offset + 1)
 	{
 		const fck_db_property_instance *prop = obj->properties + (*offset - 1);
-		if (fck_db_property_is_used(prop))
+		if (db_properties->is_property_used(prop))
 		{
 			property->value = fck_db_make_variant(prop->type, obj->data, prop->offset);
 			property->name = prop->name;
@@ -193,6 +206,7 @@ static fck_db_read_api db_read_api = {
 	.memory = fck_db_read_api_memory,
 	.set = fck_db_read_api_object_set,
 	.string = fck_db_read_api_string,
+	.userdata = fck_db_read_api_userdata,
 };
 
 fck_db_read_api *db_read = &db_read_api;

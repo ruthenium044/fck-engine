@@ -24,7 +24,7 @@ typedef struct fck_sprite_batch
 {
 	kll_allocator *allocator;
 
-	fck_texture_asset *asset;
+	const fck_db_asset *asset;
 
 	fck_sprite_transform *transforms;
 
@@ -90,7 +90,7 @@ static fck_sprites *fck_sprites_to_external(fck_sprites_internal *internal_sprit
 
 /* Implementation */
 
-static fck_sprite_batch fck_sprite_batch_create(kll_allocator *allocator, fck_texture_asset *asset)
+static fck_sprite_batch fck_sprite_batch_create(kll_allocator *allocator, const fck_db_asset *asset)
 {
 	const fck_sprite_batch batch = {
 		.allocator = allocator,
@@ -158,7 +158,7 @@ static int fck_sprite_batch_remove(fck_sprite_batch *batch, fckc_u32 index)
 	return 0;
 }
 
-static fck_sprite_stable_batch fck_sprite_stable_batch_create(kll_allocator *a, fck_texture_asset *asset, float sw, float sh)
+static fck_sprite_stable_batch fck_sprite_stable_batch_create(kll_allocator *a, const fck_db_asset *asset, float sw, float sh)
 {
 	fck_sprite_stable_batch batch = {0};
 	batch.sprite_width = sw;
@@ -379,7 +379,7 @@ static fckc_u32 fck_sprites_find_batch(fck_sprites_internal *sprites, const char
 	return 0;
 }
 
-static fckc_u32 fck_sprites_register_batch(fck_sprites_internal *sprites, const char *name, fck_texture_asset *asset, float sw, float sh)
+static fckc_u32 fck_sprites_register_batch(fck_sprites_internal *sprites, const char *name, const fck_db_asset *asset, float sw, float sh)
 {
 	{
 		const fckc_u32 result = fck_sprites_find_batch(sprites, name);
@@ -494,7 +494,7 @@ static int fck_sprites_remove_by_name(fck_sprites_internal *sprites, fckc_u32 in
 	return 0;
 }
 
-static fck_sprite_batch_id fck_sprite_batch_api_add(fck_sprites *external, const char *name, fck_texture_asset *asset, float sw, float sh)
+static fck_sprite_batch_id fck_sprite_batch_api_add(fck_sprites *external, const char *name, const fck_db_asset *asset, float sw, float sh)
 {
 	fck_sprites_internal sprites = {0};
 	fck_sprites_to_internal(external, &sprites);
@@ -713,22 +713,26 @@ static fck_sprite_id fck_sprite_api_invalid(void)
 	return index;
 }
 
-static struct fck_sprites fck_sprite_api_create(struct kll_allocator *allocator, fck_db *db, sht_driver *driver)
+static struct fck_sprites fck_sprite_api_create(struct kll_allocator *allocator, const fck_sprite_create_args *args)
 {
 	fck_gfx_api *gfx = (fck_gfx_api *)apis->find(fck_gfx_api_name);
 
+	fck_db_api *db = (fck_db_api *)apis->find(fck_db_api_name);
+
+	db->asset->setup(*args->db, "sprite", fck_sprite_resource_path);
+	const fck_db_asset *sprite_vs = db->asset->find(*args->db, "sprite/sprite.vert");
+	const fck_db_asset *sprite_fs = db->asset->find(*args->db, "sprite/textured.frag");
+
 	fck_sprites_internal sprites = fck_sprites_create(allocator);
 	fck_sprites external = {0};
-	sprites.driver = driver;
+	sprites.driver = args->driver;
 
-	sht_memory *memory = driver->vt->memory(*driver);
+	sht_memory *memory = args->driver->vt->memory(*args->driver);
 
-	const fck_gfx_shader vertex_shader = {.name = "vertex", .path = fck_sprite_resource_path "sprite.vert"};
-	const fck_gfx_shader fragment_shader = {.name = "textured", .path = fck_sprite_resource_path "textured.frag"};
-	const fck_gfx_create_info create_info = {.has_depth = 1, .vertex = &vertex_shader, .fragment = &fragment_shader};
-	sprites.gfx = gfx->create(kll->system, driver, &create_info);
+	const fck_gfx_create_info create_info = {.has_depth = 1, .vertex = sprite_vs, .fragment = sprite_fs};
+	sprites.gfx = gfx->create(kll->system, args->driver, &create_info);
 
-	sprites.sampler = driver->vt->create_sampler(*driver, sht_filter_nearest);
+	sprites.sampler = args->driver->vt->create_sampler(*args->driver, sht_filter_nearest);
 	//{
 	//	const sht_image_configuration config = {
 	//		.format = sht_format_r8g8b8a8_unorm,
@@ -750,7 +754,7 @@ static struct fck_sprites fck_sprite_api_create(struct kll_allocator *allocator,
 		sprites.indices.count = fck_arraysize(index_data);
 		sprites.indices.buffer =
 			memory->malloc(memory->bump, &sht_buffer_target(sht_buffer_usage_index, sizeof(index_data)), sht_memory_gpu);
-		driver->vt->upload_buffer(*driver, &sprites.indices.buffer, index_data, sizeof(index_data));
+		args->driver->vt->upload_buffer(*args->driver, &sprites.indices.buffer, index_data, sizeof(index_data));
 	}
 
 	fck_sprites *external_sprites = fck_sprites_to_external(&sprites, &external);
@@ -770,6 +774,7 @@ typedef struct fck_sprite_screen
 
 static void fck_sprite_api_present(fck_sprites *external, const struct sht_command_buffer *buffer, fckc_u32 frame_index)
 {
+	(void)frame_index;
 	fck_gfx_api *gfx = (fck_gfx_api *)apis->find(fck_gfx_api_name);
 	fck_texture_api *png = (fck_texture_api *)apis->find(fck_texture_api_name);
 
@@ -881,6 +886,7 @@ static fck_sprite_api sprite_api = {
 
 FCK_EXPORT_API fck_sprite_api *fck_sprite_load(fck_api_registry *registry, fck_sprite_api *old)
 {
+	(void)old;
 	apis = registry;
 	registry->add(fck_sprite_api_name, &sprite_api);
 	return &sprite_api;

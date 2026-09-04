@@ -4,12 +4,14 @@
 #include "fck_db.h"
 
 #include <fck_os.h>
-#include <fckc_inttypes.h>
 #include <fckc_atomic.h>
+#include <fckc_inttypes.h>
 
 struct kll_allocator;
 struct kll_arena;
 struct fck_db_object_page_table;
+struct fck_db_ext_map;
+struct fck_api_registry;
 
 typedef struct fck_db_uuid
 {
@@ -30,12 +32,6 @@ typedef struct fck_db_ext_map_entry
 	fck_db_loader_interface *loader;
 } fck_db_ext_map_entry;
 
-typedef struct fck_db_ext_map
-{
-	fck_db_ext_map_entry *entries;
-	fckc_size_t capacity;
-} fck_db_ext_map;
-
 struct fck_db_property_instance;
 typedef struct fck_db_property_instance
 {
@@ -46,19 +42,18 @@ typedef struct fck_db_property_instance
 
 typedef struct fck_db_object
 {
-	fck_db_property_instance *properties;
-	void *data;
 	const char *name;
-
 	fck_db_uuid uuid;
 
+	fckc_u32 version;
+	fckc_u32 count;
+
+	fckc_u32 capacity;
 	fckc_size_t at;
 	fckc_size_t size;
 
-	fckc_u32 capacity;
-	fckc_u32 count;
-
-	fckc_u32 version;
+	fck_db_property_instance *properties;
+	void *data;
 } fck_db_object;
 
 typedef struct fck_db_memory
@@ -79,8 +74,8 @@ typedef struct fck_db_private
 {
 	struct kll_allocator *allocator;
 	struct kll_arena *strings;
-
-	fck_db_ext_map loaders;
+	struct fck_api_registry *registry;
+	struct fck_db_ext_map *loaders;
 
 	struct fck_db_object_page_table *page_table;
 	fck_db_section sections[16];
@@ -104,17 +99,13 @@ typedef struct fck_db_undo_scope_private
 	fckc_u32 back;
 } fck_db_undo_scope_private;
 
-// Module-wide core helpers!
-fckc_size_t fck_db_object_find(fck_db_object *instance, fck_db_type type, const char *name);
-fckc_size_t fck_db_object_add(struct kll_allocator *allocator, fck_db_object *instance, fck_db_type type, const char *name);
-fckc_size_t fck_db_object_remove(fck_db_object *instance, fck_db_type type, const char *name, fckc_size_t size);
-
+// some core functionality
 fck_db_object *fck_db_resolve_object(struct fck_db_object_page_table *table, fck_db_id id);
 fck_db_object *fck_db_ensure_object(struct fck_db_object_page_table *table, fck_db_id id);
 fck_db_object *fck_db_add_object(struct fck_db_object_page_table *table, fck_db_id id);
 int fck_db_remove_object(struct fck_db_object_page_table *table, fck_db_id id);
 
-int fck_db_property_is_used(const fck_db_property_instance *property);
 fck_db_id fck_db_id_make(fckc_u8 e0, fckc_u8 e1, fckc_u8 e2, fckc_u8 e3, fck_db_type type);
+int fck_db_id_ok(fck_db_id id);
 
 #endif // !FCK_DB_CORE_INL_INCLUDED

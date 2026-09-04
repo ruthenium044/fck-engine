@@ -499,8 +499,10 @@ typedef struct sht_bss_vt
 	// Yup... Fuck the upload_desc structure.
 	sht_bool32 (*upload_buffer)(sht_bss bss, fckc_u32 id, const sht_buffer_upload_desc *desc);
 	sht_bool32 (*upload_image)(sht_bss bss, fckc_u32 id, const sht_image_upload_desc *desc);
+	// TODO: int (*is_ok)
 	// TODO: This one updates all. It broadcasts... ...
 	// sht_bool32 (*broadcast)(sht_bss bss, fckc_u32 id, sht_upload_desc *desc);
+	// Why did I make this pointer to instead of value struct like the others??
 	void (*destroy)(sht_bss *bss);
 } sht_bss_vt;
 

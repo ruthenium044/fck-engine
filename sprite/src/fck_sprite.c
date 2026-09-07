@@ -70,7 +70,6 @@ typedef struct fck_sprites_internal
 	// Render Data
 	sht_driver *driver;
 	sht_elements indices;
-	sht_sampler sampler;
 	sht_image white_image;
 	sht_image_view white_view;
 
@@ -583,7 +582,7 @@ static struct sht_image_view *fck_sprite_batch_api_image_view(fck_sprites *exter
 	if (batch)
 	{
 		fck_texture_api *png = (fck_texture_api *)apis->find(fck_texture_api_name);
-		return png->asset->resolve(batch->base.asset, sprites.driver);
+		return png->asset->gpu(batch->base.asset);
 	}
 	return NULL;
 }
@@ -754,23 +753,6 @@ static struct fck_sprites fck_sprite_api_create(struct kll_allocator *allocator,
 	const fck_gfx_create_info create_info = {.has_depth = 1, .vertex = sprite_vs, .fragment = sprite_fs};
 	sprites.gfx = gfx->create(kll->system, args->driver, &create_info);
 
-	sprites.sampler = args->driver->vt->create_sampler(*args->driver, sht_filter_nearest);
-	//{
-	//	const sht_image_configuration config = {
-	//		.format = sht_format_r8g8b8a8_unorm,
-	//		.width = 32,
-	//		.height = 32,
-	//		.transfer = sht_transfer_target,
-	//		.usage = sht_image_usage_sampled,
-	//	};
-	//	sprites.white_image = memory->image->create(memory->bump, &config, sht_memory_gpu);
-	//	sprites.white_view = memory->image->view(memory->bump, sprites.white_image, sht_format_r8g8b8a8_unorm);
-
-	//	fckc_u32 pixels[32 * 32];
-	//	memset(pixels, 0xFF, sizeof(pixels));
-	//	driver->vt->upload_image(*driver, &sprites.white_image, pixels, sizeof(pixels));
-	//}
-
 	{
 		fckc_u32 index_data[] = {0, 1, 2, 1, 3, 2};
 		sprites.indices.count = fck_arraysize(index_data);
@@ -858,7 +840,7 @@ static void fck_sprite_api_present(fck_sprites *external, const struct sht_comma
 			};
 
 			const sht_image_view *view = fck_sprite_batch_api_image_view(external, id);
-			const sht_image_upload_desc image_upload = {.samplers = sprites.sampler, .views = *view};
+			const sht_image_upload_desc image_upload = {.view = view};
 
 			driver->vt->bss->upload_buffer(*bss, 0, &screen_upload);
 			driver->vt->bss->upload_buffer(*bss, 1, &transform_upload);

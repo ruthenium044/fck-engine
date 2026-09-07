@@ -28,9 +28,9 @@ typedef struct fck_shared_object
 typedef struct fck_shared_object_api
 {
 	fck_shared_object (*load)(const char *path);
-	void (*unload)(fck_shared_object so);
-	int (*is_ok)(fck_shared_object so);
-	void *(*symbol)(fck_shared_object so, const char *name);
+	void              (*unload)(fck_shared_object so);
+	int               (*is_ok)(fck_shared_object so);
+	void             *(*symbol)(fck_shared_object so, const char *name);
 } fck_shared_object_api;
 
 // This is ok
@@ -50,11 +50,11 @@ typedef struct fck_window_configuration
 typedef struct fck_window_api
 {
 	fck_window (*create)(const char *name, int w, int h);
-	int (*is_valid)(fck_window window);
-	int (*size)(fck_window window, int *width, int *height);
-	int (*position)(fck_window window, int *x, int *z);
-	int (*resize)(fck_window window, int width, int height);
-	void (*destroy)(fck_window window);
+	int        (*is_valid)(fck_window window);
+	int        (*size)(fck_window window, int *width, int *height);
+	int        (*position)(fck_window window, int *x, int *z);
+	int        (*resize)(fck_window window, int width, int height);
+	void       (*destroy)(fck_window window);
 
 	// Returns platform native data, such as:
 	// HWDN and HINSTANCE on windows
@@ -65,7 +65,7 @@ typedef struct fck_window_api
 	// win->configure(window, NULL) -> Does not set
 	// win->configure(window, &config) -> Sets
 	const fck_window_configuration *(*configuration)(fck_window window, const fck_window_configuration *config);
-	const char *(*title)(fck_window window, const char *title);
+	const char                     *(*title)(fck_window window, const char *title);
 
 	int (*minimise)(fck_window window);
 
@@ -88,8 +88,8 @@ typedef struct fck_clipboard_api
 	int (*has)(void);
 
 	fck_clipboard (*receive)(void);
-	int (*is_valid)(fck_clipboard);
-	void (*close)(fck_clipboard);
+	int           (*is_valid)(fck_clipboard);
+	void          (*close)(fck_clipboard);
 } fck_clipboard_api;
 
 // Meh
@@ -100,7 +100,7 @@ typedef struct fck_chrono_api
 	// Maybe calling time (out of application) today
 	// And now is the local application-related now...
 	fckc_i64 (*now)(void);
-	void (*sleep)(fckc_u64 ms);
+	void     (*sleep)(fckc_u64 ms);
 } fck_chrono_api;
 
 typedef struct fck_file
@@ -135,14 +135,14 @@ typedef struct fck_path_info
 typedef struct fck_filesystem_api
 {
 	// Classic file stuff
-	fck_file (*open)(const char *path, const char *mode);
-	void (*close)(fck_file);
-	int (*is_valid)(fck_file);
-	fckc_i64 (*size)(fck_file);
-	fckc_i64 (*seek)(fck_file, fckc_i64 offset, fck_alias(fck_stream_seek_mode, fckc_u32) seek_mode);
+	fck_file    (*open)(const char *path, const char *mode);
+	void        (*close)(fck_file);
+	int         (*is_valid)(fck_file);
+	fckc_i64    (*size)(fck_file);
+	fckc_i64    (*seek)(fck_file, fckc_i64 offset, fck_alias(fck_stream_seek_mode, fckc_u32) seek_mode);
 	fckc_size_t (*read)(fck_file, void *ptr, fckc_size_t size);
 	fckc_size_t (*write)(fck_file, const void *ptr, fckc_size_t size);
-	fckc_i64 (*flush)(fck_file);
+	fckc_i64    (*flush)(fck_file);
 
 	int (*create_directory)(const char *path);
 
@@ -151,18 +151,18 @@ typedef struct fck_filesystem_api
 
 	int (*remove)(const char *path);
 	// TODO: Remove this, use info instead
-	fckc_i64 (*modified)(const char *path);
+	fckc_i64    (*modified)(const char *path);
 	const char *(*executable)(void);
 
 } fck_file_system_api;
 
 typedef struct fck_glob_api
 {
-	char *(*find)(const char *str, const char *substring);
-	char *(*match)(const char *str, const char *pattern);
+	char       *(*find)(const char *str, const char *substring);
+	char       *(*match)(const char *str, const char *pattern);
 	fckc_size_t (*executable)(const char *pattern, char ***out_paths);
 	fckc_size_t (*directory)(const char *path, const char *pattern, char ***out_paths);
-	void (*free)(char **paths);
+	void        (*free)(char **paths);
 } fck_glob_api;
 
 typedef enum fck_file_watcher_event_type
@@ -176,7 +176,7 @@ typedef enum fck_file_watcher_event_type
 typedef struct fck_file_watcher_event
 {
 	fck_alias(fck_file_watcher_event_type, fckc_u32) type;
-	char path[420]; // blaze it
+	char     path[420]; // blaze it
 	fckc_i64 time;
 } fck_file_watcher_event;
 
@@ -188,24 +188,25 @@ typedef struct fck_file_watcher
 typedef struct fck_file_watcher_api
 {
 	fck_file_watcher (*create)(const char *path);
-	fckc_size_t (*changes)(fck_file_watcher watcher, fck_file_watcher_event *events, fckc_size_t capacity);
+	fckc_size_t      (*changes)(fck_file_watcher watcher, fck_file_watcher_event *events, fckc_size_t capacity);
 	// is_valid, exposed to allow users to answer the question:
 	// "Ummm... why am I not getting any changes?"
-	int (*is_valid)(fck_file_watcher watcher);
+	int  (*is_valid)(fck_file_watcher watcher);
 	void (*destroy)(fck_file_watcher watcher);
 } fck_file_watcher_api;
 
 // This is ok
 typedef struct fck_os_api
 {
-	fck_io_api *io;
+	fck_io_api            *io;
 	fck_shared_object_api *so;
-	fck_window_api *win;
-	fck_file_system_api *fs;
-	fck_glob_api *glob;
+	fck_window_api        *win;
+	fck_file_system_api   *fs;
+	fck_glob_api          *glob;
+
 	// Special APIs are not getting a cool little abbrevation
-	fck_clipboard_api *clipboard;
-	fck_chrono_api *chrono;
+	fck_clipboard_api    *clipboard;
+	fck_chrono_api       *chrono;
 	fck_file_watcher_api *fw;
 } fck_os_api;
 

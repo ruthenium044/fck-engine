@@ -30,4 +30,4 @@ target_link_libraries(${PROJECT_NAME} PUBLIC fck::nuklear-interface)
 target_link_libraries(${PROJECT_NAME} PUBLIC fck::ec-interface)
 target_link_libraries(${PROJECT_NAME} PUBLIC fck::sprite-interface)
 
-target_sources(${PROJECT_NAME} PRIVATE "src/fck_bird_game.cpp")
+target_sources(${PROJECT_NAME} PRIVATE "src/fck_bird_game.c")

@@ -281,6 +281,7 @@ static fck_nk fck_nk_api_create(kll_allocator *allocator, const fck_nuklear_crea
 		nk->indices[index] = memory->malloc(memory->bump, &config, sht_memory_cpu);
 	}
 
+	// TODO: Expose linear?
 	nk->sampler = driver->vt->create_sampler(*driver, sht_filter_nearest);
 
 	nk_init_default(nk->ctx, &nk->default_font->handle);
@@ -1046,12 +1047,12 @@ static void fck_nk_api_present(fck_nk nke, const struct sht_command_buffer *buff
 				continue;
 			fck_assert(cmd->texture.ptr);
 
-			const sht_image_upload_desc font_upload = {
-				.samplers = nk->sampler,
-				.views = *(sht_image_view *)cmd->texture.ptr,
+			const sht_image_upload_desc image_upload = {
+				.sampler = &nk->sampler,
+				.view = (sht_image_view *)cmd->texture.ptr,
 			};
 
-			driver->vt->bss->upload_image(*bss, 2, &font_upload);
+			driver->vt->bss->upload_image(*bss, 2, &image_upload);
 			command->bss(*buffer, *bss);
 			// driver->vt->bss->upload(ui->bss, 1, sht_upload_params{.view =
 			// ui->font.view, .sampler = ui->sampler});
@@ -1602,7 +1603,7 @@ static int fck_nk_elements_api_dropdown(fck_nk nk, int selected, const char *con
 	return nk_combo(ctx, items, count, selected, 25, dropdown_size);
 }
 
-const fck_db_asset *fck_nk_elements_api_asset(fck_nk nk, struct fck_db *assets, const fck_db_asset *current, const char *category)
+static const fck_db_asset *fck_nk_elements_api_asset(fck_nk nk, struct fck_db *assets, const fck_db_asset *current, const char *category)
 {
 	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
 	struct nk_context *ctx = nk_internal->ctx;
@@ -1689,38 +1690,6 @@ static int fck_nuklear_elements_api_string(fck_nk nk, char *buffer, int len)
 	return (result & NK_EDIT_COMMITED) == NK_EDIT_COMMITED;
 }
 
-static void fck_nuklear_elements_layout_image(struct nk_context *ctx, sht_image_view *image, float height)
-{
-	const float content_width = nk_widget_width(ctx);
-	const float aspect_ratio = to_f32(image->width) / to_f32(image->height);
-	float width = height * aspect_ratio;
-	if (width > content_width)
-	{
-		width = content_width;
-		height = width * (to_f32(image->height) / to_f32(image->width));
-	}
-
-	nk_layout_row_static(ctx, height, (int)width, 1);
-}
-
-static int fck_nuklear_elements_api_button_image(fck_nk nk, sht_image_view *image, float height)
-{
-	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
-	struct nk_context *ctx = nk_internal->ctx;
-
-	fck_nuklear_elements_layout_image(ctx, image, height);
-	return nk_button_image(ctx, nk_image_ptr(image));
-}
-
-static void fck_nuklear_elements_api_image(fck_nk nk, sht_image_view *image, float height)
-{
-	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
-	struct nk_context *ctx = nk_internal->ctx;
-
-	fck_nuklear_elements_layout_image(ctx, image, height);
-	nk_image(ctx, nk_image_ptr(image));
-}
-
 static void fck_nuklear_elements_api_rect(fck_nk nk, float w, float h, fck_nk_colour colour)
 {
 	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
@@ -1754,6 +1723,50 @@ static void fck_nuklear_elements_api_rect(fck_nk nk, float w, float h, fck_nk_co
 	//  nk_spacer(ctx);
 	nk_fill_rect(canvas, space, 0, nk_rgba(colour.r, colour.g, colour.b, colour.a));
 }
+
+static void fck_nuklear_elements_layout_image(struct nk_context *ctx, sht_image_view *image, float height)
+{
+	if (fck_nk_image_fill == height)
+	{
+		// Some large value since we scale it around anyway!
+		height = 10000.0f;
+	}
+
+	const float content_width = nk_widget_width(ctx);
+	float aspect_ratio = 1.0f;
+	if (image->gpu)
+	{
+		aspect_ratio = to_f32(image->width) / to_f32(image->height);
+	}
+
+	float width = height * aspect_ratio;
+	if (width > content_width)
+	{
+		width = content_width;
+		height = width * (1 / aspect_ratio);
+	}
+
+	nk_layout_row_static(ctx, height, (int)width, 1);
+}
+
+static int fck_nuklear_elements_api_button_image(fck_nk nk, sht_image_view *image, float height)
+{
+	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
+	struct nk_context *ctx = nk_internal->ctx;
+
+	fck_nuklear_elements_layout_image(ctx, image, height);
+	return nk_button_image(ctx, nk_image_ptr(image));
+}
+
+static void fck_nuklear_elements_api_image(fck_nk nk, sht_image_view *image, float height)
+{
+	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
+	struct nk_context *ctx = nk_internal->ctx;
+
+	fck_nuklear_elements_layout_image(ctx, image, height);
+	nk_image(ctx, nk_image_ptr(image));
+}
+
 static fck_nk_control fck_nk_api_control(fck_nk nk)
 {
 	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
@@ -1973,7 +1986,7 @@ static void fck_nk_elements_api_preview(fck_nk nke, const fck_db_asset *asset)
 	fck_nk_asset_preview_interface *preview = NULL;
 	for (fckc_size_t index = 0; index < count; index++)
 	{
-		preview = implementations[index];
+		preview = (fck_nk_asset_preview_interface *)implementations[index];
 		if (strcmp(preview->category, asset->category) == 0)
 		{
 			preview->preview(&args);

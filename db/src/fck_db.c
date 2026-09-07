@@ -33,17 +33,17 @@
 static fck_api_registry *apis = NULL;
 
 // MAYBE
-static inline fckc_u64 fck_db_random_next_rotl(const fckc_u64 x, int k)
+static inline fckc_u64   fck_db_random_next_rotl(const fckc_u64 x, int k)
 {
 	return (x << k) | (x >> (64 - k));
 }
 // MAYBE
 static inline fckc_u64 fck_db_random_splitmix64(fckc_u64 *state)
 {
-	*state += 0x9e3779b97f4a7c15; // Golden ratio increment
-	fckc_u64 z = *state;
-	z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9;
-	z = (z ^ (z >> 27)) * 0x94d049bb133111eb;
+	*state     += 0x9e3779b97f4a7c15; // Golden ratio increment
+	fckc_u64 z  = *state;
+	z           = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9;
+	z           = (z ^ (z >> 27)) * 0x94d049bb133111eb;
 	return z ^ (z >> 31);
 }
 
@@ -51,9 +51,9 @@ static inline fckc_u64 fck_db_random_splitmix64(fckc_u64 *state)
 fck_db_id fck_db_id_make(fckc_u8 e0, fckc_u8 e1, fckc_u8 e2, fckc_u8 e3, fck_db_type type)
 {
 	fck_db_id id = {0};
-	id.index = ((fckc_u32)e0 << 24) | ((fckc_u32)e1 << 16) | ((fckc_u32)e2 << 8) | (fckc_u32)e3;
-	id.index = id.index ^ fck_bitmask(32); // 32 bit, remember this
-	id.type = type;
+	id.index     = ((fckc_u32)e0 << 24) | ((fckc_u32)e1 << 16) | ((fckc_u32)e2 << 8) | (fckc_u32)e3;
+	id.index     = id.index ^ fck_bitmask(32); // 32 bit, remember this
+	id.type      = type;
 	return id;
 }
 
@@ -90,11 +90,11 @@ static fck_db fck_db_api_create(kll_allocator *allocator)
 	memset(db, 0, sizeof(*db));
 	const fck_db result = {.opaque = db};
 
-	db->allocator = allocator;
-	db->strings = kll->arena->create(allocator, 512);
-	db->page_table = fck_db_object_page_table_alloc(allocator);
-	db->loaders = db_ext_map->alloc(allocator, apis);
-	db->registry = apis;
+	db->allocator       = allocator;
+	db->strings         = kll->arena->create(allocator, 512);
+	db->page_table      = fck_db_object_page_table_alloc(allocator);
+	db->loaders         = db_ext_map->alloc(allocator, apis);
+	db->registry        = apis;
 	return result;
 }
 
@@ -121,13 +121,13 @@ static void *fck_directory_import(const fck_db_loader_args *args, const char *pa
 static fckc_size_t fck_directory_supports(const char ***extensions)
 {
 	static const char *supported[] = {""};
-	*extensions = supported;
+	*extensions                    = supported;
 	return fck_arraysize(supported);
 }
 
 static fck_db_loader_interface directory_loader = {
 	.category = "directory",
-	.import = fck_directory_import,
+	.import   = fck_directory_import,
 	.supports = fck_directory_supports,
 };
 
@@ -135,14 +135,14 @@ FCK_EXPORT_API fck_db_api *fck_db_load(fck_api_registry *registry, void *old)
 {
 	static fck_db_api api = {
 		.create = fck_db_api_create,
-		.close = fck_db_api_close,
+		.close  = fck_db_api_close,
 	};
 
 	// "Runtime" resolved addresses...
-	api.set = db_id_set;
+	api.set    = db_id_set;
 	api.object = db_object;
-	api.undo = db_undo;
-	api.asset = db_asset;
+	api.undo   = db_undo;
+	api.asset  = db_asset;
 
 	(void)old;
 	apis = registry;

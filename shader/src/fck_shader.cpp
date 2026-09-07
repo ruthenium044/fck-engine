@@ -88,7 +88,6 @@ static fck_spirv_object fck_shader_create_spirv(struct fck_shader_compiler *comp
 			lang = shaderc_source_language_hlsl;
 			break;
 		}
-
 		{
 			const char *source = shader->source;
 			const char *file = shader->desc.file;
@@ -301,7 +300,8 @@ extern "C"
 		fck_shader_asset *asset = (fck_shader_asset *)accessor.read->userdata(accessor, fck_category_shader);
 		if (asset == NULL)
 		{
-			fck_shader_asset value = {.timestamp = os->chrono->now()};
+			fck_shader_asset value = {};
+			value.timestamp = os->chrono->now();
 			asset = (fck_shader_asset *)accessor.edit->userdata(accessor, fck_category_shader, &value, sizeof(value));
 		}
 		asset->value = shader_object;

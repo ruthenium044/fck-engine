@@ -40,14 +40,14 @@ static void fck_texture_api_free(fck_texture png)
 
 typedef struct fck_texture_resolved
 {
-	fckc_i64 timestamp;
-	sht_image image;
+	fckc_i64       timestamp;
+	sht_image      image;
 	sht_image_view view;
 } fck_texture_resolved;
 
 typedef struct fck_texture_asset
 {
-	fck_texture textue;
+	fck_texture          textue;
 	fck_texture_resolved resolved;
 } fck_texture_asset;
 
@@ -60,13 +60,13 @@ static sht_image fck_texture_upload_image_on_gpu(sht_driver driver, sht_image im
 
 static sht_image fck_texture_load_image_on_gpu(sht_driver driver, const void *pixels, sht_format format, int width, int height)
 {
-	sht_memory *memory = driver.vt->memory(driver);
+	sht_memory                   *memory = driver.vt->memory(driver);
 	const sht_image_configuration config = {
-		.format = format,
-		.height = to_u32(height),
-		.width = to_u32(width),
+		.format   = format,
+		.height   = to_u32(height),
+		.width    = to_u32(width),
 		.transfer = sht_transfer_target,
-		.usage = sht_image_usage_sampled,
+		.usage    = sht_image_usage_sampled,
 	};
 
 	sht_image image = memory->image->create(memory->bump, &config, sht_memory_gpu);
@@ -86,7 +86,7 @@ static struct sht_image_view *fck_texture_asset_resolve(const fck_db_asset *asse
 		return NULL;
 	}
 
-	fck_texture_asset *value = asset->userdata;
+	fck_texture_asset *value = (fck_texture_asset *)asset->userdata;
 	if (asset->timestamp >= value->resolved.timestamp)
 	{
 		sht_memory *memory = driver->vt->memory(*driver);
@@ -98,12 +98,13 @@ static struct sht_image_view *fck_texture_asset_resolve(const fck_db_asset *asse
 		}
 
 		const sht_format format = sht_format_r8g8b8a8_unorm;
-		const int width = value->textue.width;
-		const int height = value->textue.height;
-		value->resolved.image = fck_texture_load_image_on_gpu(*driver, value->textue.data, format, width, height);
-		value->resolved.view = memory->image->view(memory->bump, value->resolved.image, format);
+		const int        width  = value->textue.width;
+		const int        height = value->textue.height;
+
+		value->resolved.image     = fck_texture_load_image_on_gpu(*driver, value->textue.data, format, width, height);
+		value->resolved.view      = memory->image->view(memory->bump, value->resolved.image, format);
 		value->resolved.timestamp = os->chrono->now();
-		*asset->state = fck_db_asset_state_resolved;
+		*asset->state             = fck_db_asset_state_resolved;
 	}
 	return &value->resolved.view;
 	;
@@ -121,12 +122,13 @@ static void *fck_texture_import(const fck_db_loader_args *args, const char *file
 		if (asset == NULL)
 		{
 			fck_texture_asset value = {.resolved.timestamp = os->chrono->now()};
+
 			asset = (fck_texture_asset *)accessor.edit->userdata(accessor, fck_category_texture, &value, sizeof(value));
 		}
 
 		const fck_texture previous = asset->textue;
-		const fck_texture texture = fck_texture_api_load(file);
-		asset->textue = texture;
+		const fck_texture texture  = fck_texture_api_load(file);
+		asset->textue              = texture;
 		accessor.edit->commit(accessor, fck_db_no_undo);
 
 		if (fck_texture_api_is_ok(previous))
@@ -140,7 +142,7 @@ static void *fck_texture_import(const fck_db_loader_args *args, const char *file
 static fckc_size_t fck_texture_supports(const char ***extensions)
 {
 	static const char *supported[] = {"png", "jpg"};
-	*extensions = supported;
+	*extensions                    = supported;
 	return fck_arraysize(supported);
 }
 
@@ -153,25 +155,36 @@ static const fck_texture *fck_texture_data(const fck_db_asset *asset)
 static sht_image_view *fck_texture_gpu(const fck_db_asset *asset)
 {
 	fck_texture_asset *value = (fck_texture_asset *)asset->userdata;
+
+	switch (*asset->state)
+	{
+	case fck_db_asset_state_requested:
+	case fck_db_asset_state_resolved:
+		break;
+	case fck_db_asset_state_imported:
+		*asset->state = fck_db_asset_state_requested;
+		break;
+	}
+
 	return &value->resolved.view;
 }
 
 static fck_texture_asset_api png_asset_api = {
 	.resolve = fck_texture_asset_resolve,
-	.cpu = fck_texture_data,
-	.gpu = fck_texture_gpu,
+	.cpu     = fck_texture_data,
+	.gpu     = fck_texture_gpu,
 };
 
 static fck_texture_api png_api = {
 	.asset = &png_asset_api,
-	.load = fck_texture_api_load,
+	.load  = fck_texture_api_load,
 	.is_ok = fck_texture_api_is_ok,
-	.free = fck_texture_api_free,
+	.free  = fck_texture_api_free,
 };
 
 static fck_db_loader_interface png_loader = {
 	.category = fck_category_texture,
-	.import = fck_texture_import,
+	.import   = fck_texture_import,
 	.supports = fck_texture_supports,
 };
 

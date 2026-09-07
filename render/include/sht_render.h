@@ -487,8 +487,8 @@ typedef struct sht_buffer_upload_desc
 
 typedef struct sht_image_upload_desc
 {
-	sht_image_view views;
-	sht_sampler samplers;
+	const sht_image_view *view;
+	const sht_sampler* sampler;
 	// Cut bindless for now! Not worth it.
 } sht_image_upload_desc;
 

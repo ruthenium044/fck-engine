@@ -440,7 +440,7 @@ static void fck_db_api_setup(fck_db external, const char *scope, const char *pat
 	os->glob->free(paths);
 }
 
-static const char *fck_db_asset_api_categories(fck_db external, void **current, const char **path)
+static const fck_db_category_iterator *fck_db_asset_api_categories(fck_db external, fck_db_category_iterator *it)
 {
 	fck_db_private *db = (fck_db_private *)external.opaque;
 
@@ -449,26 +449,26 @@ static const char *fck_db_asset_api_categories(fck_db external, void **current, 
 	fck_db_loader_interface **last = loaders + count;
 	// All of this shit will break as soon as category is not the first member anymore
 	// Such a change will be so fucking fun, so I leave it around
-	if (*current == NULL)
+	if (it->handle == NULL)
 	{
-		*current = loaders;
+		it->handle = loaders;
 	}
 	else
 	{
-		fck_db_loader_interface **loader = (fck_db_loader_interface **)*current;
+		fck_db_loader_interface **loader = (fck_db_loader_interface **)it->handle;
 		loader = loader + 1;
-		*current = loader;
+		it->handle = loader;
 	}
-	if (*current == last)
+	if (it->handle == last)
 	{
 		// Done
 		return NULL;
 	}
 	{
-		fck_db_loader_interface **loader = (fck_db_loader_interface **)*current;
-		*path = (*loader)->category;
+		fck_db_loader_interface **loader = (fck_db_loader_interface **)it->handle;
+		it->name = (*loader)->category;
 	}
-	return *path;
+	return it;
 }
 
 static void *fck_db_asset_api_category(fck_db external, const char *name)

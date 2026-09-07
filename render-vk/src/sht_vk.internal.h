@@ -16,14 +16,14 @@
 // I am unsure that that makes sense to have a graphics pipeline limit... We will see
 // We might need this or something similar later!
 
-#define sht_vk_render_pass_storage_capacity 32
-#define sht_vk_framebuffer_storage_capacity 128
-#define sht_vk_capacity 128
-#define sht_vk_graphics_pipeline_capacity 64
-#define sht_vk_descriptor_pool_capacity 64
-#define sht_vk_bss_binding_capacity 8
+#define sht_vk_render_pass_storage_capacity   32
+#define sht_vk_framebuffer_storage_capacity   128
+#define sht_vk_capacity                       128
+#define sht_vk_graphics_pipeline_capacity     64
+#define sht_vk_descriptor_pool_capacity       64
+#define sht_vk_bss_binding_capacity           8
 #define sht_vk_bss_descriptor_set_bind_copies 1024
-#define sht_vk_swapchain_image_capacity 8
+#define sht_vk_swapchain_image_capacity       8
 
 #define sht_vk_success(vk_result) ((vk_result) == VK_SUCCESS)
 
@@ -54,9 +54,9 @@ static inline VkResult sht_vk_report(VkResult result, const char *msg)
 #define sht_vk_assert(condition) (void)(condition)
 #endif
 #define sht_vk_report_defer(sht_vk_report_func) sht_vk_report_func
-#define sht_vk_report_(vk_result, func) sht_vk_report(vk_result, func)
-#define sht_vk_error(vk_result) (sht_vk_report((vk_result), sht_vk_report_defer(__func__)))
-#define sht_vk_crash(vk_result) sht_vk_assert(sht_vk_success(sht_vk_report_((vk_result), sht_vk_report_defer(__func__))))
+#define sht_vk_report_(vk_result, func)         sht_vk_report(vk_result, func)
+#define sht_vk_error(vk_result)                 (sht_vk_report((vk_result), sht_vk_report_defer(__func__)))
+#define sht_vk_crash(vk_result)                 sht_vk_assert(sht_vk_success(sht_vk_report_((vk_result), sht_vk_report_defer(__func__))))
 
 // Vulkan API loading
 #define sht_vk_declare(function_name) PFN_vk##function_name function_name
@@ -116,7 +116,7 @@ typedef struct sht_vk_common_sync_resources
 {
 	// sht_vk_driver *driver; // Might not be needed
 
-	VkFence wait_fences[sht_frame_count];
+	VkFence     wait_fences[sht_frame_count];
 	VkSemaphore graphics_completed[sht_frame_count];
 	VkSemaphore presentation_completed[sht_frame_count];
 
@@ -130,13 +130,13 @@ typedef struct sht_vk_swapchain
 {
 	struct sht_vk_driver *driver;
 
-	VkSurfaceKHR surface;
+	VkSurfaceKHR                 surface;
 	sht_vk_common_sync_resources sync;
-	VkSwapchainKHR swapchain;
+	VkSwapchainKHR               swapchain;
 
 	VkSwapchainCreateInfoKHR info;
-	VkImage images[sht_vk_swapchain_image_capacity];
-	VkImageView views[sht_vk_swapchain_image_capacity];
+	VkImage                  images[sht_vk_swapchain_image_capacity];
+	VkImageView              views[sht_vk_swapchain_image_capacity];
 
 	fckc_u32 count;
 
@@ -150,7 +150,7 @@ typedef struct sht_vk_command
 {
 	struct sht_vk_driver *driver;
 
-	VkCommandPool pool;
+	VkCommandPool   pool;
 	VkCommandBuffer buffers[sht_frame_count];
 
 	// Present, transfer, copy??? We will see!
@@ -211,12 +211,12 @@ typedef struct sht_vk_command
 typedef struct sht_vk_graphics_pipeline
 {
 	VkPipelineCache cache;
-	VkPipeline pipeline;
+	VkPipeline      pipeline;
 } sht_vk_graphics_pipeline;
 
 typedef struct sht_vk_color_target_desc
 {
-	sht_format format;
+	sht_format                  format;
 	sht_memory_access_operation load_op;
 	sht_memory_access_operation store_op;
 	// fckc_f32 clear_value[4];
@@ -225,7 +225,7 @@ typedef struct sht_vk_color_target_desc
 
 typedef struct sht_vk_depth_target_desc
 {
-	sht_format format;
+	sht_format                  format;
 	sht_memory_access_operation load_op;
 	sht_memory_access_operation store_op;
 	// fckc_f32 clear_value;
@@ -241,31 +241,31 @@ typedef struct sht_vk_render_pass_desc
 typedef struct sht_vk_render_pass
 {
 	sht_vk_render_pass_desc desc;
-	VkRenderPass handle;
+	VkRenderPass            handle;
 } sht_vk_render_pass;
 
 typedef struct sht_vk_framebuffer
 {
 	sht_render_desc desc;
-	VkFramebuffer handle;
-	VkExtent2D extent;
+	VkFramebuffer   handle;
+	VkExtent2D      extent;
 } sht_vk_framebuffer;
 
 typedef struct sht_vk_render_pass_storage
 {
 	sht_vk_render_pass handles[sht_vk_render_pass_storage_capacity];
-	fckc_size_t count;
+	fckc_size_t        count;
 } sht_vk_render_pass_storage;
 
 typedef struct sht_vk_framebuffer_storage
 {
 	sht_vk_framebuffer handles[sht_vk_framebuffer_storage_capacity];
-	fckc_size_t count;
+	fckc_size_t        count;
 } sht_vk_framebuffer_storage;
 
 typedef struct sht_graphics_pipeline_key
 {
-	fckc_u64 invalid : 1;
+	fckc_u64 invalid    : 1;
 	fckc_u64 generation : 31;
 
 	fckc_u64 hash : 32;
@@ -274,14 +274,14 @@ typedef struct sht_graphics_pipeline_key
 typedef struct sht_vk_graphics_pipeline_storage
 {
 	sht_vk_graphics_pipeline handles[sht_vk_graphics_pipeline_capacity];
-	fckc_size_t count;
+	fckc_size_t              count;
 
 	sht_graphics_pipeline_key keys[sht_vk_graphics_pipeline_capacity];
 } sht_vk_graphics_pipeline_storage;
 
 typedef struct sht_bss_buffer_backends
 {
-	sht_buffer buffers[sht_vk_bss_binding_capacity];
+	sht_buffer   buffers[sht_vk_bss_binding_capacity];
 	VkDeviceSize offsets[sht_vk_bss_binding_capacity];
 } sht_bss_buffer_backends;
 
@@ -294,15 +294,15 @@ typedef struct sht_vk_binding_desc
 typedef struct sht_vk_descriptor_set_copies
 {
 	VkDescriptorSet sets[sht_vk_bss_descriptor_set_bind_copies];
-	fckc_size_t at;
+	fckc_size_t     at;
 } sht_vk_descriptor_set_copies;
 
 typedef struct sht_vk_descriptor_pool_storage_entry
 {
 	VkDescriptorSetLayout layout;
-	VkPipelineLayout pipeline_layout;
-	VkDescriptorPool dynamic_pools[sht_frame_count];
-	VkDescriptorPool constant_pool;
+	VkPipelineLayout      pipeline_layout;
+	VkDescriptorPool      dynamic_pools[sht_frame_count];
+	VkDescriptorPool      constant_pool;
 
 	fckc_u32 ref_count;
 } sht_vk_descriptor_pool_storage_entry;
@@ -341,8 +341,8 @@ typedef struct sht_vk_bss
 	sht_vk_descriptor_pool_storage_key pool_storage_key;
 	// sht_vk_descriptor_set_copies copies[SHT_VK_IMAGE_COUNT];
 	//  VkDescriptorSet sets[SHT_VK_IMAGE_COUNT];
-	VkDescriptorSet latest[sht_frame_count];
-	VkDescriptorSet baselines[sht_frame_count];
+	VkDescriptorSet         latest[sht_frame_count];
+	VkDescriptorSet         baselines[sht_frame_count];
 	sht_bss_buffer_backends buffer_backends[sht_frame_count];
 } sht_vk_bss;
 
@@ -350,29 +350,29 @@ typedef struct sht_vk_bss_storage
 {
 	sht_vk_bss_nodes inflight;
 
-	sht_vk_bss handles[sht_vk_capacity];
+	sht_vk_bss  handles[sht_vk_capacity];
 	fckc_size_t count;
 } sht_vk_bss_storage;
 
 typedef struct sht_vk_descriptor_pool_storage
 {
 	sht_vk_descriptor_pool_storage_entry entries[sht_vk_descriptor_pool_capacity];
-	fckc_size_t count;
+	fckc_size_t                          count;
 } sht_vk_descriptor_pool_storage;
 
 typedef struct sht_resource_storages
 {
-	sht_vk_bss_storage bss;
-	sht_vk_render_pass_storage render_pass;
-	sht_vk_framebuffer_storage framebuffer;
+	sht_vk_bss_storage               bss;
+	sht_vk_render_pass_storage       render_pass;
+	sht_vk_framebuffer_storage       framebuffer;
 	sht_vk_graphics_pipeline_storage graphics_pipeline;
-	sht_vk_descriptor_pool_storage descriptor_pool;
+	sht_vk_descriptor_pool_storage   descriptor_pool;
 } sht_resource_storages;
 
 typedef struct sht_vk_driver
 {
 	sht_vk_gpu *gpu; // does that make sense?
-	VkDevice device;
+	VkDevice    device;
 
 	// Render pass here does not make sense...
 	sht_vk_declare(CreateDevice);
@@ -438,11 +438,18 @@ typedef struct sht_vk_driver
 	sht_vk_declare(CreateFramebuffer);
 	sht_vk_declare(DestroyFramebuffer);
 
-	sht_vk_command command;
-	sht_vk_swapchain swapchain;
-	sht_memory memory;
+	sht_vk_command        command;
+	sht_vk_swapchain      swapchain;
+	sht_memory            memory;
 	sht_resource_storages storages;
-	fck_window window;
+	fck_window            window;
+
+	struct
+	{
+		sht_image      image;
+		sht_image_view view;
+		sht_sampler    sampler;
+	} null;
 } sht_vk_driver;
 
 /* Why the weird structure with pointers to parents and then back down?
@@ -459,12 +466,12 @@ typedef struct sht_vk_instance
 	sht_vk_declare(CreateInstance);
 	sht_vk_declare(DestroyInstance);
 
-	fckc_char *name;
+	fckc_char            *name;
 	struct kll_allocator *allocator;
 
-	sht_vk_gpu gpu;
-	sht_vk_platform platform;
-	sht_vk_driver driver;
+	sht_vk_gpu        gpu;
+	sht_vk_platform   platform;
+	sht_vk_driver     driver;
 	fck_shared_object so;
 } sht_vk_instance;
 

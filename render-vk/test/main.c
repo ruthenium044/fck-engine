@@ -243,7 +243,7 @@ fck_test_app_result fck_test_app_app_draw(fck_test_app_application *app)
 	const sht_buffer_upload_desc mvp_upload = {.data = &app->mvp, .size = sizeof(app->mvp), .count = 1};
 	driver.vt->bss->upload_buffer(app->bss, 0, &mvp_upload);
 
-	const sht_image_upload_desc image_upload = {.views = app->texture_view, .samplers = app->sampler};
+	const sht_image_upload_desc image_upload = {.view = &app->texture_view, .sampler = &app->sampler};
 	driver.vt->bss->upload_image(app->bss, 1, &image_upload);
 
 	sht_viewport viewport;

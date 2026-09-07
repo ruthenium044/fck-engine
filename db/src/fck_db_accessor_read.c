@@ -43,11 +43,11 @@ static fckc_f32 fck_db_read_api_f32(fck_db_accessor accessor, const char *proper
 	return value;
 }
 
-static fck_db_asset *fck_db_read_api_asset(fck_db_accessor accessor, const char *property)
+static const fck_db_asset *fck_db_read_api_asset(fck_db_accessor accessor, const char *property)
 {
 	const void *src = fck_db_read_api_untyped(accessor, fck_db_type_asset, property);
 	fck_assert(src);
-	fck_db_asset *value;
+	const fck_db_asset *value;
 	memcpy(&value, src, sizeof(fck_db_asset *));
 	return value;
 }

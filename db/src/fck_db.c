@@ -126,7 +126,7 @@ static fckc_size_t fck_directory_supports(const char ***extensions)
 }
 
 static fck_db_loader_interface directory_loader = {
-	.category = "direcotry",
+	.category = "directory",
 	.import = fck_directory_import,
 	.supports = fck_directory_supports,
 };

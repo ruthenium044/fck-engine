@@ -1,6 +1,7 @@
 
 #include "fck_db_accessor_edit.h"
 
+#include "fck_db_accessor_ok.h"
 #include "fck_db_accessor_read.h"
 #include "fck_db_object_properties.h"
 
@@ -76,7 +77,7 @@ static void fck_db_edit_api_f32(fck_db_accessor accessor, const char *property, 
 	memcpy(dst, &value, sizeof(value));
 }
 
-static void fck_db_edit_api_asset(fck_db_accessor accessor, const char *property, fck_db_asset *value)
+static void fck_db_edit_api_asset(fck_db_accessor accessor, const char *property, const fck_db_asset *value)
 {
 	const fckc_size_t s = sizeof(fck_db_asset *);
 	const fckc_size_t a = alignof(fck_db_asset *);
@@ -158,16 +159,19 @@ static void fck_db_edit_api_object_set(fck_db_accessor accessor, const char *pro
 {
 	// TODO: should this not work similiarly to api_string and api_memory using any_buffer?
 	void *current = db_read->untyped(accessor, fck_db_type_object_set, property);
-	const fckc_size_t total = set ? offsetof(fck_db_id_set, values[set->capacity]) : sizeof(*set);
 
-	if (current)
+	if (db_ok->set(accessor, property))
 	{
+		const fck_db_id_set *prev = db_read->set(accessor, property);
+		const fckc_size_t total = prev ? offsetof(fck_db_id_set, values[prev->capacity]) : sizeof(*prev);
+
 		// Let's always remove... For now!
 		const fckc_size_t result = db_properties->remove(accessor.obj, fck_db_type_object_set, property, total);
 		fck_assert(result);
 	}
 
 	{
+		const fckc_size_t total = set ? offsetof(fck_db_id_set, values[set->capacity]) : sizeof(*set);
 		// We copy everything incoming in. Count, capacity, set replication!
 		void *dst = fck_db_edit_api_lazy_find(accessor.db, accessor.obj, fck_db_type_object_set, property, total, alignof(fck_db_id_set));
 		fck_db_id_set *memory = (fck_db_id_set *)dst;

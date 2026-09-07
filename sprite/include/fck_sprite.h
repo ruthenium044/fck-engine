@@ -53,6 +53,7 @@ typedef struct fck_sprite_batch_api
 	int (*remove)(fck_sprites *sprites, fck_sprite_batch_id index);
 
 	struct sht_image_view *(*image_view)(struct fck_sprites *sprites, fck_sprite_batch_id index);
+	const struct fck_db_asset *(*asset)(struct fck_sprites *sprites, fck_sprite_batch_id index);
 	int (*dimensions)(fck_sprites *sprites, fck_sprite_batch_id index, float *sprite_width, float *sprite_height);
 
 	const char *(*nameof)(fck_sprites *sprites, fck_sprite_batch_id index);
@@ -95,7 +96,6 @@ typedef struct fck_sprite_api
 	fck_sprite_id (*invalid)(void);
 
 	int (*is_ok)(fck_sprites *sprites, fck_sprite_id index);
-
 } fck_sprite_api;
 
 #endif // !FCK_SPRITES_H_INCLUDED

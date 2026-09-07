@@ -26,12 +26,6 @@ typedef struct fck_db_id_set
 	fck_db_id values[1];
 } fck_db_id_set;
 
-typedef struct fck_db_ext_map_entry
-{
-	const char *extension;
-	fck_db_loader_interface *loader;
-} fck_db_ext_map_entry;
-
 struct fck_db_property_instance;
 typedef struct fck_db_property_instance
 {
@@ -42,7 +36,6 @@ typedef struct fck_db_property_instance
 
 typedef struct fck_db_object
 {
-	const char *name;
 	fck_db_uuid uuid;
 
 	fckc_u32 version;

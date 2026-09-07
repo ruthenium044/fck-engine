@@ -179,6 +179,9 @@ typedef struct fck_nk_private
 
 	fckc_u64 time_last_frame;
 	fck_nuklear_theme current_theme;
+
+	// I am unsure if pointer to db or not...
+	fck_db_api *db;
 } fck_nk_private;
 
 static fck_nk_panel_item *fck_nk_panel_state_find(fck_nk_panel_state *state, const char *name)
@@ -270,6 +273,7 @@ static fck_nk fck_nk_api_create(kll_allocator *allocator, const fck_nuklear_crea
 	// OS feature set for the window
 	nk->os = fck_nk_os_window_create(*window);
 	nk->driver = *driver;
+	nk->db = db;
 
 	sht_buffer_configuration config = sht_buffer_retained(sht_buffer_usage_index, fck_megabytes(1));
 	for (fckc_size_t index = 0; index < fck_arraysize(nk->indices); index++)
@@ -452,6 +456,21 @@ static void fck_nk_panel_api_end_layout(fck_nk nk)
 	nk_layout_row_end(ctx);
 }
 
+static int fck_nk_text_active(fck_nk nk)
+{
+	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
+	struct nk_context *ctx = nk_internal->ctx;
+	if (ctx->text_edit.active)
+	{
+		return 1;
+	}
+	if (!ctx->active)
+	{
+		return 0;
+	}
+	return ctx->active->property.active != 0;
+}
+
 static int fck_nk_api_begin(fck_nk nke)
 {
 	fck_nk_private *nk = (fck_nk_private *)nke.handle;
@@ -461,6 +480,24 @@ static int fck_nk_api_begin(fck_nk nke)
 
 	const fck_window window = os_window->window;
 	fck_nk_hamburger_item *menu_items = os_window->burger.items;
+
+	// Handle activation of text input/edit events! :)
+	if (fck_nk_text_active(nke))
+	{
+		if (!os->win->text_input_active(window))
+		{
+			os->win->text_input_start(window);
+			os->io->log("Start Text Input");
+		}
+	}
+	else
+	{
+		if (os->win->text_input_active(window))
+		{
+			os->win->text_input_stop(window);
+			os->io->log("Stop Text Input");
+		}
+	}
 
 	const char *title = os->win->title(window, NULL);
 
@@ -1089,6 +1126,8 @@ static void fck_nk_input_api_events(fck_nk nke, const fck_input_event *const eve
 			case fck_pkey_return:
 				nk_input_key(nk->ctx, NK_KEY_ENTER, e->data.scalar > 0.0f);
 				break;
+			case fck_pkey_backspace:
+				nk_input_key(nk->ctx, NK_KEY_BACKSPACE, e->data.scalar > 0.0f);
 			default:
 				break;
 			}
@@ -1549,6 +1588,8 @@ static void fck_nk_panel_menu_api_pop(fck_nk nk)
 	nk_tree_pop(ctx);
 }
 
+#define fck_nuklear_element_row_height_default 24.0f
+
 static int fck_nk_elements_api_dropdown(fck_nk nk, int selected, const char *const *items, int count)
 {
 	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
@@ -1556,13 +1597,58 @@ static int fck_nk_elements_api_dropdown(fck_nk nk, int selected, const char *con
 	// const struct nk_vec2 position = nk_widget_position(ctx);
 	const struct nk_vec2 size = nk_widget_size(ctx);
 	const struct nk_vec2 dropdown_size = nk_vec2(size.x, 128.0f);
+	nk_layout_row_dynamic(ctx, fck_nuklear_element_row_height_default, 1);
+
 	return nk_combo(ctx, items, count, selected, 25, dropdown_size);
+}
+
+const fck_db_asset *fck_nk_elements_api_asset(fck_nk nk, struct fck_db *assets, const fck_db_asset *current, const char *category)
+{
+	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
+	struct nk_context *ctx = nk_internal->ctx;
+
+	fck_db_api *db = nk_internal->db;
+
+	void *it_category = db->asset->category(*assets, category);
+	{
+		const struct nk_vec2 size = nk_widget_size(ctx);
+		const struct nk_vec2 dropdown_size = nk_vec2(size.x, 128.0f);
+
+		if (nk_combo_begin_label(ctx, current ? current->path : "none", dropdown_size))
+		{
+			nk_layout_row_dynamic(ctx, 25.0f, 1);
+			if (nk_combo_item_label(ctx, "none", NK_TEXT_LEFT))
+			{
+				current = NULL;
+			}
+
+			void *it_extension = NULL;
+			const char *extension;
+			while (db->asset->extensions(*assets, it_category, &it_extension, &extension))
+			{
+				const fck_db_asset_reference *references;
+				const fckc_size_t count = db->asset->assetsof(*assets, extension, &references);
+				for (fckc_size_t index = 0; index < count; index++)
+				{
+					const fck_db_asset_reference *ref = references + index;
+					nk_layout_row_dynamic(ctx, 25.0f, 1);
+					if (nk_combo_item_label(ctx, ref->path, NK_TEXT_LEFT))
+					{
+						current = db->asset->get(*assets, ref->id, category);
+					}
+				}
+			}
+			nk_combo_end(ctx);
+		}
+	}
+	return current;
 }
 
 static fckc_f32 fck_nuklear_elements_api_f32(fck_nk nk, const char *name, fckc_f32 min, fckc_f32 val, fckc_f32 max, fckc_f32 step)
 {
 	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
 	struct nk_context *ctx = nk_internal->ctx;
+	nk_layout_row_dynamic(ctx, fck_nuklear_element_row_height_default, 1);
 	return nk_propertyf(ctx, name, min, val, max, step, 0.5f);
 }
 
@@ -1570,6 +1656,7 @@ static fckc_i32 fck_nuklear_elements_api_i32(fck_nk nk, const char *name, fckc_i
 {
 	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
 	struct nk_context *ctx = nk_internal->ctx;
+	nk_layout_row_dynamic(ctx, fck_nuklear_element_row_height_default, 1);
 	return nk_propertyi(ctx, name, min, val, max, step, 0.5f);
 }
 
@@ -1577,6 +1664,7 @@ static int fck_nuklear_elements_api_button(fck_nk nk, const char *title)
 {
 	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
 	struct nk_context *ctx = nk_internal->ctx;
+	nk_layout_row_dynamic(ctx, fck_nuklear_element_row_height_default, 1);
 	return nk_button_label(ctx, title);
 }
 
@@ -1587,17 +1675,85 @@ static void fck_nuklear_elements_api_label(fck_nk nk, const char *fmt, ...)
 
 	va_list args;
 	va_start(args, fmt);
+	nk_layout_row_dynamic(ctx, fck_nuklear_element_row_height_default, 1);
 	nk_labelfv(ctx, NK_TEXT_LEFT, fmt, args);
 	va_end(args);
 }
 
-static int fck_nuklear_elements_api_button_image(fck_nk nk, sht_image_view *image)
+static int fck_nuklear_elements_api_string(fck_nk nk, char *buffer, int len)
 {
 	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
 	struct nk_context *ctx = nk_internal->ctx;
+	nk_layout_row_dynamic(ctx, fck_nuklear_element_row_height_default, 1);
+	const nk_flags result = nk_edit_string_zero_terminated(ctx, NK_EDIT_FIELD, buffer, len, nk_filter_default);
+	return (result & NK_EDIT_COMMITED) == NK_EDIT_COMMITED;
+}
+
+static void fck_nuklear_elements_layout_image(struct nk_context *ctx, sht_image_view *image, float height)
+{
+	const float content_width = nk_widget_width(ctx);
+	const float aspect_ratio = to_f32(image->width) / to_f32(image->height);
+	float width = height * aspect_ratio;
+	if (width > content_width)
+	{
+		width = content_width;
+		height = width * (to_f32(image->height) / to_f32(image->width));
+	}
+
+	nk_layout_row_static(ctx, height, (int)width, 1);
+}
+
+static int fck_nuklear_elements_api_button_image(fck_nk nk, sht_image_view *image, float height)
+{
+	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
+	struct nk_context *ctx = nk_internal->ctx;
+
+	fck_nuklear_elements_layout_image(ctx, image, height);
 	return nk_button_image(ctx, nk_image_ptr(image));
 }
 
+static void fck_nuklear_elements_api_image(fck_nk nk, sht_image_view *image, float height)
+{
+	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
+	struct nk_context *ctx = nk_internal->ctx;
+
+	fck_nuklear_elements_layout_image(ctx, image, height);
+	nk_image(ctx, nk_image_ptr(image));
+}
+
+static void fck_nuklear_elements_api_rect(fck_nk nk, float w, float h, fck_nk_colour colour)
+{
+	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
+	struct nk_context *ctx = nk_internal->ctx;
+
+	struct nk_command_buffer *canvas;
+	struct nk_input *input = &ctx->input;
+	canvas = nk_window_get_canvas(ctx);
+
+	const float content_width = nk_widget_width(ctx);
+	const float aspect_ratio = to_f32(w) / to_f32(h);
+	if (w > content_width)
+	{
+		w = content_width;
+		h = w * (to_f32(h) / to_f32(w));
+	}
+
+	nk_layout_row_static(ctx, w, (int)h, 1);
+	struct nk_rect space;
+	enum nk_widget_layout_states state = nk_widget(&space, ctx);
+	if (!state)
+	{
+		return;
+	}
+	space.w = w;
+	space.h = h;
+	/*if (state != NK_WIDGET_ROM)
+	{
+	    update_your_widget_by_user_input(...);
+	}*/
+	//  nk_spacer(ctx);
+	nk_fill_rect(canvas, space, 0, nk_rgba(colour.r, colour.g, colour.b, colour.a));
+}
 static fck_nk_control fck_nk_api_control(fck_nk nk)
 {
 	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
@@ -1766,6 +1922,8 @@ static fck_nuklear_panel_api nuklear_panel_api = {
 	.pop = fck_nk_panel_menu_api_pop,
 };
 
+static void fck_nk_elements_api_preview(fck_nk nk, const fck_db_asset *asset);
+
 static fck_nuklear_elements_api nuklear_property_api = {
 	.f32 = fck_nuklear_elements_api_f32,
 	.i32 = fck_nuklear_elements_api_i32,
@@ -1773,6 +1931,11 @@ static fck_nuklear_elements_api nuklear_property_api = {
 	.label = fck_nuklear_elements_api_label,
 	.button_image = fck_nuklear_elements_api_button_image,
 	.dropdown = fck_nk_elements_api_dropdown,
+	.image = fck_nuklear_elements_api_image,
+	.rect = fck_nuklear_elements_api_rect,
+	.string = fck_nuklear_elements_api_string,
+	.asset = fck_nk_elements_api_asset,
+	.preview = fck_nk_elements_api_preview,
 };
 
 static fck_nuklear_api nuklear_api = {
@@ -1793,8 +1956,37 @@ static fck_nuklear_api nuklear_api = {
 	.hamburger = &nuklear_hamburger_api,
 	.pie = &nuklear_pie_api,
 	.panel = &nuklear_panel_api,
-	.elements = &nuklear_property_api,
+	.element = &nuklear_property_api,
 };
+
+static void fck_nk_elements_api_preview(fck_nk nke, const fck_db_asset *asset)
+{
+	fck_nk_private *nk = (fck_nk_private *)nke.handle;
+
+	fck_nk_asset_preview_interface *i;
+	const fck_nk_asset_preview_args args = {.asset = asset, .nk = &nuklear_api, .view = nke};
+
+	void **implementations;
+	const fckc_size_t count = apis->implementations(fck_nuklear_asset_preview_interface, &implementations);
+	fck_nk_asset_preview_interface **previews = (fck_nk_asset_preview_interface **)implementations;
+
+	fck_nk_asset_preview_interface *preview = NULL;
+	for (fckc_size_t index = 0; index < count; index++)
+	{
+		preview = implementations[index];
+		if (strcmp(preview->category, asset->category) == 0)
+		{
+			preview->preview(&args);
+			break;
+		}
+		preview = NULL;
+	}
+
+	if (preview == NULL)
+	{
+		nuklear_api.element->label(nke, "%s (%s)", asset->path, asset->category);
+	}
+}
 
 FCK_EXPORT_API fck_nuklear_api *fck_nuklear_load(fck_api_registry *registry, void *old)
 {

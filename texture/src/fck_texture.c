@@ -78,15 +78,15 @@ static sht_image fck_texture_load_image_on_gpu(sht_driver driver, const void *pi
 	return image;
 }
 
-static sht_image_view *fck_texture_asset_resolve(const fck_db_asset *asset, sht_driver *driver)
+static struct sht_image_view *fck_texture_asset_resolve(const fck_db_asset *asset, sht_driver *driver)
 {
 	if (strcmp(asset->category, fck_category_texture) != 0)
 	{
+		// Uuhhh... Maybe a return value would
 		return NULL;
 	}
 
 	fck_texture_asset *value = asset->userdata;
-
 	if (asset->timestamp >= value->resolved.timestamp)
 	{
 		sht_memory *memory = driver->vt->memory(*driver);
@@ -103,8 +103,11 @@ static sht_image_view *fck_texture_asset_resolve(const fck_db_asset *asset, sht_
 		value->resolved.image = fck_texture_load_image_on_gpu(*driver, value->textue.data, format, width, height);
 		value->resolved.view = memory->image->view(memory->bump, value->resolved.image, format);
 		value->resolved.timestamp = os->chrono->now();
+		*asset->state = fck_db_asset_state_resolved;
 	}
 	return &value->resolved.view;
+	;
+	// return &value->resolved.view;
 }
 
 static void *fck_texture_import(const fck_db_loader_args *args, const char *file)
@@ -141,8 +144,22 @@ static fckc_size_t fck_texture_supports(const char ***extensions)
 	return fck_arraysize(supported);
 }
 
+static const fck_texture *fck_texture_data(const fck_db_asset *asset)
+{
+	fck_texture_asset *value = (fck_texture_asset *)asset->userdata;
+	return &value->textue;
+}
+
+static sht_image_view *fck_texture_gpu(const fck_db_asset *asset)
+{
+	fck_texture_asset *value = (fck_texture_asset *)asset->userdata;
+	return &value->resolved.view;
+}
+
 static fck_texture_asset_api png_asset_api = {
 	.resolve = fck_texture_asset_resolve,
+	.cpu = fck_texture_data,
+	.gpu = fck_texture_gpu,
 };
 
 static fck_texture_api png_api = {

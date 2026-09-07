@@ -45,14 +45,29 @@ typedef union fck_db_id {
 	};
 } fck_db_id;
 
+typedef enum fck_db_asset_state
+{
+	fck_db_asset_state_imported,
+	fck_db_asset_state_requested,
+	fck_db_asset_state_resolved,
+} fck_db_asset_state;
+
 typedef struct fck_db_asset
 {
-	// This one being i64 is a bit awkward...
+	// TODO: Compress this one
 	fck_db_id id;
-	fckc_i64 timestamp;
+	const char *path; // or path, urgggh
 	const char *category;
+	fckc_i64 timestamp;
 	void *userdata;
+	fck_db_asset_state *state;
 } fck_db_asset;
+
+typedef struct fck_db_asset_reference
+{
+	fck_db_id id;
+	const char *path;
+} fck_db_asset_reference;
 
 typedef struct fck_db_id_set fck_db_id_set;
 
@@ -139,7 +154,7 @@ typedef struct fck_db_edit_api
 	void (*variant)(fck_db_accessor accessor, const char *property, const fck_db_property *value);
 	void (*i32)(fck_db_accessor accessor, const char *property, fckc_i32 value);
 	void (*f32)(fck_db_accessor accessor, const char *property, fckc_f32 value);
-	void (*asset)(fck_db_accessor accessor, const char *property, fck_db_asset *asset);
+	void (*asset)(fck_db_accessor accessor, const char *property, const fck_db_asset *asset);
 	void (*reference)(fck_db_accessor accessor, const char *property, fck_db_id id);
 	void (*object)(fck_db_accessor accessor, const char *property, fck_db_id id);
 	void (*memory)(fck_db_accessor accessor, const char *property, const void *data, fckc_size_t size);
@@ -161,7 +176,7 @@ typedef struct fck_db_read_api
 	fck_db_property (*variant)(fck_db_accessor accessor, const char *property);
 	fckc_i32 (*i32)(fck_db_accessor accessor, const char *property);
 	fckc_f32 (*f32)(fck_db_accessor accessor, const char *property);
-	fck_db_asset *(*asset)(fck_db_accessor accessor, const char *property);
+	const fck_db_asset *(*asset)(fck_db_accessor accessor, const char *property);
 	fck_db_id (*reference)(fck_db_accessor accessor, const char *property);
 	fck_db_id (*object)(fck_db_accessor accessor, const char *property);
 	fckc_size_t (*memory)(fck_db_accessor accessor, const char *property, const void **data);
@@ -196,14 +211,17 @@ typedef struct fck_db_id_set_api
 	int (*remove)(fck_db_id_set *set, fck_db_id id);
 
 	const fck_db_id *(*iterate)(fck_db_id_set *set, fck_db_id **it);
+	fckc_size_t (*count)(fck_db_id_set *set);
 } fck_db_id_set_api;
 
 typedef struct fck_db_object_api
 {
-	fck_db_id (*create)(fck_db db, const char *name);
+	fck_db_id (*create)(fck_db db);
 	void (*destroy)(fck_db db, fck_db_id id);
 	fck_db_accessor (*read)(fck_db db, fck_db_id id);
 	fck_db_accessor (*edit)(fck_db db, fck_db_id id);
+
+	int (*is_ok)(fck_db db, fck_db_id id);
 
 	void (*save)(struct fck_serialiser *serialiser, fck_db db, fck_db_id id);
 	void (*load)(struct fck_serialiser *serialiser, fck_db db);
@@ -211,12 +229,18 @@ typedef struct fck_db_object_api
 
 typedef struct fck_db_asset_api
 {
-	void (*setup)(fck_db external, const char *scope, const char *path);
+	void (*setup)(fck_db db, const char *scope, const char *path);
+
+	const char *(*categories)(fck_db db, void **current, const char **category);
+	void *(*category)(fck_db db, const char *name);
+
+	int (*is)(const fck_db_asset *asset, const char *category);
+
+	const char *(*extensions)(fck_db db, void *category, void **current, const char **extension);
+	fckc_size_t (*assetsof)(fck_db db, const char *extension, const fck_db_asset_reference **assets);
+
 	const fck_db_asset *(*get)(fck_db db, fck_db_id id, const char *category);
 	const fck_db_asset *(*find)(fck_db db, const char *path);
-
-	void (*edit)(fck_db_accessor accessor, const char *property, const fck_db_asset *asset);
-	fck_db_asset (*read)(fck_db_accessor accessor, const char *property);
 
 	void (*hotreload)(fck_db external);
 } fck_db_asset_api;

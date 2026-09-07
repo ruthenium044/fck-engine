@@ -72,6 +72,7 @@ typedef struct fck_window_api
 	// Wonky, but ok
 	int (*text_input_start)(fck_window window);
 	int (*text_input_stop)(fck_window window);
+	int (*text_input_active)(fck_window window);
 } fck_window_api;
 
 // This is ok

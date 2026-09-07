@@ -249,7 +249,12 @@ extern "C"
 	{
 		if (strcmp(asset->category, fck_category_shader) != 0)
 		{
-			return fck_glsl_object();
+			fck_glsl_object glsl;
+			glsl.generic.souce_byte_size = 0;
+			glsl.generic.source = nullptr;
+			glsl.generic.language = 0;
+			glsl.generic.souce_byte_size = 0;
+			return glsl;
 		}
 		fck_shader_asset *data = (fck_shader_asset *)asset->userdata;
 		return data->value;

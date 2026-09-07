@@ -22,6 +22,8 @@ typedef struct fck_texture_asset_api
 {
 	// TODO: Make it possible to create assets from memory!
 	struct sht_image_view *(*resolve)(const struct fck_db_asset *asset, struct sht_driver *driver);
+	const struct fck_texture *(*cpu)(const struct fck_db_asset *asset);
+	struct sht_image_view *(*gpu)(const struct fck_db_asset *asset);
 } fck_texture_asset_api;
 
 typedef struct fck_texture_api

@@ -206,6 +206,11 @@ static int fck_window_api_text_input_start(fck_window window)
 	return SDL_StartTextInput(to_sdl_window(window)) ? 1 : 0;
 }
 
+static int fck_window_api_text_input_active(fck_window window)
+{
+	return SDL_TextInputActive(to_sdl_window(window)) ? 1 : 0;
+}
+
 static int fck_window_api_text_input_stop(fck_window window)
 {
 	return SDL_StopTextInput(to_sdl_window(window)) ? 1 : 0;
@@ -524,6 +529,7 @@ static fck_window_api window_api = {
 	.configuration = fck_window_api_configuration,
 	.text_input_start = fck_window_api_text_input_start,
 	.text_input_stop = fck_window_api_text_input_stop,
+	.text_input_active = fck_window_api_text_input_active,
 };
 
 static fck_chrono_api chrono_api = {

@@ -21,6 +21,13 @@ else()
     set(BUILD_SHARED_LIBS ON)
 endif()
 
+# ASan
+message(STATUS "AddressSanitizer enabled")
+    # -fsanitize=address instrument code for memory check
+    # -fno-omit-frame-pointer ensures clean backtraces in bug reports
+add_compile_options(-fsanitize=address -fno-omit-frame-pointer -g)
+add_link_options(-fsanitize=address)
+
 add_library(${PROJECT_NAME} INTERFACE)
 target_sources(${PROJECT_NAME} PRIVATE ".vs/launch.vs.json")
 
@@ -36,6 +43,7 @@ add_subdirectory(texture)
 add_subdirectory(glsl-reflection)
 add_subdirectory(gfx)
 add_subdirectory(nuklear)
+add_subdirectory(nuklear-texture)
 add_subdirectory(sprite)
 add_subdirectory(api)
 add_subdirectory(plugins)

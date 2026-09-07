@@ -10,6 +10,7 @@
 
 #include <fck_apis.h>
 #include <kll.h>
+#include <kll_format.h>
 #include <kll_malloc.h>
 
 #include <fck_db.h>
@@ -58,6 +59,8 @@ typedef struct fck_sprite_stable_batch
 typedef struct fck_sprites_internal
 {
 	kll_allocator *allocator;
+	kll_arena *strings;
+
 	const char **names;
 
 	fck_sprite_stable_batch *batches;
@@ -421,7 +424,7 @@ static fckc_u32 fck_sprites_register_batch(fck_sprites_internal *sprites, const 
 		{
 			fck_sprite_stable_batch *batch = sprites->batches + sprites->count;
 			const char **batch_name = sprites->names + sprites->count;
-			*batch_name = name;
+			*batch_name = kll_format(sprites->strings, "%s", name);
 
 			*batch = fck_sprite_stable_batch_create(sprites->allocator, asset, sw, sh);
 			sprites->count = sprites->count + 1;
@@ -432,7 +435,11 @@ static fckc_u32 fck_sprites_register_batch(fck_sprites_internal *sprites, const 
 
 static fck_sprites_internal fck_sprites_create(kll_allocator *allocator)
 {
-	const fck_sprites_internal sprites = {.allocator = allocator};
+	const fck_sprites_internal sprites = {
+		.allocator = allocator,
+		.strings = kll->arena->create(allocator, 256),
+	};
+
 	return sprites;
 }
 
@@ -447,6 +454,7 @@ static void fck_sprites_destroy(fck_sprites_internal *sprites)
 		}
 		memset(sprites, 0, sizeof(*sprites));
 	}
+	kll->arena->destroy(sprites->strings);
 }
 
 // Yes
@@ -551,6 +559,19 @@ static int fck_sprite_batch_api_is_ok(fck_sprites *external, fck_sprite_batch_id
 		return 1;
 	}
 	return 0;
+}
+
+static const struct fck_db_asset *fck_sprite_batch_api_asset(fck_sprites *external, fck_sprite_batch_id index)
+{
+	fck_sprites_internal sprites = {0};
+	fck_sprites_to_internal(external, &sprites);
+
+	fck_sprite_stable_batch *batch = fck_sprites_get_batch(&sprites, index.value);
+	if (batch)
+	{
+		return batch->base.asset;
+	}
+	return NULL;
 }
 
 static struct sht_image_view *fck_sprite_batch_api_image_view(fck_sprites *external, fck_sprite_batch_id index)
@@ -722,6 +743,7 @@ static struct fck_sprites fck_sprite_api_create(struct kll_allocator *allocator,
 	db->asset->setup(*args->db, "sprite", fck_sprite_resource_path);
 	const fck_db_asset *sprite_vs = db->asset->find(*args->db, "sprite/sprite.vert");
 	const fck_db_asset *sprite_fs = db->asset->find(*args->db, "sprite/textured.frag");
+	const fck_db_asset *debug_png = db->asset->find(*args->db, "sprite/debug.png");
 
 	fck_sprites_internal sprites = fck_sprites_create(allocator);
 	fck_sprites external = {0};
@@ -761,6 +783,8 @@ static struct fck_sprites fck_sprite_api_create(struct kll_allocator *allocator,
 	// TODO: Fix up a default thing again - Maybe not making it part of the batch? Reserve 0 to be NULL? Idk! :D
 	// const fck_sprite_batch_id empty_batch = fck_sprite_batch_api_add(external_sprites, "Empty", &sprites.white_view, 32.0f, 32.0f);
 	// fck_assert(empty_batch.value == 0);
+
+	const fck_sprite_batch_id debug_batch = fck_sprite_batch_api_add(external_sprites, "null", debug_png, 8.0f, 8.0f);
 	return *external_sprites;
 }
 
@@ -860,6 +884,7 @@ static fck_sprite_batch_api sprite_batch_api = {
 	.add = fck_sprite_batch_api_add,
 	.dimensions = fck_sprite_batch_api_dimensions,
 	.image_view = fck_sprite_batch_api_image_view,
+	.asset = fck_sprite_batch_api_asset,
 	.nameof = fck_sprite_batch_api_nameof,
 	.count = fck_sprite_batch_api_count,
 	.names = fck_sprite_batch_api_names,

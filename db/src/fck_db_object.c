@@ -74,14 +74,13 @@ static fck_db_object fck_db_object_clone(kll_allocator *allocator, const fck_db_
 	return result;
 }
 
-static fck_db_id fck_db_object_api_create(fck_db external, const char *name)
+static fck_db_id fck_db_object_api_create(fck_db external)
 {
 	fck_db_private *db = external.opaque;
 	const fck_db_id id = fck_db_id_create_and_next(db);
 	// We may have to try again if this one already exists... No check for that yet... Oh boy
 	fck_db_object *entry = fck_db_add_object(db->page_table, id);
 	fck_assert(entry);
-	entry->name = name;
 	return id;
 }
 
@@ -92,7 +91,7 @@ static fck_db_accessor fck_db_object_api_edit(fck_db external, fck_db_id id)
 	fck_assert(entry);
 
 	// fck_db_object_api_create(id, entry->name);
-	const fck_db_id temp = fck_db_object_api_create(external, entry->name); // fck_db_id_advance(id);
+	const fck_db_id temp = fck_db_object_api_create(external); // fck_db_id_advance(id);
 
 	fck_db_object *copy = fck_db_resolve_object(db->page_table, temp);
 	*copy = fck_db_object_clone(db->allocator, entry);
@@ -217,7 +216,7 @@ static void fck_db_object_serialise(kll_arena *arena, fck_serialiser *serialiser
 	const fck_db_uuid uuid = fck_db_object_uuid_maybe_generate_and_get(external, id);
 	fckc_u64 uuid_u64 = fck_db_object_uuid_to_u64(entry->uuid);
 
-	serialiser->string(serialiser, fck_db_private_name, (void **)&entry->name, 1);
+	// serialiser->string(serialiser, fck_db_private_name, (void **)&entry->name, 1);
 	serialiser->u64(serialiser, fck_db_private_uuid, &uuid_u64, 1);
 
 	const fck_db_accessor reader = fck_db_object_api_read(external, id);
@@ -376,7 +375,7 @@ static fck_db_id fck_db_deserialise_object(fck_db external, fck_serialiser *s, f
 	fck_assert(object_uuid->count == 1);
 	fck_assert(object_uuid->type == fck_serialiser_u64);
 
-	const fck_db_id temp = fck_db_object_api_create(external, object_name->values->as_string);
+	const fck_db_id temp = fck_db_object_api_create(external);
 	fck_db_object_uuid_set(external, temp, fck_db_object_u64_to_uuid(object_uuid->values->as_u64));
 
 	fck_serialiser_element *signature_names = fck_db_serialiser_query(s, element->name, fck_db_private_signature "/_names");
@@ -509,6 +508,13 @@ static void fck_db_object_api_load(fck_serialiser *serialiser, fck_db external)
 	fck_db_deserialise(external, fck_db_type_object, serialiser, it);
 }
 
+static int fck_db_object_api_is_ok(fck_db external, fck_db_id id)
+{
+	fck_db_private *db = external.opaque;
+	fck_db_object *ptr = fck_db_resolve_object(db->page_table, id);
+	return ptr != NULL;
+}
+
 static fck_db_object_api db_object_api = {
 	.create = fck_db_object_api_create,
 	.destroy = fck_db_object_api_destroy,
@@ -516,6 +522,7 @@ static fck_db_object_api db_object_api = {
 	.edit = fck_db_object_api_edit,
 	.save = fck_db_object_api_save,
 	.load = fck_db_object_api_load,
+	.is_ok = fck_db_object_api_is_ok,
 };
 
 fck_db_object_api *db_object = &db_object_api;

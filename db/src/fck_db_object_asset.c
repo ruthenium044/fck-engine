@@ -13,6 +13,12 @@
 #include <stdio.h>
 #include <string.h>
 
+typedef struct fck_db_asset_private
+{
+	fck_db_asset base;
+	fck_db_asset_state state;
+} fck_db_asset_private;
+
 static fck_db_id fck_db_id_from_path(const char *path, const char *type_name)
 {
 	fckc_u32 hash = 2166136261U;
@@ -132,9 +138,9 @@ static const fck_db_asset *fck_db_asset_api_get(fck_db external, fck_db_id id, c
 			{
 				return info;
 			}
-			const char *fmt = "ERROR: Found asset is in wrong category! (Name: %s - Found: %s - Request: %s)";
-			const char *name = runtime_reader.obj->name;
-			os->io->log(fmt, name, info->category, category);
+			// Let's pray I am good enough that this path never happens
+			const char *fmt = "ERROR: Found asset is in wrong category! (Found: %s - Request: %s)";
+			os->io->log(fmt, info->category, category);
 
 			return NULL;
 		}
@@ -233,7 +239,6 @@ static fck_db_asset *fck_db_api_import_file(fck_db external, fck_db_section *sec
 		fck_db_object *entry = fck_db_ensure_object(db->page_table, blob);
 
 		fck_db_id runtime = {0};
-		entry->name = relative_path;
 
 		fck_db_api *db_api = (fck_db_api *)db->registry->find(fck_db_api_name);
 
@@ -253,7 +258,7 @@ static fck_db_asset *fck_db_api_import_file(fck_db external, fck_db_section *sec
 		}
 		else
 		{
-			runtime = db_object->create(external, absolute);
+			runtime = db_object->create(external);
 
 			const fck_db_accessor editor = db_object->edit(external, blob);
 			editor.edit->reference(editor, "runtime", runtime);
@@ -264,11 +269,13 @@ static fck_db_asset *fck_db_api_import_file(fck_db external, fck_db_section *sec
 			// Everything is unstable!
 			// We never copy properties, instead we create new chunks and then do simple pointer exchanges
 			// That means this fck_db_asset address is fucked! :)
-			fck_db_asset info = {0};
-			info.id = runtime;
-			info.timestamp = os->chrono->now();
-			info.category = loader->category;
-			info.userdata = userdata;
+			fck_db_asset_private info = {0};
+			info.base.id = blob;
+			info.base.timestamp = os->chrono->now();
+			info.base.category = loader->category;
+			info.base.userdata = userdata;
+			info.base.path = relative_path;
+			info.state = fck_db_asset_state_imported;
 
 			// We construct a proxy object to keep assets stable! :)
 			// Like mentioned above, working with userdata is so extremely hacky
@@ -282,12 +289,19 @@ static fck_db_asset *fck_db_api_import_file(fck_db external, fck_db_section *sec
 				const fck_db_accessor editor = db_object->edit(external, runtime);
 				result = editor.edit->userdata(editor, "asset", &info, sizeof(info));
 				editor.edit->commit(editor, fck_db_no_undo);
+
+				fck_db_asset_private *as_asset = (fck_db_asset_private *)result;
+				as_asset->base.state = &as_asset->state;
 			}
 			else
 			{
-				fck_db_asset *as_asset = (fck_db_asset *)result;
+				fck_db_asset_private *as_asset = (fck_db_asset_private *)result;
 				*as_asset = info;
+				as_asset->base.state = &as_asset->state;
 			}
+
+			fck_db_asset_reference *ref = db_ext_map->cache(db->allocator, db->loaders, ext, relative_path);
+			ref->id = blob;
 
 			kll->arena->destroy(temp);
 			return (fck_db_asset *)result;
@@ -426,31 +440,109 @@ static void fck_db_api_setup(fck_db external, const char *scope, const char *pat
 	os->glob->free(paths);
 }
 
-static void fck_db_asset_api_edit(fck_db_accessor accessor, const char *property, const fck_db_asset *asset)
+static const char *fck_db_asset_api_categories(fck_db external, void **current, const char **path)
 {
-	accessor.edit->memory(accessor, property, asset, sizeof(*asset));
+	fck_db_private *db = (fck_db_private *)external.opaque;
+
+	fck_db_loader_interface **loaders;
+	const fckc_size_t count = db_ext_map->loaders(db->loaders, &loaders);
+	fck_db_loader_interface **last = loaders + count;
+	// All of this shit will break as soon as category is not the first member anymore
+	// Such a change will be so fucking fun, so I leave it around
+	if (*current == NULL)
+	{
+		*current = loaders;
+	}
+	else
+	{
+		fck_db_loader_interface **loader = (fck_db_loader_interface **)*current;
+		loader = loader + 1;
+		*current = loader;
+	}
+	if (*current == last)
+	{
+		// Done
+		return NULL;
+	}
+	{
+		fck_db_loader_interface **loader = (fck_db_loader_interface **)*current;
+		*path = (*loader)->category;
+	}
+	return *path;
 }
 
-static fck_db_asset fck_db_asset_api_read(fck_db_accessor accessor, const char *property)
+static void *fck_db_asset_api_category(fck_db external, const char *name)
 {
-	fck_db_asset *asset = NULL;
-	const fckc_size_t size = accessor.read->memory(accessor, property, (const void **)&asset);
-	if (size == 0)
+	fck_db_private *db = (fck_db_private *)external.opaque;
+
+	fck_db_loader_interface **loaders;
+	const fckc_size_t count = db_ext_map->loaders(db->loaders, &loaders);
+	fck_db_loader_interface **last = loaders + count;
+
+	for (fckc_size_t index = 0; index < count; index++)
 	{
-		return (fck_db_asset){0};
+		fck_db_loader_interface *loader = loaders[index];
+		if (strcmp(loader->category, name) == 0)
+		{
+			return loaders + index;
+		}
 	}
-	fck_assert(size == sizeof(*asset));
-	return *asset;
+	return NULL;
+}
+
+static const char *fck_db_asset_api_extensions(fck_db external, void *category, void **current, const char **ext)
+{
+	fck_db_private *db = (fck_db_private *)external.opaque;
+	fck_db_loader_interface **loader = (fck_db_loader_interface **)category;
+
+	const char **extensions;
+	const fckc_size_t count = (*loader)->supports(&extensions);
+	const char **last = extensions + count;
+
+	if (*current == NULL)
+	{
+		*current = extensions;
+	}
+	else
+	{
+		const char **extension = (const char **)*current;
+		extension = extension + 1;
+		*current = extension;
+	}
+	if (*current == last)
+	{
+		return NULL;
+	}
+	{
+		const char **extension = (const char **)*current;
+		*ext = *extension;
+	}
+	return *ext;
+}
+
+static fckc_size_t fck_db_asset_api_assetsof(fck_db external, const char *extension, const fck_db_asset_reference **assets)
+{
+	fck_db_private *db = (fck_db_private *)external.opaque;
+	return db_ext_map->listof(db->loaders, extension, assets);
+}
+
+int fck_db_asset_api_is(const fck_db_asset *asset, const char *category)
+{
+	return strcmp(asset->category, category) == 0;
 }
 
 static fck_db_asset_api db_asset_api = {
+	.categories = fck_db_asset_api_categories,
+	.category = fck_db_asset_api_category,
+	.extensions = fck_db_asset_api_extensions,
+	.assetsof = fck_db_asset_api_assetsof,
+
+	.is = fck_db_asset_api_is,
+
 	.find = fck_db_asset_api_find,
 	.get = fck_db_asset_api_get,
 	.setup = fck_db_api_setup,
 	.hotreload = fck_db_api_hotreload,
-
-	.edit = fck_db_asset_api_edit,
-	.read = fck_db_asset_api_read,
 
 };
 

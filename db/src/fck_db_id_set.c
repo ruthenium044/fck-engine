@@ -17,10 +17,10 @@
 
 static fck_db_id_set *fck_db_id_set_api_create(struct kll_allocator *allocator, fckc_size_t capacity)
 {
-	const fckc_size_t total = offsetof(fck_db_id_set, values[capacity]);
+	const fckc_size_t total = offsetof(fck_db_id_set, values[capacity * 2]);
 	fck_db_id_set *result = (fck_db_id_set *)kll_malloc(allocator, total);
 	memset(result, 0, total);
-	result->capacity = capacity;
+	result->capacity = capacity * 2;
 	return result;
 }
 
@@ -151,6 +151,11 @@ static const fck_db_id *fck_db_id_set_api_iterate(fck_db_id_set *set, fck_db_id 
 	return NULL;
 }
 
+fckc_size_t fck_db_id_set_api_count(fck_db_id_set *set)
+{
+	return set->count;
+}
+
 static fck_db_id_set_api db_id_set_api = {
 	.create = fck_db_id_set_api_create,
 	.destroy = fck_db_id_set_api_destroy,
@@ -158,6 +163,7 @@ static fck_db_id_set_api db_id_set_api = {
 	.contains = fck_db_id_set_api_contains,
 	.remove = fck_db_id_set_api_remove,
 	.iterate = fck_db_id_set_api_iterate,
+	.count = fck_db_id_set_api_count,
 };
 
 fck_db_id_set_api *db_id_set = &db_id_set_api;

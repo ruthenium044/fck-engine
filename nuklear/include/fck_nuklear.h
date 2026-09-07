@@ -5,6 +5,7 @@
 
 // Even if I move away from nuklear, I will keep close to its API
 #define fck_nuklear_api_name "fck-nuklear"
+#define fck_nuklear_asset_preview_interface "fck-nuklear-asset-preview"
 
 typedef enum fck_nuklear_theme
 {
@@ -153,20 +154,46 @@ struct sht_driver;
 struct sht_command_buffer;
 struct sht_image_view;
 struct fck_db;
+struct fck_db_asset;
+struct fck_nuklear_api;
+
+typedef struct fck_nk_asset_preview_args
+{
+	struct fck_nuklear_api *nk;
+	fck_nk view;
+	const struct fck_db_asset *asset;
+} fck_nk_asset_preview_args;
+
+typedef struct fck_nk_asset_preview_interface
+{
+	const char *category;
+	void (*preview)(const fck_nk_asset_preview_args *args);
+} fck_nk_asset_preview_interface;
 
 // TODO: Debug loggin on interaction setting!
 typedef struct fck_nuklear_elements_api
 {
 	fckc_f32 (*f32)(fck_nk nk, const char *name, fckc_f32 min, fckc_f32 val, fckc_f32 max, fckc_f32 step);
 	fckc_i32 (*i32)(fck_nk nk, const char *name, fckc_i32 min, fckc_i32 val, fckc_i32 max, fckc_i32 step);
+	int (*string)(fck_nk nk, char *buffer, int len);
 
 	int (*dropdown)(fck_nk nk, int selected, const char *const *items, int count);
 	int (*button)(fck_nk nk, const char *title);
 
 	// Image drawing works like this, let's clean it all up!
-	int (*button_image)(fck_nk nk, struct sht_image_view *image);
+	// TODO: FLOAT!! HEIGHT!!
+	int (*button_image)(fck_nk nk, struct sht_image_view *image, float height);
+	void (*image)(fck_nk nk, struct sht_image_view *image, float height);
 
 	void (*label)(fck_nk nk, const char *fmt, ...);
+
+	void (*rect)(fck_nk nk, float w, float h, fck_nk_colour colour);
+
+	const struct fck_db_asset *(*asset)(fck_nk nk, struct fck_db *db, const struct fck_db_asset *current, const char *category);
+	// void (*preview)(fck_nk nk, const struct fck_db_asset *asset, fck_nk_preview *func);
+	//  TODO: (*preview)
+	void (*preview)(fck_nk nk, const struct fck_db_asset *asset);
+
 } fck_nuklear_elements_api;
 
 typedef struct fck_nuklear_panel_api
@@ -197,7 +224,7 @@ typedef struct fck_nuklear_api
 	fck_nuklear_input_api *input;
 	fck_nuklear_pie_api *pie;
 	fck_nuklear_panel_api *panel;
-	fck_nuklear_elements_api *elements;
+	fck_nuklear_elements_api *element;
 
 	int (*begin)(fck_nk nk);
 	void (*end)(fck_nk nk);

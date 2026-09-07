@@ -105,6 +105,7 @@ typedef struct fck_shader_api
 {
 	fck_shader_asset_api *asset;
 
+	// TODO: Too much shit runs through the compiler...
 	fck_shader_compiler (*create)(void);
 	int (*is_ok)(fck_shader_compiler compiler);
 } fck_shader_api;

@@ -13,7 +13,7 @@
                 "-assets = \"${workspaceFolder}/app/assets/\""
             ],
             "stopAtEntry": false,
-            "cwd": "${fileDirname}",
+            "cwd": "${command:cmake.buildDirectory}",
             "environment": [],
             "externalConsole": false,
             "MIMode": "lldb"

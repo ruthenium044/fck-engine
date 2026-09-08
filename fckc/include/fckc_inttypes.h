@@ -3,16 +3,19 @@
 #ifndef FCKC_INTTYPES_H_INCLUDED
 #define FCKC_INTTYPES_H_INCLUDED
 
-#include <inttypes.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #define fck_arraysize(array) (sizeof(array) / sizeof((array)[0]))
 
 #define fck_alias(original, alias) alias
 
 // Semantics types...
+// I start doubting these
 typedef float fckc_f32;
 typedef double fckc_f64;
+
+typedef char fckc_char;
 
 typedef int8_t fckc_i8;
 typedef uint8_t fckc_u8;
@@ -29,69 +32,20 @@ typedef uint64_t fckc_u64;
 typedef size_t fckc_size_t;
 typedef uintptr_t fckc_uintptr;
 
-#define to_f32(x) ((fckc_f32)x)
-#define to_f64(x) ((fckc_f64)x)
-#define to_u8(x) ((fckc_u8)x)
-#define to_u16(x) ((fckc_u16)x)
-#define to_u32(x) ((fckc_u32)x)
-#define to_u64(x) ((fckc_u64)x)
-#define to_i8(x) ((fckc_i8)x)
-#define to_i16(x) ((fckc_i16)x)
-#define to_i32(x) ((fckc_i32)x)
-#define to_i64(x) ((fckc_i64)x)
+// Prefer these - I do not doubt these
+#define to_f32(x) ((fckc_f32)(x))
+#define to_f64(x) ((fckc_f64)(x))
+#define to_u8(x) ((fckc_u8)(x))
+#define to_u16(x) ((fckc_u16)(x))
+#define to_u32(x) ((fckc_u32)(x))
+#define to_u64(x) ((fckc_u64)(x))
+#define to_i8(x) ((fckc_i8)(x))
+#define to_i16(x) ((fckc_i16)(x))
+#define to_i32(x) ((fckc_i32)(x))
+#define to_i64(x) ((fckc_i64)(x))
 
-#define to_size_t(x) ((fckc_size_t)x)
-#define to_int(x) ((int)x)
-
-// TODO: Remove all this junk below... it is part of math...
-
-#define FCK_NAMED_VECTOR_TYPE(name, type)                                                                                                  \
-	typedef union fckc_##name##x1 {                                                                                                        \
-		struct                                                                                                                             \
-		{                                                                                                                                  \
-			type x;                                                                                                                        \
-		};                                                                                                                                 \
-		type v[1];                                                                                                                         \
-	} fckc_##name##x1;                                                                                                                     \
-	typedef union fckc_##name##x2 {                                                                                                        \
-		struct                                                                                                                             \
-		{                                                                                                                                  \
-			type x;                                                                                                                        \
-			type y;                                                                                                                        \
-		};                                                                                                                                 \
-		type v[2];                                                                                                                         \
-	} fckc_##name##x2;                                                                                                                     \
-	typedef union fckc_##name##x3 {                                                                                                        \
-		struct                                                                                                                             \
-		{                                                                                                                                  \
-			type x;                                                                                                                        \
-			type y;                                                                                                                        \
-			type z;                                                                                                                        \
-		};                                                                                                                                 \
-		type v[3];                                                                                                                         \
-	} fckc_##name##x3;                                                                                                                     \
-	typedef union fckc_##name##x4 {                                                                                                        \
-		struct                                                                                                                             \
-		{                                                                                                                                  \
-			type x;                                                                                                                        \
-			type y;                                                                                                                        \
-			type z;                                                                                                                        \
-			type w;                                                                                                                        \
-		};                                                                                                                                 \
-		type v[4];                                                                                                                         \
-	} fckc_##name##x4
-
-// Maybe just expand them...
-FCK_NAMED_VECTOR_TYPE(f32, fckc_f32);
-FCK_NAMED_VECTOR_TYPE(f64, fckc_f64);
-FCK_NAMED_VECTOR_TYPE(i8, fckc_i8);
-FCK_NAMED_VECTOR_TYPE(i16, fckc_i16);
-FCK_NAMED_VECTOR_TYPE(i32, fckc_i32);
-FCK_NAMED_VECTOR_TYPE(i64, fckc_i64);
-FCK_NAMED_VECTOR_TYPE(u8, fckc_u8);
-FCK_NAMED_VECTOR_TYPE(u16, fckc_u16);
-FCK_NAMED_VECTOR_TYPE(u32, fckc_u32);
-FCK_NAMED_VECTOR_TYPE(u64, fckc_u64);
+#define to_size_t(x) ((fckc_size_t)(x))
+#define to_int(x) ((int)(x))
 
 #define fck_scope_str_concat(lhs, rhs) lhs##rhs
 #define fck_scope_unique(lhs, rhs) fck_scope_str_concat(lhs, rhs)
@@ -104,12 +58,35 @@ FCK_NAMED_VECTOR_TYPE(u64, fckc_u64);
 #endif
 
 #ifndef alignof
-#define alignof(type)                                                                                                                      \
-	((size_t)((char *)&((struct {                                                                                                          \
-				  char c;                                                                                                                  \
-				  type t;                                                                                                                  \
-			  } *)0)                                                                                                                       \
-	              ->t))
+#if defined(__cplusplus)
+	// Native alignof is already available, do nothing.
+// The issue with this shit here is that alignof behaves slightly different
+// The fallback using offsetof actually does not allow passing in non-type input
+// while some compiler extensions do...
+#elif defined(__GNUC__) || defined(__clang__)
+#define alignof(type) __alignof__(type)
+#elif defined(_MSC_VER)
+#define alignof(type) __alignof(type)
+#else
+#define alignof(type) (offsetof(struct { char c; type t; }, t)
 #endif
+#endif
+
+#define fckc_align(offset, align) (((offset) + (align) - 1) & ~((align) - 1))
+
+#define fckc_concat_implementation(x, y) x##y
+#define fckc_concat(x, y) fckc_concat_implementation(x, y)
+#define fckc_pad(n) char fckc_concat(_padding_, __LINE__)[n]
+
+#define fckc_pointer_add(ptr, offset) ((void *)((fckc_u8 *)(ptr) + (offset)))
+
+#define fck_kilobytes(x) ((fckc_size_t)(x) * 1024UL)
+#define fck_megabytes(x) ((fckc_size_t)(x) * 1024UL * 1024UL)
+#define fck_gigabytes(x) ((fckc_size_t)(x) * 1024UL * 1024UL * 1024UL)
+
+// Rename to fck_test
+#define sht_test(mask, flag) (((mask) & (flag)) == (flag))
+
+#define fck_bitmask(value) ((value) >= 64 ? ~0ULL : ((1ULL << (value)) - 1ULL))
 
 #endif // !FCKC_INTTYPES_H_INCLUDED

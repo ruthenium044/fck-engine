@@ -1,49 +1,62 @@
-# Super Async Development
-cmake_minimum_required(VERSION 3.28)
-
-project(fck-app)
+# fckc
+cmake_minimum_required(VERSION 3.20)
 
 include_guard(GLOBAL)
 
-# I should make this a command line argument
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
+project(fck-app)
 
-if (NOT DEFINED FCK_WORKSPACE_PATH)
-    set(FCK_WORKSPACE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/.." CACHE PATH "Workspace Path")
-endif()
+add_executable(${PROJECT_NAME})
+target_sources(${PROJECT_NAME} PRIVATE "main.c")
+target_sources(${PROJECT_NAME} PRIVATE "fck_serialiser_json.c")
+target_sources(${PROJECT_NAME} PRIVATE "fck_serialiser_json.h")
+target_sources(${PROJECT_NAME} PRIVATE "yyjson.c")
+target_sources(${PROJECT_NAME} PRIVATE "yyjson.h")
 
-file(GLOB_RECURSE FOUND_APP_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/include/**.h")
-file(GLOB_RECURSE FOUND_APP_C_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/**.c")
 
-#add_executable(${PROJECT_NAME} ${FOUND_APP_C_SOURCES})
-add_library(${PROJECT_NAME} SHARED ${FOUND_RENDER_SDL_C_SOURCES})
+#if(MSVC)
+#    target_compile_options(${PROJECT_NAME} PRIVATE /W4 /WX /we4244)
+#else()
+#    target_compile_options(${PROJECT_NAME} PRIVATE
+#        -Weverything
+#    )
+#endif()
 
-target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+find_package(api)
+find_package(os)
+find_package(hash)
+find_package(kll)
+find_package(input)
+find_package(plugins)
+find_package(render)
+find_package(shader)
+find_package(texture)
+find_package(gfx)
+find_package(nuklear)
+find_package(sprite)
+find_package(ec)
+find_package(gameloop)
+find_package(db)
+find_package(serialiser)
 
-target_sources(${PROJECT_NAME}
-    PRIVATE ${FOUND_APP_C_SOURCES}
-    PRIVATE ${FOUND_APP_HEADERS} 
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::hash)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::os)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::kll)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::input)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::api-interface)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::plugins-interface)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::nuklear-interface)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::texture-interface)
+# Should this be fck::render-interface? 
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::render)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::serialiser)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::gameloop)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::shader-interface)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::gfx-interface)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::sprite-interface)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::ec-interface)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::db-interface)
+
+# this needs to get substituted well...
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+    fck_resource_path="${CMAKE_CURRENT_SOURCE_DIR}/resources/"
 )
-
-# TODO: We should not spill this bad boy out
-target_compile_definitions(${PROJECT_NAME} PRIVATE FCK_APP_ASSET_PATH="${CMAKE_CURRENT_SOURCE_DIR}/assets/")
-
-find_package(fck-lib CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH})
-find_package(fckc CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-find_package(ser-ext CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-find_package(ser-json CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-find_package(kll CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-find_package(set CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-find_package(dynarr CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-find_package(canvas CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-find_package(imgui CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-find_package(render CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-find_package(render-sdl CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-find_package(events CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-find_package(app-loadable CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-find_package(main CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-
-#find_package(img CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-find_package(img-sdl CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-target_link_libraries(${PROJECT_NAME} PRIVATE fck::fckc fck::hash fck::kll fck::events fck::app-loadable fck::img fck::img-sdl fck::render fck::render-sdl fck::imgui fck::canvas fck::ser-ext fck::set fck::dynarr fck::ser-json fck::std fck::ts fck::api)

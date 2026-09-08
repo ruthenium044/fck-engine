@@ -1,24 +1,16 @@
 # fckc
 cmake_minimum_required(VERSION 3.20)
+include_guard(GLOBAL)
 
 project(fckc)
 
-include_guard(GLOBAL)
-
 add_library(${PROJECT_NAME} INTERFACE)
-add_library(fck::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
+add_library(fck::fckc ALIAS ${PROJECT_NAME})
 
-file(GLOB_RECURSE FCKC_HEADERS CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h"
-)
+target_include_directories(${PROJECT_NAME} INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
-add_custom_target(${PROJECT_NAME}-headers SOURCES ${FCKC_HEADERS} "include/fckc_assert.h")
-add_dependencies(${PROJECT_NAME}-headers fck::${PROJECT_NAME})
-
-target_include_directories(${PROJECT_NAME} INTERFACE
-    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-    "$<INSTALL_INTERFACE:include>"
-)
-
-set_target_properties(${PROJECT_NAME}-headers PROPERTIES FOLDER "fck-lib")
-
+target_sources(${PROJECT_NAME} PRIVATE "include/fckc_apidef.h")
+target_sources(${PROJECT_NAME} PRIVATE "include/fckc_assert.h")
+target_sources(${PROJECT_NAME} PRIVATE "include/fckc_atomic.h")
+target_sources(${PROJECT_NAME} PRIVATE "include/fckc_inttypes.h")
+target_sources(${PROJECT_NAME} PRIVATE "include/fckc_math.h")

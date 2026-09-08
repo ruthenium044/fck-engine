@@ -1,0 +1,56 @@
+# fckc
+cmake_minimum_required(VERSION 3.20)
+
+include_guard(GLOBAL)
+
+project(fck-db)
+
+find_package(api)
+find_package(os)
+find_package(hash)
+find_package(kll)
+find_package(fckc)
+find_package(serialiser)
+
+add_library(${PROJECT_NAME})
+add_library(${PROJECT_NAME}-interface INTERFACE)
+
+add_library(fck::db ALIAS ${PROJECT_NAME})
+add_library(fck::db-interface ALIAS ${PROJECT_NAME}-interface)
+
+target_include_directories(${PROJECT_NAME}-interface INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+target_sources(${PROJECT_NAME}-interface PRIVATE "include/fck_db.h")
+
+target_sources(${PROJECT_NAME} PRIVATE "src/fck_db_core.inl")
+target_sources(${PROJECT_NAME} PRIVATE "src/fck_db_object_page_table.h")
+target_sources(${PROJECT_NAME} PRIVATE "src/fck_db_object_page_table.c")
+target_sources(${PROJECT_NAME} PRIVATE "src/fck_db_id_set.h")
+target_sources(${PROJECT_NAME} PRIVATE "src/fck_db_id_set.c")
+target_sources(${PROJECT_NAME} PRIVATE "src/fck_db_accessor_read.h")
+target_sources(${PROJECT_NAME} PRIVATE "src/fck_db_accessor_read.c")
+target_sources(${PROJECT_NAME} PRIVATE "src/fck_db_accessor_edit.h")
+target_sources(${PROJECT_NAME} PRIVATE "src/fck_db_accessor_edit.c")
+target_sources(${PROJECT_NAME} PRIVATE "src/fck_db_accessor_ok.h")
+target_sources(${PROJECT_NAME} PRIVATE "src/fck_db_accessor_ok.c")
+target_sources(${PROJECT_NAME} PRIVATE "src/fck_db_object.h")
+target_sources(${PROJECT_NAME} PRIVATE "src/fck_db_object.c")
+target_sources(${PROJECT_NAME} PRIVATE "src/fck_db_undo.h")
+target_sources(${PROJECT_NAME} PRIVATE "src/fck_db_undo.c")
+target_sources(${PROJECT_NAME} PRIVATE "src/fck_db_guid_id_map.h")
+target_sources(${PROJECT_NAME} PRIVATE "src/fck_db_guid_id_map.c")
+target_sources(${PROJECT_NAME} PRIVATE "src/fck_db_object_properties.h")
+target_sources(${PROJECT_NAME} PRIVATE "src/fck_db_object_properties.c")
+target_sources(${PROJECT_NAME} PRIVATE "src/fck_db_object_asset.h")
+target_sources(${PROJECT_NAME} PRIVATE "src/fck_db_object_asset.c")
+target_sources(${PROJECT_NAME} PRIVATE "src/fck_db_ext_map.h")
+target_sources(${PROJECT_NAME} PRIVATE "src/fck_db_ext_map.c")
+target_sources(${PROJECT_NAME} PRIVATE "src/fck_db.c")
+
+target_link_libraries(${PROJECT_NAME} PRIVATE ${PROJECT_NAME}-interface)
+target_link_libraries(${PROJECT_NAME}-interface INTERFACE fck::fckc)
+
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::hash)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::os)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::serialiser)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::kll)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::api-interface)

@@ -3,7 +3,7 @@
 #define FCK_HASH_H_INCLUDED
 
 // TODO: The first case should trigger a compile time error
-#define FCK_STATIC_HASH_NO_HASH_EXISTS(str) sizeof("" str "") / 0
+#define FCK_STATIC_HASH_NO_HASH_EXISTS(str) (sizeof("" str "") / 0)
 #define FCK_STATIC_HASH_HASH_EXISTS(str, h) (sizeof("" str "") ? (h) : (h))
 #define FCK_STATIC_HASH_CHOOSE(X, SELECT, ...) SELECT
 
@@ -20,14 +20,15 @@ static fck_hash_int fck_hash(const char *str, int length)
 
 	for (int index = 0; index < length; index++)
 	{
-		char c = str[index];
-		if (c == 0)
-		{
-			break;
-		}
+		const char c = str[index];
 		hash = ((hash << 5) + hash) + (unsigned char)c;
 	}
 	return hash;
+}
+
+static fck_hash_int fck_hash_combine(fck_hash_int lhs, fck_hash_int rhs)
+{
+	return lhs ^ (rhs + 0x9e3779b9 + (lhs << 6) + (lhs >> 2));
 }
 
 #endif // !FCK_HASH_H_INCLUDED

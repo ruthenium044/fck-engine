@@ -1,0 +1,1 @@
+add_subdirectory(../bird-game bird-game)

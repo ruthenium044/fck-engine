@@ -1,33 +1,24 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(fck-api)
-
 include_guard(GLOBAL)
 
-add_library(${PROJECT_NAME} SHARED ${CMAKE_CURRENT_SOURCE_DIR}/src/fck_apis.c)
+project(fck-api)
+
+find_package(hash)
+find_package(fckc)
+
+add_library(${PROJECT_NAME})
+add_library(${PROJECT_NAME}-interface INTERFACE)
+
 add_library(fck::api ALIAS ${PROJECT_NAME})
+add_library(fck::api-interface ALIAS ${PROJECT_NAME}-interface)
 
-target_sources(${PROJECT_NAME}
-    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include/fck_apis.h
-    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/fck_apis.c
-)
+target_include_directories(${PROJECT_NAME}-interface INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
-target_include_directories(${PROJECT_NAME}
-    PUBLIC
-        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-        "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
-)
+target_link_libraries(${PROJECT_NAME}-interface INTERFACE fck::fckc fck::hash)
+target_sources(${PROJECT_NAME}-interface PRIVATE "include/fck_apis.h")
 
+target_sources(${PROJECT_NAME} PRIVATE "src/fck_apis.c")
 
-
-find_package(hash CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-find_package(fckc CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-find_package(kll CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-find_package(std CONFIG REQUIRED PATHS ${FCK_WORKSPACE_PATH} ..)
-target_link_libraries(${PROJECT_NAME} PRIVATE fck::fckc fck::kll fck::hash fck::std)
-set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "" FOLDER "fck-lib")
-
-
-add_executable(${PROJECT_NAME}-test test/main.c)
-target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
-set_target_properties(${PROJECT_NAME}-test PROPERTIES FOLDER "fck-tests")
+target_link_libraries(${PROJECT_NAME} PUBLIC ${PROJECT_NAME}-interface)
+target_link_libraries(${PROJECT_NAME}-interface INTERFACE fck::fckc)

@@ -47,34 +47,34 @@ typedef struct fck_test_app_application
 {
 	fck_window window;
 
-	sht_sampler sampler;
-	sht_image texture_image;
+	sht_sampler    sampler;
+	sht_image      texture_image;
 	sht_image_view texture_view;
-	fck_input *input;
+	fck_input     *input;
 
-	sht_mvp mvp;
-	sht_bss bss;
+	sht_mvp      mvp;
+	sht_bss      bss;
 	sht_elements vertices;
 	sht_elements indices;
 
 	sht_graphics_pipeline pipeline;
-	sht_image depth_image;
-	sht_image_view depth_view;
+	sht_image             depth_image;
+	sht_image_view        depth_view;
 
 	sht_instance instance;
-	sht_driver driver;
+	sht_driver   driver;
 } fck_test_app_application;
 
 typedef fck_input *(fck_input_load_prototype)(void);
 #define to_fck_input_load(v) (fck_input_load_prototype *)(v)
-#define fck_input_load_name "fck_input_load"
+#define fck_input_load_name  "fck_input_load"
 
 static fck_api_registry *fck_api_registry_load(const char *path)
 {
 	// This badboy needs to get released
-	const fck_shared_object so = os->so->load(path);
-	fck_load_func *loader = (fck_load_func *)os->so->symbol(so, "fck_api_load");
-	fck_api_registry *registry = (fck_api_registry *)loader(NULL, NULL);
+	const fck_shared_object so       = os->so->load(path);
+	fck_load_func          *loader   = (fck_load_func *)os->so->symbol(so, "fck_api_load");
+	fck_api_registry       *registry = (fck_api_registry *)loader(NULL, NULL);
 	return registry;
 }
 
@@ -88,9 +88,9 @@ fck_test_app_result fck_test_app_app_init(void **app_state, int argc, char **arg
 
 	app->window = os->win->create("fck-vk", 1400, 600);
 
-	fck_shared_object api_so = os->so->load("fck-render-vk");
+	fck_shared_object api_so    = os->so->load("fck-render-vk");
 	fck_shared_object shader_so = os->so->load("fck-shader");
-	fck_shader_api *shader_api =
+	fck_shader_api   *shader_api =
 		(fck_shader_api *)((void *(*)(void *, void *))os->so->symbol(shader_so, "fck_shader_load"))(registry, NULL);
 	sht_render_api *loader = (sht_render_api *)((void *(*)(void *, void *))os->so->symbol(api_so, "fck_render_vk_load"))(registry, NULL);
 
@@ -127,8 +127,8 @@ fck_test_app_result fck_test_app_app_init(void **app_state, int argc, char **arg
 	memcpy(app->mvp.view, mvp_view, sizeof(mvp_view));
 	memcpy(app->mvp.model, mvp_model, sizeof(mvp_model));
 
-	sht_driver driver = app->driver;
-	sht_memory *mem = driver.vt->memory(driver);
+	sht_driver    driver    = app->driver;
+	sht_memory   *mem       = driver.vt->memory(driver);
 	sht_swapchain swapchain = driver.vt->swapchain(driver);
 
 	sht_standard_vertex vertex_data[] = {
@@ -138,44 +138,44 @@ fck_test_app_result fck_test_app_app_init(void **app_state, int argc, char **arg
 		{.position = {1.0f, 0.0f, 0.0f}, .color = {1.0f, 1.0f, 1.0f}, .uv = {1.0f, 0.0f}},
 	};
 
-	app->vertices.count = fck_arraysize(vertex_data);
+	app->vertices.count  = fck_arraysize(vertex_data);
 	app->vertices.buffer = mem->malloc(mem->bump, &sht_buffer_target(sht_buffer_usage_vertex, sizeof(vertex_data)), sht_memory_gpu);
 
 	fckc_u32 index_data[] = {0, 1, 2, 1, 3, 2};
-	app->indices.count = fck_arraysize(index_data);
-	app->indices.buffer = mem->malloc(mem->bump, &sht_buffer_target(sht_buffer_usage_index, sizeof(index_data)), sht_memory_gpu);
+	app->indices.count    = fck_arraysize(index_data);
+	app->indices.buffer   = mem->malloc(mem->bump, &sht_buffer_target(sht_buffer_usage_index, sizeof(index_data)), sht_memory_gpu);
 
 	{
 		driver.vt->upload_buffer(driver, &app->vertices.buffer, vertex_data, sizeof(vertex_data));
 		driver.vt->upload_buffer(driver, &app->indices.buffer, index_data, sizeof(index_data));
 	}
 
-	app->sampler = driver.vt->create_sampler(driver, sht_filter_linear);
+	app->sampler       = driver.vt->create_sampler(driver, sht_filter_linear);
 	app->texture_image = mem->image->create(mem->bump,
 	                                        &(sht_image_configuration){
-												.format = sht_format_r8g8b8a8_unorm,
-												.width = 4,
-												.height = 1,
+												.format   = sht_format_r8g8b8a8_unorm,
+												.width    = 4,
+												.height   = 1,
 												.transfer = sht_transfer_target,
-												.usage = sht_image_usage_sampled,
+												.usage    = sht_image_usage_sampled,
 											},
 	                                        sht_memory_gpu);
-	app->texture_view = mem->image->view(mem->bump, app->texture_image, sht_format_r8g8b8a8_unorm);
+	app->texture_view  = mem->image->view(mem->bump, app->texture_image, sht_format_r8g8b8a8_unorm);
 
 	fckc_u32 pixels[] = {0xFF0000FF, 0xFFFF0000, 0xFF00FF00, 0xFFFFFFFF};
 	driver.vt->upload_image(driver, &app->texture_image, pixels, sizeof(pixels));
 
-	sht_extent extent = swapchain.vt->extent(swapchain);
+	sht_extent              extent = swapchain.vt->extent(swapchain);
 	sht_image_configuration config = (sht_image_configuration){
-		.format = sht_format_d16_unorm,
-		.width = (fckc_u32)extent.width,
-		.height = (fckc_u32)extent.height,
+		.format   = sht_format_d16_unorm,
+		.width    = (fckc_u32)extent.width,
+		.height   = (fckc_u32)extent.height,
 		.transfer = sht_transfer_retained,
-		.usage = sht_image_usage_depth_stencil_attachment,
+		.usage    = sht_image_usage_depth_stencil_attachment,
 	};
 
 	app->depth_image = mem->image->create(mem->bump, &config, sht_memory_gpu);
-	app->depth_view = mem->image->view(mem->bump, app->depth_image, sht_format_undefined);
+	app->depth_view  = mem->image->view(mem->bump, app->depth_image, sht_format_undefined);
 
 	sht_binding bindings[] = {
 		{.id = 0, .type = sht_binding_uniform, .stages = sht_stage_vertex_shader},
@@ -187,27 +187,27 @@ fck_test_app_result fck_test_app_app_init(void **app_state, int argc, char **arg
 	{
 		fck_shader_compiler compiler = shader_api->create();
 
-		fck_file vert_file = os->fs->open("hlsl/triangle.vert", "r");
+		fck_file        vert_file = os->fs->open("hlsl/triangle.vert", "r");
 		fck_shader_desc vert_desc = (fck_shader_desc){fck_shader_vertex, "triangle-vert", "main"};
 
-		fck_file frag_file = os->fs->open("hlsl/triangle.frag", "r");
+		fck_file        frag_file = os->fs->open("hlsl/triangle.frag", "r");
 		fck_shader_desc frag_desc = (fck_shader_desc){fck_shader_fragment, "triangle-frag", "main"};
 
 		fck_hlsl_object vert = compiler.create_hlsl_from_file(&compiler, &vert_desc, &vert_file);
 		fck_hlsl_object frag = compiler.create_hlsl_from_file(&compiler, &frag_desc, &frag_file);
 
-		sht_graphic_desc desc = (sht_graphic_desc){.fragment = &frag.generic,
-		                                           .vertex = &vert.generic,
-		                                           .vertex_desc = &(sht_vertex_desc){.stride = sizeof(sht_standard_vertex),
+		sht_graphic_desc desc = (sht_graphic_desc){.fragment    = &frag.generic,
+		                                           .vertex      = &vert.generic,
+		                                           .vertex_desc = &(sht_vertex_desc){.stride   = sizeof(sht_standard_vertex),
 		                                                                             .bindings = vertex_bindings,
-		                                                                             .count = fck_arraysize(vertex_bindings)},
-		                                           .raster = (sht_raster_desc){
-													   .cull_mode = sht_cull_mode_none,
-													   .topology = sht_triangle_list,
-													   .color = sht_format_b8g8r8a8_unorm,
-													   .depth = sht_format_d16_unorm,
-												   }};
-		app->pipeline = driver.vt->graphics_pipeline->create(driver, app->bss, &desc);
+		                                                                             .count    = fck_arraysize(vertex_bindings)},
+		                                           .raster      = (sht_raster_desc){
+															.cull_mode = sht_cull_mode_none,
+															.topology  = sht_triangle_list,
+															.color     = sht_format_b8g8r8a8_unorm,
+															.depth     = sht_format_d16_unorm,
+                                                   }};
+		app->pipeline         = driver.vt->graphics_pipeline->create(driver, app->bss, &desc);
 		compiler.destroy(&compiler, &vert.generic);
 		compiler.destroy(&compiler, &frag.generic);
 		compiler.shutdown(&compiler);
@@ -220,20 +220,20 @@ fck_test_app_result fck_test_app_app_draw(fck_test_app_application *app)
 {
 	sht_driver driver = app->driver;
 
-	sht_memory *mem = driver.vt->memory(driver);
-	sht_swapchain swapchain = driver.vt->swapchain(driver);
-	sht_command_buffer_vt *command = driver.vt->command_buffer;
+	sht_memory            *mem       = driver.vt->memory(driver);
+	sht_swapchain          swapchain = driver.vt->swapchain(driver);
+	sht_command_buffer_vt *command   = driver.vt->command_buffer;
 
 	mem->reset(mem->temp);
 
-	fckc_u32 frame_index;
-	sht_image_view color_target = swapchain.vt->wait_and_acquire(swapchain, &frame_index);
-	if (!swapchain.vt->is_ok(swapchain, frame_index))
+	fckc_u32                  frame_index;
+	const sht_swapchain_state sc = swapchain.vt->wait_and_acquire(swapchain);
+	if (!swapchain.vt->is_ok(swapchain, &sc))
 	{
-		if (frame_index == sht_swapchain_needs_resize)
+		if (sc.resize)
 		{
 			// Take a leap!
-			sht_extent extent = swapchain.vt->extent(swapchain);
+			const sht_extent extent = swapchain.vt->extent(swapchain);
 			mem->image->recreate(mem->bump, &app->depth_image, extent, &app->depth_view, 1);
 			return FCK_TEST_APP_RESULT_CONTINUE;
 		}
@@ -247,8 +247,8 @@ fck_test_app_result fck_test_app_app_draw(fck_test_app_application *app)
 	driver.vt->bss->upload_image(app->bss, 1, &image_upload);
 
 	sht_viewport viewport;
-	viewport.offset.x = 0.0f;
-	viewport.offset.y = 0.0f;
+	viewport.offset.x  = 0.0f;
+	viewport.offset.y  = 0.0f;
 	viewport.depth.min = (float)0.0f;
 	viewport.depth.max = (float)1.0f;
 
@@ -261,8 +261,8 @@ fck_test_app_result fck_test_app_app_draw(fck_test_app_application *app)
 	if (command->is_ok(command_buffer))
 	{
 		sht_render_desc desc = (sht_render_desc){
-			.colour = {.view = color_target, .load_op = sht_clear, .store_op = sht_store, .clear_value = {0.0f, 0.0f, 0.2f, 1.0f}},
-			.depth = {.view = app->depth_view, .load_op = sht_clear, .store_op = sht_dont_care, .clear_value = 1.0f},
+			.colour = {.view = sc.view, .load_op = sht_clear, .store_op = sht_store, .clear_value = {0.0f, 0.0f, 0.2f, 1.0f}},
+			.depth  = {.view = app->depth_view, .load_op = sht_clear, .store_op = sht_dont_care, .clear_value = 1.0f},
 		};
 		sht_render_pass render_pass = command->render_pass->begin(command_buffer, &desc);
 		if (command->render_pass->is_ok(render_pass))
@@ -276,11 +276,11 @@ fck_test_app_result fck_test_app_app_draw(fck_test_app_application *app)
 			command->index_buffer(command_buffer, &app->indices.buffer, 0);
 
 			command->draw_indexed(command_buffer, sht_draw_indexed_params{
-													  .first_index = 0,
+													  .first_index    = 0,
 													  .first_instance = 0,
-													  .index_count = app->indices.count,
+													  .index_count    = app->indices.count,
 													  .instance_count = 1,
-													  .vertex_offset = 0,
+													  .vertex_offset  = 0,
 												  });
 			command->render_pass->end(command_buffer);
 		}
@@ -311,9 +311,9 @@ fck_test_app_result fck_test_app_app_tick(void *app_state)
 
 void fck_test_app_app_quit(void *app_state, fck_test_app_result result)
 {
-	fck_test_app_application *app = (fck_test_app_application *)app_state;
-	sht_driver driver = app->driver;
-	sht_memory *mem = driver.vt->memory(driver);
+	fck_test_app_application *app    = (fck_test_app_application *)app_state;
+	sht_driver                driver = app->driver;
+	sht_memory               *mem    = driver.vt->memory(driver);
 
 	driver.vt->idle(driver);
 
@@ -333,7 +333,7 @@ void fck_test_app_app_quit(void *app_state, fck_test_app_result result)
 
 int main(int argc, char *argv[])
 {
-	struct fck_app_api *app = NULL;
+	struct fck_app_api *app    = NULL;
 	fck_test_app_result result = fck_test_app_app_init((void **)&app, argc, argv);
 	for (;;)
 	{

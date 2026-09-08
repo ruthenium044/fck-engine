@@ -46,6 +46,9 @@ target_sources(${PROJECT_NAME} PRIVATE "src/fck_db_ext_map.h")
 target_sources(${PROJECT_NAME} PRIVATE "src/fck_db_ext_map.c")
 target_sources(${PROJECT_NAME} PRIVATE "src/fck_db.c")
 
+target_sources(${PROJECT_NAME} PRIVATE "src/yyjson.c")
+target_sources(${PROJECT_NAME} PRIVATE "src/yyjson.h")
+
 target_link_libraries(${PROJECT_NAME} PRIVATE ${PROJECT_NAME}-interface)
 target_link_libraries(${PROJECT_NAME}-interface INTERFACE fck::fckc)
 

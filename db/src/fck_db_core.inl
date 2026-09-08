@@ -13,12 +13,6 @@ struct fck_db_object_page_table;
 struct fck_db_ext_map;
 struct fck_api_registry;
 
-typedef struct fck_db_uuid
-{
-	// TODO: Make it better
-	fckc_i32 values[2];
-} fck_db_uuid;
-
 typedef struct fck_db_id_set
 {
 	fckc_size_t count;
@@ -36,7 +30,7 @@ typedef struct fck_db_property_instance
 
 typedef struct fck_db_object
 {
-	fck_db_uuid uuid;
+	//fck_db_uuid uuid;
 
 	fckc_u32 version;
 	fckc_u32 count;

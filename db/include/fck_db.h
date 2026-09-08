@@ -91,6 +91,7 @@ typedef struct fck_db_property
 	};
 } fck_db_property;
 
+// TODO: Rename this one to fck_db_propertey_iterator and add offset to it! :) 
 typedef struct fck_db_named_property
 {
 	const char     *name;
@@ -212,13 +213,13 @@ typedef struct fck_db_id_set_api
 
 typedef struct fck_db_object_api
 {
-	fck_db_id       (*create)(fck_db db);
-	void            (*destroy)(fck_db db, fck_db_id id);
-	fck_db_accessor (*read)(fck_db db, fck_db_id id);
-	fck_db_accessor (*edit)(fck_db db, fck_db_id id);
-	int             (*is_ok)(fck_db db, fck_db_id id);
-	void            (*save)(struct fck_serialiser *serialiser, fck_db db, fck_db_id id);
-	void            (*load)(struct fck_serialiser *serialiser, fck_db db);
+	fck_db_id           (*create)(fck_db db);
+	void                (*destroy)(fck_db db, fck_db_id id);
+	fck_db_accessor     (*read)(fck_db db, fck_db_id id);
+	fck_db_accessor     (*edit)(fck_db db, fck_db_id id);
+	int                 (*is_ok)(fck_db db, fck_db_id id);
+	const fck_db_asset *(*save)(fck_db db, fck_db_id id, const char* name);
+	void                (*load)(fck_db db);
 } fck_db_object_api;
 
 typedef struct fck_db_category_iterator
@@ -239,6 +240,8 @@ typedef struct fck_db_asset_api
 	fckc_size_t                     (*assetsof)(fck_db db, const char *extension, const fck_db_asset_reference **assets);
 	const fck_db_asset             *(*get)(fck_db db, fck_db_id id, const char *category);
 	const fck_db_asset             *(*find)(fck_db db, const char *path);
+
+	// fck_db_asset *(*create)(fck_db db, const char *scope, const char *path, const char *category);
 
 	void (*hotreload)(fck_db external);
 } fck_db_asset_api;

@@ -60,7 +60,8 @@ static sht_image fck_texture_upload_image_on_gpu(sht_driver driver, sht_image im
 
 static sht_image fck_texture_load_image_on_gpu(sht_driver driver, const void *pixels, sht_format format, int width, int height)
 {
-	sht_memory                   *memory = driver.vt->memory(driver);
+	sht_memory *memory = driver.vt->memory(driver);
+
 	const sht_image_configuration config = {
 		.format   = format,
 		.height   = to_u32(height),

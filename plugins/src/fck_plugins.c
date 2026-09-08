@@ -21,7 +21,7 @@ typedef struct fck_plugins_hashmap_entry
 	fckc_i64 modified;
 
 	fck_shared_object shared_object;
-	void *implementation;
+	void             *implementation;
 } fck_plugins_hashmap_entry;
 
 typedef struct fck_plugins_hashmap
@@ -29,12 +29,12 @@ typedef struct fck_plugins_hashmap
 	fck_plugins_hashmap_entry entries[fck_plugins_hashmap_capacity];
 } fck_plugins_hashmap;
 
-static fckc_u32 plugin_hotreload_generation;
-static char plugin_root[2048]; // whatever
+static fckc_u32         plugin_hotreload_generation;
+static char             plugin_root[2048]; // whatever
 static fck_file_watcher plugin_watcher;
 
 static fck_plugins_hashmap plugin_map;
-static fck_api_registry *apis;
+static fck_api_registry   *apis;
 
 static char *dashes_to_underscores(char *str, fckc_size_t length)
 {
@@ -50,9 +50,9 @@ static char *dashes_to_underscores(char *str, fckc_size_t length)
 
 static fckc_size_t fck_plugins_hashmap_add(fck_plugins_hashmap *map, const char *path)
 {
-	const fck_hash_int hash = fck_hash(path, strlen(path));
-	const fckc_size_t capacity = fck_arraysize(map->entries);
-	fckc_size_t slot = hash % capacity;
+	const fck_hash_int hash     = fck_hash(path, strlen(path));
+	const fckc_size_t  capacity = fck_arraysize(map->entries);
+	fckc_size_t        slot     = hash % capacity;
 
 	for (fckc_size_t index = 0; index < capacity; index++)
 	{
@@ -61,8 +61,8 @@ static fckc_size_t fck_plugins_hashmap_add(fck_plugins_hashmap *map, const char 
 		{
 			const int len = strlen(path);
 			memcpy(entry->path, path, len);
-			entry->modified = 0;
-			entry->implementation = NULL;
+			entry->modified             = 0;
+			entry->implementation       = NULL;
 			entry->shared_object.handle = NULL;
 			return slot + 1;
 		}
@@ -79,9 +79,9 @@ static fckc_size_t fck_plugins_hashmap_add(fck_plugins_hashmap *map, const char 
 
 static fckc_size_t fck_plugins_hashmap_find(fck_plugins_hashmap *map, const char *path)
 {
-	const fck_hash_int hash = fck_hash(path, strlen(path));
-	const fckc_size_t capacity = fck_arraysize(map->entries);
-	fckc_size_t slot = hash % capacity;
+	const fck_hash_int hash     = fck_hash(path, strlen(path));
+	const fckc_size_t  capacity = fck_arraysize(map->entries);
+	fckc_size_t        slot     = hash % capacity;
 
 	for (fckc_size_t index = 0; index < capacity; index++)
 	{
@@ -114,16 +114,16 @@ static const char *fck_temporary_shared_object_name(const char *path, fckc_i64 s
 static const char *fck_plugin_create_temp_dll(const char *path, fckc_i64 salt, char *buffer, fckc_size_t buffer_size)
 {
 	const fck_file so_file = os->fs->open(path, "rb");
-	const fckc_i64 size = os->fs->size(so_file);
-	void *mem = malloc(size);
-	fckc_size_t result = os->fs->read(so_file, mem, size);
+	const fckc_i64 size    = os->fs->size(so_file);
+	void          *mem     = malloc(size);
+	fckc_size_t    result  = os->fs->read(so_file, mem, size);
 	fck_assert(result == size);
 	os->fs->close(so_file);
 
 	// We can fail here when we already loaded something... Maybe we can check first?
-	const char *temp_path = fck_temporary_shared_object_name(path, salt, buffer, buffer_size);
+	const char    *temp_path = fck_temporary_shared_object_name(path, salt, buffer, buffer_size);
 	const fck_file temp_file = os->fs->open(temp_path, "wb");
-	result = os->fs->write(temp_file, mem, size);
+	result                   = os->fs->write(temp_file, mem, size);
 	fck_assert(result == size);
 	os->fs->close(temp_file);
 	free(mem);
@@ -151,11 +151,12 @@ static fckc_size_t fck_plugin_cache_newest_shared_library(fck_plugins_hashmap *m
 		}
 
 		fck_plugins_hashmap_entry *entry = map->entries + result - 1;
+
 		fck_path_info info;
-		const fckc_i64 modified = os->fs->modified(target);
-		if (modified > entry->modified || !os->so->is_ok(entry->shared_object))
+		const int     info_result = os->fs->info(target, &info);
+		if (info_result && info.modified > entry->modified || !os->so->is_ok(entry->shared_object))
 		{
-			entry->modified = modified;
+			entry->modified = info.modified;
 			return result;
 		}
 		return 0;
@@ -165,7 +166,7 @@ static fckc_size_t fck_plugin_cache_newest_shared_library(fck_plugins_hashmap *m
 
 static void fck_purge_temporary_file(fck_plugins_hashmap_entry *entry)
 {
-	char buffer[1024];
+	char        buffer[1024];
 	const char *path = fck_temporary_shared_object_name(entry->path, entry->modified, buffer, sizeof(buffer));
 
 	os->io->log("Purge Temporary File: %.*s", strlen(path), path);
@@ -184,7 +185,7 @@ static void *fck_plugin_load_shared_library(fck_plugins_hashmap *map, fck_api_re
 
 	fck_plugins_hashmap_entry *entry = map->entries + result - 1;
 
-	const char *path = entry->path;
+	const char *path         = entry->path;
 	// #if defined(_WIN32) || defined(_WIN64)
 	const char *so_load_path = fck_plugin_create_temp_dll(entry->path, entry->modified, path_buffer, sizeof(path_buffer));
 	// #else
@@ -195,9 +196,8 @@ static void *fck_plugin_load_shared_library(fck_plugins_hashmap *map, fck_api_re
 
 	if (os->so->is_ok(so))
 	{
-
-		char *extension = os->glob->find(path, fck_plugin_extension);
-		const fckc_size_t length = (fckc_size_t)extension - (fckc_size_t)path;
+		char             *extension = os->glob->find(path, fck_plugin_extension);
+		const fckc_size_t length    = (fckc_size_t)extension - (fckc_size_t)path;
 
 		char buffer[1024];
 
@@ -205,7 +205,7 @@ static void *fck_plugin_load_shared_library(fck_plugins_hashmap *map, fck_api_re
 		(void)result;
 
 		char *loadable = dashes_to_underscores(buffer, length);
-		void *symbol = os->so->symbol(so, loadable);
+		void *symbol   = os->so->symbol(so, loadable);
 		if (!symbol)
 		{
 			os->io->log("Load function (%.*s) not found", result, buffer);
@@ -216,7 +216,7 @@ static void *fck_plugin_load_shared_library(fck_plugins_hashmap *map, fck_api_re
 		fck_load_func *load = (fck_load_func *)symbol;
 		// If the returned API is a value equal to the old one (which can be NULL)
 		// We decide that we unload what we just loaded because we failed hot-reloading
-		void *api = load(registry, entry->implementation);
+		void          *api  = load(registry, entry->implementation);
 		if (api != entry->implementation)
 		{
 			if (os->so->is_ok(entry->shared_object))
@@ -233,7 +233,7 @@ static void *fck_plugin_load_shared_library(fck_plugins_hashmap *map, fck_api_re
 				os->io->log("Unloaded old Plugin: %.*s", strlen(entry->path), entry->path);
 				os->so->unload(entry->shared_object);
 			}
-			entry->shared_object = so;
+			entry->shared_object  = so;
 			entry->implementation = api;
 			os->io->log("Loaded Plugin: %.*s as %.*s", strlen(entry->path), entry->path, strlen(so_load_path), so_load_path);
 			return api;
@@ -259,7 +259,7 @@ static void fck_plugins_api_unload(const char *path)
 		return;
 	}
 
-	const fckc_size_t index = result - 1;
+	const fckc_size_t          index = result - 1;
 	fck_plugins_hashmap_entry *entry = plugin_map.entries + index;
 	if (!os->so->is_ok(entry->shared_object))
 	{
@@ -272,7 +272,7 @@ static void fck_plugins_api_unload(const char *path)
 	if (apis)
 	{
 		entry->shared_object = (fck_shared_object){0};
-		const char *name = apis->nameof(entry->implementation);
+		const char *name     = apis->nameof(entry->implementation);
 		apis->remove(name, entry->implementation);
 		entry->implementation = NULL;
 	}
@@ -286,7 +286,7 @@ static fckc_u32 fck_plugins_api_hotreload(void)
 		for (fckc_size_t iterations = 0; iterations < iteration_limit; iterations++)
 		{
 			fck_file_watcher_event changes[16];
-			const fckc_size_t result = os->fw->changes(plugin_watcher, changes, fck_arraysize(changes));
+			const fckc_size_t      result = os->fw->changes(plugin_watcher, changes, fck_arraysize(changes));
 			if (result == 0)
 			{
 				break;
@@ -318,7 +318,7 @@ static fckc_u32 fck_plugins_api_hotreload(void)
 						// We ONLY load plugins that have been loaded explicitly
 						os->io->log("Created: %s", change->path);
 						fck_plugins_hashmap_entry *entry = plugin_map.entries + result - 1;
-						entry->modified = entry->modified - 1; // Little hack ;)
+						entry->modified                  = entry->modified - 1; // Little hack ;)
 						if (os->so->is_ok(entry->shared_object))
 						{
 							fck_plugins_api_load(change->path);
@@ -344,7 +344,7 @@ static void fck_plugins_api_root(const char *path)
 		os->fw->destroy(plugin_watcher);
 	}
 
-	char **paths;
+	char            **paths;
 	const fckc_size_t results = os->glob->directory(path, "*" fck_plugin_extension, &paths);
 	for (fckc_size_t index = 0; index < results; index++)
 	{
@@ -361,8 +361,8 @@ static const char *fck_plugins_loaded(const char *prev)
 	fckc_size_t index = 0;
 	if (prev != NULL)
 	{
-		const fckc_size_t root = to_size_t(&plugin_map.entries[0]);
-		const fckc_size_t at = to_size_t(prev);
+		const fckc_size_t root   = to_size_t(&plugin_map.entries[0]);
+		const fckc_size_t at     = to_size_t(prev);
 		const fckc_size_t offset = (at - offsetof(fck_plugins_hashmap_entry, path)) - root;
 
 		index = (offset / sizeof(plugin_map.entries[0])) + 1;
@@ -384,8 +384,8 @@ static const char *fck_plugins_unloaded(const char *prev)
 	fckc_size_t index = 0;
 	if (prev != NULL)
 	{
-		const fckc_size_t root = to_size_t(&plugin_map.entries[0]);
-		const fckc_size_t at = to_size_t(prev);
+		const fckc_size_t root   = to_size_t(&plugin_map.entries[0]);
+		const fckc_size_t at     = to_size_t(prev);
 		const fckc_size_t offset = (at - offsetof(fck_plugins_hashmap_entry, path)) - root;
 
 		index = (offset / sizeof(plugin_map.entries[0])) + 1;
@@ -402,17 +402,30 @@ static const char *fck_plugins_unloaded(const char *prev)
 	return NULL;
 }
 
+static const fck_shared_object *fck_plugins_api_so(const char *path)
+{
+	const fckc_size_t result = fck_plugins_hashmap_find(&plugin_map, path);
+	if (result)
+	{
+		const fck_plugins_hashmap_entry *entry = plugin_map.entries + result - 1;
+		return &entry->shared_object;
+	}
+	return NULL;
+};
+
 static void fck_plugins_api_shutdown(void);
+
 static fck_plugins_api plugin_api = {
 	.hotreload = fck_plugins_api_hotreload,
 
-	.loaded = fck_plugins_loaded,
+	.loaded   = fck_plugins_loaded,
 	.unloaded = fck_plugins_unloaded,
 
-	.root = fck_plugins_api_root,
-	.load = fck_plugins_api_load,
-	.unload = fck_plugins_api_unload,
+	.root     = fck_plugins_api_root,
+	.load     = fck_plugins_api_load,
+	.unload   = fck_plugins_api_unload,
 	.shutdown = fck_plugins_api_shutdown,
+	.so       = fck_plugins_api_so,
 };
 
 void fck_plugins_api_shutdown(void)

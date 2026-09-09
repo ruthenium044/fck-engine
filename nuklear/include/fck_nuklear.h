@@ -244,7 +244,7 @@ typedef struct fck_nuklear_api
 	fck_nk_control (*control)(fck_nk nk);
 
 	// Hm.. Not sure if hugging the driver and then having a pointer to command buffer is ok
-	void (*present)(fck_nk nk, const struct sht_command_buffer *buffer, fckc_u32 frame_index);
+	int (*present)(void* userdata, const struct fck_gfx_args* args);
 } fck_nuklear_api;
 
 #endif // !FCK_NUKLEAR_H_INCLUDED

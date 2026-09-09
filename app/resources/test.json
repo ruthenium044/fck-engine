@@ -1,0 +1,13 @@
+{
+    "batches": [
+        {
+            "sprite_width": 8.0,
+            "sprite_height": 8.0,
+            "name": "null",
+            "texture": {
+                "category": "fck-texture",
+                "path": "sprite/debug"
+            }
+        }
+    ]
+}

@@ -25,11 +25,11 @@ static fck_api_registry *apis;
 
 typedef struct fck_gfx_internal
 {
-	sht_bss bss;
+	sht_bss               bss;
 	sht_graphics_pipeline pipeline;
 
-	fck_shader_api *shader;
-	sht_driver *driver;
+	fck_shader_api     *shader;
+	sht_driver         *driver;
 	fck_gfx_create_info info;
 } fck_gfx_internal;
 
@@ -52,8 +52,8 @@ static fckc_size_t fck_gfx_bindings_add(sht_stage_flags stage, const fck_glsl_re
 	fck_glsl_reflection_api *glsl_reflection = (fck_glsl_reflection_api *)apis->find(fck_glsl_reflection_api_name);
 
 	sht_binding *binding = bindings + count;
-	binding->id = var->binding;
-	binding->stages = stage;
+	binding->id          = var->binding;
+	binding->stages      = stage;
 	if (sht_test(var->qualifiers, fck_glsl_reflection_declaration_qualifier_uniform))
 	{
 		fck_assert(count < capacity);
@@ -68,7 +68,7 @@ static fckc_size_t fck_gfx_bindings_add(sht_stage_flags stage, const fck_glsl_re
 	{
 		fck_assert(count < capacity);
 		binding->type = sht_binding_storage;
-		count = count + 1;
+		count         = count + 1;
 	}
 	return count;
 }
@@ -89,9 +89,9 @@ static void fck_gfx_initialize(fck_gfx_internal *gfx, sht_driver *driver, const 
 
 	fck_glsl_reflection_api *glsl_reflection = (fck_glsl_reflection_api *)apis->find(fck_glsl_reflection_api_name);
 	{
-		struct fck_glsl_reflection *reflection = glsl_reflection->reflect(vert.generic.source, fck_glsl_reflection_global);
-		const fck_glsl_reflection_type *global = glsl_reflection->type_of(reflection, fck_glsl_reflection_global);
-		const fck_glsl_reflection_variable *current = global->first;
+		struct fck_glsl_reflection         *reflection = glsl_reflection->reflect(vert.generic.source, fck_glsl_reflection_global);
+		const fck_glsl_reflection_type     *global     = glsl_reflection->type_of(reflection, fck_glsl_reflection_global);
+		const fck_glsl_reflection_variable *current    = global->first;
 		while (current)
 		{
 			if (current->binding >= 0)
@@ -103,9 +103,9 @@ static void fck_gfx_initialize(fck_gfx_internal *gfx, sht_driver *driver, const 
 		glsl_reflection->free(reflection);
 	}
 	{
-		struct fck_glsl_reflection *reflection = glsl_reflection->reflect(frag.generic.source, fck_glsl_reflection_global);
-		const fck_glsl_reflection_type *global = glsl_reflection->type_of(reflection, fck_glsl_reflection_global);
-		const fck_glsl_reflection_variable *current = global->first;
+		struct fck_glsl_reflection         *reflection = glsl_reflection->reflect(frag.generic.source, fck_glsl_reflection_global);
+		const fck_glsl_reflection_type     *global     = glsl_reflection->type_of(reflection, fck_glsl_reflection_global);
+		const fck_glsl_reflection_variable *current    = global->first;
 		while (current)
 		{
 			if (current->binding >= 0)
@@ -120,31 +120,37 @@ static void fck_gfx_initialize(fck_gfx_internal *gfx, sht_driver *driver, const 
 
 	// sht_binding const *bindings;
 	sht_binding_desc binding_desc = {.bindings = bindings, .count = bindings_count};
-	gfx->bss = driver->vt->bss->create(*driver, &binding_desc);
+	gfx->bss                      = driver->vt->bss->create(*driver, &binding_desc);
 
 	// TODO: Deprecate
 	sht_vertex_desc vertex_desc = {
-		.stride = 0,
+		.stride   = 0,
 		.bindings = NULL,
-		.count = 0,
+		.count    = 0,
 	};
 
 	sht_raster_desc raster_desc = {
 		.cull_mode = sht_cull_mode_none,
-		.topology = sht_triangle_list,
-		.color = sht_format_b8g8r8a8_unorm,
-		.depth = sht_format_undefined, // sht_format_d16_unorm,
+		.topology  = sht_triangle_list,
+		.color     = sht_format_b8g8r8a8_unorm,
+		.depth     = sht_format_undefined,
 	};
-	if (info->has_depth)
+
+	if (sht_test(info->flags, fck_gfx_target_no_colour))
+	{
+		raster_desc.depth = sht_format_undefined;
+	}
+
+	if (sht_test(info->flags, fck_gfx_target_depth))
 	{
 		raster_desc.depth = sht_format_d16_unorm;
 	}
 
 	const sht_graphic_desc graphic_desc = {
-		.fragment = &frag.generic,
-		.vertex = &vert.generic,
+		.fragment    = &frag.generic,
+		.vertex      = &vert.generic,
 		.vertex_desc = &vertex_desc,
-		.raster = raster_desc,
+		.raster      = raster_desc,
 	};
 
 	gfx->pipeline = driver->vt->graphics_pipeline->create(*driver, gfx->bss, &graphic_desc);
@@ -156,10 +162,10 @@ static struct fck_gfx fck_gfx_api_create(kll_allocator *allocator, sht_driver *d
 	fck_gfx_internal *gfx = (fck_gfx_internal *)kll_malloc(allocator, sizeof(*gfx));
 	memset(gfx, 0, sizeof(*gfx));
 	gfx->driver = driver;
-	gfx->info = *info;
+	gfx->info   = *info;
 
 	fck_shader_api *shader = (fck_shader_api *)apis->find(fck_shader_api_name);
-	gfx->shader = shader;
+	gfx->shader            = shader;
 
 	// fck_gfx_initialize(gfx, driver, info);
 	return (fck_gfx){.handle = gfx};
@@ -168,8 +174,8 @@ static struct fck_gfx fck_gfx_api_create(kll_allocator *allocator, sht_driver *d
 void static fck_gfx_api_maybe_reload(fck_gfx gfx)
 {
 	fck_gfx_internal *gfx_internal = (fck_gfx_internal *)gfx.handle;
-	const int vs_dirty = gfx_internal->shader->asset->dirty(gfx_internal->info.vertex);
-	const int fs_dirty = gfx_internal->shader->asset->dirty(gfx_internal->info.fragment);
+	const int         vs_dirty     = gfx_internal->shader->asset->dirty(gfx_internal->info.vertex);
+	const int         fs_dirty     = gfx_internal->shader->asset->dirty(gfx_internal->info.fragment);
 	if (vs_dirty || fs_dirty)
 	{
 		sht_driver *driver = gfx_internal->driver;
@@ -201,8 +207,8 @@ static struct sht_graphics_pipeline *fck_gfx_api_pipeline(fck_gfx gfx)
 }
 
 static fck_gfx_api gfx_api = {
-	.create = fck_gfx_api_create,
-	.bss = fck_gfx_api_bss,
+	.create   = fck_gfx_api_create,
+	.bss      = fck_gfx_api_bss,
 	.pipeline = fck_gfx_api_pipeline,
 };
 

@@ -925,10 +925,10 @@ static sht_buffer sht_memory_arena_malloc(sht_memory_arena *mem, sht_buffer_conf
 
 	VkBufferCreateInfo create_info = {0};
 	// We are lazy with this one just because
-	create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	create_info.pNext = NULL;
-	create_info.size  = config->size;
-	create_info.flags = (VkBufferCreateFlags)0;
+	create_info.sType              = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	create_info.pNext              = NULL;
+	create_info.size               = config->size;
+	create_info.flags              = (VkBufferCreateFlags)0;
 
 	// OUT OF SCOPE
 	create_info.sharingMode           = VK_SHARING_MODE_EXCLUSIVE;
@@ -1262,7 +1262,7 @@ static VkResult sht_vk_driver_init(sht_vk_driver *driver, sht_vk_queues *queues)
 		}
 	}
 
-	VkDeviceCreateInfo device_info = {0};
+	VkDeviceCreateInfo device_info  = {0};
 	// Deprecated
 	device_info.enabledLayerCount   = 0;
 	device_info.ppEnabledLayerNames = NULL;
@@ -2011,10 +2011,12 @@ static void sht_vk_command_buffer_bss_copy(sht_vk_driver *driver, sht_vk_bss *bs
 	driver->UpdateDescriptorSets(driver->device, 0, NULL, bss->desc.count, copies);
 }
 
-static sht_image_view sht_swapchain_wait_and_acquire(sht_swapchain swapchain, fckc_u32 *index)
+static sht_swapchain_state sht_swapchain_wait_and_acquire(sht_swapchain swapchain)
 {
 	// I think some changes need to be done!
 	const fckc_u64 timeout = ~0LLU;
+
+	sht_swapchain_state state = {0};
 
 	sht_vk_swapchain             *sc   = (sht_vk_swapchain *)swapchain.handle;
 	sht_vk_common_sync_resources *sync = &sc->sync;
@@ -2027,21 +2029,22 @@ static sht_image_view sht_swapchain_wait_and_acquire(sht_swapchain swapchain, fc
 	sht_vk_crash(driver->ResetFences(device, 1, wait_fence));
 
 	VkSemaphore *completed = &sync->presentation_completed[sync->index];
-	*index                 = sync->index;
+	state.index            = sync->index;
 
 	fckc_u32 image_index;
 	result = sc->AcquireNextImageKHR(device, sc->swapchain, timeout, *completed, VK_NULL_HANDLE, &image_index);
 	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
 	{
-		*index = sht_swapchain_needs_resize;
+		state.resize = 1;
 		sht_vk_resize(sc);
-		return (sht_image_view){0};
+		return state;
 	}
 
 	if (result != VK_SUCCESS)
 	{
 		sht_vk_error(result);
-		return (sht_image_view){0};
+		state.issues = 1;
+		return state;
 	}
 
 	// We map the image index to the frame index. This sync/frame index now owns the swapchain image!!
@@ -2068,8 +2071,8 @@ static sht_image_view sht_swapchain_wait_and_acquire(sht_swapchain swapchain, fc
 			node->next            = NULL;
 			node->prev            = NULL;
 
-			VkDescriptorSet src = bss->latest[sync->index];
-			VkDescriptorSet dst = bss->baselines[sync->index];
+			const VkDescriptorSet src = bss->latest[sync->index];
+			const VkDescriptorSet dst = bss->baselines[sync->index];
 			sht_vk_command_buffer_bss_copy(driver, bss, src, dst);
 			bss->latest[sync->index] = bss->baselines[sync->index];
 
@@ -2099,7 +2102,8 @@ static sht_image_view sht_swapchain_wait_and_acquire(sht_swapchain swapchain, fc
 		}
 	}
 
-	return sht_swapchain_get_view(swapchain, image_index);
+	state.view = sht_swapchain_get_view(swapchain, image_index);
+	return state;
 }
 
 static sht_extent sht_swapchain_display(sht_swapchain swapchain)
@@ -2119,11 +2123,10 @@ static float sht_swapchain_scale(sht_swapchain swapchain)
 	return extent.width / display.width;
 }
 
-static sht_bool32 sht_swapchain_is_ready(sht_swapchain swapchain, fck_alias(sht_swapchain_state, fckc_u32) index_or_state)
+static sht_bool32 sht_swapchain_is_ready(sht_swapchain swapchain, const sht_swapchain_state *state)
 {
-	// Maybe do some other checks!
-	// Ummm.... Let's rethink this
-	return !sht_test(index_or_state, sht_swapchain_issues);
+	(void)swapchain;
+	return state->issues == 0;
 }
 
 static sht_command_buffer sht_command_buffer_create(sht_driver driver)
@@ -2318,7 +2321,7 @@ static void sht_command_buffer_submit(sht_command_buffer command, sht_queue_type
 	// Pipeline stage at which the queue submission will wait (via pWaitSemaphores)
 	const VkPipelineStageFlags wait_stage_mask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 	// The submit info structure specifies a command buffer queue submission batch
-	VkSubmitInfo submit_info = {0};
+	VkSubmitInfo               submit_info     = {0};
 	switch (queue_type)
 	{
 	case sht_queue_graphic: {
@@ -2510,12 +2513,12 @@ static void sht_driver_upload_buffer(sht_driver driver, sht_buffer *dst, const v
 	vk_driver->memory.free(vk_driver->memory.temp, &staging);
 }
 
-static sht_bool32 sht_image_view_equals(sht_image_view *lhs, sht_image_view *rhs)
+static sht_bool32 sht_image_view_equals(const sht_image_view *lhs, const sht_image_view *rhs)
 {
 	return lhs->format == rhs->format && lhs->gpu == rhs->gpu;
 }
 
-static sht_bool32 sht_depth_target_desc_equals(sht_depth_target_desc *lhs, sht_depth_target_desc *rhs)
+static sht_bool32 sht_depth_target_desc_equals(const sht_depth_target_desc *lhs, const sht_depth_target_desc *rhs)
 {
 	if (!sht_image_view_equals(&lhs->view, &rhs->view))
 	{
@@ -2536,7 +2539,7 @@ static sht_bool32 sht_depth_target_desc_equals(sht_depth_target_desc *lhs, sht_d
 	return sht_true;
 }
 
-static sht_bool32 sht_color_target_desc_equals(sht_color_target_desc *lhs, sht_color_target_desc *rhs)
+static sht_bool32 sht_color_target_desc_equals(const sht_color_target_desc *lhs, const sht_color_target_desc *rhs)
 {
 	if (!sht_image_view_equals(&lhs->view, &rhs->view))
 	{
@@ -2558,7 +2561,7 @@ static sht_bool32 sht_color_target_desc_equals(sht_color_target_desc *lhs, sht_c
 	return sht_true;
 }
 
-static sht_bool32 sht_vk_depth_target_desc_equals(sht_vk_depth_target_desc *lhs, sht_vk_depth_target_desc *rhs)
+static sht_bool32 sht_vk_depth_target_desc_equals(const sht_vk_depth_target_desc *lhs, const sht_vk_depth_target_desc *rhs)
 {
 	if (lhs->format != rhs->format)
 	{
@@ -2579,7 +2582,7 @@ static sht_bool32 sht_vk_depth_target_desc_equals(sht_vk_depth_target_desc *lhs,
 	return sht_true;
 }
 
-static sht_bool32 sht_vk_color_target_desc_equals(sht_vk_color_target_desc *lhs, sht_vk_color_target_desc *rhs)
+static sht_bool32 sht_vk_color_target_desc_equals(const sht_vk_color_target_desc *lhs, const sht_vk_color_target_desc *rhs)
 {
 	if (lhs->format != rhs->format)
 	{
@@ -2601,7 +2604,7 @@ static sht_bool32 sht_vk_color_target_desc_equals(sht_vk_color_target_desc *lhs,
 	return sht_true;
 }
 
-static sht_bool32 sht_vk_render_pass_desc_equals(sht_vk_render_pass_desc *lhs, sht_vk_render_pass_desc *rhs)
+static sht_bool32 sht_vk_render_pass_desc_equals(const sht_vk_render_pass_desc *lhs, const sht_vk_render_pass_desc *rhs)
 {
 	if (!sht_vk_color_target_desc_equals(&lhs->colour, &rhs->colour))
 	{
@@ -2614,7 +2617,7 @@ static sht_bool32 sht_vk_render_pass_desc_equals(sht_vk_render_pass_desc *lhs, s
 	return sht_true;
 }
 
-static sht_bool32 sht_render_desc_equals(sht_render_desc *lhs, sht_render_desc *rhs)
+static sht_bool32 sht_render_desc_equals(const sht_render_desc *lhs, const sht_render_desc *rhs)
 {
 	if (!sht_color_target_desc_equals(&lhs->colour, &rhs->colour))
 	{
@@ -2627,11 +2630,11 @@ static sht_bool32 sht_render_desc_equals(sht_render_desc *lhs, sht_render_desc *
 	return sht_true;
 }
 
-static fckc_size_t sht_vk_render_pass_storage_find(sht_vk_render_pass_storage *storage, sht_vk_render_pass_desc *desc)
+static fckc_size_t sht_vk_render_pass_storage_find(sht_vk_render_pass_storage *storage, const sht_vk_render_pass_desc *desc)
 {
 	for (fckc_size_t index = 0; index < storage->count; index++)
 	{
-		sht_vk_render_pass *render_pass = storage->handles + index;
+		const sht_vk_render_pass *render_pass = storage->handles + index;
 		if (sht_vk_render_pass_desc_equals(desc, &render_pass->desc))
 		{
 			return index + 1;
@@ -2640,7 +2643,7 @@ static fckc_size_t sht_vk_render_pass_storage_find(sht_vk_render_pass_storage *s
 	return 0;
 }
 
-static fckc_size_t sht_vk_framebuffers_storage_find(sht_vk_framebuffer_storage *storage, sht_render_desc *desc)
+static fckc_size_t sht_vk_framebuffers_storage_find(sht_vk_framebuffer_storage *storage, const sht_render_desc *desc)
 {
 	for (fckc_size_t index = 0; index < storage->count; index++)
 	{
@@ -2653,7 +2656,7 @@ static fckc_size_t sht_vk_framebuffers_storage_find(sht_vk_framebuffer_storage *
 	return 0;
 }
 
-static sht_bool32 sht_image_view_is_from_swapchain(sht_vk_swapchain *swapchain, sht_color_target_desc *color_target)
+static sht_bool32 sht_image_view_is_from_swapchain(sht_vk_swapchain *swapchain, const sht_color_target_desc *color_target)
 {
 	for (fckc_size_t index = 0; index < swapchain->count; index++)
 	{
@@ -2666,7 +2669,7 @@ static sht_bool32 sht_image_view_is_from_swapchain(sht_vk_swapchain *swapchain, 
 	return sht_false;
 }
 
-static VkResult sht_vk_render_pass_create(sht_vk_driver *driver, sht_vk_render_pass_desc *desc, VkRenderPass *render_pass)
+static VkResult sht_vk_render_pass_create(sht_vk_driver *driver, const sht_vk_render_pass_desc *desc, VkRenderPass *render_pass)
 {
 	VkAttachmentDescription attachments[2];
 	VkAttachmentReference   references[2];
@@ -2838,7 +2841,7 @@ static VkResult sht_vk_shader_module_create(fck_shader_compiler *compiler, sht_v
 	return result;
 }
 
-static sht_vk_render_pass_desc sht_vk_render_pass_desc_from_render_desc(sht_render_desc *desc)
+static sht_vk_render_pass_desc sht_vk_render_pass_desc_from_render_desc(const sht_render_desc *desc)
 {
 	sht_vk_render_pass_desc vk = {0};
 	vk.colour.format           = desc->colour.view.format;
@@ -2943,26 +2946,26 @@ static VkPipelineDynamicStateCreateInfo sht_vk_dynamic_state(VkDynamicState *dyn
 static VkPipelineDepthStencilStateCreateInfo sht_vk_depth_stencil_state()
 {
 	VkPipelineDepthStencilStateCreateInfo depth_stencil_create_info;
-	depth_stencil_create_info.sType            = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-	depth_stencil_create_info.pNext            = NULL;
-	depth_stencil_create_info.flags            = 0;
-	depth_stencil_create_info.depthTestEnable  = VK_TRUE;
-	depth_stencil_create_info.depthWriteEnable = VK_TRUE;
-	depth_stencil_create_info.depthCompareOp   = VK_COMPARE_OP_GREATER_OR_EQUAL;
+	depth_stencil_create_info.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+	depth_stencil_create_info.pNext                 = NULL;
+	depth_stencil_create_info.flags                 = 0;
+	depth_stencil_create_info.depthTestEnable       = VK_TRUE;
+	depth_stencil_create_info.depthWriteEnable      = VK_TRUE;
+	depth_stencil_create_info.depthCompareOp        = VK_COMPARE_OP_GREATER_OR_EQUAL;
 	// Depth bounds are off
 	depth_stencil_create_info.depthBoundsTestEnable = VK_FALSE;
 	depth_stencil_create_info.minDepthBounds        = 0.0f;
 	depth_stencil_create_info.maxDepthBounds        = 0.0f;
 	// Stencil is off
-	depth_stencil_create_info.stencilTestEnable = VK_FALSE;
-	depth_stencil_create_info.back.failOp       = VK_STENCIL_OP_KEEP;
-	depth_stencil_create_info.back.passOp       = VK_STENCIL_OP_KEEP;
-	depth_stencil_create_info.back.compareOp    = VK_COMPARE_OP_ALWAYS;
-	depth_stencil_create_info.back.depthFailOp  = VK_STENCIL_OP_ZERO;
-	depth_stencil_create_info.back.compareMask  = 0;
-	depth_stencil_create_info.back.writeMask    = 0;
-	depth_stencil_create_info.back.reference    = 0;
-	depth_stencil_create_info.front             = depth_stencil_create_info.back;
+	depth_stencil_create_info.stencilTestEnable     = VK_FALSE;
+	depth_stencil_create_info.back.failOp           = VK_STENCIL_OP_KEEP;
+	depth_stencil_create_info.back.passOp           = VK_STENCIL_OP_KEEP;
+	depth_stencil_create_info.back.compareOp        = VK_COMPARE_OP_ALWAYS;
+	depth_stencil_create_info.back.depthFailOp      = VK_STENCIL_OP_ZERO;
+	depth_stencil_create_info.back.compareMask      = 0;
+	depth_stencil_create_info.back.writeMask        = 0;
+	depth_stencil_create_info.back.reference        = 0;
+	depth_stencil_create_info.front                 = depth_stencil_create_info.back;
 	return depth_stencil_create_info;
 }
 
@@ -3088,11 +3091,11 @@ static VkResult sht_vk_graphics_pipeline_create(sht_vk_driver *driver, VkRenderP
 		sht_vk_vertex_input_state(&binding, attributes, vertex_desc->count);
 
 	VkGraphicsPipelineCreateInfo pipeline_create_info;
-	pipeline_create_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-	pipeline_create_info.pNext = NULL;
-	pipeline_create_info.flags = 0;
+	pipeline_create_info.sType              = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+	pipeline_create_info.pNext              = NULL;
+	pipeline_create_info.flags              = 0;
 	// The layout used for this pipeline (can be shared among multiple pipelines using the same layout)
-	pipeline_create_info.layout = pipeline_layout;
+	pipeline_create_info.layout             = pipeline_layout;
 	// Renderpass this pipeline is attached to
 	pipeline_create_info.renderPass         = render_pass;
 	pipeline_create_info.subpass            = 0;
@@ -3100,8 +3103,8 @@ static VkResult sht_vk_graphics_pipeline_create(sht_vk_driver *driver, VkRenderP
 	pipeline_create_info.basePipelineIndex  = 0;
 	// Shaders
 	// Set pipeline shader stage info
-	pipeline_create_info.stageCount = shader_count;
-	pipeline_create_info.pStages    = shader_create_infos;
+	pipeline_create_info.stageCount         = shader_count;
+	pipeline_create_info.pStages            = shader_create_infos;
 
 	// Assign the pipeline states to the pipeline creation info structure
 	pipeline_create_info.pVertexInputState   = &vertex_input_state_create_info;
@@ -3135,8 +3138,8 @@ static VkResult sht_vk_graphics_pipeline_create(sht_vk_driver *driver, VkRenderP
 	return VK_SUCCESS;
 }
 
-static VkResult sht_vk_framebuffer_create(sht_vk_driver *driver, VkSurfaceKHR surface, sht_vk_render_pass *render_pass,
-                                          sht_render_desc *desc, sht_vk_framebuffer *framebuffer)
+static VkResult sht_vk_framebuffer_create(sht_vk_driver *driver, VkSurfaceKHR surface, const sht_vk_render_pass *render_pass,
+                                          const sht_render_desc *desc, sht_vk_framebuffer *framebuffer)
 {
 	fckc_size_t attachment_count = 0;
 
@@ -3176,7 +3179,7 @@ static VkResult sht_vk_framebuffer_create(sht_vk_driver *driver, VkSurfaceKHR su
 }
 
 static void sht_vk_render_pass_begin(sht_command_buffer command, sht_vk_driver *driver, VkSurfaceKHR surface,
-                                     sht_vk_render_pass *render_pass, sht_vk_framebuffer *framebuffer, sht_render_desc *desc)
+                                     const sht_vk_render_pass *render_pass, sht_vk_framebuffer *framebuffer, const sht_render_desc *desc)
 {
 	sht_vk_command *api            = (sht_vk_command *)command.owner;
 	VkCommandBuffer command_buffer = (VkCommandBuffer)command.handle;
@@ -3185,7 +3188,7 @@ static void sht_vk_render_pass_begin(sht_command_buffer command, sht_vk_driver *
 	VkClearValue clearValues[8];
 	if (desc->colour.view.format != VK_FORMAT_UNDEFINED)
 	{
-		fckc_f32 *values           = desc->colour.clear_value;
+		const fckc_f32 *values     = desc->colour.clear_value;
 		clearValues[clear_count++] = (VkClearValue){.color = {values[0], values[1], values[2], values[3]}};
 	}
 	if (desc->depth.view.format != VK_FORMAT_UNDEFINED)
@@ -3210,7 +3213,7 @@ static void sht_vk_render_pass_begin(sht_command_buffer command, sht_vk_driver *
 	api->CmdBeginRenderPass(command_buffer, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
 }
 
-static sht_render_pass sht_render_pass_begin(sht_command_buffer command_buffer, sht_render_desc *desc)
+static sht_render_pass sht_render_pass_begin(sht_command_buffer command_buffer, const sht_render_desc *desc)
 {
 	sht_vk_command *api    = (sht_vk_command *)command_buffer.owner;
 	sht_vk_driver  *driver = api->driver;
@@ -3444,10 +3447,10 @@ static sht_pointer_as_string sht_pointer_to_string(void *pointer)
 
 static fckc_u32 sht_vk_graphics_pipeline_hash(sht_vk_graphics_pipeline const *pipeline)
 {
-	sht_pointer_as_string pas = sht_pointer_to_string((void *)pipeline->pipeline);
+	sht_pointer_as_string pas  = sht_pointer_to_string((void *)pipeline->pipeline);
 	// sht_pointer_as_string cas = sht_pointer_to_string((void *)pipeline->cache);
 	// sht_pointer_as_string las = sht_pointer_to_string((void *)pipeline->layout);
-	const fck_hash_int hash = fck_hash(pas.str, fck_arraysize(pas.str));
+	const fck_hash_int    hash = fck_hash(pas.str, fck_arraysize(pas.str));
 	// hash = fck_hash_combine(hash, fck_hash(cas.str, fck_arraysize(cas.str)));
 	// hash = fck_hash_combine(hash, fck_hash(las.str, fck_arraysize(las.str)));
 	// For now the pipeline and the other state are 1:1 mappes, so no need to hash more then needed
@@ -3511,8 +3514,8 @@ static sht_graphics_pipeline_key sht_vk_graphics_pipeline_storage_add(sht_vk_gra
 			sht_vk_graphics_pipeline *result = storage->handles + at;
 			*result                          = *pipeline;
 			// We drop 1 bit, let's pray!
-			key->hash    = hash;
-			key->invalid = 0;
+			key->hash                        = hash;
+			key->invalid                     = 0;
 			return *key;
 		}
 		at = (at + 1) % fck_arraysize(storage->handles);

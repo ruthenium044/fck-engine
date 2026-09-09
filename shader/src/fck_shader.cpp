@@ -256,6 +256,7 @@ extern "C"
 			return glsl;
 		}
 		fck_shader_asset *data = (fck_shader_asset *)asset->userdata;
+		*asset->state = fck_db_asset_state_resolved;
 		return data->value;
 	}
 

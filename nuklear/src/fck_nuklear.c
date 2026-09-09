@@ -80,7 +80,7 @@ typedef struct fck_nk_pie
 typedef struct fck_nk_selection
 {
 	// TODO: We need to be able to "click through"
-	const void *pointer;
+	const void    *pointer;
 	struct nk_rect rect;
 
 	fckc_u32 index;
@@ -89,14 +89,14 @@ typedef struct fck_nk_selection
 typedef struct fck_nk_hovered
 {
 	const void *last;
-	fckc_u32 track;
-	fckc_u32 count;
+	fckc_u32    track;
+	fckc_u32    count;
 } fck_nk_hovered;
 
 typedef struct fck_nk_control_point
 {
-	const void *current;
-	const void *last_hovered;
+	const void    *current;
+	const void    *last_hovered;
 	struct nk_vec2 offset;
 } fck_nk_control_point;
 
@@ -105,7 +105,7 @@ typedef struct fck_nk_control_state
 {
 	fck_nk_control_point point;
 
-	fck_nk_hovered hovered;
+	fck_nk_hovered   hovered;
 	fck_nk_selection selection;
 } fck_nk_control_state;
 
@@ -113,16 +113,16 @@ struct fck_nk_panel_item;
 typedef struct fck_nk_panel_item
 {
 	struct fck_nk_panel_item *next;
-	fck_hash_int hash;
-	char name[420];
+	fck_hash_int              hash;
+	char                      name[420];
 } fck_nk_panel_item;
 
 struct fck_nk_panel_state;
 typedef struct fck_nk_panel_state
 {
 	struct fck_nk_panel_state *next;
-	fck_hash_int hash;
-	char name[420];
+	fck_hash_int               hash;
+	char                       name[420];
 
 	struct nk_image icon;
 
@@ -131,7 +131,7 @@ typedef struct fck_nk_panel_state
 	fck_nk_panel_item *active;
 
 	fck_nk_panel_item items[32];
-	fckc_size_t items_count;
+	fckc_size_t       items_count;
 } fck_nk_panel_state;
 
 typedef enum fck_nk_os_group_type
@@ -143,17 +143,17 @@ typedef enum fck_nk_os_group_type
 
 typedef struct fck_nk_os_window
 {
-	fck_window window;
+	fck_window       window;
 	fck_nk_hamburger burger;
-	fck_nk_pie pie;
-	fck_nk_control control;
+	fck_nk_pie       pie;
+	fck_nk_control   control;
 
 	fck_nk_panel_state *selected_in_tab_panel;
 	fck_nk_panel_state *open_panel;
 	fck_nk_panel_state *current_panel;
 	fck_nk_panel_state *first_panel;
 	fck_nk_panel_state *last_panel;
-	fck_nk_panel_state panels[16];
+	fck_nk_panel_state  panels[16];
 
 	fck_nk_control_state control_state;
 } fck_nk_os_window;
@@ -164,20 +164,20 @@ typedef struct fck_nk_private
 
 	sht_driver driver;
 
-	struct nk_font_atlas atlas;
-	struct nk_font *default_font;
+	struct nk_font_atlas        atlas;
+	struct nk_font             *default_font;
 	struct nk_draw_null_texture null_texture;
 
-	struct nk_buffer commands;
+	struct nk_buffer   commands;
 	struct nk_context *ctx;
 
-	sht_buffer indices[sht_frame_count];
-	sht_sampler sampler;
-	sht_image font_image;
+	sht_buffer     indices[sht_frame_count];
+	sht_sampler    sampler;
+	sht_image      font_image;
 	sht_image_view font_view;
-	fck_gfx gfx;
+	fck_gfx        gfx;
 
-	fckc_u64 time_last_frame;
+	fckc_u64          time_last_frame;
 	fck_nuklear_theme current_theme;
 
 	// I am unsure if pointer to db or not...
@@ -186,7 +186,7 @@ typedef struct fck_nk_private
 
 static fck_nk_panel_item *fck_nk_panel_state_find(fck_nk_panel_state *state, const char *name)
 {
-	const fckc_size_t len = strlen(name);
+	const fckc_size_t  len  = strlen(name);
 	const fck_hash_int hash = fck_hash(name, len);
 	for (fckc_size_t index = 0; index < fck_arraysize(state->items); index++)
 	{
@@ -228,13 +228,13 @@ static fck_nk_panel_item *fck_nk_panel_state_find(fck_nk_panel_state *state, con
 
 static sht_image fck_nk_bake_font(sht_driver driver, const void *pixels, sht_format format, int width, int height)
 {
-	sht_memory *memory = driver.vt->memory(driver);
+	sht_memory                   *memory = driver.vt->memory(driver);
 	const sht_image_configuration config = {
-		.format = format,
-		.height = to_u32(height),
-		.width = to_u32(width),
+		.format   = format,
+		.height   = to_u32(height),
+		.width    = to_u32(width),
 		.transfer = sht_transfer_target,
-		.usage = sht_image_usage_sampled,
+		.usage    = sht_image_usage_sampled,
 	};
 
 	sht_image image = memory->image->create(memory->bump, &config, sht_memory_gpu);
@@ -263,17 +263,17 @@ static fck_nk fck_nk_api_create(kll_allocator *allocator, const fck_nuklear_crea
 	fck_db_api *db = (fck_db_api *)apis->find(fck_db_api_name);
 
 	db->asset->setup(*args->db, "nuklear", fck_nuklear_resource_path);
-	const fck_db_asset *vertex = db->asset->find(*args->db, "nuklear/vertex.vert");
+	const fck_db_asset *vertex   = db->asset->find(*args->db, "nuklear/vertex.vert");
 	const fck_db_asset *fragment = db->asset->find(*args->db, "nuklear/fragment.frag");
 
-	fck_nk_private *nk;
+	fck_nk_private   *nk;
 	const fckc_size_t offset = fckc_align(sizeof(*nk), alignof(struct nk_context));
-	nk = (fck_nk_private *)kll_malloc(allocator, offset + sizeof(*nk->ctx));
-	nk->ctx = (struct nk_context *)fckc_pointer_add(nk, offset);
+	nk                       = (fck_nk_private *)kll_malloc(allocator, offset + sizeof(*nk->ctx));
+	nk->ctx                  = (struct nk_context *)fckc_pointer_add(nk, offset);
 	// OS feature set for the window
-	nk->os = fck_nk_os_window_create(*window);
-	nk->driver = *driver;
-	nk->db = db;
+	nk->os                   = fck_nk_os_window_create(*window);
+	nk->driver               = *driver;
+	nk->db                   = db;
 
 	sht_buffer_configuration config = sht_buffer_retained(sht_buffer_usage_index, fck_megabytes(1));
 	for (fckc_size_t index = 0; index < fck_arraysize(nk->indices); index++)
@@ -291,16 +291,16 @@ static fck_nk fck_nk_api_create(kll_allocator *allocator, const fck_nuklear_crea
 	nk_font_atlas_begin(&nk->atlas);
 
 	const struct nk_font_config font_config = nk_font_config(0);
-	nk->default_font = nk_font_atlas_add_default(&nk->atlas, 13, &font_config);
+	nk->default_font                        = nk_font_atlas_add_default(&nk->atlas, 13, &font_config);
 
-	int default_font_width = 0;
+	int default_font_width  = 0;
 	int default_font_height = 0;
 
 	const void *default_font_pixels = nk_font_atlas_bake(&nk->atlas, &default_font_width, &default_font_height, NK_FONT_ATLAS_RGBA32);
 
 	const sht_format font_format = sht_format_r8g8b8a8_unorm;
-	nk->font_image = fck_nk_bake_font(*driver, default_font_pixels, font_format, default_font_width, default_font_height);
-	nk->font_view = memory->image->view(memory->bump, nk->font_image, font_format);
+	nk->font_image               = fck_nk_bake_font(*driver, default_font_pixels, font_format, default_font_width, default_font_height);
+	nk->font_view                = memory->image->view(memory->bump, nk->font_image, font_format);
 
 	nk_font_atlas_end(&nk->atlas, nk_handle_ptr(&nk->font_view), &nk->null_texture);
 
@@ -309,7 +309,7 @@ static fck_nk fck_nk_api_create(kll_allocator *allocator, const fck_nuklear_crea
 	nk_buffer_init_default(&nk->commands);
 
 	const fck_gfx_create_info create_info = {
-		.vertex = vertex,
+		.vertex   = vertex,
 		.fragment = fragment,
 	};
 
@@ -321,11 +321,11 @@ static fck_nk fck_nk_api_create(kll_allocator *allocator, const fck_nuklear_crea
 
 static void fck_nk_api_input(fck_nk nk, fck_input *input)
 {
-	fck_input_source *mouse = NULL;
+	fck_input_source *mouse    = NULL;
 	fck_input_source *keyboard = NULL;
 	{
 		fck_input_source **sources;
-		const fckc_size_t count = input->sources(&sources);
+		const fckc_size_t  count = input->sources(&sources);
 		for (fckc_size_t index = 0; index < count; index++)
 		{
 			fck_input_source *source = sources[index];
@@ -345,14 +345,14 @@ static void fck_nk_api_input(fck_nk nk, fck_input *input)
 	fck_nk_private *nki = (fck_nk_private *)nk.handle;
 	nk_input_begin(nki->ctx);
 	{
-		fckc_u32 ids[] = {fck_mouse_left, fck_mouse_middle, fck_mouse_right, fck_mouse_position, fck_mouse_wheel};
-		fck_input_data states[fck_arraysize(ids)];
-		const fckc_size_t result = mouse->states(0, ids, states, fck_arraysize(ids));
-		const fck_input_data *left = states + 0;
-		const fck_input_data *middle = states + 1;
-		const fck_input_data *right = states + 2;
+		fckc_u32              ids[] = {fck_mouse_left, fck_mouse_middle, fck_mouse_right, fck_mouse_position, fck_mouse_wheel};
+		fck_input_data        states[fck_arraysize(ids)];
+		const fckc_size_t     result   = mouse->states(0, ids, states, fck_arraysize(ids));
+		const fck_input_data *left     = states + 0;
+		const fck_input_data *middle   = states + 1;
+		const fck_input_data *right    = states + 2;
 		const fck_input_data *position = states + 3;
-		const fck_input_data *wheel = states + 4;
+		const fck_input_data *wheel    = states + 4;
 		nk_input_button(nki->ctx, NK_BUTTON_LEFT, nki->ctx->input.mouse.pos.x, nki->ctx->input.mouse.pos.y, left->scalar > 0.0f);
 		nk_input_button(nki->ctx, NK_BUTTON_MIDDLE, position->floats[0], position->floats[1], middle->scalar > 0.0f);
 		nk_input_button(nki->ctx, NK_BUTTON_RIGHT, position->floats[0], position->floats[1], right->scalar > 0.0f);
@@ -365,18 +365,18 @@ static void fck_nk_api_input(fck_nk nk, fck_input *input)
 
 static void fck_nk_panel_api_tabs(fck_nk nk)
 {
-	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
-	fck_nk_os_window *window = &nk_internal->os;
-	struct nk_context *ctx = nk_internal->ctx;
+	fck_nk_private    *nk_internal = (fck_nk_private *)nk.handle;
+	fck_nk_os_window  *window      = &nk_internal->os;
+	struct nk_context *ctx         = nk_internal->ctx;
 
 	const float pixel_scale = 3.0f;
-	const float border = pixel_scale;
-	const float spacing = pixel_scale;
+	const float border      = pixel_scale;
+	const float spacing     = pixel_scale;
 
-	const float full_width = 64.0f;
-	const float full_height = 48.0f + border * 2.0f;
-	const float image_width = 16.0f * pixel_scale;
-	const float image_height = 16.0f * pixel_scale;
+	const float full_width      = 64.0f;
+	const float full_height     = 48.0f + border * 2.0f;
+	const float image_width     = 16.0f * pixel_scale;
+	const float image_height    = 16.0f * pixel_scale;
 	const float image_padding_x = (full_width - image_width) * 0.5f;
 	const float image_padding_y = (full_height - image_height) * 0.5f;
 
@@ -441,9 +441,9 @@ static void fck_nk_panel_api_tabs(fck_nk nk)
 
 static void fck_nk_panel_api_begin_layout(fck_nk nk)
 {
-	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
-	fck_nk_os_window *window = &nk_internal->os;
-	struct nk_context *ctx = nk_internal->ctx;
+	fck_nk_private    *nk_internal = (fck_nk_private *)nk.handle;
+	fck_nk_os_window  *window      = &nk_internal->os;
+	struct nk_context *ctx         = nk_internal->ctx;
 
 	const struct nk_vec2 size = nk_window_get_size(ctx);
 	nk_layout_row_begin(ctx, NK_STATIC, size.y, window->open_panel ? 2 : 1);
@@ -451,16 +451,16 @@ static void fck_nk_panel_api_begin_layout(fck_nk nk)
 
 static void fck_nk_panel_api_end_layout(fck_nk nk)
 {
-	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
-	fck_nk_os_window *window = &nk_internal->os;
-	struct nk_context *ctx = nk_internal->ctx;
+	fck_nk_private    *nk_internal = (fck_nk_private *)nk.handle;
+	fck_nk_os_window  *window      = &nk_internal->os;
+	struct nk_context *ctx         = nk_internal->ctx;
 	nk_layout_row_end(ctx);
 }
 
 static int fck_nk_text_active(fck_nk nk)
 {
-	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
-	struct nk_context *ctx = nk_internal->ctx;
+	fck_nk_private    *nk_internal = (fck_nk_private *)nk.handle;
+	struct nk_context *ctx         = nk_internal->ctx;
 	if (ctx->text_edit.active)
 	{
 		return 1;
@@ -476,10 +476,10 @@ static int fck_nk_api_begin(fck_nk nke)
 {
 	fck_nk_private *nk = (fck_nk_private *)nke.handle;
 
-	struct nk_context *ctx = nk->ctx;
-	fck_nk_os_window *os_window = &nk->os;
+	struct nk_context *ctx       = nk->ctx;
+	fck_nk_os_window  *os_window = &nk->os;
 
-	const fck_window window = os_window->window;
+	const fck_window       window     = os_window->window;
 	fck_nk_hamburger_item *menu_items = os_window->burger.items;
 
 	// Handle activation of text input/edit events! :)
@@ -506,9 +506,9 @@ static int fck_nk_api_begin(fck_nk nke)
 	os->win->size(window, &window_width, &window_height);
 
 	const fck_window_configuration config = {
-		.title_bar_height = 35.0f,
+		.title_bar_height  = 35.0f,
 		.resize_line_width = 4.0f,
-		.menu_area_width = 35.0f * 2.0f,
+		.menu_area_width   = 35.0f * 2.0f,
 		.button_area_width = 35.0f * 2.0f,
 	};
 	os->win->configuration(window, &config);
@@ -520,8 +520,8 @@ static int fck_nk_api_begin(fck_nk nke)
 	nk_style_push_vec2(ctx, &ctx->style.window.group_padding, nk_vec2(0, 0));
 	nk_style_push_vec2(ctx, &ctx->style.window.spacing, nk_vec2(0, 0));
 
-	os_window->control.menu = 0;
-	os_window->control.close = 0;
+	os_window->control.menu     = 0;
+	os_window->control.close    = 0;
 	os_window->control.minimise = 0;
 
 	if (nk_begin(ctx, "Window Header", nk_rect(0, 0, window_width, configuration->title_bar_height),
@@ -531,7 +531,7 @@ static int fck_nk_api_begin(fck_nk nke)
 		nk_style_push_float(ctx, &ctx->style.button.border, 0.0f);
 
 		const float menu_button_width = configuration->menu_area_width / 2.0f;
-		const float button_width = configuration->button_area_width / 2.0f;
+		const float button_width      = configuration->button_area_width / 2.0f;
 		nk_layout_row_template_begin(ctx, configuration->title_bar_height);
 		nk_layout_row_template_push_static(ctx, menu_button_width);
 		nk_layout_row_template_push_static(ctx, menu_button_width);
@@ -542,7 +542,7 @@ static int fck_nk_api_begin(fck_nk nke)
 
 		// Pretend the menu button is a normal button
 		const struct nk_style_button menu_button_style = ctx->style.menu_button;
-		ctx->style.menu_button = ctx->style.button;
+		ctx->style.menu_button                         = ctx->style.button;
 
 		nk_style_push_vec2(ctx, &ctx->style.menu_button.padding, nk_vec2(7.5f, 10.0f));
 		if (nk_menu_begin_symbol(ctx, "Window Header Menu", NK_SYMBOL_HAMBURGER, nk_vec2(120, 200)))
@@ -649,22 +649,22 @@ static struct nk_color fck_ui_cached_colour_table[NK_COLOR_COUNT];
 static fck_nk_pie_item *fck_nk_pie_fan(struct nk_context *ctx, fck_nk_pie *pie, fck_nk_pie_item *active, fck_nk_pie_item *pie_items,
                                        struct nk_vec2 center, float offset_angle, float angle_step, float radius_offset, float radius)
 {
-	int count = 0;
+	int              count   = 0;
 	fck_nk_pie_item *current = pie_items;
 	while (current)
 	{
-		count = count + 1;
+		count   = count + 1;
 		current = current->next;
 	}
 
-	struct nk_input *input = &ctx->input;
+	struct nk_input     *input     = &ctx->input;
 	const struct nk_vec2 mouse_pos = input->mouse.pos;
 
 	const float dx = mouse_pos.x - center.x;
 	const float dy = mouse_pos.y - center.y;
 
-	const float dist = sqrtf(dx * dx + dy * dy);
-	int hovered = -1;
+	const float dist    = sqrtf(dx * dx + dy * dy);
+	int         hovered = -1;
 
 	fck_nk_pie_item *current_hovered = NULL;
 
@@ -672,7 +672,7 @@ static fck_nk_pie_item *fck_nk_pie_fan(struct nk_context *ctx, fck_nk_pie *pie, 
 	if (dist > radius_offset && dist < radius)
 	{
 		float mouse_angle = nk_atan2(dy, dx);
-		mouse_angle = mouse_angle - offset_angle;
+		mouse_angle       = mouse_angle - offset_angle;
 		if (mouse_angle < 0.0f)
 		{
 			mouse_angle += 2.0f * NK_PI;
@@ -681,10 +681,10 @@ static fck_nk_pie_item *fck_nk_pie_fan(struct nk_context *ctx, fck_nk_pie *pie, 
 	}
 
 	int index = 0;
-	current = pie_items;
+	current   = pie_items;
 	while (current)
 	{
-		const float start_angle = offset_angle + ((float)index * angle_step);
+		const float     start_angle = offset_angle + ((float)index * angle_step);
 		struct nk_color slice_color = fck_ui_cached_colour_table[NK_COLOR_BUTTON];
 
 		if (hovered == -1)
@@ -706,8 +706,8 @@ static fck_nk_pie_item *fck_nk_pie_fan(struct nk_context *ctx, fck_nk_pie *pie, 
 
 		if (index == hovered)
 		{
-			current_hovered = current;
-			slice_color = fck_ui_cached_colour_table[NK_COLOR_BUTTON_HOVER];
+			current_hovered                  = current;
+			slice_color                      = fck_ui_cached_colour_table[NK_COLOR_BUTTON_HOVER];
 			struct fck_nk_pie_item *children = current->items;
 			if (children)
 			{
@@ -721,9 +721,9 @@ static fck_nk_pie_item *fck_nk_pie_fan(struct nk_context *ctx, fck_nk_pie *pie, 
 		nk_stroke_arc(canvas, center.x, center.y, radius, start_angle, start_angle + angle_step, 1.5f,
 		              fck_ui_cached_colour_table[NK_COLOR_BORDER]);
 
-		const float text_angle = start_angle + (angle_step / 2.0f);
-		const struct nk_user_font *font = ctx->style.font;
-		struct nk_vec2 text_pos;
+		const float                text_angle = start_angle + (angle_step / 2.0f);
+		const struct nk_user_font *font       = ctx->style.font;
+		struct nk_vec2             text_pos;
 		text_pos.x = center.x + (((radius_offset * 0.35f) + (radius * 0.65f)) * nk_cos(text_angle));
 		text_pos.y = center.y + (((radius_offset * 0.35f) + (radius * 0.65f)) * nk_sin(text_angle));
 
@@ -734,7 +734,7 @@ static fck_nk_pie_item *fck_nk_pie_fan(struct nk_context *ctx, fck_nk_pie *pie, 
 		nk_draw_text(canvas, nk_rect(text_pos.x, text_pos.y, text_width, font->height), current->name, nk_strlen(current->name), font,
 		             nk_rgba(0, 0, 0, 0), fck_ui_cached_colour_table[NK_COLOR_TEXT]);
 
-		index = index + 1;
+		index   = index + 1;
 		current = current->next;
 	}
 
@@ -744,11 +744,11 @@ static fck_nk_pie_item *fck_nk_pie_fan(struct nk_context *ctx, fck_nk_pie *pie, 
 static const fck_nk_pie_item *fck_nk_pie_execute(fck_nk nk, float radius)
 {
 	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
-	fck_nk_pie *pie = &nk_internal->os.pie;
+	fck_nk_pie     *pie         = &nk_internal->os.pie;
 
-	struct nk_context *ctx = nk_internal->ctx;
+	struct nk_context        *ctx    = nk_internal->ctx;
 	struct nk_command_buffer *canvas = nk_window_get_canvas(ctx);
-	struct nk_input *input = &ctx->input;
+	struct nk_input          *input  = &ctx->input;
 
 	if (!nk_input_is_mouse_released(input, NK_BUTTON_RIGHT))
 	{
@@ -760,7 +760,7 @@ static const fck_nk_pie_item *fck_nk_pie_execute(fck_nk nk, float radius)
 				selected->value = 1;
 			}
 			pie->hovered = NULL;
-			pie->active = 0;
+			pie->active  = 0;
 			return selected;
 		}
 	}
@@ -772,26 +772,26 @@ static const fck_nk_pie_item *fck_nk_pie_execute(fck_nk nk, float radius)
 	}
 	pie->active = 1;
 
-	const struct nk_vec2 center = nk_vec2(pie->x, pie->y);
-	fck_nk_pie_item *pie_items = pie->root.items;
+	const struct nk_vec2 center    = nk_vec2(pie->x, pie->y);
+	fck_nk_pie_item     *pie_items = pie->root.items;
 	if (pie_items == NULL)
 	{
 		return NULL;
 	}
 
-	int count = 0;
+	int              count   = 0;
 	fck_nk_pie_item *current = pie_items;
 	while (current)
 	{
-		count = count + 1;
+		count   = count + 1;
 		current = current->next;
 	}
 
-	const float angle_step = (2.0f * NK_PI) / (float)count;
-	const struct nk_vec2 mouse_pos = input->mouse.pos;
+	const float          angle_step = (2.0f * NK_PI) / (float)count;
+	const struct nk_vec2 mouse_pos  = input->mouse.pos;
 
-	const float dx = mouse_pos.x - center.x;
-	const float dy = mouse_pos.y - center.y;
+	const float dx       = mouse_pos.x - center.x;
+	const float dy       = mouse_pos.y - center.y;
 	const float distance = sqrtf(dx * dx + dy * dy);
 
 	int hovered = -1;
@@ -805,10 +805,10 @@ static const fck_nk_pie_item *fck_nk_pie_execute(fck_nk nk, float radius)
 		hovered = (int)((mouse_angle) / angle_step) % count;
 	}
 
-	fck_nk_pie_item *selected = NULL;
+	fck_nk_pie_item *selected        = NULL;
 	fck_nk_pie_item *current_hovered = NULL;
-	current = pie_items;
-	int index = 0;
+	current                          = pie_items;
+	int index                        = 0;
 	while (current)
 	{
 		const float start_angle = ((float)index * angle_step);
@@ -832,7 +832,7 @@ static const fck_nk_pie_item *fck_nk_pie_execute(fck_nk nk, float radius)
 		struct nk_color slice_color = fck_ui_cached_colour_table[NK_COLOR_BUTTON];
 		if (index == hovered)
 		{
-			slice_color = fck_ui_cached_colour_table[NK_COLOR_BUTTON_HOVER];
+			slice_color                      = fck_ui_cached_colour_table[NK_COLOR_BUTTON_HOVER];
 			struct fck_nk_pie_item *children = current->items;
 			if (children)
 			{
@@ -843,9 +843,9 @@ static const fck_nk_pie_item *fck_nk_pie_execute(fck_nk nk, float radius)
 		}
 
 		{
-			const float text_angle = start_angle + (angle_step / 2.0f);
-			const struct nk_user_font *font = ctx->style.font;
-			struct nk_vec2 text_pos;
+			const float                text_angle = start_angle + (angle_step / 2.0f);
+			const struct nk_user_font *font       = ctx->style.font;
+			struct nk_vec2             text_pos;
 			text_pos.x = center.x + (radius * 0.65f) * nk_cos(text_angle);
 			text_pos.y = center.y + (radius * 0.65f) * nk_sin(text_angle);
 
@@ -860,7 +860,7 @@ static const fck_nk_pie_item *fck_nk_pie_execute(fck_nk nk, float radius)
 			nk_draw_text(canvas, nk_rect(text_pos.x, text_pos.y, text_width, font->height), current->name, nk_strlen(current->name), font,
 			             nk_rgba(0, 0, 0, 0), fck_ui_cached_colour_table[NK_COLOR_TEXT]);
 		}
-		index = index + 1;
+		index   = index + 1;
 		current = current->next;
 	}
 
@@ -873,11 +873,11 @@ static const fck_nk_pie_item *fck_nk_pie_execute(fck_nk nk, float radius)
 
 static void fck_nk_api_end(fck_nk nke)
 {
-	fck_nk_private *nk = (fck_nk_private *)nke.handle;
-	fck_nk_os_window *window = &nk->os;
-	fck_nk_selection *selection = &window->control_state.selection;
-	fck_nk_hovered *hovered = &window->control_state.hovered;
-	fck_nk_control_point *point = &window->control_state.point;
+	fck_nk_private       *nk        = (fck_nk_private *)nke.handle;
+	fck_nk_os_window     *window    = &nk->os;
+	fck_nk_selection     *selection = &window->control_state.selection;
+	fck_nk_hovered       *hovered   = &window->control_state.hovered;
+	fck_nk_control_point *point     = &window->control_state.point;
 
 	window->open_panel = window->selected_in_tab_panel;
 
@@ -890,8 +890,8 @@ static void fck_nk_api_end(fck_nk nke)
 	if (nk->os.control_state.point.current)
 	{
 		struct nk_rect *target = &selection->rect;
-		target->x = input->mouse.pos.x - (target->w * 0.5f);
-		target->y = input->mouse.pos.y - (target->h * 0.5f);
+		target->x              = input->mouse.pos.x - (target->w * 0.5f);
+		target->y              = input->mouse.pos.y - (target->h * 0.5f);
 	}
 
 	if (nk->os.control.body)
@@ -934,21 +934,29 @@ static void fck_nk_api_end(fck_nk nke)
 
 	if (selection->pointer == NULL)
 	{
-		selection->rect = nk_rect(0, 0, 0, 0);
+		selection->rect  = nk_rect(0, 0, 0, 0);
 		selection->index = to_u32(0LLU);
 	}
 
 	point->last_hovered = NULL;
-	hovered->last = NULL;
+	hovered->last       = NULL;
 }
 
-static void fck_nk_api_present(fck_nk nke, const struct sht_command_buffer *buffer, fckc_u32 frame_index)
+static int fck_nk_api_present(void *userdata, const struct fck_gfx_args *args)
 {
-	fck_nk_private *nk = (fck_nk_private *)nke.handle;
+	fck_nk_private *nk = (fck_nk_private *)((fck_nk *)userdata)->handle;
 
-	const fckc_u64 now = os->chrono->ms();
+	const sht_render_desc desc        = {.colour = args->suggestion->colour};
+	const sht_render_pass render_pass = args->driver->vt->command_buffer->render_pass->begin(*args->commands, &desc);
+
+	if (!args->driver->vt->command_buffer->render_pass->is_ok(render_pass))
+	{
+		return 0;
+	}
+
+	const fckc_u64 now          = os->chrono->ms();
 	nk->ctx->delta_time_seconds = (float)(now - nk->time_last_frame) / 1000;
-	nk->time_last_frame = now;
+	nk->time_last_frame         = now;
 
 	struct sht_driver *driver = &nk->driver;
 
@@ -963,21 +971,21 @@ static void fck_nk_api_present(fck_nk nke, const struct sht_command_buffer *buff
 	struct nk_convert_config config;
 
 	memset(&config, 0, sizeof(config));
-	config.vertex_layout = vertex_layout;
-	config.vertex_size = sizeof(fck_nk_vertex);
-	config.vertex_alignment = alignof(fck_nk_vertex);
-	config.tex_null = nk->null_texture;
+	config.vertex_layout        = vertex_layout;
+	config.vertex_size          = sizeof(fck_nk_vertex);
+	config.vertex_alignment     = alignof(fck_nk_vertex);
+	config.tex_null             = nk->null_texture;
 	config.circle_segment_count = 36;
-	config.curve_segment_count = 36;
-	config.arc_segment_count = 36;
-	config.global_alpha = 1.0f;
-	config.shape_AA = NK_ANTI_ALIASING_ON;
-	config.line_AA = NK_ANTI_ALIASING_ON;
+	config.curve_segment_count  = 36;
+	config.arc_segment_count    = 36;
+	config.global_alpha         = 1.0f;
+	config.shape_AA             = NK_ANTI_ALIASING_ON;
+	config.line_AA              = NK_ANTI_ALIASING_ON;
 
 	struct nk_buffer vertices, elements;
 	nk_buffer_init_default(&vertices);
 
-	const sht_buffer index_buffer = nk->indices[frame_index];
+	const sht_buffer index_buffer = nk->indices[args->swapchain->index];
 	nk_buffer_init_fixed(&elements, index_buffer.cpu, index_buffer.size);
 
 	const nk_flags result = nk_convert(nk->ctx, &nk->commands, &vertices, &elements, &config);
@@ -997,30 +1005,30 @@ static void fck_nk_api_present(fck_nk nke, const struct sht_command_buffer *buff
 	const fck_nk_vertex *vertex_transforms = (const fck_nk_vertex *)nk_buffer_memory_const(&vertices);
 
 	const sht_swapchain swapchain = driver->vt->swapchain(*driver);
-	const sht_extent extent = swapchain.vt->extent(swapchain);
+	const sht_extent    extent    = swapchain.vt->extent(swapchain);
 
 	{
 		sht_viewport viewport;
-		viewport.offset.x = 0.0f;
-		viewport.offset.y = 0.0f;
+		viewport.offset.x  = 0.0f;
+		viewport.offset.y  = 0.0f;
 		viewport.depth.min = (float)0.0f;
 		viewport.depth.max = (float)1.0f;
-		viewport.extent = extent;
-		command->viewport(*buffer, &viewport);
+		viewport.extent    = extent;
+		command->viewport(*args->commands, &viewport);
 
 		const fck_nk_screen screen = {
-			.width = (float)extent.width,
+			.width  = (float)extent.width,
 			.height = (float)extent.height,
 		};
 		const sht_buffer_upload_desc screen_upload = {
-			.data = &screen,
-			.size = sizeof(screen),
+			.data  = &screen,
+			.size  = sizeof(screen),
 			.count = 1,
 		};
 
 		const sht_buffer_upload_desc vertices_upload = {
-			.data = vertex_transforms,
-			.size = sizeof(*vertex_transforms),
+			.data  = vertex_transforms,
+			.size  = sizeof(*vertex_transforms),
 			.count = vertices.needed / sizeof(*vertex_transforms),
 		};
 
@@ -1030,16 +1038,16 @@ static void fck_nk_api_present(fck_nk nke, const struct sht_command_buffer *buff
 		driver->vt->bss->upload_buffer(*bss, 0, &screen_upload);
 		driver->vt->bss->upload_buffer(*bss, 1, &vertices_upload);
 		// driver->vt->bss->upload_image(*bss, 2, &font_upload);
-		command->bss(*buffer, *bss);
+		command->bss(*args->commands, *bss);
 
 		sht_graphics_pipeline *pipeline = gfx->pipeline(nk->gfx);
 
-		command->graphics_pipeline(*buffer, *pipeline);
+		command->graphics_pipeline(*args->commands, *pipeline);
 		// Dynamic geometry updates indices and vertices each frame
-		command->index_buffer(*buffer, &nk->indices[frame_index], 0);
+		command->index_buffer(*args->commands, &nk->indices[args->swapchain->index], 0);
 
 		const struct nk_draw_command *cmd;
-		fckc_u32 index_offset = 0;
+		fckc_u32                      index_offset = 0;
 
 		nk_draw_foreach(cmd, nk->ctx, &nk->commands)
 		{
@@ -1049,38 +1057,41 @@ static void fck_nk_api_present(fck_nk nke, const struct sht_command_buffer *buff
 
 			const sht_image_upload_desc image_upload = {
 				.sampler = &nk->sampler,
-				.view = (sht_image_view *)cmd->texture.ptr,
+				.view    = (sht_image_view *)cmd->texture.ptr,
 			};
 
 			driver->vt->bss->upload_image(*bss, 2, &image_upload);
-			command->bss(*buffer, *bss);
+			command->bss(*args->commands, *bss);
 			// driver->vt->bss->upload(ui->bss, 1, sht_upload_params{.view =
 			// ui->font.view, .sampler = ui->sampler});
 
 			sht_scissor scissor;
-			scissor.offset.x = to_u32(NK_MAX(cmd->clip_rect.x, 0.f));
-			scissor.offset.y = to_u32(NK_MAX(cmd->clip_rect.y, 0.f));
-			scissor.extent.width = to_u32(cmd->clip_rect.w);
+			scissor.offset.x      = to_u32(NK_MAX(cmd->clip_rect.x, 0.f));
+			scissor.offset.y      = to_u32(NK_MAX(cmd->clip_rect.y, 0.f));
+			scissor.extent.width  = to_u32(cmd->clip_rect.w);
 			scissor.extent.height = to_u32(cmd->clip_rect.h);
 
 			// float x = cmd->clip_rect.x;
 			// float y = cmd->clip_rect.y;
-			command->scissor(*buffer, &scissor);
+			command->scissor(*args->commands, &scissor);
 
 			const sht_draw_indexed_desc desc = {
-				.first_index = index_offset,
-				.index_count = cmd->elem_count,
+				.first_index    = index_offset,
+				.index_count    = cmd->elem_count,
 				.instance_count = 1,
 				.first_instance = 0,
-				.vertex_offset = 0,
+				.vertex_offset  = 0,
 			};
-			command->draw_indexed(*buffer, &desc);
+			command->draw_indexed(*args->commands, &desc);
 			index_offset = index_offset + cmd->elem_count;
 		}
 
 		nk_buffer_free(&vertices);
 		nk_buffer_free(&elements);
 	}
+
+	args->driver->vt->command_buffer->render_pass->end(*args->commands);
+	return 1;
 }
 
 static void fck_nk_hamburger_push(fck_nk_hamburger *burger, fck_nk_hamburger_item *menu_item)
@@ -1089,13 +1100,13 @@ static void fck_nk_hamburger_push(fck_nk_hamburger *burger, fck_nk_hamburger_ite
 
 	if (burger->items == NULL)
 	{
-		burger->items = menu_item;
+		burger->items      = menu_item;
 		burger->items_last = menu_item;
 	}
 	else
 	{
 		burger->items_last->next = menu_item;
-		burger->items_last = menu_item;
+		burger->items_last       = menu_item;
 	}
 }
 
@@ -1187,7 +1198,7 @@ static int fck_nk_api_to_screen(fck_nk nk, float *x, float *y)
 {
 	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
 
-	int window_width = 0;
+	int window_width  = 0;
 	int window_height = 0;
 	os->win->size(nk_internal->os.window, &window_width, &window_height);
 
@@ -1206,7 +1217,7 @@ static int fck_nk_api_to_nuklear(fck_nk nk, float *x, float *y)
 {
 	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
 
-	int window_width = 0;
+	int window_width  = 0;
 	int window_height = 0;
 	os->win->size(nk_internal->os.window, &window_width, &window_height);
 
@@ -1226,7 +1237,7 @@ static int fck_nk_api_control_point(fck_nk nk, const void *pointer, float *x, fl
 	// Since this nuklear implementation moves everything around, it is on said implementation to fix it
 	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
 
-	int window_width = 0;
+	int window_width  = 0;
 	int window_height = 0;
 	os->win->size(nk_internal->os.window, &window_width, &window_height);
 
@@ -1237,11 +1248,11 @@ static int fck_nk_api_control_point(fck_nk nk, const void *pointer, float *x, fl
 	struct nk_rect rect = nk_rect(px - (size * 0.5f), py - (size * 0.5f), size, size);
 
 	const struct nk_input *input = &nk_internal->ctx->input;
-	fck_nk_control_point *point = &nk_internal->os.control_state.point;
+	fck_nk_control_point  *point = &nk_internal->os.control_state.point;
 
 	const float scaled_size = size * 2.0f;
-	float scaled_px = *x - (scaled_size * 0.5f);
-	float scaled_py = *y - (scaled_size * 0.5f);
+	float       scaled_px   = *x - (scaled_size * 0.5f);
+	float       scaled_py   = *y - (scaled_size * 0.5f);
 	fck_nk_api_to_nuklear(nk, &scaled_px, &scaled_py);
 
 	const struct nk_rect scaled_rect = nk_rect(scaled_px, scaled_py, scaled_size, scaled_size);
@@ -1269,14 +1280,14 @@ static int fck_nk_api_control_point(fck_nk nk, const void *pointer, float *x, fl
 				point->current = pointer;
 
 				select = &on;
-				*x = input->mouse.pos.x - point->offset.x;
-				*y = input->mouse.pos.y - point->offset.y;
+				*x     = input->mouse.pos.x - point->offset.x;
+				*y     = input->mouse.pos.y - point->offset.y;
 				fck_nk_api_to_screen(nk, x, y);
 			}
 		}
 	}
 
-	const struct nk_color c = nk_rgba(select->r, select->g, select->b, select->a);
+	const struct nk_color     c      = nk_rgba(select->r, select->g, select->b, select->a);
 	struct nk_command_buffer *canvas = nk_window_get_canvas(nk_internal->ctx);
 	if (point->current == NULL || point->current == pointer)
 	{
@@ -1291,7 +1302,7 @@ static int fck_nk_api_translation(fck_nk nk, const void *pointer, float *x, floa
 	// Since this nuklear implementation moves everything around, it is on said implementation to fix it
 	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
 
-	int window_width = 0;
+	int window_width  = 0;
 	int window_height = 0;
 	os->win->size(nk_internal->os.window, &window_width, &window_height);
 
@@ -1302,7 +1313,7 @@ static int fck_nk_api_translation(fck_nk nk, const void *pointer, float *x, floa
 	const struct nk_rect rect = nk_rect(px - (w * 0.5f), py - (h * 0.5f), w, h);
 
 	const struct nk_input *input = &nk_internal->ctx->input;
-	fck_nk_control_point *point = &nk_internal->os.control_state.point;
+	fck_nk_control_point  *point = &nk_internal->os.control_state.point;
 
 	int select = 0;
 	if (nk_input_is_mouse_hovering_rect(input, rect) || NK_INBOX(input->mouse.prev.x, input->mouse.prev.y, rect.x, rect.y, rect.w, rect.h))
@@ -1321,8 +1332,8 @@ static int fck_nk_api_translation(fck_nk nk, const void *pointer, float *x, floa
 				point->current = pointer;
 
 				select = 1;
-				*x = input->mouse.pos.x - point->offset.x;
-				*y = input->mouse.pos.y - point->offset.y;
+				*x     = input->mouse.pos.x - point->offset.x;
+				*y     = input->mouse.pos.y - point->offset.y;
 				fck_nk_api_to_screen(nk, x, y);
 			}
 		}
@@ -1333,7 +1344,7 @@ static int fck_nk_api_translation(fck_nk nk, const void *pointer, float *x, floa
 
 static void fck_nk_api_set_select(fck_nk nk, const void *pointer)
 {
-	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
+	fck_nk_private *nk_internal                     = (fck_nk_private *)nk.handle;
 	nk_internal->os.control_state.selection.pointer = pointer;
 	// TODO: Invalidate the rect?
 }
@@ -1341,20 +1352,20 @@ static void fck_nk_api_set_select(fck_nk nk, const void *pointer)
 static void fck_nk_dashed_rect(struct nk_command_buffer *canvas, const struct nk_rect rect, float dash_length, float dash_offset,
                                const struct nk_color colour)
 {
-	const float minX = rect.x;
-	const float maxX = rect.x + rect.w;
-	const float minY = rect.y;
-	const float maxY = rect.y + rect.h;
-	const float offset = dash_length;
-	const float dash = dash_offset;
+	const float minX     = rect.x;
+	const float maxX     = rect.x + rect.w;
+	const float minY     = rect.y;
+	const float maxY     = rect.y + rect.h;
+	const float offset   = dash_length;
+	const float dash     = dash_offset;
 	const float fullStep = offset + dash;
 
-	float current = minX;
+	float       current        = minX;
 	const float line_thickness = 2.0f;
 	while (current < maxX)
 	{
 		const float from = fck_clamp(current, minX, maxX);
-		const float to = fck_clamp(current + dash, minX, maxX);
+		const float to   = fck_clamp(current + dash, minX, maxX);
 		nk_stroke_line(canvas, from, minY, to, minY, line_thickness, colour);
 		nk_stroke_line(canvas, from, maxY, to, maxY, line_thickness, colour);
 		current += fullStep;
@@ -1363,7 +1374,7 @@ static void fck_nk_dashed_rect(struct nk_command_buffer *canvas, const struct nk
 	while (current < maxY)
 	{
 		const float from = fck_clamp(current, minY, maxY);
-		const float to = fck_clamp(current + dash, minY, maxY);
+		const float to   = fck_clamp(current + dash, minY, maxY);
 		nk_stroke_line(canvas, minX, from, minX, to, line_thickness, colour);
 		nk_stroke_line(canvas, maxX, from, maxX, to, line_thickness, colour);
 		current += fullStep;
@@ -1374,7 +1385,7 @@ static int fck_nk_api_select(fck_nk nk, const void *pointer, float x, float y, f
 {
 	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
 
-	int window_width = 0;
+	int window_width  = 0;
 	int window_height = 0;
 	os->win->size(nk_internal->os.window, &window_width, &window_height);
 
@@ -1382,25 +1393,25 @@ static int fck_nk_api_select(fck_nk nk, const void *pointer, float x, float y, f
 
 	const struct nk_input *input = &nk_internal->ctx->input;
 
-	const struct nk_rect rect = nk_rect(x - (w * 0.5f), y - (h * 0.5f), w, h);
-	const struct nk_color colour = nk_rgba(on.r, on.g, on.b, on.a);
+	const struct nk_rect      rect   = nk_rect(x - (w * 0.5f), y - (h * 0.5f), w, h);
+	const struct nk_color     colour = nk_rgba(on.r, on.g, on.b, on.a);
 	struct nk_command_buffer *canvas = nk_window_get_canvas(nk_internal->ctx);
 
-	fck_nk_hovered *hovered = &nk_internal->os.control_state.hovered;
-	fck_nk_selection *selection = &nk_internal->os.control_state.selection;
-	fck_nk_control_point *point = &nk_internal->os.control_state.point;
+	fck_nk_hovered       *hovered   = &nk_internal->os.control_state.hovered;
+	fck_nk_selection     *selection = &nk_internal->os.control_state.selection;
+	fck_nk_control_point *point     = &nk_internal->os.control_state.point;
 
 	if (nk_input_is_mouse_hovering_rect(input, rect))
 	{
 		const fckc_u32 self = hovered->track;
-		hovered->last = pointer;
-		hovered->track = hovered->track + 1;
+		hovered->last       = pointer;
+		hovered->track      = hovered->track + 1;
 		if (point->current == NULL)
 		{
 			if (hovered->count != 0)
 			{
-				const fckc_u32 selected = selection->index % hovered->count;
-				const int is_not_selected = selection->pointer != pointer;
+				const fckc_u32 selected        = selection->index % hovered->count;
+				const int      is_not_selected = selection->pointer != pointer;
 				if (is_not_selected)
 				{
 					nk_stroke_rect(canvas, rect, 0.0f, 1.0f, colour);
@@ -1408,7 +1419,7 @@ static int fck_nk_api_select(fck_nk nk, const void *pointer, float x, float y, f
 					if (self == selected && nk_input_is_mouse_pressed(input, NK_BUTTON_LEFT))
 					{
 						selection->pointer = pointer;
-						selection->rect = rect;
+						selection->rect    = rect;
 					}
 				}
 			}
@@ -1418,7 +1429,7 @@ static int fck_nk_api_select(fck_nk nk, const void *pointer, float x, float y, f
 			if (point->current == pointer)
 			{
 				selection->pointer = pointer;
-				selection->rect = rect;
+				selection->rect    = rect;
 			}
 		}
 	}
@@ -1436,9 +1447,9 @@ static int fck_nk_api_select(fck_nk nk, const void *pointer, float x, float y, f
 
 static fck_nk_panel_state *fck_nk_panel_find(fck_nk_private *nk, const char *name)
 {
-	fck_nk_os_window *window = &nk->os;
-	const fck_hash_int hash = fck_hash(name, strlen(name));
-	const fckc_size_t capacity = fck_arraysize(window->panels);
+	fck_nk_os_window  *window   = &nk->os;
+	const fck_hash_int hash     = fck_hash(name, strlen(name));
+	const fckc_size_t  capacity = fck_arraysize(window->panels);
 
 	fckc_size_t slot = hash % capacity;
 	for (fckc_size_t index = 0; index < capacity; index++)
@@ -1464,10 +1475,10 @@ static fck_nk_panel_state *fck_nk_panel_find(fck_nk_private *nk, const char *nam
 
 static fck_nk_panel_state *fck_nk_panel_add(fck_nk_private *nk, const char *name)
 {
-	fck_nk_os_window *window = &nk->os;
-	const fckc_size_t len = strlen(name) + 1;
-	const fck_hash_int hash = fck_hash(name, strlen(name));
-	const fckc_size_t capacity = fck_arraysize(window->panels);
+	fck_nk_os_window  *window   = &nk->os;
+	const fckc_size_t  len      = strlen(name) + 1;
+	const fck_hash_int hash     = fck_hash(name, strlen(name));
+	const fckc_size_t  capacity = fck_arraysize(window->panels);
 
 	fckc_size_t slot = hash % capacity;
 	for (fckc_size_t index = 0; index < capacity; index++)
@@ -1481,11 +1492,11 @@ static fck_nk_panel_state *fck_nk_panel_add(fck_nk_private *nk, const char *name
 			if (window->last_panel)
 			{
 				window->last_panel->next = state;
-				window->last_panel = state;
+				window->last_panel       = state;
 			}
 			else
 			{
-				window->last_panel = state;
+				window->last_panel  = state;
 				window->first_panel = state;
 			}
 
@@ -1499,8 +1510,8 @@ static fck_nk_panel_state *fck_nk_panel_add(fck_nk_private *nk, const char *name
 
 static int fck_nk_panel_api_begin_icon(fck_nk nk, const char *name, struct sht_image_view *image, const fck_nk_rect *region, float width)
 {
-	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
-	fck_nk_panel_state *state = fck_nk_panel_find(nk_internal, name);
+	fck_nk_private     *nk_internal = (fck_nk_private *)nk.handle;
+	fck_nk_panel_state *state       = fck_nk_panel_find(nk_internal, name);
 	if (state == NULL)
 	{
 		state = fck_nk_panel_add(nk_internal, name);
@@ -1509,16 +1520,16 @@ static int fck_nk_panel_api_begin_icon(fck_nk nk, const char *name, struct sht_i
 	if (region)
 	{
 		const struct nk_rect rect = nk_rect(region->x, region->y, region->w, region->h);
-		state->icon = nk_subimage_ptr(image, to_u16(image->width), to_u16(image->height), rect);
+		state->icon               = nk_subimage_ptr(image, to_u16(image->width), to_u16(image->height), rect);
 	}
 	else
 	{
 		state->icon = nk_image_ptr(image);
 	}
 
-	fck_nk_os_window *window = &nk_internal->os;
-	struct nk_context *ctx = nk_internal->ctx;
-	window->current_panel = state;
+	fck_nk_os_window  *window = &nk_internal->os;
+	struct nk_context *ctx    = nk_internal->ctx;
+	window->current_panel     = state;
 
 	if (window->open_panel == state)
 	{
@@ -1534,15 +1545,15 @@ static int fck_nk_panel_api_begin_icon(fck_nk nk, const char *name, struct sht_i
 
 static int fck_nk_panel_api_begin_label(fck_nk nk, const char *name, float width)
 {
-	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
-	fck_nk_panel_state *state = fck_nk_panel_find(nk_internal, name);
+	fck_nk_private     *nk_internal = (fck_nk_private *)nk.handle;
+	fck_nk_panel_state *state       = fck_nk_panel_find(nk_internal, name);
 	if (state == NULL)
 	{
 		state = fck_nk_panel_add(nk_internal, name);
 	}
-	fck_nk_os_window *window = &nk_internal->os;
-	struct nk_context *ctx = nk_internal->ctx;
-	window->current_panel = state;
+	fck_nk_os_window  *window = &nk_internal->os;
+	struct nk_context *ctx    = nk_internal->ctx;
+	window->current_panel     = state;
 
 	if (window->open_panel == state)
 	{
@@ -1558,8 +1569,8 @@ static int fck_nk_panel_api_begin_label(fck_nk nk, const char *name, float width
 
 static void fck_nk_panel_api_end(fck_nk nk)
 {
-	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
-	struct nk_context *ctx = nk_internal->ctx;
+	fck_nk_private    *nk_internal = (fck_nk_private *)nk.handle;
+	struct nk_context *ctx         = nk_internal->ctx;
 
 	fck_nk_os_window *window = &nk_internal->os;
 	fck_assert(window->current_panel == window->open_panel);
@@ -1568,11 +1579,11 @@ static void fck_nk_panel_api_end(fck_nk nk)
 
 static int fck_nk_panel_menu_api_push(fck_nk nk, const char *fmt, ...)
 {
-	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
-	struct nk_context *ctx = nk_internal->ctx;
+	fck_nk_private    *nk_internal = (fck_nk_private *)nk.handle;
+	struct nk_context *ctx         = nk_internal->ctx;
 
-	char buffer[256]; /* Adjust this size if you expect massive names */
-	int unique_id;
+	char    buffer[256]; /* Adjust this size if you expect massive names */
+	int     unique_id;
 	va_list args;
 
 	va_start(args, fmt);
@@ -1584,8 +1595,8 @@ static int fck_nk_panel_menu_api_push(fck_nk nk, const char *fmt, ...)
 
 static void fck_nk_panel_menu_api_pop(fck_nk nk)
 {
-	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
-	struct nk_context *ctx = nk_internal->ctx;
+	fck_nk_private    *nk_internal = (fck_nk_private *)nk.handle;
+	struct nk_context *ctx         = nk_internal->ctx;
 	nk_tree_pop(ctx);
 }
 
@@ -1593,10 +1604,10 @@ static void fck_nk_panel_menu_api_pop(fck_nk nk)
 
 static int fck_nk_elements_api_dropdown(fck_nk nk, int selected, const char *const *items, int count)
 {
-	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
-	struct nk_context *ctx = nk_internal->ctx;
+	fck_nk_private      *nk_internal   = (fck_nk_private *)nk.handle;
+	struct nk_context   *ctx           = nk_internal->ctx;
 	// const struct nk_vec2 position = nk_widget_position(ctx);
-	const struct nk_vec2 size = nk_widget_size(ctx);
+	const struct nk_vec2 size          = nk_widget_size(ctx);
 	const struct nk_vec2 dropdown_size = nk_vec2(size.x, 128.0f);
 	nk_layout_row_dynamic(ctx, fck_nuklear_element_row_height_default, 1);
 
@@ -1605,14 +1616,14 @@ static int fck_nk_elements_api_dropdown(fck_nk nk, int selected, const char *con
 
 static const fck_db_asset *fck_nk_elements_api_asset(fck_nk nk, struct fck_db *assets, const fck_db_asset *current, const char *category)
 {
-	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
-	struct nk_context *ctx = nk_internal->ctx;
+	fck_nk_private    *nk_internal = (fck_nk_private *)nk.handle;
+	struct nk_context *ctx         = nk_internal->ctx;
 
 	fck_db_api *db = nk_internal->db;
 
 	void *it_category = db->asset->category(*assets, category);
 	{
-		const struct nk_vec2 size = nk_widget_size(ctx);
+		const struct nk_vec2 size          = nk_widget_size(ctx);
 		const struct nk_vec2 dropdown_size = nk_vec2(size.x, 128.0f);
 
 		if (nk_combo_begin_label(ctx, current ? current->path : "none", dropdown_size))
@@ -1623,12 +1634,12 @@ static const fck_db_asset *fck_nk_elements_api_asset(fck_nk nk, struct fck_db *a
 				current = NULL;
 			}
 
-			void *it_extension = NULL;
+			void       *it_extension = NULL;
 			const char *extension;
 			while (db->asset->extensions(*assets, it_category, &it_extension, &extension))
 			{
 				const fck_db_asset_reference *references;
-				const fckc_size_t count = db->asset->assetsof(*assets, extension, &references);
+				const fckc_size_t             count = db->asset->assetsof(*assets, extension, &references);
 				for (fckc_size_t index = 0; index < count; index++)
 				{
 					const fck_db_asset_reference *ref = references + index;
@@ -1647,32 +1658,32 @@ static const fck_db_asset *fck_nk_elements_api_asset(fck_nk nk, struct fck_db *a
 
 static fckc_f32 fck_nuklear_elements_api_f32(fck_nk nk, const char *name, fckc_f32 min, fckc_f32 val, fckc_f32 max, fckc_f32 step)
 {
-	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
-	struct nk_context *ctx = nk_internal->ctx;
+	fck_nk_private    *nk_internal = (fck_nk_private *)nk.handle;
+	struct nk_context *ctx         = nk_internal->ctx;
 	nk_layout_row_dynamic(ctx, fck_nuklear_element_row_height_default, 1);
 	return nk_propertyf(ctx, name, min, val, max, step, 0.5f);
 }
 
 static fckc_i32 fck_nuklear_elements_api_i32(fck_nk nk, const char *name, fckc_i32 min, fckc_i32 val, fckc_i32 max, fckc_i32 step)
 {
-	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
-	struct nk_context *ctx = nk_internal->ctx;
+	fck_nk_private    *nk_internal = (fck_nk_private *)nk.handle;
+	struct nk_context *ctx         = nk_internal->ctx;
 	nk_layout_row_dynamic(ctx, fck_nuklear_element_row_height_default, 1);
 	return nk_propertyi(ctx, name, min, val, max, step, 0.5f);
 }
 
 static int fck_nuklear_elements_api_button(fck_nk nk, const char *title)
 {
-	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
-	struct nk_context *ctx = nk_internal->ctx;
+	fck_nk_private    *nk_internal = (fck_nk_private *)nk.handle;
+	struct nk_context *ctx         = nk_internal->ctx;
 	nk_layout_row_dynamic(ctx, fck_nuklear_element_row_height_default, 1);
 	return nk_button_label(ctx, title);
 }
 
 static void fck_nuklear_elements_api_label(fck_nk nk, const char *fmt, ...)
 {
-	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
-	struct nk_context *ctx = nk_internal->ctx;
+	fck_nk_private    *nk_internal = (fck_nk_private *)nk.handle;
+	struct nk_context *ctx         = nk_internal->ctx;
 
 	va_list args;
 	va_start(args, fmt);
@@ -1683,8 +1694,8 @@ static void fck_nuklear_elements_api_label(fck_nk nk, const char *fmt, ...)
 
 static int fck_nuklear_elements_api_string(fck_nk nk, char *buffer, int len)
 {
-	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
-	struct nk_context *ctx = nk_internal->ctx;
+	fck_nk_private    *nk_internal = (fck_nk_private *)nk.handle;
+	struct nk_context *ctx         = nk_internal->ctx;
 	nk_layout_row_dynamic(ctx, fck_nuklear_element_row_height_default, 1);
 	const nk_flags result = nk_edit_string_zero_terminated(ctx, NK_EDIT_FIELD, buffer, len, nk_filter_default);
 	return (result & NK_EDIT_COMMITED) == NK_EDIT_COMMITED;
@@ -1692,15 +1703,15 @@ static int fck_nuklear_elements_api_string(fck_nk nk, char *buffer, int len)
 
 static void fck_nuklear_elements_api_rect(fck_nk nk, float w, float h, fck_nk_colour colour)
 {
-	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
-	struct nk_context *ctx = nk_internal->ctx;
+	fck_nk_private    *nk_internal = (fck_nk_private *)nk.handle;
+	struct nk_context *ctx         = nk_internal->ctx;
 
 	struct nk_command_buffer *canvas;
-	struct nk_input *input = &ctx->input;
-	canvas = nk_window_get_canvas(ctx);
+	struct nk_input          *input = &ctx->input;
+	canvas                          = nk_window_get_canvas(ctx);
 
 	const float content_width = nk_widget_width(ctx);
-	const float aspect_ratio = to_f32(w) / to_f32(h);
+	const float aspect_ratio  = to_f32(w) / to_f32(h);
 	if (w > content_width)
 	{
 		w = content_width;
@@ -1708,7 +1719,7 @@ static void fck_nuklear_elements_api_rect(fck_nk nk, float w, float h, fck_nk_co
 	}
 
 	nk_layout_row_static(ctx, w, (int)h, 1);
-	struct nk_rect space;
+	struct nk_rect               space;
 	enum nk_widget_layout_states state = nk_widget(&space, ctx);
 	if (!state)
 	{
@@ -1733,7 +1744,7 @@ static void fck_nuklear_elements_layout_image(struct nk_context *ctx, sht_image_
 	}
 
 	const float content_width = nk_widget_width(ctx);
-	float aspect_ratio = 1.0f;
+	float       aspect_ratio  = 1.0f;
 	if (image->gpu)
 	{
 		aspect_ratio = to_f32(image->width) / to_f32(image->height);
@@ -1742,7 +1753,7 @@ static void fck_nuklear_elements_layout_image(struct nk_context *ctx, sht_image_
 	float width = height * aspect_ratio;
 	if (width > content_width)
 	{
-		width = content_width;
+		width  = content_width;
 		height = width * (1 / aspect_ratio);
 	}
 
@@ -1751,8 +1762,8 @@ static void fck_nuklear_elements_layout_image(struct nk_context *ctx, sht_image_
 
 static int fck_nuklear_elements_api_button_image(fck_nk nk, sht_image_view *image, float height)
 {
-	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
-	struct nk_context *ctx = nk_internal->ctx;
+	fck_nk_private    *nk_internal = (fck_nk_private *)nk.handle;
+	struct nk_context *ctx         = nk_internal->ctx;
 
 	fck_nuklear_elements_layout_image(ctx, image, height);
 	return nk_button_image(ctx, nk_image_ptr(image));
@@ -1760,8 +1771,8 @@ static int fck_nuklear_elements_api_button_image(fck_nk nk, sht_image_view *imag
 
 static void fck_nuklear_elements_api_image(fck_nk nk, sht_image_view *image, float height)
 {
-	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
-	struct nk_context *ctx = nk_internal->ctx;
+	fck_nk_private    *nk_internal = (fck_nk_private *)nk.handle;
+	struct nk_context *ctx         = nk_internal->ctx;
 
 	fck_nuklear_elements_layout_image(ctx, image, height);
 	nk_image(ctx, nk_image_ptr(image));
@@ -1796,23 +1807,23 @@ static void fck_nk_pie_api_add_child(fck_nk_pie_item *item, fck_nk_pie_item *chi
 
 	if (item->items == NULL)
 	{
-		item->items = child;
+		item->items      = child;
 		item->items_last = child;
 	}
 	else
 	{
-		child->prev = item->items_last;
+		child->prev            = item->items_last;
 		item->items_last->next = child;
-		item->items_last = child;
+		item->items_last       = child;
 	}
 }
 
 static fck_nk_pie_item *fck_nk_pie_api_push(fck_nk nk, fck_nk_pie_item *item)
 {
 	fck_assert(item->next == NULL);
-	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
-	fck_nk_pie *pie = &nk_internal->os.pie;
-	fck_nk_pie_item *root = &pie->root;
+	fck_nk_private  *nk_internal = (fck_nk_private *)nk.handle;
+	fck_nk_pie      *pie         = &nk_internal->os.pie;
+	fck_nk_pie_item *root        = &pie->root;
 	fck_nk_pie_api_add_child(root, item);
 	return item;
 }
@@ -1834,9 +1845,9 @@ static int fck_nk_pie_hamburger_used(fck_nk nk, fck_nk_hamburger_item *item)
 
 static int fck_nk_pie_api_used(fck_nk nk, fck_nk_pie_item *item)
 {
-	const fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
-	const fck_nk_pie *pie = &nk_internal->os.pie;
-	const fck_nk_pie_item *root = &pie->root;
+	const fck_nk_private  *nk_internal = (fck_nk_private *)nk.handle;
+	const fck_nk_pie      *pie         = &nk_internal->os.pie;
+	const fck_nk_pie_item *root        = &pie->root;
 
 	const fck_nk_pie_item *current = item->parent;
 	while (current)
@@ -1853,7 +1864,7 @@ static int fck_nk_pie_api_used(fck_nk nk, fck_nk_pie_item *item)
 static void fck_nk_pie_api_remove(fck_nk nk, fck_nk_pie_item *item)
 {
 	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
-	fck_nk_pie *pie = &nk_internal->os.pie;
+	fck_nk_pie     *pie         = &nk_internal->os.pie;
 
 	fck_nk_pie_item *root = &pie->root;
 	fck_assert(item->parent);
@@ -1880,15 +1891,15 @@ static void fck_nk_pie_api_remove(fck_nk nk, fck_nk_pie_item *item)
 	}
 
 	item->parent = NULL;
-	item->next = NULL;
-	item->prev = NULL;
+	item->next   = NULL;
+	item->prev   = NULL;
 }
 
 static void fck_nk_pie_api_apply_position(fck_nk nk, float *x, float *y)
 {
 	fck_nk_private *nk_internal = (fck_nk_private *)nk.handle;
-	*x = nk_internal->os.pie.x;
-	*y = nk_internal->os.pie.y;
+	*x                          = nk_internal->os.pie.x;
+	*y                          = nk_internal->os.pie.y;
 
 	fck_nk_api_to_screen(nk, x, y);
 }
@@ -1896,14 +1907,14 @@ static void fck_nk_pie_api_apply_position(fck_nk nk, float *x, float *y)
 static int fck_nk_pie_api_happened(fck_nk_pie_item *item)
 {
 	const int value = item->value;
-	item->value = 0;
+	item->value     = 0;
 	return value;
 }
 
 static fck_nk_colour fck_ui_get_style_colour(enum fck_nk_style_colors style)
 {
-	const struct nk_color colour = fck_ui_cached_colour_table[(enum nk_style_colors)style];
-	fck_nk_colour final_colour = {colour.r, colour.g, colour.b, colour.a};
+	const struct nk_color colour       = fck_ui_cached_colour_table[(enum nk_style_colors)style];
+	fck_nk_colour         final_colour = {colour.r, colour.g, colour.b, colour.a};
 	return final_colour;
 }
 
@@ -1913,63 +1924,63 @@ static fck_nuklear_hamburger_api nuklear_hamburger_api = {
 };
 
 static fck_nuklear_pie_api nuklear_pie_api = {
-	.push = fck_nk_pie_api_add_child,
-	.root = fck_nk_pie_api_root,
-	.remove = fck_nk_pie_api_remove,
-	.used = fck_nk_pie_api_used,
+	.push           = fck_nk_pie_api_add_child,
+	.root           = fck_nk_pie_api_root,
+	.remove         = fck_nk_pie_api_remove,
+	.used           = fck_nk_pie_api_used,
 	.apply_position = fck_nk_pie_api_apply_position,
-	.happened = fck_nk_pie_api_happened,
+	.happened       = fck_nk_pie_api_happened,
 };
 
 static fck_nuklear_input_api nuklear_input_api = {
-	.begin = fck_nk_input_api_begin,
-	.end = fck_nk_input_api_end,
+	.begin  = fck_nk_input_api_begin,
+	.end    = fck_nk_input_api_end,
 	.events = fck_nk_input_api_events,
 };
 
 static fck_nuklear_panel_api nuklear_panel_api = {
 	.begin_label = fck_nk_panel_api_begin_label,
-	.begin_icon = fck_nk_panel_api_begin_icon,
-	.end = fck_nk_panel_api_end,
-	.push = fck_nk_panel_menu_api_push,
-	.pop = fck_nk_panel_menu_api_pop,
+	.begin_icon  = fck_nk_panel_api_begin_icon,
+	.end         = fck_nk_panel_api_end,
+	.push        = fck_nk_panel_menu_api_push,
+	.pop         = fck_nk_panel_menu_api_pop,
 };
 
 static void fck_nk_elements_api_preview(fck_nk nk, const fck_db_asset *asset);
 
 static fck_nuklear_elements_api nuklear_property_api = {
-	.f32 = fck_nuklear_elements_api_f32,
-	.i32 = fck_nuklear_elements_api_i32,
-	.button = fck_nuklear_elements_api_button,
-	.label = fck_nuklear_elements_api_label,
+	.f32          = fck_nuklear_elements_api_f32,
+	.i32          = fck_nuklear_elements_api_i32,
+	.button       = fck_nuklear_elements_api_button,
+	.label        = fck_nuklear_elements_api_label,
 	.button_image = fck_nuklear_elements_api_button_image,
-	.dropdown = fck_nk_elements_api_dropdown,
-	.image = fck_nuklear_elements_api_image,
-	.rect = fck_nuklear_elements_api_rect,
-	.string = fck_nuklear_elements_api_string,
-	.asset = fck_nk_elements_api_asset,
-	.preview = fck_nk_elements_api_preview,
+	.dropdown     = fck_nk_elements_api_dropdown,
+	.image        = fck_nuklear_elements_api_image,
+	.rect         = fck_nuklear_elements_api_rect,
+	.string       = fck_nuklear_elements_api_string,
+	.asset        = fck_nk_elements_api_asset,
+	.preview      = fck_nk_elements_api_preview,
 };
 
 static fck_nuklear_api nuklear_api = {
-	.begin = fck_nk_api_begin,
-	.end = fck_nk_api_end,
-	.create = fck_nk_api_create,
-	.present = fck_nk_api_present,
-	.set_theme = fck_nk_api_set_theme,
-	.get_theme = fck_nk_api_get_theme,
+	.begin            = fck_nk_api_begin,
+	.end              = fck_nk_api_end,
+	.create           = fck_nk_api_create,
+	.present          = fck_nk_api_present,
+	.set_theme        = fck_nk_api_set_theme,
+	.get_theme        = fck_nk_api_get_theme,
 	.get_style_colour = fck_ui_get_style_colour,
-	.control_point = fck_nk_api_control_point,
-	.translation = fck_nk_api_translation,
-	.set_selection = fck_nk_api_set_select,
-	.select = fck_nk_api_select,
-	.to_screen = fck_nk_api_to_screen,
-	.control = fck_nk_api_control,
-	.input = &nuklear_input_api,
-	.hamburger = &nuklear_hamburger_api,
-	.pie = &nuklear_pie_api,
-	.panel = &nuklear_panel_api,
-	.element = &nuklear_property_api,
+	.control_point    = fck_nk_api_control_point,
+	.translation      = fck_nk_api_translation,
+	.set_selection    = fck_nk_api_set_select,
+	.select           = fck_nk_api_select,
+	.to_screen        = fck_nk_api_to_screen,
+	.control          = fck_nk_api_control,
+	.input            = &nuklear_input_api,
+	.hamburger        = &nuklear_hamburger_api,
+	.pie              = &nuklear_pie_api,
+	.panel            = &nuklear_panel_api,
+	.element          = &nuklear_property_api,
 };
 
 static void fck_nk_elements_api_preview(fck_nk nke, const fck_db_asset *asset)
@@ -1979,8 +1990,8 @@ static void fck_nk_elements_api_preview(fck_nk nke, const fck_db_asset *asset)
 	fck_nk_asset_preview_interface *i;
 	const fck_nk_asset_preview_args args = {.asset = asset, .nk = &nuklear_api, .view = nke};
 
-	void **implementations;
-	const fckc_size_t count = apis->implementations(fck_nuklear_asset_preview_interface, &implementations);
+	void                           **implementations;
+	const fckc_size_t                count    = apis->implementations(fck_nuklear_asset_preview_interface, &implementations);
 	fck_nk_asset_preview_interface **previews = (fck_nk_asset_preview_interface **)implementations;
 
 	fck_nk_asset_preview_interface *preview = NULL;
@@ -2018,9 +2029,9 @@ struct nk_color *fck_ui_set_style(struct nk_context *ctx, enum fck_nuklear_theme
 		{
 			fck_ui_cached_colour_table[white_theme_data[i].id] = white_theme_data[i].color;
 		}
-		fck_ui_cached_colour_table[NK_COLOR_KNOB] = fck_ui_cached_colour_table[NK_COLOR_SLIDER];
-		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR];
-		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_HOVER] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_HOVER];
+		fck_ui_cached_colour_table[NK_COLOR_KNOB]               = fck_ui_cached_colour_table[NK_COLOR_SLIDER];
+		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR]        = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR];
+		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_HOVER]  = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_HOVER];
 		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_ACTIVE] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_ACTIVE];
 	}
 	else if (theme == fck_nk_theme_ruta)
@@ -2030,9 +2041,9 @@ struct nk_color *fck_ui_set_style(struct nk_context *ctx, enum fck_nuklear_theme
 		{
 			fck_ui_cached_colour_table[ruta_theme_data[i].id] = ruta_theme_data[i].color;
 		}
-		fck_ui_cached_colour_table[NK_COLOR_KNOB] = fck_ui_cached_colour_table[NK_COLOR_SLIDER];
-		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR];
-		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_HOVER] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_HOVER];
+		fck_ui_cached_colour_table[NK_COLOR_KNOB]               = fck_ui_cached_colour_table[NK_COLOR_SLIDER];
+		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR]        = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR];
+		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_HOVER]  = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_HOVER];
 		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_ACTIVE] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_ACTIVE];
 	}
 	else if (theme == fck_nk_theme_red)
@@ -2042,9 +2053,9 @@ struct nk_color *fck_ui_set_style(struct nk_context *ctx, enum fck_nuklear_theme
 		{
 			fck_ui_cached_colour_table[red_theme_data[i].id] = red_theme_data[i].color;
 		}
-		fck_ui_cached_colour_table[NK_COLOR_KNOB] = fck_ui_cached_colour_table[NK_COLOR_SLIDER];
-		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR];
-		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_HOVER] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_HOVER];
+		fck_ui_cached_colour_table[NK_COLOR_KNOB]               = fck_ui_cached_colour_table[NK_COLOR_SLIDER];
+		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR]        = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR];
+		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_HOVER]  = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_HOVER];
 		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_ACTIVE] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_ACTIVE];
 	}
 	else if (theme == fck_nk_theme_blue)
@@ -2054,9 +2065,9 @@ struct nk_color *fck_ui_set_style(struct nk_context *ctx, enum fck_nuklear_theme
 		{
 			fck_ui_cached_colour_table[blue_theme_data[i].id] = blue_theme_data[i].color;
 		}
-		fck_ui_cached_colour_table[NK_COLOR_KNOB] = fck_ui_cached_colour_table[NK_COLOR_SLIDER];
-		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR];
-		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_HOVER] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_HOVER];
+		fck_ui_cached_colour_table[NK_COLOR_KNOB]               = fck_ui_cached_colour_table[NK_COLOR_SLIDER];
+		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR]        = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR];
+		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_HOVER]  = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_HOVER];
 		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_ACTIVE] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_ACTIVE];
 	}
 	else if (theme == fck_nk_theme_dark)
@@ -2066,9 +2077,9 @@ struct nk_color *fck_ui_set_style(struct nk_context *ctx, enum fck_nuklear_theme
 		{
 			fck_ui_cached_colour_table[dark_theme_data[i].id] = dark_theme_data[i].color;
 		}
-		fck_ui_cached_colour_table[NK_COLOR_KNOB] = fck_ui_cached_colour_table[NK_COLOR_SLIDER];
-		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR];
-		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_HOVER] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_HOVER];
+		fck_ui_cached_colour_table[NK_COLOR_KNOB]               = fck_ui_cached_colour_table[NK_COLOR_SLIDER];
+		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR]        = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR];
+		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_HOVER]  = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_HOVER];
 		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_ACTIVE] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_ACTIVE];
 	}
 	else if (theme == fck_nk_theme_dracula)
@@ -2078,9 +2089,9 @@ struct nk_color *fck_ui_set_style(struct nk_context *ctx, enum fck_nuklear_theme
 		{
 			fck_ui_cached_colour_table[dracula_theme_data[i].id] = dracula_theme_data[i].color;
 		}
-		fck_ui_cached_colour_table[NK_COLOR_KNOB] = fck_ui_cached_colour_table[NK_COLOR_SLIDER];
-		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR];
-		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_HOVER] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_HOVER];
+		fck_ui_cached_colour_table[NK_COLOR_KNOB]               = fck_ui_cached_colour_table[NK_COLOR_SLIDER];
+		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR]        = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR];
+		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_HOVER]  = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_HOVER];
 		fck_ui_cached_colour_table[NK_COLOR_KNOB_CURSOR_ACTIVE] = fck_ui_cached_colour_table[NK_COLOR_SLIDER_CURSOR_ACTIVE];
 	}
 	else if (theme == fck_nk_theme_latte)

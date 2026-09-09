@@ -280,7 +280,7 @@ fck_entity fck_create_entity_sprite(const char *item_name, fck_ec_api *ec, fck_e
 
 static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugins_api *plugins, fck_sprite_api *sprite, fck_nuklear_api *nk,
                                         fck_nk view, app_sprite_pie_items *pie, fck_sprites *sprites, fck_entity *selected_entity,
-                                        fck_db assets, fck_db_api *db, fck_db_id item)
+                                        fck_db assets, fck_db_api *db)
 {
 	const int is_selected_entity_ok = ec->entity->is_ok(world, *selected_entity);
 	if (!is_selected_entity_ok)
@@ -456,9 +456,6 @@ static void fck_sprite_transform_editor(fck_ec_api *ec, fck_ec world, fck_plugin
 					writer->pop(writer);
 				}
 
-				// const fck_db_accessor reader = db->object->read(assets, item);
-				// float x = reader.read->f32(reader, "x");
-				// float y = reader.read->f32(reader, "y");
 				{
 					char *buffer = (char *)writer->buffer(writer);
 
@@ -723,6 +720,7 @@ int main(int argc, char **argv)
 	while ((current = plugins->loaded(current)))
 	{
 		plugins->load(current);
+		fck_assert(os->so->is_ok(*plugins->so(current)));
 	}
 
 	fck_input       *input   = (fck_input *)registry->find(fck_input_api_name);
@@ -744,33 +742,6 @@ int main(int argc, char **argv)
 	fck_assert(db);
 
 	fck_db assets = db->create(kll->system);
-
-	fck_db_undo_scope undo = db->undo->create(kll->system);
-
-	const fck_db_id subitem = db->object->create(assets);
-	{
-		fck_db_accessor editor = db->object->edit(assets, subitem);
-		editor.edit->i32(editor, "x", 5);
-		editor.edit->i32(editor, "value", 420);
-		editor.edit->commit(editor, fck_db_no_undo);
-	}
-	fck_db_id item = db->object->create(assets);
-
-	fck_db_id_set *set = db->set->create(kll->system, 16);
-	db->set->add(kll->system, &set, db->object->create(assets));
-	db->set->add(kll->system, &set, db->object->create(assets));
-	db->set->add(kll->system, &set, db->object->create(assets));
-	db->set->add(kll->system, &set, db->object->create(assets));
-	db->set->add(kll->system, &set, db->object->create(assets));
-	const fck_db_id to_remove = db->object->create(assets);
-	db->set->add(kll->system, &set, to_remove);
-	db->set->add(kll->system, &set, db->object->create(assets));
-	db->set->add(kll->system, &set, db->object->create(assets));
-	db->set->remove(set, to_remove);
-	db->set->add(kll->system, &set, db->object->create(assets));
-	db->set->add(kll->system, &set, db->object->create(assets));
-	db->set->add(kll->system, &set, db->object->create(assets));
-	db->set->add(kll->system, &set, db->object->create(assets));
 
 	db->asset->setup(assets, "app", fck_resource_path);
 
@@ -857,14 +828,6 @@ int main(int argc, char **argv)
 	app_sprite_pie_items sprite_pie;
 	app_sprite_pie_items_init(nk, &sprite_pie, root);
 
-	// fck_db_element* txt_asset = (fck_db_element*)db->get(assets, "app/configuration/config.txt");
-	// const fck_db_asset *debug_png_asset = db->asset->find(assets, "app/debug.png");
-	// const fck_db_asset *bg_png_asset = db->asset->find(assets, "app/bg-mockup.png");
-	// const fck_db_asset *bird_png_asset = db->asset->find(assets, "app/bird-sheet.png");
-	// const fck_db_asset *items_png_asset = db->asset->find(assets, "app/items-sheet.png");
-	// const fck_db_asset *sprite_vs = db->asset->find(assets, "app/sprite.vs");
-	// const fck_db_asset *sprite_fs = db->asset->find(assets, "app/sprite.fs");
-
 	sht_image      depth_image = {0};
 	sht_image_view depth_view  = {0};
 	{
@@ -884,6 +847,12 @@ int main(int argc, char **argv)
 	const fck_sprite_create_args sprite_create_args = {.db = &assets, .driver = &driver};
 	fck_sprites                  sprites            = sprite->create(kll->system, &sprite_create_args);
 
+	//{
+	//	const fck_db_id       gfx_infra = db->object->create(assets);
+	//	const fck_db_accessor editor    = db->object->edit(assets, gfx_infra);
+	//	db->asset->get
+	//}
+
 	app_sprite_implementation      sprite_implementation = {.sprite = sprite, .sprites = &sprites};
 	const fck_component_id         sprite_id             = ec->registry->declare(world, "sprite", sizeof(fck_sprite_id));
 	const fck_component_definition sprite_definition     = {
@@ -894,53 +863,7 @@ int main(int argc, char **argv)
     };
 	ec->registry->define(world, sprite_id, &sprite_definition);
 
-	// TODO: Add empty inline in sprites. Sprites has access to sht
-	// Then we could also move the whole render pass there?
-	// const fck_sprite_batch_id empty_batch = sprite->batches->add(&sprites, "Empty", &white_view, 32.0f, 32.0f);
-	// fck_assert(empty_batch.value == 0);
-	// const fck_sprite_batch_id debug_batch = sprite->batches->add(&sprites, "Debug", debug_png_asset, 8.0f, 8.0f);
-	// const fck_sprite_batch_id background_batch = sprite->batches->add(&sprites, "Background", bg_png_asset, 132.0f, 72.0f);
-	// const fck_sprite_batch_id birds_batch = sprite->batches->add(&sprites, "Birds", bird_png_asset, 32.0f, 32.0f);
-	// const fck_sprite_batch_id items_batch = sprite->batches->add(&sprites, "Items", items_png_asset, 16.0f, 16.0f);
-
 	fckc_u64 time_point = os->chrono->ms();
-
-	{
-		const fck_db_accessor accessor = db->object->edit(assets, item);
-
-		// accessor.edit->asset(accessor, "texture", to_fck_db_asset(debug_png_asset));
-		accessor.edit->f32(accessor, "x", 10.0f);
-		accessor.edit->f32(accessor, "y", 10.0f);
-		accessor.edit->reference(accessor, "self", item);
-		accessor.edit->object(accessor, "subitem", subitem);
-		accessor.edit->set(accessor, "children", set);
-		accessor.edit->string(accessor, "some string", "Hello Editor! Very long long string");
-
-		accessor.edit->commit(accessor, fck_db_no_undo);
-
-		const fck_db_accessor reader = db->object->read(assets, item);
-		os->io->log("Version: %lu", reader.read->version(reader));
-
-		fckc_u32              it       = 0;
-		fck_db_named_property property = {0};
-		while (reader.read->iterate(reader, &it, &property))
-		{
-			switch (property.value.type)
-			{
-			case fck_db_type_f32:
-				os->io->log("Name: %s - %f", property.name, property.value.f32);
-				break;
-			case fck_db_type_none:
-				break;
-			case fck_db_type_i32:
-			case fck_db_type_memory:
-			case fck_db_type_asset:
-			case fck_db_type_reference:
-				os->io->log("Name: %s", property.name);
-				break;
-			}
-		}
-	}
 
 	const fck_db_id sprite_batches_id = db->object->create(assets);
 	fck_entity      selected_entity   = ec->entity->invalid(world);
@@ -1042,106 +965,6 @@ int main(int argc, char **argv)
 					nk->panel->end(view);
 				}
 
-				if (nk->panel->begin_label(view, "db", 400.f))
-				{
-					if (nk->panel->push(view, "Example"))
-					{
-						{
-							const fck_db_accessor reader = db->object->read(assets, item);
-
-							nk->element->i32(view, "Version", 0, reader.read->version(reader), 65000, 1);
-							fckc_u32              it       = 0;
-							fck_db_named_property property = {0};
-							while (reader.read->iterate(reader, &it, &property))
-							{
-								fck_db_property previous = {0};
-								memcpy(&previous, &property.value, sizeof(previous));
-								switch (property.value.type)
-								{
-								case fck_db_type_none:
-									break;
-								case fck_db_type_i32:
-									property.value.i32 = nk->element->i32(view, property.name, -1000, property.value.i32, 1000, 1.0f);
-									break;
-								case fck_db_type_f32:
-									property.value.f32 = nk->element->f32(view, property.name, -1000.0f, property.value.f32, 1000.0f, 1.0f);
-									break;
-								case fck_db_type_reference:
-								case fck_db_type_object:
-									nk->element->label(view, "%s: %lu - %lu", property.name, property.value.object.generation,
-									                   property.value.object.index);
-									break;
-								case fck_db_type_object_set: {
-									fck_db_id *id = NULL;
-									while (db->set->iterate(property.value.set, &id))
-									{
-										nk->element->label(view, "%s: %lu - %lu", property.name, id->generation, id->index);
-									}
-									break;
-								}
-								case fck_db_type_string: {
-									nk->element->label(view, "%s: %s", property.name, property.value.string);
-								}
-								case fck_db_type_memory:
-								case fck_db_type_asset:
-									nk->element->label(view, "<NO DISPLAY>");
-									break;
-								}
-
-								if (memcmp(&previous, &property.value, sizeof(previous)) != 0)
-								{
-									os->io->log("Changed");
-									const fck_db_accessor accessor = db->object->edit(assets, item);
-									accessor.edit->variant(accessor, property.name, &property.value);
-									accessor.edit->commit(accessor, &undo);
-								}
-							}
-
-							if (nk->element->button(view, "bump"))
-							{
-								char buffer[256];
-								snprintf(buffer, sizeof(buffer), "Hello Tick[%llu]", now);
-								const fck_db_accessor accessor = db->object->edit(assets, item);
-								accessor.edit->string(accessor, "some string", buffer);
-								accessor.edit->commit(accessor, &undo);
-							}
-						}
-
-						if (nk->element->button(view, "Undo"))
-						{
-							if (db->undo->undo(assets, undo))
-							{
-								os->io->log("Undid");
-							}
-						}
-						if (nk->element->button(view, "Redo"))
-						{
-							if (db->undo->redo(assets, undo))
-							{
-								os->io->log("Redid");
-							}
-						}
-
-						if (nk->element->button(view, "Save"))
-						{
-							fck_serialiser *writer = serialiser_json->writer(kll->system);
-							db->object->save(writer, assets, item);
-							char             *buffer = (char *)writer->buffer(writer);
-							const fckc_size_t size   = writer->at(writer);
-							os->io->log(buffer);
-
-							fck_serialiser *reader = serialiser_json->reader(kll->system, buffer, size);
-							db->object->load(reader, assets);
-
-							writer->destroy(writer);
-							reader->destroy(reader);
-						}
-
-						nk->panel->pop(view);
-					}
-					nk->panel->end(view);
-				}
-
 				if (nk->panel->begin_label(view, "Loops", 400.f))
 				{
 					if (nk->panel->push(view, "Game Loops"))
@@ -1156,8 +979,7 @@ int main(int argc, char **argv)
 					nk->panel->end(view);
 				}
 
-				fck_sprite_transform_editor(ec, world, plugins, sprite, nk, view, &sprite_pie, &sprites, &selected_entity, assets, db,
-				                            item);
+				fck_sprite_transform_editor(ec, world, plugins, sprite, nk, view, &sprite_pie, &sprites, &selected_entity, assets, db);
 
 				const fck_gameloop_edit_parameters edit_parameters = {.apis = registry, .ec = ec, .state = &world, .view = &view, .nk = nk};
 				for (fckc_size_t index = 0; index < loops.count; index++)
@@ -1220,6 +1042,8 @@ int main(int argc, char **argv)
 							editor.edit->set(editor, "batches", set);
 							editor.edit->commit(editor, fck_db_no_undo);
 							db->set->destroy(kll->system, set);
+
+							db->object->save(assets, sprite_batches_id, "test");
 						}
 
 						if (db->object->is_ok(assets, sprite_batches_id))
@@ -1260,50 +1084,42 @@ int main(int argc, char **argv)
 			}
 		}
 
-		fckc_u32 frame_index;
-
-		const sht_image_view color_target = swapchain.vt->wait_and_acquire(swapchain, &frame_index);
-		if (swapchain.vt->is_ok(swapchain, frame_index))
+		const sht_swapchain_state sc = swapchain.vt->wait_and_acquire(swapchain);
+		if (swapchain.vt->is_ok(swapchain, &sc))
 		{
-			const sht_command_buffer command_buffer = command->acquire(driver, frame_index);
+			const sht_command_buffer command_buffer = command->acquire(driver, sc.index);
 			if (command->is_ok(command_buffer))
 			{
-				{
-					const fck_nk_colour colour = nk->get_style_colour(FCK_NK_COLOR_WINDOW);
+				const fck_nk_colour colour = nk->get_style_colour(FCK_NK_COLOR_WINDOW);
 
-					sht_render_desc desc = {
-						.colour = {.view        = color_target,
-					               .load_op     = sht_clear,
-					               .store_op    = sht_store,
-					               .clear_value = {colour.r / 255.0f, colour.g / 255.0f, colour.b / 255.0f, 1.0f}},
-						.depth  = {.view = depth_view, .load_op = sht_clear, .store_op = sht_dont_care},
-					};
-					const sht_render_pass render_pass = command->render_pass->begin(command_buffer, &desc);
-					if (command->render_pass->is_ok(render_pass))
-					{
-						sprite->present(&sprites, &command_buffer, frame_index);
-						command->render_pass->end(command_buffer);
-					}
-				}
+				sht_render_desc desc = {
+					.colour = {.view        = sc.view,
+				               .load_op     = sht_clear,
+				               .store_op    = sht_store,
+				               .clear_value = {colour.r / 255.0f, colour.g / 255.0f, colour.b / 255.0f, 1.0f}},
+					.depth  = {.view = depth_view, .load_op = sht_clear, .store_op = sht_dont_care},
+				};
 
-				{
-					// Could this render pass live in nk->present directly?
-					sht_render_desc       desc        = {.colour = {.view = color_target, .load_op = sht_load, .store_op = sht_store}};
-					const sht_render_pass render_pass = command->render_pass->begin(command_buffer, &desc);
+				const fck_gfx_args args = {
+					.commands   = &command_buffer,
+					.driver     = &driver,
+					.swapchain  = &sc,
+					.suggestion = &desc,
+				};
 
-					if (command->render_pass->is_ok(render_pass))
-					{
-						nk->present(view, &command_buffer, frame_index);
-						command->render_pass->end(command_buffer);
-					}
-				}
+				sprite->present(&sprites, &args);
+
+				desc.colour.load_op = sht_load;
+				desc.depth.load_op  = sht_load;
+
+				nk->present(&view, &args);
 
 				command->submit(command_buffer, sht_queue_graphic);
 			}
 		}
 		else
 		{
-			if (frame_index == sht_swapchain_needs_resize)
+			if (sc.resize)
 			{
 				const sht_extent extent = swapchain.vt->extent(swapchain);
 				memory->image->recreate(memory->bump, &depth_image, extent, &depth_view, 1);

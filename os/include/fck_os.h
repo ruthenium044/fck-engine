@@ -29,8 +29,10 @@ typedef struct fck_shared_object_api
 {
 	fck_shared_object (*load)(const char *path);
 	void              (*unload)(fck_shared_object so);
-	int               (*is_ok)(fck_shared_object so);
 	void             *(*symbol)(fck_shared_object so, const char *name);
+	int               (*is_ok)(fck_shared_object so);
+
+	//void (*parse)(fck_shared_object so);
 } fck_shared_object_api;
 
 // This is ok
@@ -149,7 +151,7 @@ typedef struct fck_filesystem_api
 	// Path utilities - Maybe path api?
 	int (*info)(const char *path, fck_path_info *info);
 
-	int (*remove)(const char *path);
+	int         (*remove)(const char *path);
 	// TODO: Remove this, use info instead
 	fckc_i64    (*modified)(const char *path);
 	const char *(*executable)(void);
@@ -191,8 +193,8 @@ typedef struct fck_file_watcher_api
 	fckc_size_t      (*changes)(fck_file_watcher watcher, fck_file_watcher_event *events, fckc_size_t capacity);
 	// is_valid, exposed to allow users to answer the question:
 	// "Ummm... why am I not getting any changes?"
-	int  (*is_valid)(fck_file_watcher watcher);
-	void (*destroy)(fck_file_watcher watcher);
+	int              (*is_valid)(fck_file_watcher watcher);
+	void             (*destroy)(fck_file_watcher watcher);
 } fck_file_watcher_api;
 
 // This is ok

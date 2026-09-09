@@ -78,16 +78,19 @@ static void *fck_shared_object_symbol(fck_shared_object so, const char *name)
 	return (void *)SDL_LoadFunction((SDL_SharedObject *)so.handle, name);
 }
 
+//static void fck_shared_object_parse(fck_shared_object so);
+
 static fck_shared_object_api so_api = {
-	.load = fck_shared_object_load,
+	.load   = fck_shared_object_load,
 	.symbol = fck_shared_object_symbol,
 	.unload = fck_shared_object_unload,
-	.is_ok = fck_shared_object_is_valid,
+	.is_ok  = fck_shared_object_is_valid,
+	//.parse  = fck_shared_object_parse,
 };
 
 typedef struct fck_sdl_window
 {
-	SDL_Window *value;
+	SDL_Window              *value;
 	// Making these smarter would be awesome
 	fck_window_configuration config;
 } fck_sdl_window;
@@ -100,11 +103,11 @@ static SDL_Window *to_sdl_window(fck_window window)
 
 static SDL_HitTestResult fck_custom_hit_test(SDL_Window *win, const SDL_Point *area, void *data)
 {
-	fck_sdl_window *sdl = (fck_sdl_window *)data;
-	const int title_bar_height = to_int(sdl->config.title_bar_height);
-	const int resize_border = to_int(sdl->config.resize_line_width);
-	const int button_zone = to_int(sdl->config.button_area_width);
-	const int menu_zone = to_int(sdl->config.menu_area_width);
+	fck_sdl_window *sdl              = (fck_sdl_window *)data;
+	const int       title_bar_height = to_int(sdl->config.title_bar_height);
+	const int       resize_border    = to_int(sdl->config.resize_line_width);
+	const int       button_zone      = to_int(sdl->config.button_area_width);
+	const int       menu_zone        = to_int(sdl->config.menu_area_width);
 
 	int w, h;
 	SDL_GetWindowSize(win, &w, &h);
@@ -161,9 +164,9 @@ static const fck_window_configuration *fck_window_api_configuration(fck_window w
 
 static fck_window fck_window_api_create(const char *name, int w, int h)
 {
-	fck_sdl_window *sdl = (fck_sdl_window *)SDL_malloc(sizeof(*sdl));
-	sdl->value = SDL_CreateWindow(name, w, h, SDL_WINDOW_RESIZABLE | SDL_WINDOW_BORDERLESS);
-	sdl->config.title_bar_height = 30.0f;
+	fck_sdl_window *sdl           = (fck_sdl_window *)SDL_malloc(sizeof(*sdl));
+	sdl->value                    = SDL_CreateWindow(name, w, h, SDL_WINDOW_RESIZABLE | SDL_WINDOW_BORDERLESS);
+	sdl->config.title_bar_height  = 30.0f;
 	sdl->config.resize_line_width = 8.0f;
 	sdl->config.button_area_width = 30.0f;
 	SDL_SetWindowHitTest(sdl->value, fck_custom_hit_test, sdl);
@@ -358,9 +361,9 @@ static int fck_filesystem_info(const char *path, fck_path_info *info)
 			break;
 		}
 		info->modified = path_info.modify_time;
-		info->created = path_info.create_time;
+		info->created  = path_info.create_time;
 		info->accessed = path_info.access_time;
-		info->size = path_info.size;
+		info->size     = path_info.size;
 		return 1;
 	}
 	return 0;
@@ -393,7 +396,7 @@ static const char *fck_filesystem_local_path(void)
 
 static fckc_size_t fck_glob_executable(const char *pattern, char ***out_paths)
 {
-	int count = 0;
+	int count  = 0;
 	*out_paths = SDL_GlobDirectory(SDL_GetBasePath(), pattern, 0, &count);
 	return to_size_t(count);
 }
@@ -415,11 +418,11 @@ static char *fck_glob_find(const char *str, const char *substring)
 static char *fck_glob_match(const char *str, const char *pattern)
 {
 	// This function takes the luxury of casting const away so it can return non-const
-	const char *s = str;
-	const char *p = pattern;
+	const char *s          = str;
+	const char *p          = pattern;
 	const char *s_fallback = NULL;
 	const char *p_fallback = NULL;
-	const char *match = NULL;
+	const char *match      = NULL;
 
 	while (*s != '\0')
 	{
@@ -486,56 +489,56 @@ static fckc_i64 fck_chrono_now(void)
 }
 
 static fck_glob_api glob_api = {
-	.find = fck_glob_find,
-	.match = fck_glob_match,
+	.find       = fck_glob_find,
+	.match      = fck_glob_match,
 	.executable = fck_glob_executable,
-	.directory = fck_glob_directory,
-	.free = fck_glob_free,
+	.directory  = fck_glob_directory,
+	.free       = fck_glob_free,
 };
 
 static fck_file_system_api file_system_api = {
-	.open = fck_filesystem_open,
-	.close = fck_filesystem_close,
-	.is_valid = fck_filesystem_is_valid,
-	.size = fck_filesystem_size,
-	.seek = fck_filesystem_seek,
-	.read = fck_filesystem_read,
-	.write = fck_filesystem_write,
-	.flush = fck_filesystem_flush,
-	.modified = fck_filesystem_modified,
-	.remove = fck_filesystem_remove,
-	.info = fck_filesystem_info,
+	.open             = fck_filesystem_open,
+	.close            = fck_filesystem_close,
+	.is_valid         = fck_filesystem_is_valid,
+	.size             = fck_filesystem_size,
+	.seek             = fck_filesystem_seek,
+	.read             = fck_filesystem_read,
+	.write            = fck_filesystem_write,
+	.flush            = fck_filesystem_flush,
+	.modified         = fck_filesystem_modified,
+	.remove           = fck_filesystem_remove,
+	.info             = fck_filesystem_info,
 	.create_directory = fck_filesystem_create_directory,
-	.executable = fck_filesystem_local_path,
+	.executable       = fck_filesystem_local_path,
 };
 
 static fck_clipboard_api clipboard_api = {
-	.set = fck_clipboard_api_set,
-	.has = fck_clipboard_api_has,
-	.receive = fck_clipboard_api_receive,
-	.close = fck_clipboard_api_close,
+	.set      = fck_clipboard_api_set,
+	.has      = fck_clipboard_api_has,
+	.receive  = fck_clipboard_api_receive,
+	.close    = fck_clipboard_api_close,
 	.is_valid = fck_clipboard_api_is_valid,
 };
 
 static fck_window_api window_api = {
-	.create = fck_window_api_create,
-	.destroy = fck_window_api_destroy,
-	.is_valid = fck_window_api_is_valid,
-	.size = fck_window_api_size,
-	.resize = fck_window_api_resize,
-	.native = fck_window_native,
-	.title = fck_window_api_title,
-	.minimise = fck_window_api_minimise,
-	.configuration = fck_window_api_configuration,
-	.text_input_start = fck_window_api_text_input_start,
-	.text_input_stop = fck_window_api_text_input_stop,
+	.create            = fck_window_api_create,
+	.destroy           = fck_window_api_destroy,
+	.is_valid          = fck_window_api_is_valid,
+	.size              = fck_window_api_size,
+	.resize            = fck_window_api_resize,
+	.native            = fck_window_native,
+	.title             = fck_window_api_title,
+	.minimise          = fck_window_api_minimise,
+	.configuration     = fck_window_api_configuration,
+	.text_input_start  = fck_window_api_text_input_start,
+	.text_input_stop   = fck_window_api_text_input_stop,
 	.text_input_active = fck_window_api_text_input_active,
 };
 
 static fck_chrono_api chrono_api = {
-	.now = fck_chrono_now,
-	.ms = SDL_GetTicks,
-	.ns = SDL_GetTicksNS,
+	.now   = fck_chrono_now,
+	.ms    = SDL_GetTicks,
+	.ns    = SDL_GetTicksNS,
 	.sleep = fck_chrono_sleep,
 };
 
@@ -544,8 +547,8 @@ static fck_io_api io_api = {
 };
 
 static fck_file_watcher fck_file_watcher_create(const char *path);
-static fckc_size_t fck_file_watcher_changes(fck_file_watcher watcher, fck_file_watcher_event *events, fckc_size_t capacity);
-static void fck_file_watcher_destroy(fck_file_watcher watcher);
+static fckc_size_t      fck_file_watcher_changes(fck_file_watcher watcher, fck_file_watcher_event *events, fckc_size_t capacity);
+static void             fck_file_watcher_destroy(fck_file_watcher watcher);
 
 static int fck_file_watcher_is_valid(fck_file_watcher watcher)
 {
@@ -553,21 +556,21 @@ static int fck_file_watcher_is_valid(fck_file_watcher watcher)
 }
 
 static fck_file_watcher_api file_watcher_api = {
-	.changes = fck_file_watcher_changes,
-	.create = fck_file_watcher_create,
-	.destroy = fck_file_watcher_destroy,
+	.changes  = fck_file_watcher_changes,
+	.create   = fck_file_watcher_create,
+	.destroy  = fck_file_watcher_destroy,
 	.is_valid = fck_file_watcher_is_valid,
 };
 
 static fck_os_api std_api = {
-	.io = &io_api,
-	.so = &so_api,
-	.win = &window_api,
+	.io        = &io_api,
+	.so        = &so_api,
+	.win       = &window_api,
 	.clipboard = &clipboard_api,
-	.chrono = &chrono_api,
-	.fs = &file_system_api,
-	.glob = &glob_api,
-	.fw = &file_watcher_api,
+	.chrono    = &chrono_api,
+	.fs        = &file_system_api,
+	.glob      = &glob_api,
+	.fw        = &file_watcher_api,
 };
 
 fck_os_api *os = &std_api;
@@ -594,6 +597,7 @@ static int fck_file_watcher_is_temp_file(const char *filename)
 
 // TODO: We need all this shit for UNIX
 #ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h> // !NOLINT
 
 #include <WinBase.h>
@@ -608,23 +612,66 @@ static int fck_file_watcher_is_temp_file(const char *filename)
 #include <synchapi.h>
 #include <winnt.h>
 
+//void fck_shared_object_parse(fck_shared_object so)
+//{
+//	if (!so.handle)
+//	{
+//		return;
+//	}
+//	BYTE             *pBase = (BYTE *)so.handle;
+//	PIMAGE_DOS_HEADER pDos  = (PIMAGE_DOS_HEADER)pBase;
+//	if (pDos->e_magic != IMAGE_DOS_SIGNATURE)
+//	{
+//		return;
+//	}
+//
+//	PIMAGE_NT_HEADERS pNt = (PIMAGE_NT_HEADERS)(pBase + pDos->e_lfanew);
+//	if (pNt->Signature != IMAGE_NT_SIGNATURE)
+//	{
+//		return;
+//	}
+//
+//	const DWORD exportRva = pNt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress;
+//	if (exportRva == 0)
+//	{
+//		return;
+//	}
+//
+//	PIMAGE_EXPORT_DIRECTORY pExportDir = (PIMAGE_EXPORT_DIRECTORY)(pBase + exportRva);
+//
+//	DWORD *functions = (DWORD *)(pBase + pExportDir->AddressOfFunctions);
+//	DWORD *names     = (DWORD *)(pBase + pExportDir->AddressOfNames);
+//	WORD  *ordinals  = (WORD *)(pBase + pExportDir->AddressOfNameOrdinals);
+//
+//	os->io->log("Module loaded at address: %p\n", (void *)pBase);
+//	os->io->log("Found %lu exported symbols in memory:\n", pExportDir->NumberOfNames);
+//
+//	for (DWORD i = 0; i < pExportDir->NumberOfNames; i++)
+//	{
+//		char *name        = (char *)(pBase + names[i]);
+//		// When loaded in memory, the function array contains direct VAs/RVAs you can resolve
+//		void *funcAddress = (void *)(pBase + functions[ordinals[i]]);
+//		os->io->log("  - %s -> Address: %p\n", name, funcAddress);
+//	}
+//}
+
 typedef struct fck_file_watcher_win32
 {
-	HANDLE handle;
+	HANDLE     handle;
 	OVERLAPPED overlapped;
 
 	DWORD offset;
 	DWORD pending;
-	char buffer[65536];
+	char  buffer[65536];
 } fck_file_watcher_win32;
 
 fck_file_watcher fck_file_watcher_create(const char *path)
 {
-	fck_file_watcher_win32 *fs = (fck_file_watcher_win32 *)SDL_malloc(sizeof(*fs));
-	const int access = GENERIC_READ | FILE_LIST_DIRECTORY;
-	const int share = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
-	const int flags = FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OVERLAPPED;
-	fs->handle = CreateFile(path, access, share, NULL, OPEN_EXISTING, flags, NULL);
+	fck_file_watcher_win32 *fs     = (fck_file_watcher_win32 *)SDL_malloc(sizeof(*fs));
+	const int               access = GENERIC_READ | FILE_LIST_DIRECTORY;
+	const int               share  = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
+	const int               flags  = FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OVERLAPPED;
+	fs->handle                     = CreateFile(path, access, share, NULL, OPEN_EXISTING, flags, NULL);
 
 	if (fs->handle == INVALID_HANDLE_VALUE)
 	{
@@ -638,7 +685,7 @@ fck_file_watcher fck_file_watcher_create(const char *path)
 	const fckc_size_t buffer_size = sizeof(fs->buffer);
 	ReadDirectoryChangesW(fs->handle, (LPVOID)fs->buffer, (DWORD)buffer_size, TRUE, notification_flags, NULL, &fs->overlapped, NULL);
 	// TODO: Handle error
-	fs->offset = 0;
+	fs->offset  = 0;
 	fs->pending = 0;
 	return (fck_file_watcher){.handle = (void *)fs};
 }
@@ -677,11 +724,11 @@ fckc_size_t fck_file_watcher_changes(fck_file_watcher watcher, fck_file_watcher_
 
 		fck_file_watcher_event *event = events + count;
 		// Meh, maybe we get away with approximate time stamps provided by the one and only, me!
-		event->time = os->chrono->now();
+		event->time                   = os->chrono->now();
 
-		const FILE_NOTIFY_INFORMATION *notify_info = (FILE_NOTIFY_INFORMATION *)(fs->buffer + fs->offset);
-		const int len = notify_info->FileNameLength / sizeof(WCHAR);
-		const int supported_len = sizeof(event->path) - 1;
+		const FILE_NOTIFY_INFORMATION *notify_info   = (FILE_NOTIFY_INFORMATION *)(fs->buffer + fs->offset);
+		const int                      len           = notify_info->FileNameLength / sizeof(WCHAR);
+		const int                      supported_len = sizeof(event->path) - 1;
 		int filenamelen = WideCharToMultiByte(CP_UTF8, 0, notify_info->FileName, len, event->path, supported_len, NULL, NULL);
 		if (filenamelen < 0)
 		{
@@ -724,7 +771,7 @@ fckc_size_t fck_file_watcher_changes(fck_file_watcher watcher, fck_file_watcher_
 	}
 
 	fs->pending = 0;
-	fs->offset = 0;
+	fs->offset  = 0;
 
 	ResetEvent(fs->overlapped.hEvent);
 	const int notification_flags = FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_DIR_NAME | FILE_NOTIFY_CHANGE_ATTRIBUTES |
@@ -759,26 +806,26 @@ typedef struct fck_file_watcher_macos
 {
 	FSEventStreamRef stream;
 	dispatch_queue_t queue;
-	pthread_mutex_t mutex;
+	pthread_mutex_t  mutex;
 
 	// Store the absolute root path to strip it later
-	char root_path[1024];
+	char   root_path[1024];
 	size_t root_len;
 
 	fck_file_watcher_event events[FCK_MAC_BUFFER_SIZE];
-	int head;
-	int tail;
+	int                    head;
+	int                    tail;
 } fck_file_watcher_macos;
 
 static void fck_fsevent_callback(ConstFSEventStreamRef streamRef, void *clientCallBackInfo, size_t numEvents, void *eventPaths,
                                  const FSEventStreamEventFlags eventFlags[], const FSEventStreamEventId eventIds[])
 {
 	fck_file_watcher_macos *fs;
-	char **paths;
+	char                  **paths;
 	(void)streamRef;
 	(void)eventIds;
 
-	fs = (fck_file_watcher_macos *)clientCallBackInfo;
+	fs    = (fck_file_watcher_macos *)clientCallBackInfo;
 	paths = (char **)eventPaths;
 
 	pthread_mutex_lock(&fs->mutex);
@@ -805,7 +852,7 @@ static void fck_fsevent_callback(ConstFSEventStreamRef streamRef, void *clientCa
 			break;
 
 		fck_file_watcher_event *event = &fs->events[fs->tail];
-		event->time = os->chrono->now();
+		event->time                   = os->chrono->now();
 		strncpy(event->path, relative, sizeof(event->path) - 1);
 		event->path[sizeof(event->path) - 1] = '\0';
 
@@ -858,14 +905,14 @@ fck_file_watcher fck_file_watcher_create(const char *path)
 	fs->tail = 0;
 	pthread_mutex_init(&fs->mutex, NULL);
 
-	CFStringRef pathRef = CFStringCreateWithCString(NULL, path, kCFStringEncodingUTF8);
-	CFArrayRef pathsToWatch = CFArrayCreate(NULL, (const void **)&pathRef, 1, NULL);
+	CFStringRef pathRef      = CFStringCreateWithCString(NULL, path, kCFStringEncodingUTF8);
+	CFArrayRef  pathsToWatch = CFArrayCreate(NULL, (const void **)&pathRef, 1, NULL);
 
-	FSEventStreamContext context = {0, fs, NULL, NULL, NULL};
-	const FSEventStreamCreateFlags flags = kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagNoDefer;
+	FSEventStreamContext           context = {0, fs, NULL, NULL, NULL};
+	const FSEventStreamCreateFlags flags   = kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagNoDefer;
 
 	fs->stream = FSEventStreamCreate(NULL, &fck_fsevent_callback, &context, pathsToWatch, kFSEventStreamEventIdSinceNow, 0.1, flags);
-	fs->queue = dispatch_queue_create("fck_file_watcher_queue", NULL);
+	fs->queue  = dispatch_queue_create("fck_file_watcher_queue", NULL);
 	FSEventStreamSetDispatchQueue(fs->stream, fs->queue);
 	FSEventStreamStart(fs->stream);
 
@@ -876,8 +923,8 @@ fck_file_watcher fck_file_watcher_create(const char *path)
 
 fckc_size_t fck_file_watcher_changes(fck_file_watcher watcher, fck_file_watcher_event *events, fckc_size_t capacity)
 {
-	fckc_size_t count = 0;
-	fck_file_watcher_macos *fs = (fck_file_watcher_macos *)watcher.handle;
+	fckc_size_t             count = 0;
+	fck_file_watcher_macos *fs    = (fck_file_watcher_macos *)watcher.handle;
 	if (fs == NULL)
 	{
 		return 0;

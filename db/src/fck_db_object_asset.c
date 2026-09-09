@@ -1,4 +1,5 @@
 
+#include "fck_db.h"
 #include "fck_db_core.inl"
 #include "fck_db_ext_map.h"
 #include "fck_db_object.h"
@@ -9,13 +10,14 @@
 #include <fck_apis.h>
 
 #include <fckc_assert.h>
+#include <fckc_inttypes.h>
 
 #include <stdio.h>
 #include <string.h>
 
 typedef struct fck_db_asset_private
 {
-	fck_db_asset base;
+	fck_db_asset       base;
 	fck_db_asset_state state;
 } fck_db_asset_private;
 
@@ -73,11 +75,11 @@ static const char *fck_db_api_file_extension(const char *path)
 
 static fck_db_id fck_db_api_id_from_path(fck_db external, const char *path, fck_db_loader_interface **out_loader)
 {
-	fck_db_private *db = (fck_db_private *)external.opaque;
-	const char *ext = fck_db_api_file_extension(path);
+	fck_db_private *db  = (fck_db_private *)external.opaque;
+	const char     *ext = fck_db_api_file_extension(path);
 
-	char base_path[1024];
-	const char *dot = strrchr(path, '.');
+	char              base_path[1024];
+	const char       *dot      = strrchr(path, '.');
 	const fckc_size_t path_len = dot ? (fckc_size_t)(dot - path) : strlen(path);
 	if (path_len >= sizeof(base_path))
 	{
@@ -85,22 +87,22 @@ static fck_db_id fck_db_api_id_from_path(fck_db external, const char *path, fck_
 	}
 
 	memcpy(base_path, path, path_len);
-	base_path[path_len] = '\0';
+	base_path[path_len]             = '\0';
 	fck_db_loader_interface *loader = db_ext_map->find(db->loaders, ext);
 	if (!loader)
 	{
 		return fck_db_id_from_path(base_path, NULL);
 	}
 	const fck_db_id id = fck_db_id_from_path(base_path, loader->category);
-	*out_loader = loader;
+	*out_loader        = loader;
 	return id;
 }
 
 static const char *fck_db_api_make_scope_path(char *buffer, fckc_size_t size, const char *scope, const char *relative)
 {
-	const fckc_size_t scope_len = strlen(scope);
+	const fckc_size_t scope_len    = strlen(scope);
 	const fckc_size_t relative_len = strlen(relative);
-	const fckc_size_t total_len = scope_len + 1 + relative_len + 1;
+	const fckc_size_t total_len    = scope_len + 1 + relative_len + 1;
 	if (total_len > size)
 	{
 		return NULL;
@@ -121,8 +123,8 @@ static const char *fck_db_api_make_scope_path(char *buffer, fckc_size_t size, co
 
 static const fck_db_asset *fck_db_asset_api_get(fck_db external, fck_db_id id, const char *category)
 {
-	fck_db_private *db = (fck_db_private *)external.opaque;
-	fck_db_object *entry = fck_db_resolve_object(db->page_table, id);
+	fck_db_private *db    = (fck_db_private *)external.opaque;
+	fck_db_object  *entry = fck_db_resolve_object(db->page_table, id);
 	if (entry)
 	{
 		// TODO: Internally, in db, we should use the same code-paths as accessor!!!
@@ -130,7 +132,7 @@ static const fck_db_asset *fck_db_asset_api_get(fck_db external, fck_db_id id, c
 		// fck_db_asset *asset = accessor.read->asset(accessor, "asset");
 		if (stable_reader.ok->reference(stable_reader, "runtime"))
 		{
-			const fck_db_id runtime = stable_reader.read->reference(stable_reader, "runtime");
+			const fck_db_id       runtime        = stable_reader.read->reference(stable_reader, "runtime");
 			const fck_db_accessor runtime_reader = db_object->read(external, runtime);
 
 			const fck_db_asset *info = (const fck_db_asset *)runtime_reader.read->userdata(runtime_reader, "asset");
@@ -154,7 +156,7 @@ static const fck_db_asset *fck_db_asset_api_find(fck_db external, const char *pa
 	fck_db_private *db = (fck_db_private *)external.opaque;
 
 	fck_db_loader_interface *loader;
-	const fck_db_id id = fck_db_api_id_from_path(external, path, &loader);
+	const fck_db_id          id = fck_db_api_id_from_path(external, path, &loader);
 	if (fck_db_id_ok(id))
 	{
 		const char *category = loader ? loader->category : "none";
@@ -170,9 +172,9 @@ static const char *fck_db_make_full_path(char *buffer, fckc_size_t size, const c
 		return NULL;
 	}
 
-	const fckc_size_t dir_len = strlen(dir);
-	const int need_separator = (dir_len > 0 && dir[dir_len - 1] != '/' && path[0] != '/');
-	const int written = snprintf(buffer, size, need_separator ? "%s/%s" : "%s%s", dir, path);
+	const fckc_size_t dir_len        = strlen(dir);
+	const int         need_separator = (dir_len > 0 && dir[dir_len - 1] != '/' && path[0] != '/');
+	const int         written        = snprintf(buffer, size, need_separator ? "%s/%s" : "%s%s", dir, path);
 	if (written < 0 || (fckc_size_t)written >= size)
 	{
 		return NULL;
@@ -184,11 +186,11 @@ static fck_db_asset *fck_db_api_import_file(fck_db external, fck_db_section *sec
 {
 	fck_db_private *db = external.opaque;
 
-	kll_arena *temp = kll->arena->create(db->allocator, 512);
-	const char *ext = fck_db_api_file_extension(relative);
+	kll_arena  *temp = kll->arena->create(db->allocator, 512);
+	const char *ext  = fck_db_api_file_extension(relative);
 	fck_assert(ext);
 
-	char absolute_buffer[1024];
+	char        absolute_buffer[1024];
 	const char *absolute = fck_db_make_full_path(absolute_buffer, fck_arraysize(absolute_buffer), section->path, relative);
 	if (absolute == NULL)
 	{
@@ -196,30 +198,30 @@ static fck_db_asset *fck_db_api_import_file(fck_db external, fck_db_section *sec
 	}
 	temp->reset(temp);
 
-	fck_db_loader_interface null_loader = {.category = "none"};
-	fck_db_loader_interface *loader = db_ext_map->find(db->loaders, ext);
+	fck_db_loader_interface  null_loader = {.category = "none"};
+	fck_db_loader_interface *loader      = db_ext_map->find(db->loaders, ext);
 	if (!loader)
 	{
 		loader = &null_loader;
 	}
 
 	const fckc_size_t scope_len = strlen(section->scope) + 1; // for / separator
-	fckc_size_t total_len;
-	char *relative_path;
+	fckc_size_t       total_len;
+	char             *relative_path;
 	if (ext[0] != '\0')
 	{
 		const fckc_size_t len = to_size_t(ext - relative); // We add a dot somewhere above
-		total_len = len + scope_len;
-		relative_path = (char *)kll_malloc(db->strings, total_len);
+		total_len             = len + scope_len;
+		relative_path         = (char *)kll_malloc(db->strings, total_len);
 		memcpy(relative_path, section->scope, scope_len);
-		char *dst = (char *)memcpy(relative_path + scope_len, relative, len);
+		char *dst    = (char *)memcpy(relative_path + scope_len, relative, len);
 		dst[len - 1] = '\0';
 	}
 	else
 	{
 		const fckc_size_t len = strlen(relative) + 1;
-		total_len = len + scope_len;
-		relative_path = (char *)kll_malloc(db->strings, total_len);
+		total_len             = len + scope_len;
+		relative_path         = (char *)kll_malloc(db->strings, total_len);
 		memcpy(relative_path, section->scope, scope_len);
 		memcpy(relative_path + scope_len, relative, len);
 	}
@@ -235,18 +237,18 @@ static fck_db_asset *fck_db_api_import_file(fck_db external, fck_db_section *sec
 
 	if (loader->import)
 	{
-		const fck_db_id blob = fck_db_id_from_path(relative_path, loader->category);
-		fck_db_object *entry = fck_db_ensure_object(db->page_table, blob);
+		const fck_db_id blob  = fck_db_id_from_path(relative_path, loader->category);
+		fck_db_object  *entry = fck_db_ensure_object(db->page_table, blob);
 
 		fck_db_id runtime = {0};
 
 		fck_db_api *db_api = (fck_db_api *)db->registry->find(fck_db_api_name);
 
 		const fck_db_loader_args args = {
-			.api = db_api,
+			.api      = db_api,
 			.registry = db->registry,
-			.db = external,
-			.target = blob,
+			.db       = external,
+			.target   = blob,
 		};
 
 		void *userdata = loader->import(&args, absolute);
@@ -270,12 +272,12 @@ static fck_db_asset *fck_db_api_import_file(fck_db external, fck_db_section *sec
 			// We never copy properties, instead we create new chunks and then do simple pointer exchanges
 			// That means this fck_db_asset address is fucked! :)
 			fck_db_asset_private info = {0};
-			info.base.id = blob;
-			info.base.timestamp = os->chrono->now();
-			info.base.category = loader->category;
-			info.base.userdata = userdata;
-			info.base.path = relative_path;
-			info.state = fck_db_asset_state_imported;
+			info.base.id              = blob;
+			info.base.timestamp       = os->chrono->now();
+			info.base.category        = loader->category;
+			info.base.userdata        = userdata;
+			info.base.path            = relative_path;
+			info.state                = fck_db_asset_state_imported;
 
 			// We construct a proxy object to keep assets stable! :)
 			// Like mentioned above, working with userdata is so extremely hacky
@@ -283,25 +285,25 @@ static fck_db_asset *fck_db_api_import_file(fck_db external, fck_db_section *sec
 			// Also, "named" userdata might also be valuable to have - this way we can have traits and
 			// identify the kind of userdata.
 			const fck_db_accessor reader = db_object->read(external, runtime);
-			void *result = reader.read->userdata(reader, "asset");
+			void                 *result = reader.read->userdata(reader, "asset");
 			if (!result)
 			{
 				const fck_db_accessor editor = db_object->edit(external, runtime);
-				result = editor.edit->userdata(editor, "asset", &info, sizeof(info));
+				result                       = editor.edit->userdata(editor, "asset", &info, sizeof(info));
 				editor.edit->commit(editor, fck_db_no_undo);
 
 				fck_db_asset_private *as_asset = (fck_db_asset_private *)result;
-				as_asset->base.state = &as_asset->state;
+				as_asset->base.state           = &as_asset->state;
 			}
 			else
 			{
 				fck_db_asset_private *as_asset = (fck_db_asset_private *)result;
-				*as_asset = info;
-				as_asset->base.state = &as_asset->state;
+				*as_asset                      = info;
+				as_asset->base.state           = &as_asset->state;
 			}
 
 			fck_db_asset_reference *ref = db_ext_map->cache(db->allocator, db->loaders, ext, relative_path);
-			ref->id = blob;
+			ref->id                     = blob;
 
 			kll->arena->destroy(temp);
 			return (fck_db_asset *)result;
@@ -334,12 +336,12 @@ static void fck_db_api_hotreload(fck_db external)
 
 	for (fckc_size_t index = 0; index < db->sections_count; index++)
 	{
-		fck_db_section *section = db->sections + index;
+		fck_db_section   *section         = db->sections + index;
 		const fckc_size_t iteration_limit = 64;
 		for (fckc_size_t iterations = 0; iterations < iteration_limit; iterations++)
 		{
 			fck_file_watcher_event changes[64];
-			const fckc_size_t result = os->fw->changes(section->watcher, changes, fck_arraysize(changes));
+			const fckc_size_t      result = os->fw->changes(section->watcher, changes, fck_arraysize(changes));
 			if (result == 0)
 			{
 				break;
@@ -353,7 +355,7 @@ static void fck_db_api_hotreload(fck_db external)
 					// This branch and condition is very much removed!
 					continue;
 				}
-				char buffer[1024];
+				char        buffer[1024];
 				const char *scoped_path = fck_db_api_make_scope_path(buffer, fck_arraysize(buffer), section->scope, change->path);
 
 				switch ((fck_file_watcher_event_type)change->type)
@@ -399,14 +401,14 @@ static void fck_db_section_init(fck_db_section *section, const char *scope, cons
 	}
 }
 
-static int fck_db_api_sections_exists(fck_db_private *db, const char *path)
+static fckc_size_t fck_db_api_sections_find(fck_db_private *db, const char *path)
 {
 	for (fckc_size_t index = 0; index < db->sections_count; index++)
 	{
 		fck_db_section *section = db->sections + index;
 		if (strcmp(path, section->path) == 0)
 		{
-			return 1;
+			return index + 1;
 		}
 	}
 	return 0;
@@ -418,7 +420,7 @@ static void fck_db_api_setup(fck_db external, const char *scope, const char *pat
 	// TODO: Check duplication
 	// Return a section handle
 	fck_db_private *db = (fck_db_private *)external.opaque;
-	if (fck_db_api_sections_exists(db, path))
+	if (fck_db_api_sections_find(db, path))
 	{
 		// Later on we probably want to ref-count and all that
 		return;
@@ -426,10 +428,10 @@ static void fck_db_api_setup(fck_db external, const char *scope, const char *pat
 
 	fck_assert(db->sections_count < fck_arraysize(db->sections));
 	fck_db_section *section = db->sections + db->sections_count;
-	db->sections_count = db->sections_count + 1;
+	db->sections_count      = db->sections_count + 1;
 	fck_db_section_init(section, scope, path);
 
-	char **paths;
+	char            **paths;
 	const fckc_size_t paths_count = os->glob->directory(path, NULL, &paths);
 	for (fckc_size_t index = 0; index < paths_count; index++)
 	{
@@ -445,8 +447,8 @@ static const fck_db_category_iterator *fck_db_asset_api_categories(fck_db extern
 	fck_db_private *db = (fck_db_private *)external.opaque;
 
 	fck_db_loader_interface **loaders;
-	const fckc_size_t count = db_ext_map->loaders(db->loaders, &loaders);
-	fck_db_loader_interface **last = loaders + count;
+	const fckc_size_t         count = db_ext_map->loaders(db->loaders, &loaders);
+	fck_db_loader_interface **last  = loaders + count;
 	// All of this shit will break as soon as category is not the first member anymore
 	// Such a change will be so fucking fun, so I leave it around
 	if (it->handle == NULL)
@@ -456,8 +458,8 @@ static const fck_db_category_iterator *fck_db_asset_api_categories(fck_db extern
 	else
 	{
 		fck_db_loader_interface **loader = (fck_db_loader_interface **)it->handle;
-		loader = loader + 1;
-		it->handle = loader;
+		loader                           = loader + 1;
+		it->handle                       = loader;
 	}
 	if (it->handle == last)
 	{
@@ -466,7 +468,7 @@ static const fck_db_category_iterator *fck_db_asset_api_categories(fck_db extern
 	}
 	{
 		fck_db_loader_interface **loader = (fck_db_loader_interface **)it->handle;
-		it->name = (*loader)->category;
+		it->name                         = (*loader)->category;
 	}
 	return it;
 }
@@ -476,8 +478,8 @@ static void *fck_db_asset_api_category(fck_db external, const char *name)
 	fck_db_private *db = (fck_db_private *)external.opaque;
 
 	fck_db_loader_interface **loaders;
-	const fckc_size_t count = db_ext_map->loaders(db->loaders, &loaders);
-	fck_db_loader_interface **last = loaders + count;
+	const fckc_size_t         count = db_ext_map->loaders(db->loaders, &loaders);
+	fck_db_loader_interface **last  = loaders + count;
 
 	for (fckc_size_t index = 0; index < count; index++)
 	{
@@ -492,12 +494,13 @@ static void *fck_db_asset_api_category(fck_db external, const char *name)
 
 static const char *fck_db_asset_api_extensions(fck_db external, void *category, void **current, const char **ext)
 {
-	fck_db_private *db = (fck_db_private *)external.opaque;
+	(void)external;
+	// fck_db_private           *db     = (fck_db_private *)external.opaque;
 	fck_db_loader_interface **loader = (fck_db_loader_interface **)category;
 
-	const char **extensions;
+	const char      **extensions;
 	const fckc_size_t count = (*loader)->supports(&extensions);
-	const char **last = extensions + count;
+	const char      **last  = extensions + count;
 
 	if (*current == NULL)
 	{
@@ -506,8 +509,8 @@ static const char *fck_db_asset_api_extensions(fck_db external, void *category, 
 	else
 	{
 		const char **extension = (const char **)*current;
-		extension = extension + 1;
-		*current = extension;
+		extension              = extension + 1;
+		*current               = extension;
 	}
 	if (*current == last)
 	{
@@ -515,7 +518,7 @@ static const char *fck_db_asset_api_extensions(fck_db external, void *category, 
 	}
 	{
 		const char **extension = (const char **)*current;
-		*ext = *extension;
+		*ext                   = *extension;
 	}
 	return *ext;
 }
@@ -526,22 +529,40 @@ static fckc_size_t fck_db_asset_api_assetsof(fck_db external, const char *extens
 	return db_ext_map->listof(db->loaders, extension, assets);
 }
 
-int fck_db_asset_api_is(const fck_db_asset *asset, const char *category)
+static int fck_db_asset_api_is(const fck_db_asset *asset, const char *category)
 {
 	return strcmp(asset->category, category) == 0;
 }
 
+//static fck_db_asset *fck_db_asset_api_create(fck_db external, const char *scope, const char *path, const char *category)
+//{
+//	fck_db_private *db = (fck_db_private *)external.opaque;
+//
+//	fckc_size_t result = fck_db_api_sections_find(db, path);
+//	fck_assert(result && "Cannot find scope - Does not exist");
+//
+//	fck_db_section* section = db->sections + result - 1;
+//
+//	char** paths;
+//	const fckc_size_t paths_count = os->glob->directory(path, NULL, &paths);
+//	for (fckc_size_t index = 0; index < paths_count; index++)
+//	{
+//		const char* relative = paths[index];
+//		fck_db_api_import_file(external, section, relative);
+//	}
+//}
+
 static fck_db_asset_api db_asset_api = {
 	.categories = fck_db_asset_api_categories,
-	.category = fck_db_asset_api_category,
+	.category   = fck_db_asset_api_category,
 	.extensions = fck_db_asset_api_extensions,
-	.assetsof = fck_db_asset_api_assetsof,
+	.assetsof   = fck_db_asset_api_assetsof,
 
 	.is = fck_db_asset_api_is,
 
-	.find = fck_db_asset_api_find,
-	.get = fck_db_asset_api_get,
-	.setup = fck_db_api_setup,
+	.find      = fck_db_asset_api_find,
+	.get       = fck_db_asset_api_get,
+	.setup     = fck_db_api_setup,
 	.hotreload = fck_db_api_hotreload,
 
 };

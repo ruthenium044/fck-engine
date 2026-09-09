@@ -33,17 +33,17 @@
 static fck_api_registry *apis = NULL;
 
 // MAYBE
-static inline fckc_u64   fck_db_random_next_rotl(const fckc_u64 x, int k)
+static inline fckc_u64 fck_db_random_next_rotl(const fckc_u64 x, int k)
 {
 	return (x << k) | (x >> (64 - k));
 }
 // MAYBE
 static inline fckc_u64 fck_db_random_splitmix64(fckc_u64 *state)
 {
-	*state     += 0x9e3779b97f4a7c15; // Golden ratio increment
-	fckc_u64 z  = *state;
-	z           = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9;
-	z           = (z ^ (z >> 27)) * 0x94d049bb133111eb;
+	*state += 0x9e3779b97f4a7c15; // Golden ratio increment
+	fckc_u64 z = *state;
+	z          = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9;
+	z          = (z ^ (z >> 27)) * 0x94d049bb133111eb;
 	return z ^ (z >> 31);
 }
 
@@ -88,13 +88,14 @@ static fck_db fck_db_api_create(kll_allocator *allocator)
 {
 	fck_db_private *db = (fck_db_private *)kll_malloc(allocator, sizeof(*db));
 	memset(db, 0, sizeof(*db));
-	const fck_db result = {.opaque = db};
 
-	db->allocator       = allocator;
-	db->strings         = kll->arena->create(allocator, 512);
-	db->page_table      = fck_db_object_page_table_alloc(allocator);
-	db->loaders         = db_ext_map->alloc(allocator, apis);
-	db->registry        = apis;
+	db->allocator  = allocator;
+	db->strings    = kll->arena->create(allocator, 512);
+	db->page_table = fck_db_object_page_table_alloc(allocator);
+	db->loaders    = db_ext_map->alloc(allocator, apis);
+	db->registry   = apis;
+
+	const fck_db result = {.opaque = db};
 	return result;
 }
 
@@ -118,6 +119,7 @@ static void *fck_directory_import(const fck_db_loader_args *args, const char *pa
 	}
 	return NULL;
 }
+
 static fckc_size_t fck_directory_supports(const char ***extensions)
 {
 	static const char *supported[] = {""};
@@ -148,6 +150,7 @@ FCK_EXPORT_API fck_db_api *fck_db_load(fck_api_registry *registry, void *old)
 	apis = registry;
 	apis->add(fck_db_api_name, &api);
 	apis->add(fck_db_loader_interface_name, &directory_loader);
+	apis->add(fck_db_loader_interface_name, db_object_import);
 
 	return &api;
 }

@@ -48,29 +48,29 @@ typedef struct fck_sprite_stable_batch
 {
 	fck_sprite_batch base;
 
-	fck_sprite_batch_index *sparse;
+	fck_sprite_batch_index       *sparse;
 	fck_sprite_batch_dense_index *dense;
 
 	fckc_u32 capacity;
-	float sprite_width;
-	float sprite_height;
+	float    sprite_width;
+	float    sprite_height;
 } fck_sprite_stable_batch;
 
 typedef struct fck_sprites_internal
 {
 	kll_allocator *allocator;
-	kll_arena *strings;
+	kll_arena     *strings;
 
 	const char **names;
 
 	fck_sprite_stable_batch *batches;
-	fckc_u32 count;
-	fckc_u32 capacity;
+	fckc_u32                 count;
+	fckc_u32                 capacity;
 
 	// Render Data
-	sht_driver *driver;
-	sht_elements indices;
-	sht_image white_image;
+	sht_driver    *driver;
+	sht_elements   indices;
+	sht_image      white_image;
 	sht_image_view white_view;
 
 	fck_gfx gfx;
@@ -96,7 +96,7 @@ static fck_sprite_batch fck_sprite_batch_create(kll_allocator *allocator, const 
 {
 	const fck_sprite_batch batch = {
 		.allocator = allocator,
-		.asset = asset,
+		.asset     = asset,
 	};
 	return batch;
 }
@@ -116,19 +116,19 @@ static fckc_u32 fck_sprite_batch_add(fck_sprite_batch *batch)
 {
 	if (batch->count >= batch->capacity)
 	{
-		const fckc_u32 initial = 8;
-		const fckc_u32 next_capacity = batch->capacity ? batch->capacity * 2 : 8;
+		const fckc_u32        initial       = 8;
+		const fckc_u32        next_capacity = batch->capacity ? batch->capacity * 2 : 8;
 		fck_sprite_transform *next = (fck_sprite_transform *)kll_malloc(batch->allocator, next_capacity * sizeof(*batch->transforms));
 		if (batch->transforms)
 		{
 			memcpy(next, batch->transforms, batch->capacity * sizeof(*batch->transforms));
 			kll_free(batch->allocator, batch->transforms);
 		}
-		batch->capacity = next_capacity;
+		batch->capacity   = next_capacity;
 		batch->transforms = next;
 	}
 
-	const fckc_u32 at = batch->count;
+	const fckc_u32        at     = batch->count;
 	fck_sprite_transform *target = batch->transforms + at;
 	memset(target, 0, sizeof(*target));
 	batch->count = batch->count + 1;
@@ -137,7 +137,7 @@ static fckc_u32 fck_sprite_batch_add(fck_sprite_batch *batch)
 
 static fckc_u32 fck_sprite_batch_index_of(fck_sprite_batch *batch, const fck_sprite_transform *transform)
 {
-	const fckc_size_t root = to_size_t(batch->transforms);
+	const fckc_size_t root   = to_size_t(batch->transforms);
 	const fckc_size_t target = to_size_t(transform);
 	const fckc_size_t offset = (target - root) / sizeof(*transform);
 	if (offset < batch->count)
@@ -151,10 +151,10 @@ static int fck_sprite_batch_remove(fck_sprite_batch *batch, fckc_u32 index)
 {
 	if (index < batch->count)
 	{
-		const fck_sprite_transform *last = batch->transforms + batch->count - 1;
-		fck_sprite_transform *current = batch->transforms + index;
-		*current = *last;
-		batch->count = batch->count - 1;
+		const fck_sprite_transform *last    = batch->transforms + batch->count - 1;
+		fck_sprite_transform       *current = batch->transforms + index;
+		*current                            = *last;
+		batch->count                        = batch->count - 1;
 		return 1;
 	}
 	return 0;
@@ -163,9 +163,9 @@ static int fck_sprite_batch_remove(fck_sprite_batch *batch, fckc_u32 index)
 static fck_sprite_stable_batch fck_sprite_stable_batch_create(kll_allocator *a, const fck_db_asset *asset, float sw, float sh)
 {
 	fck_sprite_stable_batch batch = {0};
-	batch.sprite_width = sw;
-	batch.sprite_height = sh;
-	batch.base = fck_sprite_batch_create(a, asset);
+	batch.sprite_width            = sw;
+	batch.sprite_height           = sh;
+	batch.base                    = fck_sprite_batch_create(a, asset);
 	return batch;
 }
 
@@ -205,11 +205,11 @@ static fck_sprite_transform *fck_sprite_stable_batch_resolve(fck_sprite_stable_b
 	}
 
 	const fckc_u32 previous_base_capacity = batch->base.capacity;
-	const fckc_u32 result = fck_sprite_batch_add(&batch->base);
+	const fckc_u32 result                 = fck_sprite_batch_add(&batch->base);
 	if (previous_base_capacity < batch->base.capacity)
 	{
-		const fckc_size_t total = batch->base.capacity * sizeof(*batch->dense);
-		fck_sprite_batch_dense_index *next = (fck_sprite_batch_dense_index *)kll_malloc(batch->base.allocator, total);
+		const fckc_size_t             total = batch->base.capacity * sizeof(*batch->dense);
+		fck_sprite_batch_dense_index *next  = (fck_sprite_batch_dense_index *)kll_malloc(batch->base.allocator, total);
 		if (batch->dense)
 		{
 			memcpy(next, batch->dense, previous_base_capacity * sizeof(*batch->dense));
@@ -229,8 +229,8 @@ static fck_sprite_transform *fck_sprite_stable_batch_resolve(fck_sprite_stable_b
 		next_capacity |= next_capacity >> 16;
 		next_capacity++;
 
-		const fckc_size_t total = next_capacity * sizeof(*batch->sparse);
-		fck_sprite_batch_index *next = (fck_sprite_batch_index *)kll_malloc(batch->base.allocator, total);
+		const fckc_size_t       total = next_capacity * sizeof(*batch->sparse);
+		fck_sprite_batch_index *next  = (fck_sprite_batch_index *)kll_malloc(batch->base.allocator, total);
 		memset(next, 0, total);
 		if (batch->sparse)
 		{
@@ -238,16 +238,16 @@ static fck_sprite_transform *fck_sprite_stable_batch_resolve(fck_sprite_stable_b
 			kll_free(batch->base.allocator, batch->sparse);
 		}
 
-		batch->sparse = next;
+		batch->sparse   = next;
 		batch->capacity = next_capacity;
 	}
 
 	fck_sprite_batch_index *sparse = batch->sparse + at;
-	sparse->value = result;
-	sparse->is_ok = 1;
+	sparse->value                  = result;
+	sparse->is_ok                  = 1;
 
 	fck_sprite_batch_dense_index *dense = batch->dense + result;
-	dense->value = at;
+	dense->value                        = at;
 
 	return batch->base.transforms + result;
 }
@@ -260,7 +260,7 @@ static fckc_u32 fck_sprite_stable_batch_data(fck_sprite_stable_batch *batch, fck
 
 static void fck_sprite_stable_batch_dimensions(fck_sprite_stable_batch *batch, float *width, float *height)
 {
-	*width = batch->sprite_width;
+	*width  = batch->sprite_width;
 	*height = batch->sprite_height;
 }
 
@@ -313,10 +313,10 @@ static int fck_sprite_stable_batch_remove(fck_sprite_stable_batch *batch, fckc_u
 	batch->base.transforms[sparse->value] = batch->base.transforms[last];
 
 	fck_sprite_batch_dense_index *last_dense = batch->dense + last;
-	*dense = *last_dense;
+	*dense                                   = *last_dense;
 
 	fck_sprite_batch_index *last_sparse = batch->sparse + last_dense->value;
-	*last_sparse = *sparse;
+	*last_sparse                        = *sparse;
 
 	const int removal_result = fck_sprite_batch_remove(&batch->base, last);
 	fck_assert(removal_result);
@@ -402,12 +402,12 @@ static fckc_u32 fck_sprites_register_batch(fck_sprites_internal *sprites, const 
 	{
 		if (sprites->count == sprites->capacity)
 		{
-			const fckc_u32 next_capacity = sprites->capacity ? sprites->capacity * 2 : 4;
-			const fckc_size_t total = next_capacity * sizeof(*sprites->batches);
+			const fckc_u32    next_capacity   = sprites->capacity ? sprites->capacity * 2 : 4;
+			const fckc_size_t total           = next_capacity * sizeof(*sprites->batches);
 			const fckc_size_t total_name_size = next_capacity * sizeof(*sprites->names);
 
-			fck_sprite_stable_batch *next = (fck_sprite_stable_batch *)kll_malloc(sprites->allocator, total);
-			const char **names = (const char **)kll_malloc(sprites->allocator, total_name_size);
+			fck_sprite_stable_batch *next  = (fck_sprite_stable_batch *)kll_malloc(sprites->allocator, total);
+			const char             **names = (const char **)kll_malloc(sprites->allocator, total_name_size);
 			if (sprites->batches)
 			{
 				memcpy(next, sprites->batches, sprites->count * sizeof(*sprites->batches));
@@ -415,17 +415,17 @@ static fckc_u32 fck_sprites_register_batch(fck_sprites_internal *sprites, const 
 				kll_free(sprites->allocator, sprites->batches);
 			}
 
-			sprites->names = names;
-			sprites->batches = next;
+			sprites->names    = names;
+			sprites->batches  = next;
 			sprites->capacity = next_capacity;
 		}
 
 		{
-			fck_sprite_stable_batch *batch = sprites->batches + sprites->count;
-			const char **batch_name = sprites->names + sprites->count;
-			*batch_name = kll_format(sprites->strings, "%s", name);
+			fck_sprite_stable_batch *batch      = sprites->batches + sprites->count;
+			const char             **batch_name = sprites->names + sprites->count;
+			*batch_name                         = kll_format(sprites->strings, "%s", name);
 
-			*batch = fck_sprite_stable_batch_create(sprites->allocator, asset, sw, sh);
+			*batch         = fck_sprite_stable_batch_create(sprites->allocator, asset, sw, sh);
 			sprites->count = sprites->count + 1;
 			return sprites->count - 1;
 		}
@@ -436,7 +436,7 @@ static fck_sprites_internal fck_sprites_create(kll_allocator *allocator)
 {
 	const fck_sprites_internal sprites = {
 		.allocator = allocator,
-		.strings = kll->arena->create(allocator, 256),
+		.strings   = kll->arena->create(allocator, 256),
 	};
 
 	return sprites;
@@ -525,8 +525,8 @@ static fck_sprite_batch_id fck_sprite_batch_api_find_by_name(fck_sprites *extern
 {
 	fck_sprites_internal sprites = {0};
 	fck_sprites_to_internal(external, &sprites);
-	const fckc_u32 result = fck_sprites_find_batch(&sprites, name);
-	const fck_sprite_batch_id id = {.value = result - 1};
+	const fckc_u32            result = fck_sprites_find_batch(&sprites, name);
+	const fck_sprite_batch_id id     = {.value = result - 1};
 	return id;
 }
 
@@ -595,7 +595,7 @@ static int fck_sprite_batch_api_dimensions(fck_sprites *external, fck_sprite_bat
 	fck_sprite_stable_batch *batch = fck_sprites_get_batch(&sprites, index.value);
 	if (batch)
 	{
-		*sprite_width = batch->sprite_width;
+		*sprite_width  = batch->sprite_width;
 		*sprite_height = batch->sprite_height;
 		return 1;
 	}
@@ -676,7 +676,7 @@ static fck_sprite_id fck_sprite_api_indexof(struct fck_sprites *external, fck_sp
 	fck_sprites_internal sprites = {0};
 	fck_sprites_to_internal(external, &sprites);
 	fck_sprite_id id;
-	id.batch = index;
+	id.batch       = index;
 	// Flip to uintmax when invalid :-(
 	id.entry.value = fck_sprites_index_of(&sprites, index.value, transform) - 1;
 	return id;
@@ -744,14 +744,14 @@ static struct fck_sprites fck_sprite_api_create(struct kll_allocator *allocator,
 	const fck_db_asset *sprite_fs = db->asset->find(*args->db, "sprite/textured.frag");
 	const fck_db_asset *debug_png = db->asset->find(*args->db, "sprite/debug.png");
 
-	fck_sprites_internal sprites = fck_sprites_create(allocator);
-	fck_sprites external = {0};
-	sprites.driver = args->driver;
+	fck_sprites_internal sprites  = fck_sprites_create(allocator);
+	fck_sprites          external = {0};
+	sprites.driver                = args->driver;
 
 	sht_memory *memory = args->driver->vt->memory(*args->driver);
 
-	const fck_gfx_create_info create_info = {.has_depth = 1, .vertex = sprite_vs, .fragment = sprite_fs};
-	sprites.gfx = gfx->create(kll->system, args->driver, &create_info);
+	const fck_gfx_create_info create_info = {.flags = fck_gfx_target_all, .vertex = sprite_vs, .fragment = sprite_fs};
+	sprites.gfx                           = gfx->create(kll->system, args->driver, &create_info);
 
 	{
 		fckc_u32 index_data[] = {0, 1, 2, 1, 3, 2};
@@ -778,117 +778,126 @@ typedef struct fck_sprite_screen
 	float sprite_height;
 } fck_sprite_screen;
 
-static void fck_sprite_api_present(fck_sprites *external, const struct sht_command_buffer *buffer, fckc_u32 frame_index)
+static int fck_sprite_api_present(void *userdata, const struct fck_gfx_args *args)
 {
-	(void)frame_index;
-	fck_gfx_api *gfx = (fck_gfx_api *)apis->find(fck_gfx_api_name);
+	fck_gfx_api     *gfx = (fck_gfx_api *)apis->find(fck_gfx_api_name);
 	fck_texture_api *png = (fck_texture_api *)apis->find(fck_texture_api_name);
 
-	fck_sprites_internal sprites = {0};
-	fck_sprites_to_internal(external, &sprites);
+	fck_sprites         *external = (fck_sprites *)userdata;
+	fck_sprites_internal sprites  = {0};
+	fck_sprites_to_internal((fck_sprites *)external, &sprites);
 
 	sht_driver *driver = sprites.driver;
+	fck_assert(driver == args->driver);
 
-	sht_command_buffer_vt *command = driver->vt->command_buffer;
+	sht_command_buffer_vt *command     = driver->vt->command_buffer;
+	const sht_render_pass  render_pass = command->render_pass->begin(*args->commands, args->suggestion);
+	if (!command->render_pass->is_ok(render_pass))
+	{
+		return 0;
+	}
 
 	const sht_swapchain swapchain = driver->vt->swapchain(*driver);
-	const sht_extent extent = swapchain.vt->extent(swapchain);
-	sht_viewport viewport;
-	viewport.offset.x = 0.0f;
-	viewport.offset.y = 0.0f;
+	const sht_extent    extent    = swapchain.vt->extent(swapchain);
+	sht_viewport        viewport;
+	viewport.offset.x  = 0.0f;
+	viewport.offset.y  = 0.0f;
 	viewport.depth.min = (float)0.0f;
 	viewport.depth.max = (float)1.0f;
-	viewport.extent = extent;
-	command->viewport(*buffer, &viewport);
+	viewport.extent    = extent;
+	command->viewport(*args->commands, &viewport);
 
 	sht_scissor scissor;
 	scissor.offset.x = 0;
 	scissor.offset.y = 0;
-	scissor.extent = extent;
-	command->scissor(*buffer, &scissor);
+	scissor.extent   = extent;
+	command->scissor(*args->commands, &scissor);
 
 	const fckc_size_t batch_count = fck_sprite_batch_api_count(external);
 	for (fckc_size_t batch_index = 0; batch_index < batch_count; batch_index++)
 	{
-		const fck_sprite_batch_id id = fck_sprite_batch_api_index(external, batch_index);
-		fck_sprite_transform *transforms = NULL;
-		const fckc_u32 count = fck_sprite_api_transforms(external, id, &transforms);
+		const fck_sprite_batch_id id         = fck_sprite_batch_api_index(external, batch_index);
+		fck_sprite_transform     *transforms = NULL;
+		const fckc_u32            count      = fck_sprite_api_transforms(external, id, &transforms);
 
 		if (count > 0)
 		{
-			float sprite_width = 0;
+			float sprite_width  = 0;
 			float sprite_height = 0;
 			fck_sprite_batch_api_dimensions(external, id, &sprite_width, &sprite_height);
-			command->index_buffer(*buffer, &sprites.indices.buffer, 0);
+			command->index_buffer(*args->commands, &sprites.indices.buffer, 0);
 
-			sht_bss *bss = gfx->bss(sprites.gfx);
+			sht_bss               *bss      = gfx->bss(sprites.gfx);
 			sht_graphics_pipeline *pipeline = gfx->pipeline(sprites.gfx);
 
 			const fck_sprite_screen screen = {
-				.width = (float)extent.width,
-				.height = (float)extent.height,
-				.sprite_width = sprite_width,
+				.width         = (float)extent.width,
+				.height        = (float)extent.height,
+				.sprite_width  = sprite_width,
 				.sprite_height = sprite_height,
 			};
 
 			const sht_buffer_upload_desc screen_upload = {.data = &screen, .size = sizeof(screen), .count = 1};
 
 			const sht_buffer_upload_desc transform_upload = {
-				.data = transforms,
-				.size = sizeof(*transforms),
+				.data  = transforms,
+				.size  = sizeof(*transforms),
 				.count = count,
 			};
 
-			const sht_image_view *view = fck_sprite_batch_api_image_view(external, id);
+			const sht_image_view       *view         = fck_sprite_batch_api_image_view(external, id);
 			const sht_image_upload_desc image_upload = {.view = view};
 
 			driver->vt->bss->upload_buffer(*bss, 0, &screen_upload);
 			driver->vt->bss->upload_buffer(*bss, 1, &transform_upload);
 			driver->vt->bss->upload_image(*bss, 3, &image_upload);
-			command->bss(*buffer, *bss);
+			command->bss(*args->commands, *bss);
 
-			command->graphics_pipeline(*buffer, *pipeline);
+			command->graphics_pipeline(*args->commands, *pipeline);
 
 			const sht_draw_indexed_desc desc = {
-				.first_index = 0,
-				.index_count = to_u32(sprites.indices.count),
+				.first_index    = 0,
+				.index_count    = to_u32(sprites.indices.count),
 				.instance_count = count,
 				.first_instance = 0,
-				.vertex_offset = 0,
+				.vertex_offset  = 0,
 			};
 
-			command->draw_indexed(*buffer, &desc);
+			command->draw_indexed(*args->commands, &desc);
 		}
 	}
+
+	command->render_pass->end(*args->commands);
+	return 1;
 }
 
 static fck_sprite_batch_api sprite_batch_api = {
-	.add = fck_sprite_batch_api_add,
-	.dimensions = fck_sprite_batch_api_dimensions,
-	.image_view = fck_sprite_batch_api_image_view,
-	.asset = fck_sprite_batch_api_asset,
-	.nameof = fck_sprite_batch_api_nameof,
-	.count = fck_sprite_batch_api_count,
-	.names = fck_sprite_batch_api_names,
-	.remove = fck_sprite_batch_api_remove,
+	.add          = fck_sprite_batch_api_add,
+	.dimensions   = fck_sprite_batch_api_dimensions,
+	.image_view   = fck_sprite_batch_api_image_view,
+	.asset        = fck_sprite_batch_api_asset,
+	.nameof       = fck_sprite_batch_api_nameof,
+	.count        = fck_sprite_batch_api_count,
+	.names        = fck_sprite_batch_api_names,
+	.remove       = fck_sprite_batch_api_remove,
 	.find_by_name = fck_sprite_batch_api_find_by_name,
-	.index = fck_sprite_batch_api_index,
-	.is_ok = fck_sprite_batch_api_is_ok,
+	.index        = fck_sprite_batch_api_index,
+	.is_ok        = fck_sprite_batch_api_is_ok,
 };
 
 static fck_sprite_api sprite_api = {
-	.batches = &sprite_batch_api,
-	.add = fck_sprite_api_add,
-	.create = fck_sprite_api_create,
-	.destroy = fck_sprite_api_destroy,
-	.indexof = fck_sprite_api_indexof,
-	.remove = fck_sprite_api_remove,
-	.get = fck_sprite_api_get,
-	.set = fck_sprite_api_set,
+	.batches    = &sprite_batch_api,
+	.add        = fck_sprite_api_add,
+	.create     = fck_sprite_api_create,
+	.destroy    = fck_sprite_api_destroy,
+	.indexof    = fck_sprite_api_indexof,
+	.remove     = fck_sprite_api_remove,
+	.get        = fck_sprite_api_get,
+	.set        = fck_sprite_api_set,
 	.transforms = fck_sprite_api_transforms,
-	.is_ok = fck_sprite_api_is_ok,
-	.present = fck_sprite_api_present,
-	.invalid = fck_sprite_api_invalid,
+	.is_ok      = fck_sprite_api_is_ok,
+	.present    = fck_sprite_api_present,
+	.invalid    = fck_sprite_api_invalid,
 };
 
 FCK_EXPORT_API fck_sprite_api *fck_sprite_load(fck_api_registry *registry, fck_sprite_api *old)

@@ -153,14 +153,27 @@ static const fck_db_asset *fck_db_asset_api_get(fck_db external, fck_db_id id, c
 
 static const fck_db_asset *fck_db_asset_api_find(fck_db external, const char *path)
 {
-	fck_db_private *db = (fck_db_private *)external.opaque;
-
-	fck_db_loader_interface *loader;
-	const fck_db_id          id = fck_db_api_id_from_path(external, path, &loader);
+	fck_db_loader_interface *loader = NULL;
+	const fck_db_id          id     = fck_db_api_id_from_path(external, path, &loader);
 	if (fck_db_id_ok(id))
 	{
 		const char *category = loader ? loader->category : "none";
 		return fck_db_asset_api_get(external, id, category);
+	}
+	return NULL;
+}
+
+static const fck_db_asset *fck_db_asset_api_lazy(fck_db db, const char *path, const char *category)
+{
+	const fck_db_id id = fck_db_id_from_path(path, category);
+	if (fck_db_id_ok(id))
+	{
+		const fck_db_asset *asset = fck_db_asset_api_get(db, id, category);
+		if (asset)
+		{
+			return asset;
+		}
+
 	}
 	return NULL;
 }
@@ -237,8 +250,8 @@ static fck_db_asset *fck_db_api_import_file(fck_db external, fck_db_section *sec
 
 	if (loader->import)
 	{
-		const fck_db_id blob  = fck_db_id_from_path(relative_path, loader->category);
-		fck_db_object  *entry = fck_db_ensure_object(db->page_table, blob);
+		const fck_db_id      blob  = fck_db_id_from_path(relative_path, loader->category);
+		const fck_db_object *entry = fck_db_ensure_object(db->page_table, blob);
 
 		fck_db_id runtime = {0};
 
@@ -253,7 +266,7 @@ static fck_db_asset *fck_db_api_import_file(fck_db external, fck_db_section *sec
 
 		void *userdata = loader->import(&args, absolute);
 
-		fck_db_accessor reader = db_object->read(external, blob);
+		const fck_db_accessor reader = db_object->read(external, blob);
 		if (reader.ok->reference(reader, "runtime"))
 		{
 			runtime = reader.read->reference(reader, "runtime");
@@ -534,7 +547,7 @@ static int fck_db_asset_api_is(const fck_db_asset *asset, const char *category)
 	return strcmp(asset->category, category) == 0;
 }
 
-//static fck_db_asset *fck_db_asset_api_create(fck_db external, const char *scope, const char *path, const char *category)
+// static fck_db_asset *fck_db_asset_api_create(fck_db external, const char *scope, const char *path, const char *category)
 //{
 //	fck_db_private *db = (fck_db_private *)external.opaque;
 //
@@ -550,7 +563,7 @@ static int fck_db_asset_api_is(const fck_db_asset *asset, const char *category)
 //		const char* relative = paths[index];
 //		fck_db_api_import_file(external, section, relative);
 //	}
-//}
+// }
 
 static fck_db_asset_api db_asset_api = {
 	.categories = fck_db_asset_api_categories,
@@ -561,6 +574,7 @@ static fck_db_asset_api db_asset_api = {
 	.is = fck_db_asset_api_is,
 
 	.find      = fck_db_asset_api_find,
+	.lazy      = fck_db_asset_api_lazy,
 	.get       = fck_db_asset_api_get,
 	.setup     = fck_db_api_setup,
 	.hotreload = fck_db_api_hotreload,

@@ -865,7 +865,10 @@ int main(int argc, char **argv)
 
 	fckc_u64 time_point = os->chrono->ms();
 
-	const fck_db_id sprite_batches_id = db->object->create(assets);
+	const fck_db_asset *ass = db->asset->find(assets, "app/test.json");
+	const fck_db_id sprite_batches_id = db->object->resolve(ass);
+
+	//const fck_db_id sprite_batches_id = db->object->create(assets);
 	fck_entity      selected_entity   = ec->entity->invalid(world);
 	int             is_running        = 1;
 	while (is_running)
@@ -1043,7 +1046,7 @@ int main(int argc, char **argv)
 							editor.edit->commit(editor, fck_db_no_undo);
 							db->set->destroy(kll->system, set);
 
-							db->object->save(assets, sprite_batches_id, "test");
+							db->object->save(assets, sprite_batches_id, "app", "test");
 						}
 
 						if (db->object->is_ok(assets, sprite_batches_id))

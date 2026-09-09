@@ -1,13 +1,49 @@
 {
-    "batches": [
-        {
-            "sprite_width": 8.0,
-            "sprite_height": 8.0,
-            "name": "null",
-            "texture": {
-                "category": "fck-texture",
-                "path": "sprite/debug"
+    "batches": {
+        "fck-type": 7,
+        "value": [
+            {
+                "sprite_width": {
+                    "fck-type": 2,
+                    "value": 32.0
+                },
+                "sprite_height": {
+                    "fck-type": 2,
+                    "value": 32.0
+                },
+                "name": {
+                    "fck-type": 8,
+                    "value": "bird"
+                },
+                "texture": {
+                    "fck-type": 6,
+                    "value": {
+                        "category": "fck-texture",
+                        "path": "app/bird-sheet"
+                    }
+                }
+            },
+            {
+                "sprite_width": {
+                    "fck-type": 2,
+                    "value": 8.0
+                },
+                "sprite_height": {
+                    "fck-type": 2,
+                    "value": 8.0
+                },
+                "name": {
+                    "fck-type": 8,
+                    "value": "null"
+                },
+                "texture": {
+                    "fck-type": 6,
+                    "value": {
+                        "category": "fck-texture",
+                        "path": "sprite/debug"
+                    }
+                }
             }
-        }
-    ]
+        ]
+    }
 }

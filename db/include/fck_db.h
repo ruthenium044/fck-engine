@@ -7,6 +7,8 @@
 
 #define fck_db_loader_interface_name "fck-db-loader"
 
+#define fck_category_object "fck-db-object"
+
 // TODO: re-structure to have objects as the core and assets as the "mixin"
 struct kll_allocator;
 struct fck_api_registry;
@@ -91,7 +93,7 @@ typedef struct fck_db_property
 	};
 } fck_db_property;
 
-// TODO: Rename this one to fck_db_propertey_iterator and add offset to it! :) 
+// TODO: Rename this one to fck_db_propertey_iterator and add offset to it! :)
 typedef struct fck_db_named_property
 {
 	const char     *name;
@@ -218,8 +220,10 @@ typedef struct fck_db_object_api
 	fck_db_accessor     (*read)(fck_db db, fck_db_id id);
 	fck_db_accessor     (*edit)(fck_db db, fck_db_id id);
 	int                 (*is_ok)(fck_db db, fck_db_id id);
-	const fck_db_asset *(*save)(fck_db db, fck_db_id id, const char* name);
-	void                (*load)(fck_db db);
+	const fck_db_asset *(*save)(fck_db db, fck_db_id id, const char *scope, const char *path);
+
+	fck_db_id (*resolve)(const fck_db_asset *asset);
+	// void                (*load)(fck_db db);
 } fck_db_object_api;
 
 typedef struct fck_db_category_iterator
@@ -240,6 +244,9 @@ typedef struct fck_db_asset_api
 	fckc_size_t                     (*assetsof)(fck_db db, const char *extension, const fck_db_asset_reference **assets);
 	const fck_db_asset             *(*get)(fck_db db, fck_db_id id, const char *category);
 	const fck_db_asset             *(*find)(fck_db db, const char *path);
+
+	// ?
+	const fck_db_asset *(*lazy)(fck_db db, const char *path, const char *category);
 
 	// fck_db_asset *(*create)(fck_db db, const char *scope, const char *path, const char *category);
 

@@ -1590,6 +1590,9 @@ static int fck_nk_panel_menu_api_push(fck_nk nk, const char *fmt, ...)
 	vsnprintf(buffer, sizeof(buffer), fmt, args);
 	va_end(args);
 
+	// We need to remember the state associated with each tree so we can maintain the state
+	// Always minimised will and does feel like shit on changing content 
+
 	return nk_tree_push_hashed(ctx, NK_TREE_TAB, buffer, NK_MINIMIZED, NULL, 0, 0);
 }
 
@@ -1626,6 +1629,7 @@ static const fck_db_asset *fck_nk_elements_api_asset(fck_nk nk, struct fck_db *a
 		const struct nk_vec2 size          = nk_widget_size(ctx);
 		const struct nk_vec2 dropdown_size = nk_vec2(size.x, 128.0f);
 
+		nk_layout_row_dynamic(ctx, fck_nuklear_element_row_height_default, 1);
 		if (nk_combo_begin_label(ctx, current ? current->path : "none", dropdown_size))
 		{
 			nk_layout_row_dynamic(ctx, 25.0f, 1);

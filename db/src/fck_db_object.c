@@ -345,16 +345,45 @@ typedef struct fck_db_object_asset
 	fck_db_id       object;
 } fck_db_object_asset;
 
-fck_db_id fck_db_object_resolve(const fck_db_asset *asset)
+static const fck_db_id *fck_db_object_resolve(fck_db db, const fck_db_asset *asset, fck_db_undo_scope *undo, fck_db_id *id)
 {
 	if (strcmp(asset->category, fck_category_object) != 0)
 	{
 		// Uuhhh... Maybe a return value would
-		return (fck_db_id){0};
+		*id = (fck_db_id){0};
+		return NULL;
 	}
 
-	const fck_db_object_asset *data = (fck_db_object_asset *)asset->userdata;
-	return data->object;
+	int refresh = 0;
+
+	fck_db_object_asset *data = (fck_db_object_asset *)asset->userdata;
+	if (!fck_db_id_ok(data->object))
+	{
+		if (data->doc)
+		{
+			if (fck_db_id_ok(data->object))
+			{
+				db_object->destroy(db, data->object);
+			}
+			data->object                 = db_object->create(db);
+			const fck_db_accessor editor = db_object->edit(db, data->object);
+
+			yyjson_mut_val *obj = yyjson_mut_doc_get_root(data->doc);
+
+			size_t          idx, max;
+			yyjson_mut_val *key, *val;
+			yyjson_mut_obj_foreach(obj, idx, max, key, val)
+			{
+				fck_db_object_api_load(db, editor, data->doc, key);
+			}
+			editor.edit->commit(editor, undo);
+			*asset->state = fck_db_asset_state_resolved;
+			refresh       = 1;
+		}
+	}
+
+	*id = data->object;
+	return refresh ? id : NULL;
 }
 
 static void *fck_db_object_import(const fck_db_loader_args *args, const char *path)
@@ -378,29 +407,6 @@ static void *fck_db_object_import(const fck_db_loader_args *args, const char *pa
 	yyjson_doc *idoc = yyjson_read_file(path, 0, NULL, NULL);
 
 	asset->doc = yyjson_doc_mut_copy(idoc, NULL);
-	// doc = (yyjson_mut_doc *)accessor.edit->userdata(accessor, "fck-db-object", &doc, sizeof(doc));
-
-	// TODO: Read
-	// TODO: Read
-	if (asset->doc)
-	{
-		if (fck_db_id_ok(asset->object))
-		{
-			db_object->destroy(args->db, asset->object);
-		}
-		asset->object                = db_object->create(args->db);
-		const fck_db_accessor editor = db_object->edit(args->db, asset->object);
-
-		yyjson_mut_val *obj = yyjson_mut_doc_get_root(asset->doc);
-
-		size_t          idx, max;
-		yyjson_mut_val *key, *val;
-		yyjson_mut_obj_foreach(obj, idx, max, key, val)
-		{
-			fck_db_object_api_load(args->db, editor, asset->doc, key);
-		}
-		editor.edit->commit(editor, fck_db_no_undo);
-	}
 	yyjson_doc_free(idoc);
 
 	return asset;
@@ -462,7 +468,7 @@ static fck_db_object_api db_object_api = {
 	//.load    = fck_db_object_api_load,
 	.is_ok   = fck_db_object_api_is_ok,
 
-	.resolve = fck_db_object_resolve,
+	.refresh = fck_db_object_resolve,
 };
 
 static fck_db_loader_interface db_object_loader = {

@@ -12,6 +12,8 @@
 #include <fckc_assert.h>
 #include <fckc_inttypes.h>
 
+#include <fck_os.h>
+
 #include <stdio.h>
 #include <string.h>
 
@@ -173,7 +175,6 @@ static const fck_db_asset *fck_db_asset_api_lazy(fck_db db, const char *path, co
 		{
 			return asset;
 		}
-
 	}
 	return NULL;
 }

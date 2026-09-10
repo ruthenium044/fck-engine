@@ -388,14 +388,10 @@ static fckc_u32 fck_sprites_register_batch(fck_sprites_internal *sprites, const 
 		if (result)
 		{
 			fck_sprite_stable_batch *batch = sprites->batches + result - 1;
-			if (asset == batch->base.asset)
-			{
-				// TODO: Float comparison, fix it :)
-				if (batch->sprite_width == sw && batch->sprite_height == sh)
-				{
-					return result - 1;
-				}
-			}
+			batch->base.asset              = asset;
+			batch->sprite_height           = sh;
+			batch->sprite_width            = sw;
+			return result - 1;
 		}
 	}
 
@@ -501,7 +497,7 @@ static int fck_sprites_remove_by_name(fck_sprites_internal *sprites, fckc_u32 in
 	return 0;
 }
 
-static fck_sprite_batch_id fck_sprite_batch_api_add(fck_sprites *external, const char *name, const fck_db_asset *asset, float sw, float sh)
+static fck_sprite_batch_id fck_sprite_batch_api_set(fck_sprites *external, const char *name, const fck_db_asset *asset, float sw, float sh)
 {
 	fck_sprites_internal sprites = {0};
 	fck_sprites_to_internal(external, &sprites);
@@ -744,6 +740,8 @@ static struct fck_sprites fck_sprite_api_create(struct kll_allocator *allocator,
 	const fck_db_asset *sprite_fs = db->asset->find(*args->db, "sprite/textured.frag");
 	const fck_db_asset *debug_png = db->asset->find(*args->db, "sprite/debug.png");
 
+	sht_driver driver = *args->driver;
+
 	fck_sprites_internal sprites  = fck_sprites_create(allocator);
 	fck_sprites          external = {0};
 	sprites.driver                = args->driver;
@@ -754,11 +752,11 @@ static struct fck_sprites fck_sprite_api_create(struct kll_allocator *allocator,
 	sprites.gfx                           = gfx->create(kll->system, args->driver, &create_info);
 
 	{
-		fckc_u32 index_data[] = {0, 1, 2, 1, 3, 2};
-		sprites.indices.count = fck_arraysize(index_data);
-		sprites.indices.buffer =
-			memory->malloc(memory->bump, &sht_buffer_target(sht_buffer_usage_index, sizeof(index_data)), sht_memory_gpu);
-		args->driver->vt->upload_buffer(*args->driver, &sprites.indices.buffer, index_data, sizeof(index_data));
+		const fckc_u32 index_data[]            = {0, 1, 2, 1, 3, 2};
+		sprites.indices.count                  = fck_arraysize(index_data);
+		sht_buffer_configuration buffer_config = sht_buffer_target(sht_buffer_usage_index, sizeof(index_data));
+		sprites.indices.buffer                 = memory->malloc(memory->bump, &buffer_config, sht_memory_gpu);
+		driver.vt->upload_buffer(driver, &sprites.indices.buffer, index_data, sizeof(index_data));
 	}
 
 	fck_sprites *external_sprites = fck_sprites_to_external(&sprites, &external);
@@ -766,7 +764,7 @@ static struct fck_sprites fck_sprite_api_create(struct kll_allocator *allocator,
 	// const fck_sprite_batch_id empty_batch = fck_sprite_batch_api_add(external_sprites, "Empty", &sprites.white_view, 32.0f, 32.0f);
 	// fck_assert(empty_batch.value == 0);
 
-	const fck_sprite_batch_id debug_batch = fck_sprite_batch_api_add(external_sprites, "null", debug_png, 8.0f, 8.0f);
+	const fck_sprite_batch_id debug_batch = fck_sprite_batch_api_set(external_sprites, "null", debug_png, 8.0f, 8.0f);
 	return *external_sprites;
 }
 
@@ -872,7 +870,7 @@ static int fck_sprite_api_present(void *userdata, const struct fck_gfx_args *arg
 }
 
 static fck_sprite_batch_api sprite_batch_api = {
-	.add          = fck_sprite_batch_api_add,
+	.set          = fck_sprite_batch_api_set,
 	.dimensions   = fck_sprite_batch_api_dimensions,
 	.image_view   = fck_sprite_batch_api_image_view,
 	.asset        = fck_sprite_batch_api_asset,

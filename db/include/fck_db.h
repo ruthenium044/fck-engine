@@ -209,20 +209,20 @@ typedef struct fck_db_id_set_api
 	int              (*add)(struct kll_allocator *allocator, fck_db_id_set **set, fck_db_id id);
 	int              (*contains)(fck_db_id_set *set, fck_db_id id);
 	int              (*remove)(fck_db_id_set *set, fck_db_id id);
-	const fck_db_id *(*iterate)(fck_db_id_set *set, fck_db_id **it);
+	const fck_db_id *(*iterate)(const fck_db_id_set *set, const fck_db_id **it);
 	fckc_size_t      (*count)(fck_db_id_set *set);
 } fck_db_id_set_api;
 
 typedef struct fck_db_object_api
 {
-	fck_db_id           (*create)(fck_db db);
-	void                (*destroy)(fck_db db, fck_db_id id);
-	fck_db_accessor     (*read)(fck_db db, fck_db_id id);
-	fck_db_accessor     (*edit)(fck_db db, fck_db_id id);
-	int                 (*is_ok)(fck_db db, fck_db_id id);
-	const fck_db_asset *(*save)(fck_db db, fck_db_id id, const char *scope, const char *path);
+	fck_db_id       (*create)(fck_db db);
+	void            (*destroy)(fck_db db, fck_db_id id);
+	fck_db_accessor (*read)(fck_db db, fck_db_id id);
+	fck_db_accessor (*edit)(fck_db db, fck_db_id id);
+	int             (*is_ok)(fck_db db, fck_db_id id);
 
-	fck_db_id (*resolve)(const fck_db_asset *asset);
+	const fck_db_asset *(*save)(fck_db db, fck_db_id id, const char *scope, const char *path);
+	const fck_db_id    *(*refresh)(fck_db db, const fck_db_asset *asset, fck_db_undo_scope *scope, fck_db_id *id);
 	// void                (*load)(fck_db db);
 } fck_db_object_api;
 

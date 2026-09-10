@@ -2126,7 +2126,8 @@ static float sht_swapchain_scale(sht_swapchain swapchain)
 static sht_bool32 sht_swapchain_is_ready(sht_swapchain swapchain, const sht_swapchain_state *state)
 {
 	(void)swapchain;
-	return state->issues == 0;
+	// Very nice to condense all issues down to two bits
+	return state->issues == 0 && state->resize == 0;
 }
 
 static sht_command_buffer sht_command_buffer_create(sht_driver driver)

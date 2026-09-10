@@ -96,7 +96,8 @@ static void fck_gfx_initialize(fck_gfx_internal *gfx, sht_driver *driver, const 
 		{
 			if (current->binding >= 0)
 			{
-				bindings_count = fck_gfx_bindings_add(sht_stage_vertex_shader, current, bindings, bindings_count, fck_arraysize(bindings));
+				const sht_stage_flags stage = sht_stage_vertex_shader;
+				bindings_count              = fck_gfx_bindings_add(stage, current, bindings, bindings_count, fck_arraysize(bindings));
 			}
 			current = current->next;
 		}
@@ -110,8 +111,8 @@ static void fck_gfx_initialize(fck_gfx_internal *gfx, sht_driver *driver, const 
 		{
 			if (current->binding >= 0)
 			{
-				bindings_count =
-					fck_gfx_bindings_add(sht_stage_fragment_shader, current, bindings, bindings_count, fck_arraysize(bindings));
+				const sht_stage_flags stage = sht_stage_fragment_shader;
+				bindings_count              = fck_gfx_bindings_add(stage, current, bindings, bindings_count, fck_arraysize(bindings));
 			}
 			current = current->next;
 		}

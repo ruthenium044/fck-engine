@@ -1643,7 +1643,7 @@ static const fck_db_asset *fck_nk_elements_api_asset(fck_nk nk, struct fck_db *a
 			while (db->asset->extensions(*assets, it_category, &it_extension, &extension))
 			{
 				const fck_db_asset_reference *references;
-				const fckc_size_t             count = db->asset->assetsof(*assets, extension, &references);
+				const fckc_size_t             count = db->asset->all_of(*assets, extension, &references);
 				for (fckc_size_t index = 0; index < count; index++)
 				{
 					const fck_db_asset_reference *ref = references + index;

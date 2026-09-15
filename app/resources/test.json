@@ -1,7 +1,32 @@
 {
+    "ref": {
+        "fck-type": 4,
+        "value": "app/some_batch"
+    },
     "batches": {
         "fck-type": 7,
         "value": [
+            {
+                "sprite_width": {
+                    "fck-type": 2,
+                    "value": 8.0
+                },
+                "sprite_height": {
+                    "fck-type": 2,
+                    "value": 8.0
+                },
+                "name": {
+                    "fck-type": 8,
+                    "value": "null"
+                },
+                "texture": {
+                    "fck-type": 6,
+                    "value": {
+                        "category": "fck-texture",
+                        "path": "app/items-sheet"
+                    }
+                }
+            },
             {
                 "sprite_width": {
                     "fck-type": 2,
@@ -41,27 +66,6 @@
                     "value": {
                         "category": "fck-texture",
                         "path": "sprite/debug"
-                    }
-                }
-            },
-            {
-                "sprite_width": {
-                    "fck-type": 2,
-                    "value": 8.0
-                },
-                "sprite_height": {
-                    "fck-type": 2,
-                    "value": 8.0
-                },
-                "name": {
-                    "fck-type": 8,
-                    "value": "null"
-                },
-                "texture": {
-                    "fck-type": 6,
-                    "value": {
-                        "category": "fck-texture",
-                        "path": "app/items-sheet"
                     }
                 }
             }

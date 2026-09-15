@@ -9,6 +9,9 @@
 
 #define fck_category_object "fck-db-object"
 
+// If someone actually uses the asset category cba, I am going to snap
+#define fck_category_dont_care "fck-db-cba"
+
 // TODO: re-structure to have objects as the core and assets as the "mixin"
 struct kll_allocator;
 struct fck_api_registry;
@@ -221,7 +224,10 @@ typedef struct fck_db_object_api
 	fck_db_accessor (*edit)(fck_db db, fck_db_id id);
 	int             (*is_ok)(fck_db db, fck_db_id id);
 
+	// TODO: fmt
 	const fck_db_asset *(*save)(fck_db db, fck_db_id id, const char *scope, const char *path);
+
+	// This function is piss ugly
 	const fck_db_id    *(*refresh)(fck_db db, const fck_db_asset *asset, fck_db_undo_scope *scope, fck_db_id *id);
 	// void                (*load)(fck_db db);
 } fck_db_object_api;
@@ -241,11 +247,16 @@ typedef struct fck_db_asset_api
 	void                           *(*category)(fck_db db, const char *name);
 	int                             (*is)(const fck_db_asset *asset, const char *category);
 	const char                     *(*extensions)(fck_db db, void *category, void **current, const char **extension);
-	fckc_size_t                     (*assetsof)(fck_db db, const char *extension, const fck_db_asset_reference **assets);
+	fckc_size_t                     (*all_of)(fck_db db, const char *extension, const fck_db_asset_reference **assets);
+
+	// Queries the asset from the id, fck_category_dont_care if you actually do not care
 	const fck_db_asset             *(*get)(fck_db db, fck_db_id id, const char *category);
+	// Tries to resolve category automatically by looking at extension
 	const fck_db_asset             *(*find)(fck_db db, const char *path);
 
-	// ?
+	// ? lazy find asset? It is actually less lazy than find..., no wait... URGH
+	// Essentially this one is LIKE find but while find needs the path to include an extensions
+	// lazy allows us to ignore the extension and go by category, the path SHALL not have an extension
 	const fck_db_asset *(*lazy)(fck_db db, const char *path, const char *category);
 
 	// fck_db_asset *(*create)(fck_db db, const char *scope, const char *path, const char *category);

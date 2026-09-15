@@ -125,6 +125,7 @@ static const char *fck_db_api_make_scope_path(char *buffer, fckc_size_t size, co
 
 static const fck_db_asset *fck_db_asset_api_get(fck_db external, fck_db_id id, const char *category)
 {
+	fck_assert(category && "Either pass in a valid category or if you really do not care use \"fck_category_dont_care\"");
 	fck_db_private *db    = (fck_db_private *)external.opaque;
 	fck_db_object  *entry = fck_db_resolve_object(db->page_table, id);
 	if (entry)
@@ -138,14 +139,16 @@ static const fck_db_asset *fck_db_asset_api_get(fck_db external, fck_db_id id, c
 			const fck_db_accessor runtime_reader = db_object->read(external, runtime);
 
 			const fck_db_asset *info = (const fck_db_asset *)runtime_reader.read->userdata(runtime_reader, "asset");
-			if (strcmp(info->category, category) == 0)
+			if (strcmp(category, fck_category_dont_care) != 0)
 			{
-				return info;
+				if (strcmp(info->category, category) == 0)
+				{
+					return info;
+				}
+				// Let's pray I am good enough that this path never happens
+				const char *fmt = "ERROR: Found asset is in wrong category! (Found: %s - Request: %s)";
+				os->io->log(fmt, info->category, category);
 			}
-			// Let's pray I am good enough that this path never happens
-			const char *fmt = "ERROR: Found asset is in wrong category! (Found: %s - Request: %s)";
-			os->io->log(fmt, info->category, category);
-
 			return NULL;
 		}
 		return NULL;
@@ -570,7 +573,7 @@ static fck_db_asset_api db_asset_api = {
 	.categories = fck_db_asset_api_categories,
 	.category   = fck_db_asset_api_category,
 	.extensions = fck_db_asset_api_extensions,
-	.assetsof   = fck_db_asset_api_assetsof,
+	.all_of     = fck_db_asset_api_assetsof,
 
 	.is = fck_db_asset_api_is,
 

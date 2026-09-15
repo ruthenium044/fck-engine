@@ -960,7 +960,7 @@ int main(int argc, char **argv)
 									if (nk->panel->push(view, ".%s", ext))
 									{
 										const fck_db_asset_reference *references;
-										const fckc_size_t             count = db->asset->assetsof(assets, ext, &references);
+										const fckc_size_t             count = db->asset->all_of(assets, ext, &references);
 										for (fckc_size_t index = 0; index < count; index++)
 										{
 											const fck_db_asset_reference *ref   = references + index;
@@ -1061,6 +1061,7 @@ int main(int argc, char **argv)
 
 								float     sprite_width, sprite_height;
 								const int result = sprite->batches->dimensions(&sprites, batch_id, &sprite_width, &sprite_height);
+
 								if (result)
 								{
 									const fck_db_id       child_id     = db->object->create(assets);
@@ -1071,14 +1072,31 @@ int main(int argc, char **argv)
 									child_editor.edit->f32(child_editor, "sprite_width", sprite_width);
 									child_editor.edit->f32(child_editor, "sprite_height", sprite_width);
 									child_editor.edit->commit(child_editor, fck_db_no_undo);
+
 									db->set->add(NULL, &set, child_id);
 								}
 							}
 
 							const fck_db_accessor editor = db->object->edit(assets, sprite_batches_id);
 							editor.edit->set(editor, "batches", set);
+
 							editor.edit->commit(editor, fck_db_no_undo);
 							db->set->destroy(kll->system, set);
+
+
+							{
+								const fck_db_accessor reader  = db->object->read(assets, sprite_batches_id);
+								const fck_db_id_set  *batches = reader.read->set(reader, "batches");
+
+								/*const fck_db_id *child = NULL;
+								while (db->set->iterate(batches, &child))
+								{
+								    const fck_db_accessor batch_reader = db->object->read(assets, *child);
+								    const char           *name         = batch_reader.read->string(batch_reader, "name");
+
+								    db->object->save(assets, *child, "app", "test");
+								}*/
+							}
 
 							db->object->save(assets, sprite_batches_id, "app", "test");
 						}
@@ -1112,7 +1130,7 @@ int main(int argc, char **argv)
 			while (db->asset->extensions(assets, it_category, &it_extension, &extension))
 			{
 				const fck_db_asset_reference *references;
-				const fckc_size_t             count = db->asset->assetsof(assets, extension, &references);
+				const fckc_size_t             count = db->asset->all_of(assets, extension, &references);
 				for (fckc_size_t index = 0; index < count; index++)
 				{
 					const fck_db_asset_reference *ref   = references + index;
@@ -1167,6 +1185,8 @@ int main(int argc, char **argv)
 			}
 		}
 	}
+
+	db->close(assets);
 
 	plugins->shutdown();
 	purge_files("temp-fck-*");

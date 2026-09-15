@@ -1,0 +1,21 @@
+{
+    "sprite_width": {
+        "fck-type": 2,
+        "value": 16.0
+    },
+    "sprite_height": {
+        "fck-type": 2,
+        "value": 16.0
+    },
+    "name": {
+        "fck-type": 8,
+        "value": "bird"
+    },
+    "texture": {
+        "fck-type": 6,
+        "value": {
+            "category": "fck-texture",
+            "path": "app/bird-sheet"
+        }
+    }
+}

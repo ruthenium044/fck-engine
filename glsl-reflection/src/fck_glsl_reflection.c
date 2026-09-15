@@ -170,26 +170,28 @@ static const char *fck_glsl_reflection_source_token_next(const char *current, fc
 		fck_glsl_reflection_token token;
 	} keywords_entry;
 
-	const static keywords_entry keywords[] = {{"struct", fck_glsl_reflection_struct},
-	                                          {"layout", fck_glsl_reflection_layout},
-	                                          {"uniform", fck_glsl_reflection_uniform},
-	                                          {"readonly", fck_glsl_reflection_readonly},
-	                                          {"shared", fck_glsl_reflection_shared},
-	                                          {"buffer", fck_glsl_reflection_buffer},
-	                                          {"in", fck_glsl_reflection_in},
-	                                          {"out", fck_glsl_reflection_out},
-	                                          {"float", fck_glsl_reflection_data_type},
-	                                          {"int", fck_glsl_reflection_data_type},
-	                                          {"uint", fck_glsl_reflection_data_type},
-	                                          {"vec2", fck_glsl_reflection_data_type},
-	                                          {"vec3", fck_glsl_reflection_data_type},
-	                                          {"vec4", fck_glsl_reflection_data_type},
-	                                          {"mat3", fck_glsl_reflection_data_type},
-	                                          {"mat4", fck_glsl_reflection_data_type},
-	                                          {"sampler2D", fck_glsl_reflection_data_type},
-	                                          {"if", fck_glsl_reflection_unknown},
-	                                          {"else if", fck_glsl_reflection_unknown},
-	                                          {"else", fck_glsl_reflection_unknown}};
+	const static keywords_entry keywords[] = {
+		{"struct", fck_glsl_reflection_struct},
+		{"layout", fck_glsl_reflection_layout},
+		{"uniform", fck_glsl_reflection_uniform},
+		{"readonly", fck_glsl_reflection_readonly},
+		{"shared", fck_glsl_reflection_shared},
+		{"buffer", fck_glsl_reflection_buffer},
+		{"in", fck_glsl_reflection_in},
+		{"out", fck_glsl_reflection_out},
+		{"float", fck_glsl_reflection_data_type},
+		{"int", fck_glsl_reflection_data_type},
+		{"uint", fck_glsl_reflection_data_type},
+		{"vec2", fck_glsl_reflection_data_type},
+		{"vec3", fck_glsl_reflection_data_type},
+		{"vec4", fck_glsl_reflection_data_type},
+		{"mat3", fck_glsl_reflection_data_type},
+		{"mat4", fck_glsl_reflection_data_type},
+		{"sampler2D", fck_glsl_reflection_data_type},
+		{"if", fck_glsl_reflection_unknown},
+		{"else if", fck_glsl_reflection_unknown},
+		{"else", fck_glsl_reflection_unknown},
+	};
 
 	current           = fck_glsl_reflection_source_skip_space(current);
 	out_token->type   = fck_glsl_reflection_unknown;

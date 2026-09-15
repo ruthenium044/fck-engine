@@ -24,6 +24,12 @@
 #include <stdio.h>
 #include <string.h>
 
+typedef struct fck_db_object_asset
+{
+	yyjson_mut_doc *doc;
+	fck_db_id       object;
+} fck_db_object_asset;
+
 static fck_db_id fck_db_id_create_and_next(fck_db_private *db)
 {
 	fckc_u8          *e          = db->id_factory;
@@ -130,7 +136,11 @@ static void fck_db_object_api_destroy(fck_db external, fck_db_id id)
 	fck_db_remove_object(db->page_table, id);
 }
 
-static void fck_db_object_api_save_object(fck_db db, fck_db_id id, yyjson_mut_doc *doc, yyjson_mut_val *root)
+static const fck_db_asset *fck_db_object_save_at_path(fck_db external, fck_db_id id, const char *absolute, const char *scope,
+                                                      const char *path);
+
+static void fck_db_object_api_save_object(fck_db db, fck_db_id id, const char *absolute, const char *scope, const char *path,
+                                          yyjson_mut_doc *doc, yyjson_mut_val *root)
 {
 	const fck_db_accessor reader = fck_db_object_api_read(db, id);
 
@@ -156,12 +166,29 @@ static void fck_db_object_api_save_object(fck_db db, fck_db_id id, yyjson_mut_do
 		}
 		case fck_db_type_object: {
 			yyjson_mut_val *obj = yyjson_mut_obj_add_obj(doc, value, "value");
-			fck_db_object_api_save_object(db, property.value.object, doc, obj);
+			fck_db_object_api_save_object(db, property.value.object, absolute, scope, path, doc, obj);
 			break;
 		}
-		case fck_db_type_reference:
-			yyjson_mut_obj_add_uint(doc, value, "value", property.value.object.value);
+		case fck_db_type_reference: {
+			const fck_db_asset *asset = db_asset->get(db, property.value.object, fck_category_object);
+
+			char        buffer[420] = {0};
+			const char *asset_path;
+			if (asset)
+			{
+				asset_path = asset->path;
+			}
+			else
+			{
+				// Maybe we can add something custom to references so we know they are references...
+				(void)snprintf(buffer, sizeof(buffer), "%s.%s", path, property.name);
+				fck_db_object_save_at_path(db, property.value.object, absolute, scope, buffer);
+				(void)snprintf(buffer, sizeof(buffer), "%s/%s.%s", scope, path, property.name);
+				asset_path = buffer;
+			}
+			yyjson_mut_obj_add_str(doc, value, "value", asset_path);
 			break;
+		}
 		case fck_db_type_asset: {
 			yyjson_mut_val *obj = yyjson_mut_obj_add_obj(doc, value, "value");
 			yyjson_mut_obj_add_str(doc, obj, "category", property.value.asset->category);
@@ -169,12 +196,12 @@ static void fck_db_object_api_save_object(fck_db db, fck_db_id id, yyjson_mut_do
 			break;
 		}
 		case fck_db_type_object_set: {
-			yyjson_mut_val *arr = yyjson_mut_obj_add_arr(doc, value, "value");
-			fck_db_id      *id  = NULL;
+			yyjson_mut_val  *arr = yyjson_mut_obj_add_arr(doc, value, "value");
+			const fck_db_id *id  = NULL;
 			while (db_id_set->iterate(property.value.set, &id))
 			{
 				yyjson_mut_val *obj = yyjson_mut_arr_add_obj(doc, arr);
-				fck_db_object_api_save_object(db, *id, doc, obj);
+				fck_db_object_api_save_object(db, *id, absolute, scope, path, doc, obj);
 			}
 			break;
 		}
@@ -186,40 +213,29 @@ static void fck_db_object_api_save_object(fck_db db, fck_db_id id, yyjson_mut_do
 	}
 }
 
-static const fck_db_asset *fck_db_object_api_save(fck_db external, fck_db_id id, const char *scope, const char *path)
+static const fck_db_asset *fck_db_object_save_at_path(fck_db external, fck_db_id id, const char *absolute, const char *scope,
+                                                      const char *path)
 {
-	fck_db_private *db = external.opaque;
-
+	fck_db_private *db   = external.opaque;
 	yyjson_mut_doc *doc  = yyjson_mut_doc_new(NULL);
 	yyjson_mut_val *root = yyjson_mut_obj(doc);
 	yyjson_mut_doc_set_root(doc, root);
 
-	fck_db_object_api_save_object(external, id, doc, root);
+	fck_db_object_api_save_object(external, id, absolute, scope, path, doc, root);
 
-	size_t      size;
-	const char *json = yyjson_mut_write(doc, YYJSON_WRITE_PRETTY, &size);
+	size_t           size;
+	yyjson_write_err err;
+	const char      *json = yyjson_mut_write_opts(doc, YYJSON_WRITE_PRETTY, NULL, &size, &err);
+
+	if (!json)
+	{
+		os->io->log("Error: %s", err.msg);
+	}
 
 	if (json)
 	{
-		fckc_size_t result = 0;
-		for (fckc_size_t index = 0; index < db->sections_count; index++)
-		{
-			fck_db_section *section = db->sections + index;
-			if (strcmp(scope, section->scope) == 0)
-			{
-				result = index + 1;
-				break;
-			}
-		}
-
-		if (result == 0)
-		{
-			return NULL;
-		}
-
-		char                  buffer[420] = {0};
-		const fck_db_section *target      = db->sections + result - 1;
-		(void)snprintf(buffer, sizeof(buffer), "%s%s.json", target->path, path);
+		char buffer[420] = {0};
+		(void)snprintf(buffer, sizeof(buffer), "%s%s.json", absolute, path);
 
 		const fck_file file = os->fs->open(buffer, "w");
 		os->fs->write(file, (const void *)json, size);
@@ -229,6 +245,32 @@ static const fck_db_asset *fck_db_object_api_save(fck_db external, fck_db_id id,
 		yyjson_mut_doc_free(doc);
 	}
 	return NULL;
+}
+
+static const fck_db_asset *fck_db_object_api_save(fck_db external, fck_db_id id, const char *scope, const char *path)
+{
+	fck_db_private *db = external.opaque;
+
+	fckc_size_t result = 0;
+	for (fckc_size_t index = 0; index < db->sections_count; index++)
+	{
+		fck_db_section *section = db->sections + index;
+		if (strcmp(scope, section->scope) == 0)
+		{
+			result = index + 1;
+			break;
+		}
+	}
+
+	if (result == 0)
+	{
+		return NULL;
+	}
+
+	{
+		fck_db_section *section = db->sections + result - 1;
+		return fck_db_object_save_at_path(external, id, section->path, scope, path);
+	}
 }
 
 static const void fck_db_object_api_load(fck_db db, fck_db_accessor editor, yyjson_mut_doc *doc, yyjson_mut_val *current);
@@ -298,9 +340,13 @@ static const void fck_db_object_api_load(fck_db db, fck_db_accessor editor, yyjs
 		break;
 	}
 	case fck_db_type_reference: {
-		fck_assert(yyjson_mut_is_uint(value));
-		const fckc_u64 v = yyjson_mut_get_uint(value);
-		// TODO!!
+		fck_assert(yyjson_mut_is_str(value));
+		const char         *v     = yyjson_mut_get_str(value);
+		const fck_db_asset *asset = db_asset->lazy(db, v, fck_category_object);
+
+		fck_db_id id = {0};
+		db_object->refresh(db, asset, fck_db_no_undo, &id);
+		editor.edit->reference(editor, name, id);
 		break;
 	}
 	case fck_db_type_asset: {
@@ -339,13 +385,7 @@ static const void fck_db_object_api_load(fck_db db, fck_db_accessor editor, yyjs
 	}
 }
 
-typedef struct fck_db_object_asset
-{
-	yyjson_mut_doc *doc;
-	fck_db_id       object;
-} fck_db_object_asset;
-
-static const fck_db_id *fck_db_object_resolve(fck_db db, const fck_db_asset *asset, fck_db_undo_scope *undo, fck_db_id *id)
+static const fck_db_id *fck_db_object_refresh(fck_db db, const fck_db_asset *asset, fck_db_undo_scope *undo, fck_db_id *id)
 {
 	if (strcmp(asset->category, fck_category_object) != 0)
 	{
@@ -468,7 +508,7 @@ static fck_db_object_api db_object_api = {
 	//.load    = fck_db_object_api_load,
 	.is_ok   = fck_db_object_api_is_ok,
 
-	.refresh = fck_db_object_resolve,
+	.refresh = fck_db_object_refresh,
 };
 
 static fck_db_loader_interface db_object_loader = {

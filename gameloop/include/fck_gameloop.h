@@ -57,7 +57,6 @@ typedef struct fck_gameloop_tick_parameters
 {
 	struct fck_api_registry *apis;
 	struct fck_ec *state;
-	struct fck_sprites *sprites;
 
 	struct fck_ec_api *ec;
 } fck_gameloop_tick_parameters;

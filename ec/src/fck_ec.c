@@ -151,8 +151,7 @@ static fck_query *fck_queries_resolve(fck_query_id id)
 	return (fck_query *)id.opaque;
 }
 
-static fck_query_id fck_queries_get(fck_queries *queries, const char *name, fckc_u32 size, const fck_query_component *components,
-                                    fckc_u32 count)
+static fck_query_id fck_queries_get(fck_queries *queries, const char *name, const fck_query_component *components, fckc_u32 count)
 {
 	const fck_hash_int hash = fck_components_hash(components, count);
 
@@ -221,7 +220,7 @@ static fck_query_id fck_queries_get(fck_queries *queries, const char *name, fckc
 			query->components     = result;
 			query->count          = count;
 			query->hash           = hash;
-			query->size           = size;
+			query->size           = to_u32(sizeof(void *)) * count;
 			query->name           = name;
 			const fck_query_id id = {.opaque = query};
 			return id;
@@ -1062,7 +1061,18 @@ static fckc_u32 fck_ec_api_get_component_dense(fck_ec ec, fck_component_id id, c
 static fck_query_id fck_ec_api_query_get(fck_ec ec, const fck_query_description *description)
 {
 	fck_ec_private *ec_private = ec.opaque;
-	return fck_queries_get(&ec_private->queries, description->name, description->size, description->components, description->count);
+
+	for (fckc_u32 index = 0; index < description->count; index++)
+	{
+		fck_query_component *component = description->components + index;
+		if (component->id.value == 0)
+		{
+			fck_assert(component->name);
+			component->id = fck_ec_api_components_id(ec, component->name);
+		}
+	}
+
+	return fck_queries_get(&ec_private->queries, description->name, description->components, description->count);
 }
 
 static fck_query_iterator fck_ec_api_query_iterator(fck_ec ec, fck_query_id query)
@@ -1122,7 +1132,8 @@ static fckc_u32 fck_ec_api_query_match(fck_query_iterator *it, void *dst, fckc_u
 				write = 0;
 				break;
 			}
-			memcpy(component_buffer, data, components->size);
+			// TODO: in to out! We pull out pointers instead of this?? Would that be better?
+			memcpy(component_buffer, &data, sizeof(void *));
 		}
 		if (write)
 		{

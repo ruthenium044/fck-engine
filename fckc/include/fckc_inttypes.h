@@ -10,6 +10,10 @@
 
 #define fck_alias(original, alias) alias
 
+// The issue with that is, that it should get replaced with fck_id at some point
+// Then we receive fck_id(type, 0x32312UL);
+#define fck_nameof(anything) #anything
+
 // Semantics types...
 // I start doubting these
 typedef float fckc_f32;
@@ -79,6 +83,7 @@ typedef uintptr_t fckc_uintptr;
 #define fckc_pad(n) char fckc_concat(_padding_, __LINE__)[n]
 
 #define fckc_pointer_add(ptr, offset) ((void *)((fckc_u8 *)(ptr) + (offset)))
+#define fckc_pointer_sub(ptr, offset) ((void *)((fckc_u8 *)(ptr) - (offset)))
 
 #define fck_kilobytes(x) ((fckc_size_t)(x) * 1024UL)
 #define fck_megabytes(x) ((fckc_size_t)(x) * 1024UL * 1024UL)

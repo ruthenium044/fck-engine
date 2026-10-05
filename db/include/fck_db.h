@@ -208,12 +208,13 @@ typedef struct fck_db_ok_api
 typedef struct fck_db_id_set_api
 {
 	fck_db_id_set   *(*create)(struct kll_allocator *allocator, fckc_size_t capacity);
+	fck_db_id_set   *(*copy)(struct kll_allocator *allocator, const fck_db_id_set* other);
 	void             (*destroy)(struct kll_allocator *allocator, fck_db_id_set *set);
 	int              (*add)(struct kll_allocator *allocator, fck_db_id_set **set, fck_db_id id);
 	int              (*contains)(fck_db_id_set *set, fck_db_id id);
 	int              (*remove)(fck_db_id_set *set, fck_db_id id);
 	const fck_db_id *(*iterate)(const fck_db_id_set *set, const fck_db_id **it);
-	fckc_size_t      (*count)(fck_db_id_set *set);
+	fckc_size_t      (*count)(const fck_db_id_set *set);
 } fck_db_id_set_api;
 
 typedef struct fck_db_object_api
@@ -228,7 +229,7 @@ typedef struct fck_db_object_api
 	const fck_db_asset *(*save)(fck_db db, fck_db_id id, const char *scope, const char *path);
 
 	// This function is piss ugly
-	const fck_db_id    *(*refresh)(fck_db db, const fck_db_asset *asset, fck_db_undo_scope *scope, fck_db_id *id);
+	const fck_db_id *(*refresh)(fck_db db, const fck_db_asset *asset, fck_db_undo_scope *scope, fck_db_id *id);
 	// void                (*load)(fck_db db);
 } fck_db_object_api;
 
@@ -250,9 +251,9 @@ typedef struct fck_db_asset_api
 	fckc_size_t                     (*all_of)(fck_db db, const char *extension, const fck_db_asset_reference **assets);
 
 	// Queries the asset from the id, fck_category_dont_care if you actually do not care
-	const fck_db_asset             *(*get)(fck_db db, fck_db_id id, const char *category);
+	const fck_db_asset *(*get)(fck_db db, fck_db_id id, const char *category);
 	// Tries to resolve category automatically by looking at extension
-	const fck_db_asset             *(*find)(fck_db db, const char *path);
+	const fck_db_asset *(*find)(fck_db db, const char *path);
 
 	// ? lazy find asset? It is actually less lazy than find..., no wait... URGH
 	// Essentially this one is LIKE find but while find needs the path to include an extensions

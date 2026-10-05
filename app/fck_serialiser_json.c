@@ -10,6 +10,7 @@
 #include "yyjson.h"
 #include <string.h>
 
+
 typedef struct fck_json_writer
 {
 	fck_serialiser base;

@@ -6,9 +6,8 @@
 #include <fckc_inttypes.h>
 #include <fck_apis.h>
 
-#include <SDL3/SDL_stdinc.h>
-
 #include <stddef.h>
+#include <string.h>
 
 #define fck_input_source_capacity 64
 
@@ -59,7 +58,7 @@ static fckc_size_t fck_input_events(fck_input_event *events, fckc_size_t size)
 
 static int fck_input_is(fck_input_source *source, const char *name)
 {
-	if (SDL_strcmp(source->name, name) == 0)
+	if (strcmp(source->name, name) == 0)
 	{
 		return 1;
 	}

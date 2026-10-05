@@ -11,15 +11,15 @@
 
 #include <string.h>
 
-#define fck_db_object_child_capacity 255
-#define fck_db_object_bitset_capacity 4
+#define fck_db_object_child_capacity        255
+#define fck_db_object_bitset_capacity       4
 #define fck_db_object_bitset_chunk_capacity 64
 
 union fck_db_object_page;
 typedef union fck_db_object_page {
 	struct
 	{
-		fckc_u64 ok[fck_db_object_bitset_capacity];
+		fckc_u64                  ok[fck_db_object_bitset_capacity];
 		union fck_db_object_page *children;
 	} dir;
 
@@ -29,7 +29,7 @@ typedef union fck_db_object_page {
 typedef struct fck_db_object_page_table
 {
 	struct kll_allocator *allocator;
-	fck_db_object_page root;
+	fck_db_object_page    root;
 
 	// Later.
 	// fck_db_guid_id_map guids;
@@ -131,17 +131,17 @@ static void fck_db_object_page_free(kll_allocator *allocator, fck_db_object_page
 	for (fckc_size_t chunk_index = 0; chunk_index < fck_arraysize(page->dir.ok); chunk_index++)
 	{
 		const int chunk_offset = chunk_index * fck_db_object_bitset_chunk_capacity;
-		fckc_u64 current = page->dir.ok[chunk_index];
+		fckc_u64  current      = page->dir.ok[chunk_index];
 		while (current)
 		{
-			const int index = fck_db_object_page_ctz64(current);
-			const int child_index = index + chunk_offset;
-			fck_db_object_page *child = page->dir.children + child_index;
+			const int           index       = fck_db_object_page_ctz64(current);
+			const int           child_index = index + chunk_offset;
+			fck_db_object_page *child       = page->dir.children + child_index;
 			fck_db_object_page_free(allocator, child, level + 1);
 			current = current & (current - 1ULL);
-			kll_free(allocator, child);
 		}
 	}
+	kll_free(allocator, page->dir.children);
 }
 
 fck_db_object_page_table *fck_db_object_page_table_alloc(struct kll_allocator *allocator)
@@ -179,7 +179,7 @@ fck_db_object *fck_db_object_page_table_resolve(fck_db_object_page_table *table,
 		fck_assert(subid != 0xFF);
 
 		fck_db_object_page *next = current->dir.children + subid;
-		current = next;
+		current                  = next;
 	}
 
 	return &current->object;
@@ -187,7 +187,7 @@ fck_db_object *fck_db_object_page_table_resolve(fck_db_object_page_table *table,
 
 fck_db_object *fck_db_object_page_table_ensure(fck_db_object_page_table *table, fckc_u32 id)
 {
-	fckc_u8 e[4];
+	fckc_u8           e[4];
 	const fckc_size_t indirections = fck_arraysize(e);
 	fck_db_object_page_id_extract(id, &e[0], &e[1], &e[2], &e[3]);
 	const int is_ok = fck_db_object_page_id_is_ok(e[0], e[1], e[2], e[3]);
@@ -196,7 +196,7 @@ fck_db_object *fck_db_object_page_table_ensure(fck_db_object_page_table *table, 
 		return NULL;
 	}
 
-	kll_allocator *allocator = table->allocator;
+	kll_allocator      *allocator = table->allocator;
 	fck_db_object_page *parents[fck_arraysize(e)];
 
 	fck_db_object_page *current = &table->root;
@@ -208,19 +208,19 @@ fck_db_object *fck_db_object_page_table_ensure(fck_db_object_page_table *table, 
 		if (current->dir.children == NULL)
 		{
 			const fckc_size_t total = fck_db_object_child_capacity * sizeof(*current->dir.children);
-			current->dir.children = (fck_db_object_page *)kll_malloc(allocator, total);
+			current->dir.children   = (fck_db_object_page *)kll_malloc(allocator, total);
 			memset(current->dir.children, 0, total);
 		}
 
-		parents[index] = current;
+		parents[index]           = current;
 		fck_db_object_page *next = current->dir.children + subid;
-		current = next;
+		current                  = next;
 	}
 
 	for (fckc_size_t index = 0; index < indirections; index++)
 	{
-		const fckc_u8 subid = e[index];
-		fck_db_object_page *dir = parents[index];
+		const fckc_u8       subid = e[index];
+		fck_db_object_page *dir   = parents[index];
 		fck_db_object_page_bit_set_ok(dir, subid);
 	}
 
@@ -229,7 +229,7 @@ fck_db_object *fck_db_object_page_table_ensure(fck_db_object_page_table *table, 
 
 fck_db_object *fck_db_object_page_table_add(fck_db_object_page_table *table, fckc_u32 id)
 {
-	fckc_u8 e[4];
+	fckc_u8           e[4];
 	const fckc_size_t indirections = fck_arraysize(e);
 	fck_db_object_page_id_extract(id, &e[0], &e[1], &e[2], &e[3]);
 	const int is_ok = fck_db_object_page_id_is_ok(e[0], e[1], e[2], e[3]);
@@ -238,7 +238,7 @@ fck_db_object *fck_db_object_page_table_add(fck_db_object_page_table *table, fck
 		return NULL;
 	}
 
-	kll_allocator *allocator = table->allocator;
+	kll_allocator      *allocator = table->allocator;
 	fck_db_object_page *parents[fck_arraysize(e)];
 
 	fck_db_object_page *current = &table->root;
@@ -250,18 +250,18 @@ fck_db_object *fck_db_object_page_table_add(fck_db_object_page_table *table, fck
 		if (current->dir.children == NULL)
 		{
 			const fckc_size_t total = fck_db_object_child_capacity * sizeof(*current->dir.children);
-			current->dir.children = (fck_db_object_page *)kll_malloc(allocator, total);
+			current->dir.children   = (fck_db_object_page *)kll_malloc(allocator, total);
 			memset(current->dir.children, 0, total);
 		}
 
-		parents[index] = current;
+		parents[index]           = current;
 		fck_db_object_page *next = current->dir.children + subid;
-		current = next;
+		current                  = next;
 	}
 
 	{
-		const fckc_u8 subid = e[indirections - 1];
-		fck_db_object_page *dir = parents[indirections - 1];
+		const fckc_u8       subid = e[indirections - 1];
+		fck_db_object_page *dir   = parents[indirections - 1];
 		if (fck_db_object_page_bit_is_ok(dir, subid))
 		{
 			// Already added
@@ -271,8 +271,8 @@ fck_db_object *fck_db_object_page_table_add(fck_db_object_page_table *table, fck
 
 	for (fckc_size_t index = 0; index < indirections; index++)
 	{
-		const fckc_u8 subid = e[index];
-		fck_db_object_page *dir = parents[index];
+		const fckc_u8       subid = e[index];
+		fck_db_object_page *dir   = parents[index];
 		fck_db_object_page_bit_set_ok(dir, subid);
 	}
 
@@ -281,7 +281,7 @@ fck_db_object *fck_db_object_page_table_add(fck_db_object_page_table *table, fck
 
 int fck_db_object_page_table_remove(fck_db_object_page_table *table, fckc_u32 id)
 {
-	fckc_u8 e[4];
+	fckc_u8           e[4];
 	const fckc_size_t indirections = fck_arraysize(e);
 	fck_db_object_page_id_extract(id, &e[0], &e[1], &e[2], &e[3]);
 	const int is_ok = fck_db_object_page_id_is_ok(e[0], e[1], e[2], e[3]);
@@ -305,16 +305,16 @@ int fck_db_object_page_table_remove(fck_db_object_page_table *table, fckc_u32 id
 		}
 		fck_assert(current->dir.children);
 
-		parents[index] = current;
+		parents[index]           = current;
 		fck_db_object_page *next = current->dir.children + subid;
-		current = next;
+		current                  = next;
 	}
 
 	for (fckc_size_t index = 0; index < indirections; index++)
 	{
-		const fckc_size_t inverse = indirections - index - 1;
-		const fckc_u8 subid = e[inverse];
-		fck_db_object_page *dir = parents[inverse];
+		const fckc_size_t   inverse = indirections - index - 1;
+		const fckc_u8       subid   = e[inverse];
+		fck_db_object_page *dir     = parents[inverse];
 		fck_db_object_page_bit_clear_ok(dir, subid);
 		if (fck_db_object_page_empty(dir))
 		{

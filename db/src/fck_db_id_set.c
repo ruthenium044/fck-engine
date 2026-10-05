@@ -24,6 +24,19 @@ static fck_db_id_set *fck_db_id_set_api_create(struct kll_allocator *allocator, 
 	return result;
 }
 
+static fck_db_id_set *fck_db_id_set_api_copy(struct kll_allocator *allocator, const fck_db_id_set *other)
+{
+	fck_db_id_set *self = fck_db_id_set_api_create(allocator, other->capacity);
+
+	const fck_db_id *current = NULL;
+	while (db_id_set->iterate(other, &current))
+	{
+		db_id_set->add(allocator, &self, *current);
+	}
+
+	return self;
+}
+
 static void fck_db_id_set_api_destroy(struct kll_allocator *allocator, fck_db_id_set *set)
 {
 	kll_free(allocator, set);
@@ -158,6 +171,7 @@ static fckc_size_t fck_db_id_set_api_count(const fck_db_id_set *set)
 
 static fck_db_id_set_api db_id_set_api = {
 	.create   = fck_db_id_set_api_create,
+	.copy     = fck_db_id_set_api_copy,
 	.destroy  = fck_db_id_set_api_destroy,
 	.add      = fck_db_id_set_api_add,
 	.contains = fck_db_id_set_api_contains,

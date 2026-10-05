@@ -7,15 +7,10 @@
 #include <kll_malloc.h>
 
 #include <fck_apis.h>
-#include <fck_hash.h>
 #include <fck_os.h>
 #include <fckc_apidef.h>
-#include <fckc_assert.h>
 
-#include <stddef.h>
 #include <string.h>
-
-#include <fckc_atomic.h>
 
 #include "fck_db_core.inl"
 #include "fck_db_object_page_table.h"

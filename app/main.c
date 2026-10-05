@@ -744,6 +744,8 @@ int main(int argc, char **argv)
 	fck_db_api      *db      = (fck_db_api *)registry->find(fck_db_api_name);
 	fck_texture_api *texture = (fck_texture_api *)registry->find(fck_texture_api_name);
 
+	fck_batchy_api *batchy = (fck_batchy_api *)registry->find(fck_batchy_api_name);
+
 	fck_assert(input);
 	fck_assert(render);
 	fck_assert(png);
@@ -864,6 +866,7 @@ int main(int argc, char **argv)
 	//	db->asset->get
 	//}
 
+	// I think I can easily get rid of this
 	app_sprite_implementation      sprite_implementation = {.sprite = sprite, .sprites = &sprites};
 	const fck_component_id         sprite_id             = ec->registry->declare(world, "sprite", sizeof(fck_sprite_id));
 	const fck_component_definition sprite_definition     = {
@@ -874,9 +877,48 @@ int main(int argc, char **argv)
     };
 	ec->registry->define(world, sprite_id, &sprite_definition);
 
-	fckc_u64 time_point = os->chrono->ms();
+	// TODO: Batches work - Clean it up, ship it!!!!!!!
+	fck_batchy                           bchy               = batchy->create(kll->system, &sprite_create_args);
+	const fck_batchy_batch_configuration bird_sprite_config = {
+		.asset         = db->asset->lazy(assets, "app/bird-sheet", fck_category_texture),
+		.sprite_width  = 32.0f,
+		.sprite_height = 32.0f,
+	};
+	fck_batchy_batch bird_batch = batchy->add(bchy, &bird_sprite_config);
+	for (fckc_u32 index = 0; index < 32; index++)
+	{
+		fck_sprite_transform *bird_transform = batchy->batchup(bchy, bird_batch);
+		bird_transform->horizontal_index     = 0;
+		bird_transform->vertical_index       = 0;
+		bird_transform->rotation             = 0.0f;
+		bird_transform->scale                = 4.0f;
+		bird_transform->x                    = 32.0f * index - 620.0f;
+		bird_transform->y                    = 64.0f;
+		bird_transform->z                    = 0.25f;
+	}
 
-	const fck_db_asset *ass = db->asset->find(assets, "app/test.json");
+	const fck_batchy_batch_configuration item_sprite_config = {
+		.asset         = db->asset->lazy(assets, "app/items-sheet", fck_category_texture),
+		.sprite_width  = 16.0f,
+		.sprite_height = 16.0f,
+	};
+	fck_batchy_batch item_batch = batchy->add(bchy, &item_sprite_config);
+	for (fckc_u32 index = 0; index < 64; index++)
+	{
+		fck_sprite_transform* bird_transform = batchy->batchup(bchy, item_batch);
+		bird_transform->horizontal_index = index % 2;
+		bird_transform->vertical_index = 0;
+		bird_transform->rotation = 0.0f;
+		bird_transform->scale = 4.0f;
+		bird_transform->x = 16.0f * index - 620.0f;
+		bird_transform->y = 0.0f;
+		bird_transform->z = 0.25f;
+	}
+
+
+
+	fckc_u64            time_point = os->chrono->ms();
+	const fck_db_asset *ass        = db->asset->find(assets, "app/test.json");
 
 	// const fck_db_id sprite_batches_id = db->object->create(assets);
 	fck_entity selected_entity = ec->entity->invalid(world);
@@ -1083,7 +1125,6 @@ int main(int argc, char **argv)
 							editor.edit->commit(editor, fck_db_no_undo);
 							db->set->destroy(kll->system, set);
 
-
 							{
 								const fck_db_accessor reader  = db->object->read(assets, sprite_batches_id);
 								const fck_db_id_set  *batches = reader.read->set(reader, "batches");
@@ -1169,7 +1210,9 @@ int main(int argc, char **argv)
 				sprite->present(&sprites, &args);
 
 				desc.colour.load_op = sht_load;
-				desc.depth.load_op  = sht_load;
+				desc.depth.load_op  = sht_dont_care;
+
+				batchy->present(&bchy, &args);
 
 				nk->present(&view, &args);
 

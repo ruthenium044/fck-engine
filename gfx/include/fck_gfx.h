@@ -53,6 +53,7 @@ typedef struct fck_gfx_create_info
 typedef struct fck_gfx_api
 {
 	struct fck_gfx                (*create)(struct kll_allocator *allocator, struct sht_driver *driver, const fck_gfx_create_info *info);
+	// TODO: Destroy...
 	struct sht_bss               *(*bss)(fck_gfx gfx);
 	struct sht_graphics_pipeline *(*pipeline)(fck_gfx gfx);
 } fck_gfx_api;

@@ -34,7 +34,7 @@ typedef struct fck_entity
 
 typedef struct fck_component_id
 {
-	fckc_uintptr value;
+	fckc_u64 value;
 } fck_component_id;
 
 // I will totally forget how and why this shit...
@@ -47,7 +47,6 @@ typedef struct fck_component_definition
 	// Triggered on component copy (Explicitly invoked by ec::component->copy)
 	void *(*copy)(void *dst, const void *src, void *userdata);
 
-	// TODO: serialize
 	void *userdata;
 } fck_component_definition;
 

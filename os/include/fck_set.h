@@ -48,7 +48,8 @@ inline fckc_u64 fck_set_key_resolve(struct fck_set_key *key);
 #define fck_set_inspect(ptr) fck_set_untyped_inspect((void *)(ptr))
 #define fck_set_count(ptr)   fck_set_inspect(ptr)->size
 
-#define fck_set_new(type, alloc, cap) (type *)fck_set_untyped_alloc((fck_set_info){.allocator = (alloc), .el_size = sizeof(type), .capacity = (cap)})
+#define fck_set_new(type, alloc, cap)                                                                                                      \
+	(type *)fck_set_untyped_alloc((fck_set_info){.allocator = (struct kll_allocator *)(alloc), .el_size = sizeof(type), .capacity = (cap)})
 
 #define fck_set_destroy(ptr) fck_set_untyped_free((void *)(ptr))
 #define fck_set_clear(ptr)   fck_set_untyped_clear(ptr)

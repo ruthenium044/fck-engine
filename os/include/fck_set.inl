@@ -59,10 +59,10 @@ void *fck_set_untyped_alloc(fck_set_info input)
 	// NOTE: Not so pretty implementation detail
 	const fckc_size_t state_size = sizeof(*info->states) * ((input.capacity / 32) + 1);
 
-	fckc_size_t info_offset   = fck_set_align(0, sizeof(*info));
-	fckc_size_t data_offset   = info_offset + info_size; // We piggyback on the alignment of info... somehow., idk
-	fckc_size_t keys_offset   = fck_set_align(data_offset + data_size, sizeof(fck_set_key));
-	fckc_size_t states_offset = fck_set_align(keys_offset + key_size, sizeof(fck_set_state));
+	const fckc_size_t info_offset   = fck_set_align(0, sizeof(*info));
+	const fckc_size_t data_offset   = info_offset + info_size; // We piggyback on the alignment of info... somehow., idk
+	const fckc_size_t keys_offset   = fck_set_align(data_offset + data_size, sizeof(fck_set_key));
+	const fckc_size_t states_offset = fck_set_align(keys_offset + key_size, sizeof(fck_set_state));
 
 	info = (fck_set_info *)kll_malloc(input.allocator, states_offset + state_size);
 

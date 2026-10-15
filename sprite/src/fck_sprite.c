@@ -176,13 +176,12 @@ static fck_sprite_transform *fck_batchy_api_batchup(fck_batchy batchy, fck_batch
 
 static int fck_batchy_api_iterate(fck_batchy batchy, fck_batchy_batch **batch)
 {
-	// TODO:
-	fckc_size_t current = *batch != NULL ? *batch - batchy.o->set : fck_set_begin(batchy.o->set);
+	fckc_size_t current = *batch != NULL ? to_size_t((fck_batchy_batch_private *)*batch - batchy.o->set) : fck_set_begin(batchy.o->set);
 	if (!fck_set_next(batchy.o->set, current))
 	{
 		return 0;
 	}
-	*batch = batchy.o->set + current;
+	*batch = &(batchy.o->set + current)->id;
 	return 1;
 }
 

@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(my)
+# Maybe getting rid of double-prefixes would be nice
+project(fck-my)
 
 include_guard(GLOBAL)
 

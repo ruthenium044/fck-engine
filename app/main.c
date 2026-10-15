@@ -32,12 +32,80 @@
 
 #include <fck_db.h>
 
+#include <fck_set.h>
+
+#include <my.h>
+
 typedef struct fck_sprite_component
 {
 	// A sprite sheet config could be sick :) We gotta see!!
 	fck_batchy_batch_configuration configuration;
 	fck_sprite_transform           transform;
 } fck_sprite_component;
+
+typedef struct fck_nuklear_property_serialiser
+{
+	void (*edit)(fck_nuklear_api *nk, fck_nk *view, const char *name, void *value, fckc_size_t count);
+} fck_nuklear_property_serialiser;
+
+static void fck_nuklear_property_serialiser_edit_f32(fck_nuklear_api *nk, fck_nk *view, const char *name, void *data, fckc_size_t count)
+{
+	float *values = (float *)data;
+	for (fckc_size_t index = 0; index < count; index++)
+	{
+		values[index] = nk->element->f32(*view, name, -1000.0f, values[index], 1000.0f, 0.1f);
+	}
+}
+
+static void fck_nuklear_property_serialiser_edit_i32(fck_nuklear_api *nk, fck_nk *view, const char *name, void *data, fckc_size_t count)
+{
+	fckc_i32 *values = (fckc_i32 *)data;
+	for (fckc_size_t index = 0; index < count; index++)
+	{
+		values[index] = nk->element->i32(*view, name, INT_MIN, values[index], INT_MAX, 1.0f);
+	}
+}
+
+static void fck_nuklear_property_serialiser_edit_u32(fck_nuklear_api *nk, fck_nk *view, const char *name, void *data, fckc_size_t count)
+{
+	fckc_u32 *values = (fckc_u32 *)data;
+	for (fckc_size_t index = 0; index < count; index++)
+	{
+		values[index] = nk->element->i32(*view, name, INT_MIN, values[index], INT_MAX, 1.0f);
+	}
+}
+
+static void setup_system_assembly(my_api *my, /* set */ fck_nuklear_property_serialiser *serialisers)
+{
+	const struct my_assembly *assembly   = my->system;
+	const my_primitives      *primitives = my->primitives;
+
+	fck_set_add(serialisers, primitives->f32->hash, (fck_nuklear_property_serialiser){fck_nuklear_property_serialiser_edit_f32});
+	fck_set_add(serialisers, primitives->i32->hash, (fck_nuklear_property_serialiser){fck_nuklear_property_serialiser_edit_i32});
+	fck_set_add(serialisers, primitives->u32->hash, (fck_nuklear_property_serialiser){fck_nuklear_property_serialiser_edit_u32});
+
+	const my_type *asset_type = my->create_type(assembly, sizeof(fck_db_asset *), fck_nameof(fck_db_asset *));
+
+	my_type *type;
+	type = my->create_type(assembly, sizeof(fck_batchy_batch_configuration), fck_nameof(fck_batchy_batch_configuration));
+	my->add_field(type, offsetof(fck_batchy_batch_configuration, asset), asset_type, "asset");
+	my->add_field(type, offsetof(fck_batchy_batch_configuration, sprite_width), primitives->f32, "sprite_width");
+	my->add_field(type, offsetof(fck_batchy_batch_configuration, sprite_height), primitives->f32, "sprite_height");
+
+	type = my->create_type(assembly, sizeof(fck_sprite_transform), fck_nameof(fck_sprite_transform));
+	my->add_field(type, offsetof(fck_sprite_transform, x), primitives->f32, "x");
+	my->add_field(type, offsetof(fck_sprite_transform, y), primitives->f32, "y");
+	my->add_field(type, offsetof(fck_sprite_transform, z), primitives->f32, "z");
+	my->add_field(type, offsetof(fck_sprite_transform, rotation), primitives->f32, "rotation");
+	my->add_field(type, offsetof(fck_sprite_transform, scale), primitives->f32, "scale");
+	my->add_field(type, offsetof(fck_sprite_transform, horizontal_index), primitives->f32, "horizontal_index");
+	my->add_field(type, offsetof(fck_sprite_transform, vertical_index), primitives->f32, "vertical_index");
+
+	type = my->create_type(assembly, sizeof(fck_sprite_component), fck_nameof(fck_sprite_component));
+	my->add_field(type, offsetof(fck_sprite_component, configuration), my_typeof(my, assembly, fck_batchy_batch_configuration),
+	              "configuration");
+	my->add_field(type, offsetof(fck_sprite_component, transform), my_typeof(my, assembly, fck_sprite_transform), "transform");
+}
 
 static void purge_files(const char *pattern)
 {
@@ -446,6 +514,47 @@ static app_gameloop *app_gameloops_add(kll_allocator *allocator, app_gameloops *
 	return current;
 }
 
+static void print_type(const my_type *type, int depth)
+{
+	char buffer[512];
+
+	const my_field *current = type->fields;
+	while (current)
+	{
+		memset(buffer, to_int('\t'), to_size_t(depth));
+		(void)snprintf(buffer + depth, sizeof(buffer) - depth, "= %s %s (offset: %zu, size: %zu)", current->type->name, current->name,
+		               current->offset, current->type->size);
+		os->io->log(buffer);
+
+		print_type(current->type, depth + 1);
+		current = current->next;
+	}
+}
+
+static void fck_nuklear_full_type(fck_nuklear_api *nk, fck_nk *view, fck_nuklear_property_serialiser *serialisers, const char *name,
+                                  const my_type *type, void *value)
+{
+	const fckc_size_t result = fck_set_find(serialisers, type->hash);
+	if (!result)
+	{
+		if (nk->panel->push(*view, name))
+		{
+			const my_field *current = type->fields;
+			while (current)
+			{
+				void *child = fckc_pointer_add(value, current->offset);
+				fck_nuklear_full_type(nk, view, serialisers, current->name, current->type, child);
+				current = current->next;
+			}
+			nk->panel->pop(*view);
+		}
+		return;
+	}
+
+	const fck_nuklear_property_serialiser *serialiser = serialisers + result - 1;
+	serialiser->edit(nk, view, name, value, 1);
+}
+
 int main(int argc, char **argv)
 {
 	// TODO: We need to setup stable editor entities, or something like that
@@ -458,17 +567,19 @@ int main(int argc, char **argv)
 
 	plugins->root(os->fs->executable());
 
-	const char *current = NULL;
-	while ((current = plugins->unloaded(current)))
 	{
-		plugins->load(current);
-	}
+		const char *current = NULL;
+		while ((current = plugins->unloaded(current)))
+		{
+			plugins->load(current);
+		}
 
-	current = NULL;
-	while ((current = plugins->loaded(current)))
-	{
-		plugins->load(current);
-		fck_assert(os->so->is_ok(*plugins->so(current)));
+		current = NULL;
+		while ((current = plugins->loaded(current)))
+		{
+			plugins->load(current);
+			fck_assert(os->so->is_ok(*plugins->so(current)));
+		}
 	}
 
 	fck_input       *input   = (fck_input *)registry->find(fck_input_api_name);
@@ -480,6 +591,15 @@ int main(int argc, char **argv)
 	fck_db_api      *db      = (fck_db_api *)registry->find(fck_db_api_name);
 	fck_texture_api *texture = (fck_texture_api *)registry->find(fck_texture_api_name);
 	fck_batchy_api  *batchy  = (fck_batchy_api *)registry->find(fck_batchy_api_name);
+	my_api          *my      = (my_api *)registry->find(fck_my_api_name);
+
+	fck_nuklear_property_serialiser *serialisers = fck_set_new(fck_nuklear_property_serialiser, kll->system, 128);
+	setup_system_assembly(my, serialisers);
+
+	{
+		const my_type *type = my_typeof(my, my->system, fck_sprite_component);
+		print_type(type, 0);
+	}
 
 	fck_assert(input);
 	fck_assert(render);
@@ -492,6 +612,7 @@ int main(int argc, char **argv)
 	fck_db assets = db->create(kll->system);
 
 	db->asset->setup(assets, "app", fck_resource_path);
+	kll_malloc(kll->system, sizeof(int));
 
 	app_gameloops loops = {0};
 	// We can create a new ec
@@ -709,6 +830,10 @@ int main(int argc, char **argv)
 			{
 				if (nk->panel->begin_label(view, "assets", 400.0f))
 				{
+					static fck_sprite_component fsc  = {0};
+					const my_type              *type = my_typeof(my, my->system, fck_sprite_component);
+					fck_nuklear_full_type(nk, &view, serialisers, "Test", type, &fsc);
+
 					fck_db_category_iterator it = {0};
 					if (nk->panel->push(view, "Example"))
 					{
@@ -800,15 +925,15 @@ int main(int argc, char **argv)
 				for (fckc_u32 index = 0; index < count; index++)
 				{
 					fck_sprite_query *query_result = results + index;
-					query_result->sprite->configuration.asset = db->asset->find(assets, "app/bird-sheet.png");
-					query_result->sprite->configuration.sprite_height = 32.0f;
-					query_result->sprite->configuration.sprite_width = 32.0f;
-					
-					const fck_batchy_batch batch = batchy->add(bchy, &query_result->sprite->configuration);
-					fck_sprite_transform* transform = batchy->batchup(bchy, batch);
-					query_result->sprite->transform.z = 0.25f;
+					// query_result->sprite->configuration.asset = db->asset->find(assets, "app/bird-sheet.png");
+					// query_result->sprite->configuration.sprite_height = 32.0f;
+					// query_result->sprite->configuration.sprite_width = 32.0f;
+
+					const fck_batchy_batch batch          = batchy->add(bchy, &query_result->sprite->configuration);
+					fck_sprite_transform  *transform      = batchy->batchup(bchy, batch);
+					query_result->sprite->transform.z     = 0.25f;
 					query_result->sprite->transform.scale = 4.0f;
-					*transform = query_result->sprite->transform;
+					*transform                            = query_result->sprite->transform;
 				}
 			}
 		}

@@ -155,6 +155,10 @@ static const fck_texture *fck_texture_data(const fck_db_asset *asset)
 
 static sht_image_view *fck_texture_gpu(const fck_db_asset *asset)
 {
+	if (asset == NULL)
+	{
+		return NULL;
+	}
 	fck_texture_asset *value = (fck_texture_asset *)asset->userdata;
 
 	switch (*asset->state)

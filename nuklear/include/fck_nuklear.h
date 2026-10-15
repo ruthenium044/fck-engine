@@ -201,7 +201,6 @@ typedef struct fck_nuklear_panel_api
 
 	void (*end)(fck_nk nk);
 
-	// Maybe fmt?
 	int  (*push)(fck_nk nk, const char *fmt, ...);
 	void (*pop)(fck_nk nk);
 } fck_nuklear_panel_api;

@@ -12,47 +12,48 @@
 
 // The issue with that is, that it should get replaced with fck_id at some point
 // Then we receive fck_id(type, 0x32312UL);
-#define fck_nameof(anything) #anything
+#define fck_nameof(anything) sizeof(anything) ? #anything : ""
+
 
 // Semantics types...
 // I start doubting these
-typedef float fckc_f32;
+typedef float  fckc_f32;
 typedef double fckc_f64;
 
 typedef char fckc_char;
 
-typedef int8_t fckc_i8;
+typedef int8_t  fckc_i8;
 typedef uint8_t fckc_u8;
 
-typedef int16_t fckc_i16;
+typedef int16_t  fckc_i16;
 typedef uint16_t fckc_u16;
 
-typedef int32_t fckc_i32;
+typedef int32_t  fckc_i32;
 typedef uint32_t fckc_u32;
 
-typedef int64_t fckc_i64;
+typedef int64_t  fckc_i64;
 typedef uint64_t fckc_u64;
 
-typedef size_t fckc_size_t;
+typedef size_t    fckc_size_t;
 typedef uintptr_t fckc_uintptr;
 
 // Prefer these - I do not doubt these
 #define to_f32(x) ((fckc_f32)(x))
 #define to_f64(x) ((fckc_f64)(x))
-#define to_u8(x) ((fckc_u8)(x))
+#define to_u8(x)  ((fckc_u8)(x))
 #define to_u16(x) ((fckc_u16)(x))
 #define to_u32(x) ((fckc_u32)(x))
 #define to_u64(x) ((fckc_u64)(x))
-#define to_i8(x) ((fckc_i8)(x))
+#define to_i8(x)  ((fckc_i8)(x))
 #define to_i16(x) ((fckc_i16)(x))
 #define to_i32(x) ((fckc_i32)(x))
 #define to_i64(x) ((fckc_i64)(x))
 
 #define to_size_t(x) ((fckc_size_t)(x))
-#define to_int(x) ((int)(x))
+#define to_int(x)    ((int)(x))
 
 #define fck_scope_str_concat(lhs, rhs) lhs##rhs
-#define fck_scope_unique(lhs, rhs) fck_scope_str_concat(lhs, rhs)
+#define fck_scope_unique(lhs, rhs)     fck_scope_str_concat(lhs, rhs)
 #define fck_scope(ctor, dtor)                                                                                                              \
 	for (int fck_scope_unique(i, __LINE__) = ((ctor) ? 0 : 1); fck_scope_unique(i, __LINE__) == 0;                                         \
 	     fck_scope_unique(i, __LINE__) += 1, (dtor))
@@ -63,7 +64,7 @@ typedef uintptr_t fckc_uintptr;
 
 #ifndef alignof
 #if defined(__cplusplus)
-	// Native alignof is already available, do nothing.
+// Native alignof is already available, do nothing.
 // The issue with this shit here is that alignof behaves slightly different
 // The fallback using offsetof actually does not allow passing in non-type input
 // while some compiler extensions do...
@@ -79,8 +80,8 @@ typedef uintptr_t fckc_uintptr;
 #define fckc_align(offset, align) (((offset) + (align) - 1) & ~((align) - 1))
 
 #define fckc_concat_implementation(x, y) x##y
-#define fckc_concat(x, y) fckc_concat_implementation(x, y)
-#define fckc_pad(n) char fckc_concat(_padding_, __LINE__)[n]
+#define fckc_concat(x, y)                fckc_concat_implementation(x, y)
+#define fckc_pad(n)                      char fckc_concat(_padding_, __LINE__)[n]
 
 #define fckc_pointer_add(ptr, offset) ((void *)((fckc_u8 *)(ptr) + (offset)))
 #define fckc_pointer_sub(ptr, offset) ((void *)((fckc_u8 *)(ptr) - (offset)))

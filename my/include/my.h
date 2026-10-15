@@ -1,6 +1,6 @@
 #include <fckc_inttypes.h>
 
-#define my_api_name "my"
+#define fck_my_api_name "my"
 
 struct kll_allocator;
 struct kll_arena;
@@ -26,8 +26,6 @@ typedef struct my_type
 	const my_field           *last;
 } my_type;
 
-struct my_assembly;
-
 typedef struct my_primitives
 {
 	const my_type *i8;
@@ -45,13 +43,13 @@ typedef struct my_primitives
 typedef struct my_api
 {
 	const struct my_primitives *primitives;
+	// Let's keep it singular for now...
 	const struct my_assembly   *system;
-
-	struct my_assembly *(*create_assembly)(struct kll_allocator *allocator, const char *name);
-	void                (*destroy_assembly)(struct my_assembly *assembly);
 
 	const my_type *(*typeof)(const struct my_assembly *assembly, const char *name);
 
-	my_type  *(*create_type)(struct my_assembly *assembly, fckc_size_t size, const char *name);
+	my_type  *(*create_type)(const struct my_assembly *assembly, fckc_size_t size, const char *name);
 	my_field *(*add_field)(my_type *type, fckc_size_t offset, const my_type *field_type, const char *name);
 } my_api;
+
+#define my_typeof(my, assembly, type) my->typeof((assembly), fck_nameof(type))

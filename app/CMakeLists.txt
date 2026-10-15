@@ -37,9 +37,12 @@ find_package(ec)
 find_package(gameloop)
 find_package(db)
 find_package(serialiser)
+find_package(my)
+
 
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::hash)
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::os)
+target_link_libraries(${PROJECT_NAME} PRIVATE fck::my-interface)
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::kll)
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::input)
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::api-interface)

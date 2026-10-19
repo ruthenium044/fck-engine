@@ -7,10 +7,10 @@
 
 typedef struct fck_api_registry
 {
-	int (*add)(const char *name, void *api);
+	int         (*add)(const char *name, void *api);
 	fckc_size_t (*implementations)(const char *name, void ***apis);
-	void *(*find)(const char *name);
-	int (*remove)(const char *name, void *api);
+	void       *(*find)(const char *name);
+	int         (*remove)(const char *name, void *api);
 	const char *(*nameof)(void *api);
 } fck_api_registry;
 

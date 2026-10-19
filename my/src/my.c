@@ -25,11 +25,11 @@ static my_assembly *my_api_create_assembly(kll_allocator *allocator, const char 
 
 	const fckc_size_t types_total  = types_capacity * sizeof(*assembly->types);
 	const fckc_size_t fields_total = types_capacity * sizeof(*assembly->types->fields);
-	const fckc_size_t total        = sizeof(assembly) + types_total + fields_total;
+	const fckc_size_t total        = sizeof(*assembly) + types_total + fields_total;
 
 	kll_arena *arena = kll->arena->create(allocator, total);
 	assembly         = (my_assembly *)kll_malloc(arena, sizeof(*assembly));
-	memset(assembly, 0, sizeof(assembly));
+	memset(assembly, 0, sizeof(*assembly));
 
 	assembly->arena = arena;
 	assembly->types = fck_set_new(my_type, arena, types_capacity);
@@ -87,7 +87,7 @@ static const my_type *my_api_typeof(const my_assembly *assembly, const char *nam
 static my_api fck_my_api = {
 	.primitives  = &my_api_primitives,
 	.create_type = my_api_create_type,
-	.typeof      = my_api_typeof,
+	.type      = my_api_typeof,
 	.add_field   = my_api_add_field,
 };
 
@@ -104,7 +104,7 @@ const my_type *my_api_typeof(const my_assembly *assembly, const char *name)
 	}
 
 	// Fallback to system assembly - Override may exist in selected assembly
-	return fck_my_api.typeof(fck_my_api.system, name);
+	return fck_my_api.type(fck_my_api.system, name);
 }
 
 #define my_create_native(my, assembly, type) my->create_type((assembly), sizeof(type), fck_nameof(type))

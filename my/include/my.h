@@ -46,10 +46,10 @@ typedef struct my_api
 	// Let's keep it singular for now...
 	const struct my_assembly   *system;
 
-	const my_type *(*typeof)(const struct my_assembly *assembly, const char *name);
+	const my_type *(*type)(const struct my_assembly *assembly, const char *name);
 
 	my_type  *(*create_type)(const struct my_assembly *assembly, fckc_size_t size, const char *name);
 	my_field *(*add_field)(my_type *type, fckc_size_t offset, const my_type *field_type, const char *name);
 } my_api;
 
-#define my_typeof(my, assembly, type) my->typeof((assembly), fck_nameof(type))
+#define my_typeof(my, assembly, data_type) my->type((assembly), fck_nameof(data_type))

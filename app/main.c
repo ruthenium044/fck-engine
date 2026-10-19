@@ -102,8 +102,7 @@ static void setup_system_assembly(my_api *my, /* set */ fck_nuklear_property_ser
 	my->add_field(type, offsetof(fck_sprite_transform, vertical_index), primitives->f32, "vertical_index");
 
 	type = my->create_type(assembly, sizeof(fck_sprite_component), fck_nameof(fck_sprite_component));
-	my->add_field(type, offsetof(fck_sprite_component, configuration), my_typeof(my, assembly, fck_batchy_batch_configuration),
-	              "configuration");
+	my->add_field(type, offsetof(fck_sprite_component, configuration), my_typeof(my, assembly, fck_batchy_batch_configuration), "configuration");
 	my->add_field(type, offsetof(fck_sprite_component, transform), my_typeof(my, assembly, fck_sprite_transform), "transform");
 }
 
@@ -284,11 +283,11 @@ static int fck_nk_db_object_configure(fck_db_api *db, fck_db assets, fck_nuklear
 				if (nk->panel->push(view, "%s (%llu)", property_name, db->set->count(property->set)))
 				{
 					fckc_size_t count = 0;
-					fck_db_id  *child = NULL;
+					const fck_db_id  *child = NULL;
 					char        buffer[512];
 					while (db->set->iterate(property->set, &child))
 					{
-						(void)snprintf(buffer, sizeof(buffer), "%s[%lu]", property_name, to_u32(count));
+						(void)snprintf(buffer, sizeof(buffer), "%s[%u]", property_name, to_u32(count));
 						save = fck_nk_db_object_configure(db, assets, nk, view, texture, driver, buffer, *child) || save;
 						count++;
 					}

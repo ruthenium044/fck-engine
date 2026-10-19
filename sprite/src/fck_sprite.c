@@ -174,7 +174,7 @@ static fck_sprite_transform *fck_batchy_api_batchup(fck_batchy batchy, fck_batch
 	return NULL;
 }
 
-static int fck_batchy_api_iterate(fck_batchy batchy, fck_batchy_batch **batch)
+static int fck_batchy_api_iterate(fck_batchy batchy, const fck_batchy_batch **batch)
 {
 	fckc_size_t current = *batch != NULL ? to_size_t((fck_batchy_batch_private *)*batch - batchy.o->set) : fck_set_begin(batchy.o->set);
 	if (!fck_set_next(batchy.o->set, current))

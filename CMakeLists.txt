@@ -33,6 +33,7 @@ endif()
 add_library(${PROJECT_NAME} INTERFACE)
 target_sources(${PROJECT_NAME} PRIVATE ".vs/launch.vs.json")
 
+add_subdirectory(gen)
 add_subdirectory(input-all)
 add_subdirectory(input-mouse)
 add_subdirectory(input-keyboard)

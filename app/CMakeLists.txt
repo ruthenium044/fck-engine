@@ -59,6 +59,15 @@ target_link_libraries(${PROJECT_NAME} PRIVATE fck::sprite-interface)
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::ec-interface)
 target_link_libraries(${PROJECT_NAME} PRIVATE fck::db-interface)
 
+add_custom_target(fck-gen-output
+     COMMAND "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/fck-gen.exe" 
+     "path=${CMAKE_SOURCE_DIR}" 
+     DEPENDS fck-gen
+     VERBATIM
+) 
+
+add_dependencies(${PROJECT_NAME} fck-gen-output)
+
 # this needs to get substituted well...
 target_compile_definitions(${PROJECT_NAME} PRIVATE
     fck_resource_path="${CMAKE_CURRENT_SOURCE_DIR}/resources/"

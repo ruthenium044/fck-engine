@@ -1064,7 +1064,8 @@ static fck_query_id fck_ec_api_query_get(fck_ec ec, const fck_query_description 
 
 	for (fckc_u32 index = 0; index < description->count; index++)
 	{
-		fck_query_component *component = description->components + index;
+		// Cast const away for sneaky id
+		fck_query_component *component = (fck_query_component*)description->components + index;
 		if (component->id.value == 0)
 		{
 			fck_assert(component->name);

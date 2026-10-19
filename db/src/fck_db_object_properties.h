@@ -2,12 +2,11 @@
 #define FCK_DB_OBJECT_PROPERTIES_H_INCLUDED
 
 #include <fckc_inttypes.h>
+#include "fck_db_core.inl"
 
 struct kll_allocator;
 struct fck_db_object;
 struct fck_db_property_instance;
-
-enum fck_db_type;
 
 typedef struct fck_db_object_properties_api
 {

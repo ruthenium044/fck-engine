@@ -273,7 +273,7 @@ static const fck_db_asset *fck_db_object_api_save(fck_db external, fck_db_id id,
 	}
 }
 
-static const void fck_db_object_api_load(fck_db db, fck_db_accessor editor, yyjson_mut_doc *doc, yyjson_mut_val *current);
+static void fck_db_object_api_load(fck_db db, fck_db_accessor editor, yyjson_mut_doc *doc, yyjson_mut_val *current);
 
 static const fck_db_id fck_db_object_api_load_json_obj(fck_db db, yyjson_mut_doc *doc, yyjson_mut_val *current)
 {
@@ -291,8 +291,8 @@ static const fck_db_id fck_db_object_api_load_json_obj(fck_db db, yyjson_mut_doc
 	return child;
 }
 
-static const void fck_db_object_api_load(fck_db db, fck_db_accessor editor, yyjson_mut_doc *doc, yyjson_mut_val *key
-                                         /* yyjson_mut_val *current*/)
+static void fck_db_object_api_load(fck_db db, fck_db_accessor editor, yyjson_mut_doc *doc, yyjson_mut_val *key
+                                   /* yyjson_mut_val *current*/)
 {
 	yyjson_mut_val *current = key->next;
 	if (current == NULL)

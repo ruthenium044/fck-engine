@@ -7,6 +7,8 @@
 #define fck_nuklear_api_name                "fck-nuklear"
 #define fck_nuklear_asset_preview_interface "fck-nuklear-asset-preview"
 
+struct fck_gfx_args;
+
 typedef enum fck_nuklear_theme
 {
 	fck_nk_theme_white,

@@ -77,7 +77,7 @@ typedef struct fck_batchy_api
 	fck_sprite_transform *(*batchup)(fck_batchy batchy, fck_batchy_batch batch);
 
 	//	while(batchy->iterate(world, &batch))
-	int         (*iterate)(fck_batchy batchy, fck_batchy_batch **batch);
+	int         (*iterate)(fck_batchy batchy, const fck_batchy_batch **batch);
 	//		if(batchy->inspect(batchy, *batch, &config)
 	int         (*inspect)(fck_batchy batchy, fck_batchy_batch batch, fck_batchy_batch_configuration *config);
 	//			const fckc_size_t result = batchy->batch(world, *batch, *out)

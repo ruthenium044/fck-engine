@@ -22,7 +22,7 @@ void* fck_dynarr_alloc(kll_allocator* allocator, fckc_size_t element_size, fckc_
 	return ptr;
 }
 
-fck_dynarr_info* fck_dynarr_get_info(void* ptr) 
+fck_dynarr_info* fck_dynarr_get_info(const void* ptr) 
 {
 	fckc_u8* buffer = (fckc_u8*)ptr;
 	fck_dynarr_info* info = (fck_dynarr_info*)(buffer - sizeof(*info));
@@ -35,7 +35,7 @@ void fck_dynarr_free(void* ptr)
 	kll_free(info->allocator, info);
 }
 
-fckc_size_t fck_dynarr_count(void* ptr)
+fckc_size_t fck_dynarr_count(const void* ptr)
 {
 	fck_dynarr_info* info = fck_dynarr_get_info(ptr);
 	return info->size;

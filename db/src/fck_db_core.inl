@@ -4,7 +4,6 @@
 #include "fck_db.h"
 
 #include <fck_os.h>
-#include <fckc_atomic.h>
 #include <fckc_inttypes.h>
 
 struct kll_allocator;

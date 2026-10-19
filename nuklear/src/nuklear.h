@@ -23268,7 +23268,7 @@ nk_tree_base(struct nk_context* ctx, enum nk_tree_type type,
     struct nk_image* img, const char* title, enum nk_collapse_states initial_state,
     const char* hash, int len, int line)
 {
-    struct nk_windownk_tree_base* win = ctx->current;
+    struct nk_windownk_tree_base* win = (struct nk_windownk_tree_base*)ctx->current;
     int title_len = 0;
     nk_hash tree_hash = 0;
     nk_uint* state = 0;
@@ -23279,9 +23279,9 @@ nk_tree_base(struct nk_context* ctx, enum nk_tree_type type,
         tree_hash = nk_murmur_hash(title, (int)title_len, (nk_hash)line);
     }
     else tree_hash = nk_murmur_hash(hash, len, (nk_hash)line);
-    state = nk_find_value(win, tree_hash);
+    state = nk_find_value((struct nk_window*)win, tree_hash);
     if (!state) {
-        state = nk_add_value(ctx, win, tree_hash, 0);
+        state = nk_add_value(ctx, (struct nk_window*)win, tree_hash, 0);
         *state = initial_state;
     }
     return nk_tree_state_base(ctx, type, img, title, (enum nk_collapse_states*)state);

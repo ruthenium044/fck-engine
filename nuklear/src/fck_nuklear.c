@@ -942,7 +942,7 @@ static void fck_nk_api_end(fck_nk nke)
 	hovered->last       = NULL;
 }
 
-static int fck_nk_api_present(void *userdata, const struct fck_gfx_args *args)
+static int fck_nk_api_present(void *userdata, const fck_gfx_args *args)
 {
 	fck_nk_private *nk = (fck_nk_private *)((fck_nk *)userdata)->handle;
 

@@ -878,7 +878,7 @@ static void setup_user(kll_arena *arena, const char *source, /*set*/ header **he
 	os->glob->free(directories);
 }
 
-static fckc_size_t skip_until_end_of_branch(token *tokens, fckc_size_t index)
+static fckc_size_t skip_until_end_of_branch(const token *tokens, fckc_size_t index)
 {
 	int counter = 0;
 
@@ -957,7 +957,7 @@ static token *fill(kll_arena *arena, constant **constants, token *dst, const tok
 			const fckc_size_t result     = constants_find(*constants, identifier->raw);
 			if (!result)
 			{
-				index = skip_until_end_of_branch(src, current);
+				index = skip_until_end_of_branch(src, index);
 			}
 			index = goto_newline(src, index);
 			break;

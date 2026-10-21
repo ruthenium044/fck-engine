@@ -59,10 +59,10 @@ inline fckc_u64 fck_set_key_resolve(struct fck_set_key *key);
 #define fck_set_next(ptr, iterator) fck_set_untyped_next((ptr), &(iterator))
 
 // fck_set_at(set, hash(key)) = value;
-#define fck_set_at(ptr, hash) fck_set_untyped_strong_add((void **)&(ptr), hash)[(ptr)]
+#define fck_set_at(ptr, hash) fck_set_untyped_weak_add((void **)&(ptr), hash)[(ptr)]
 
 // TODO: Maybe making this a strong_add might be more appropiate
-#define fck_set_add(ptr, hash, value) fck_set_at(ptr, hash) = value
+#define fck_set_add(ptr, hash, value) fck_set_untyped_strong_add((void **)&(ptr), hash)[(ptr)] = value
 #define fck_set_remove(ptr, hash)     fck_set_untyped_remove((void *)(ptr), hash)
 
 //	fckc_size_t has = fck_set_probe(set, hash(k));

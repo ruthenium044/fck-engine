@@ -1,6 +1,7 @@
 #define FCK_OS_EXPORT
 #include "fck_os.h"
 
+#include <fckc_assert.h>
 #include <fckc_inttypes.h>
 
 #include <SDL3/SDL_clipboard.h>
@@ -78,7 +79,7 @@ static void *fck_shared_object_symbol(fck_shared_object so, const char *name)
 	return (void *)SDL_LoadFunction((SDL_SharedObject *)so.handle, name);
 }
 
-//static void fck_shared_object_parse(fck_shared_object so);
+// static void fck_shared_object_parse(fck_shared_object so);
 
 static fck_shared_object_api so_api = {
 	.load   = fck_shared_object_load,
@@ -406,6 +407,7 @@ static fckc_size_t fck_glob_directory(const char *path, const char *pattern, cha
 	int count = 0;
 
 	*out_paths = SDL_GlobDirectory(path, pattern, 0, &count);
+	// TODO: Make sure that that count 0 and NULL are both ok!
 	return to_size_t(count);
 }
 
@@ -469,7 +471,11 @@ static char *fck_glob_match(const char *str, const char *pattern)
 
 static void fck_glob_free(char **paths)
 {
-	SDL_free((void *)paths);
+	// We allow it for ergonomics
+	if (paths)
+	{
+		SDL_free((void *)paths);
+	}
 }
 
 static void fck_chrono_sleep(fckc_u64 ms)
@@ -612,7 +618,7 @@ static int fck_file_watcher_is_temp_file(const char *filename)
 #include <synchapi.h>
 #include <winnt.h>
 
-//void fck_shared_object_parse(fck_shared_object so)
+// void fck_shared_object_parse(fck_shared_object so)
 //{
 //	if (!so.handle)
 //	{
@@ -653,7 +659,7 @@ static int fck_file_watcher_is_temp_file(const char *filename)
 //		void *funcAddress = (void *)(pBase + functions[ordinals[i]]);
 //		os->io->log("  - %s -> Address: %p\n", name, funcAddress);
 //	}
-//}
+// }
 
 typedef struct fck_file_watcher_win32
 {

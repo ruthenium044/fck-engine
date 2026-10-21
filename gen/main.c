@@ -3,14 +3,114 @@
 
 #include <fckc_assert.h>
 #include <kll.h>
+#include <kll_format.h>
 #include <kll_malloc.h>
 
 #include <fck_dynarr.h>
+#include <fck_set.h>
+
+#include <fck_hash.h>
 
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+typedef enum token_type
+{
+	token_ignore,
+	token_end_of_file,
+	token_newline,
+	token_identifier,
+	token_semicolon,
+	token_colon,
+	token_backslash,
+
+	// {}
+	token_scope_open,
+	token_scope_close,
+	// () - EEEH, I do not like any name for this shit
+	token_tuple_open,
+	token_tuple_close,
+
+	token_asterisk,
+
+	token_struct,
+	token_union,
+	token_typedef,
+	token_static,
+	token_int,
+	token_float,
+	token_double,
+	token_char,
+	token_void,
+	token_const,
+	token_extern,
+	token_register,
+	token_auto,
+	token_signed,
+	token_unsigned,
+	token_short,
+	token_long,
+	token_enum,
+	token_sizeof,
+	token_volatile,
+	token_inline,
+	token_restrict,
+
+	token_bigger,
+	token_smaller,
+	token_equals,
+	token_quotationmark,
+
+	token_pp_include,
+	token_pp_define,
+	token_pp_undef,
+	token_pp_if,
+	token_pp_elif,
+	token_pp_ifndef,
+	token_pp_ifdef,
+	token_pp_elifndef,
+	token_pp_elifdef,
+	token_pp_else,
+	token_pp_endif,
+	token_pp_pragma,
+	token_pp_error,
+	token_pp_line,
+	token_pp_warning,
+	token_pp_embed,
+} token_type;
+
+struct token;
+typedef struct token
+{
+	token_type  type;
+	const char *raw;
+	// TODO: having size in here could be useful later on! :)
+	fckc_size_t next;
+} token;
+
+typedef struct constant
+{
+	const char *name;
+	const char *value;
+} constant;
+
+typedef struct header
+{
+	const char *name;
+	const char *path;
+
+	token *tokens;
+} header;
+
+typedef struct compilation
+{
+	const char *name;
+	const char *path;
+
+	token *tokens;
+} compilation;
 
 static const char *next_char_ignore_whitespace(const char *str)
 {
@@ -94,63 +194,6 @@ static void normalise_path(char *buffer)
 	}
 }
 
-typedef enum token_type
-{
-	token_ignore,
-	token_identifier,
-	token_semicolon,
-	token_colon,
-
-	// {}
-	token_scope_open,
-	token_scope_close,
-	// () - EEEH, I do not like any name for this shit
-	token_tuple_open,
-	token_tuple_close,
-
-	token_asterisk,
-
-	token_struct,
-	token_union,
-	token_typedef,
-	token_static,
-	token_int,
-	token_float,
-	token_double,
-	token_char,
-	token_void,
-	token_const,
-	token_extern,
-	token_register,
-	token_auto,
-	token_signed,
-	token_unsigned,
-	token_short,
-	token_long,
-	token_enum,
-	token_sizeof,
-	token_volatile,
-	token_inline,
-	token_restrict,
-
-	token_pp_include,
-	token_pp_define,
-	token_pp_undef,
-	token_pp_if,
-	token_pp_elif,
-	token_pp_else,
-	token_pp_ifndef,
-	token_pp_ifdef,
-	token_pp_elifndef,
-	token_pp_elifdef,
-	token_pp_endif,
-	token_pp_pragma,
-	token_pp_error,
-	token_pp_line,
-	token_pp_warning,
-	token_pp_embed,
-} token_type;
-
 typedef struct token_keyword_result
 {
 	const char *text;
@@ -213,12 +256,6 @@ static token_keyword_result searches[] = {
 	token_keyword_custom(#warning, token_pp_warning),
 };
 
-typedef struct token
-{
-	token_type  type;
-	const char *raw;
-} token;
-
 static char *remove_comments2(char *source, char *eof)
 {
 	fck_assert(*source == '/');
@@ -278,7 +315,7 @@ static fckc_size_t tokens_push(token **tokens, token_type type, char *text)
 	return 0;
 }
 
-static token *tokenise(char *source)
+static token *prepare(char *source)
 {
 	token *tokens     = fck_dynarr_new(token, kll->system, 64);
 	char  *checkpoint = NULL;
@@ -295,6 +332,31 @@ static token *tokenise(char *source)
 		fckc_size_t tok = 0;
 		switch (*current)
 		{
+		case '<':
+			*current = '\0';
+			tok      = tokens_push(&tokens, token_identifier, checkpoint);
+			tokens_push(&tokens, token_smaller, "<");
+			break;
+		case '\\':
+			*current = '\0';
+			tok      = tokens_push(&tokens, token_identifier, checkpoint);
+			tokens_push(&tokens, token_backslash, "\\");
+			break;
+		case '>':
+			*current = '\0';
+			tok      = tokens_push(&tokens, token_identifier, checkpoint);
+			tokens_push(&tokens, token_bigger, ">");
+			break;
+		case '=':
+			*current = '\0';
+			tok      = tokens_push(&tokens, token_identifier, checkpoint);
+			tokens_push(&tokens, token_equals, "=");
+			break;
+		case '\"':
+			*current = '\0';
+			tok      = tokens_push(&tokens, token_identifier, checkpoint);
+			tokens_push(&tokens, token_quotationmark, "\"");
+			break;
 		case '*':
 			*current = '\0';
 			tok      = tokens_push(&tokens, token_identifier, checkpoint);
@@ -311,13 +373,17 @@ static token *tokenise(char *source)
 			tokens_push(&tokens, token_colon, ":");
 			break;
 		case '\t':
-		case '\n':
 		case '\v':
 		case '\f':
 		case '\r':
 		case ' ':
 			*current = '\0';
 			tok      = tokens_push(&tokens, token_identifier, checkpoint);
+			break;
+		case '\n':
+			*current = '\0';
+			tok      = tokens_push(&tokens, token_identifier, checkpoint);
+			tokens_push(&tokens, token_newline, "\n");
 			break;
 		case '{':
 			*current = '\0';
@@ -388,6 +454,8 @@ static token *tokenise(char *source)
 			current = next;
 		}
 	}
+
+	tokens_push(&tokens, token_end_of_file, "\0");
 	return tokens;
 }
 
@@ -460,7 +528,10 @@ static void handle_segment(const token *tokens, fckc_size_t begin, fckc_size_t s
 		const fckc_size_t inverted = distance - index - 1;
 		const fckc_size_t at       = inverted + begin;
 		const token      *current  = tokens + at;
-		printf("\t%s", current->raw);
+		if (current->type != token_newline)
+		{
+			printf("\t%s", current->raw);
+		}
 	}
 	printf("\n");
 }
@@ -517,7 +588,111 @@ static fckc_size_t handle_definition(const token *tokens, fckc_size_t index)
 	return index;
 }
 
-static void classify(const token *tokens)
+static fckc_size_t goto_newline(const token *tokens, fckc_size_t index)
+{
+	const fckc_size_t count = fck_dynarr_count(tokens);
+	for (; index < count; index++)
+	{
+		const token *current = tokens + index;
+		if (current->type == token_newline || current->type == token_end_of_file)
+		{
+			break;
+		}
+	}
+	return index;
+}
+
+static const char *stringify(kll_arena *arena, const token *begin, const token *end)
+{
+	fckc_size_t total = 0;
+	for (const token *current = begin; current != end; current++)
+	{
+		total = total + strlen(current->raw);
+	}
+	if (total == 0)
+	{
+		return "\0";
+	}
+
+	char *memory = (char *)kll_malloc(arena, total + 1);
+	char *at     = memory;
+	for (const token *current = begin; current != end; current++)
+	{
+		const fckc_size_t len = strlen(current->raw);
+		memcpy(at, current->raw, len);
+		at = at + len;
+	}
+	memory[total] = '\0';
+	return memory;
+}
+
+static fckc_size_t constants_find(constant *constants, const char *name)
+{
+	const fck_hash_int hash   = fck_hash(name, strlen(name));
+	const fckc_size_t  result = fck_set_find(constants, hash);
+	return result;
+}
+
+static void constants_add(constant **constants, const char *name, const char *value)
+{
+	const constant c = {.name = name, .value = value};
+	fck_set_add(*constants, fck_hash(name, strlen(name)), c);
+}
+
+static fckc_size_t define(kll_arena *arena, /* dynarr */ const token *tokens, /* set */ constant **constants, fckc_size_t index)
+{
+	const fckc_size_t count = fck_dynarr_count(tokens);
+	const fckc_size_t begin = index;
+
+	const token *include = tokens + index;
+
+	int backslashed = 0;
+	for (; index < count; index++)
+	{
+		const token *current = tokens + index;
+		if (current->type == token_newline)
+		{
+			if (!backslashed)
+			{
+				// Ok we are done
+				break;
+			}
+			backslashed = 0;
+		}
+
+		if (current->type == token_backslash)
+		{
+			backslashed = 1;
+		}
+	}
+	const token      *identifier       = include + 1;
+	const token      *statement        = identifier + 1;
+	const fckc_size_t end_of_statement = index;
+
+	const char *raw = stringify(arena, statement, tokens + end_of_statement);
+
+	constants_add(constants, identifier->raw, raw);
+
+	return end_of_statement;
+}
+
+static fckc_size_t include(token *tokens, fckc_size_t index)
+{
+	token       *include = tokens + index;
+	const token *current = tokens + index + 1;
+	if (current->type == token_quotationmark || current->type == token_smaller)
+	{
+		current = tokens + index + 2;
+		if (current->type == token_identifier)
+		{
+			include->next = index + 2;
+			return index + 2;
+		}
+	}
+	return index;
+}
+
+static void classify(kll_arena *arena, token *tokens)
 {
 	// All of this shit. I mean all of it,
 	// can break just because some knob likes macros
@@ -525,9 +700,14 @@ static void classify(const token *tokens)
 
 	for (fckc_size_t index = 0; index < count; index++)
 	{
-		const token *current = tokens + index;
+		token *current = tokens + index;
 		switch (current->type)
 		{
+		case token_pp_include: {
+			index = include(tokens, index);
+			index = goto_newline(tokens, index);
+			break;
+		}
 		case token_union:
 		case token_struct: {
 			const fckc_size_t identifier_idx = index + 1;
@@ -538,7 +718,6 @@ static void classify(const token *tokens)
 				const token      *scope_open     = tokens + scope_open_idx;
 				if (scope_open->type == token_scope_open)
 				{
-					os->io->log("%s %s", current->raw, identifier->raw);
 					index = handle_definition(tokens, scope_open_idx + 1);
 				}
 			}
@@ -548,8 +727,10 @@ static void classify(const token *tokens)
 	}
 }
 
-static void scan_file(const char *path)
+static token *tokenise(kll_arena *arena, const char *path)
 {
+	os->io->log("Processing... %s", path);
+
 	fck_file file = os->fs->open(path, "r");
 	fck_assert(os->fs->is_valid(file));
 
@@ -565,8 +746,344 @@ static void scan_file(const char *path)
 	buffer[size + 1] = '\0';
 
 	remove_comments(buffer, buffer + total);
-	token *tokens = tokenise(buffer);
-	classify(tokens);
+	token *tokens = prepare(buffer);
+	classify(arena, tokens);
+
+	return tokens;
+}
+
+static const char *skip_until_last(const char *str, char c)
+{
+	const char *checkpoint = str;
+	while (*str)
+	{
+		if (*str == c)
+		{
+			checkpoint = str + 1;
+		}
+		str++;
+	}
+	return checkpoint;
+}
+
+static const char *file_extension(const char *str)
+{
+	const char *extension = strrchr(str, '.');
+	if (extension)
+	{
+		return extension + 1;
+	}
+	return "";
+}
+
+static header *headers_find(header *headers, const char *name)
+{
+	const fckc_size_t result = fck_set_find(headers, fck_hash(name, strlen(name)));
+	if (result)
+	{
+		return headers + result - 1;
+	}
+	return NULL;
+}
+
+static void setup_system(kll_arena *arena, const char *system, /*set*/ header **headers)
+{
+	char      **paths  = NULL;
+	fckc_size_t result = os->glob->directory(system, "*/*.h", &paths);
+
+	for (fckc_size_t index = 0; index < result; index++)
+	{
+		char *path = paths[index];
+		normalise_path(path);
+
+		const char *full_path = kll_format(arena, "%s/%s", system, path);
+		const char *name      = skip_until_last(full_path, '/');
+		header      target    = {.path = full_path, .name = name};
+		fck_set_add(*headers, fck_hash(name, strlen(name)), target);
+	}
+
+	os->glob->free(paths);
+}
+
+static void setup_user_directory(kll_arena *arena, const char *source, /*set*/ header **headers, /* dynarr */ compilation **compilations)
+{
+	char buffer[1024];
+
+	char      **paths  = NULL;
+	fckc_size_t result = os->glob->directory(source, NULL, &paths);
+
+	for (fckc_size_t index = 0; index < result; index++)
+	{
+		char *path = paths[index];
+		normalise_path(path);
+		(void)snprintf(buffer, sizeof(buffer), "%s/%s", source, path);
+
+		fck_path_info info;
+		if (os->fs->info(buffer, &info))
+		{
+			if (info.type == fck_path_file)
+			{
+				const char *extension = file_extension(path);
+
+				if (strcmp(extension, "h") == 0 || strcmp(extension, "inl") == 0)
+				{
+					const char *full_path = kll_format(arena, "%s", buffer);
+					const char *name      = skip_until_last(full_path, '/');
+					header     *result    = &fck_set_at(*headers, fck_hash(name, strlen(name)));
+
+					result->path = full_path;
+					result->name = name;
+				}
+				if (strcmp(extension, "c") == 0)
+				{
+					const char *full_path = kll_format(arena, "%s", buffer);
+					const char *name      = skip_until_last(full_path, '/');
+					compilation target    = {.path = full_path, .name = name};
+					fck_dynarr_add(*compilations, target);
+				}
+			}
+		}
+	}
+
+	os->glob->free(paths);
+}
+
+static void setup_user(kll_arena *arena, const char *source, /*set*/ header **headers, /* dynarr */ compilation **compilations)
+{
+	char buffer[1024];
+
+	char      **directories;
+	fckc_size_t directories_count = os->glob->directory(source, "*", &directories);
+	for (fckc_size_t index = 0; index < directories_count; index++)
+	{
+		char *directory = directories[index];
+		if (strcmp(directory, "build") == 0)
+		{
+			continue;
+		}
+
+		normalise_path(directory);
+		(void)snprintf(buffer, sizeof(buffer), "%s/%s", source, directory);
+
+		fck_path_info info;
+		if (os->fs->info(buffer, &info))
+		{
+			if (info.type == fck_path_directory)
+			{
+				setup_user_directory(arena, buffer, headers, compilations);
+			}
+		}
+	}
+
+	os->glob->free(directories);
+}
+
+static fckc_size_t skip_until_end_of_branch(token *tokens, fckc_size_t index)
+{
+	int counter = 0;
+
+	const fckc_size_t count = fck_dynarr_count(tokens);
+	for (; index < count; index++)
+	{
+		const token *current = tokens + index;
+		switch (current->type)
+		{
+		case token_pp_ifndef:
+			counter = counter + 1;
+			break;
+		case token_pp_ifdef:
+			counter = counter + 1;
+			break;
+		case token_pp_endif:
+			counter = counter - 1;
+			break;
+		}
+	}
+	return index;
+}
+
+static token *fill(kll_arena *arena, constant **constants, token *dst, const token *src, /* set */ header *headers)
+{
+	const fckc_size_t count = fck_dynarr_count(src);
+	for (fckc_size_t index = 0; index < count; index++)
+	{
+		const token *current = src + index;
+		switch (current->type)
+		{
+		case token_pp_include: {
+			const token *identifier = src + current->next;
+			if (identifier->type == token_identifier)
+			{
+				header *target = headers_find(headers, identifier->raw);
+				if (target)
+				{
+					dst = fill(arena, constants, dst, target->tokens, headers);
+				}
+				index = goto_newline(src, index);
+			}
+			break;
+		}
+		case token_pp_define:
+			index = define(arena, src, constants, index);
+			index = goto_newline(src, index);
+			break;
+		case token_pp_undef: {
+			const token *identifier = current + 1;
+			if (identifier->type == token_identifier)
+			{
+				fck_set_remove(*constants, fck_hash(identifier->raw, strlen(identifier->raw)));
+			}
+			index = goto_newline(src, index);
+			break;
+		}
+		case token_pp_if:
+			// TODO
+			break;
+		case token_pp_elif:
+			// TODO
+			break;
+		case token_pp_ifndef: {
+			const token      *identifier = current + 1;
+			const fckc_size_t result     = constants_find(*constants, identifier->raw);
+			if (result)
+			{
+				index = skip_until_end_of_branch(src, index);
+			}
+			index = goto_newline(src, index);
+			break;
+		}
+		case token_pp_ifdef: {
+			const token      *identifier = current + 1;
+			const fckc_size_t result     = constants_find(*constants, identifier->raw);
+			if (!result)
+			{
+				index = skip_until_end_of_branch(src, current);
+			}
+			index = goto_newline(src, index);
+			break;
+		}
+		case token_pp_elifndef:
+			break;
+		case token_pp_elifdef:
+			break;
+		case token_pp_else:
+			break;
+		case token_pp_endif:
+			break;
+		case token_pp_pragma:
+			break;
+		case token_pp_error:
+			break;
+		case token_pp_line:
+			break;
+		case token_pp_warning:
+			break;
+		case token_pp_embed:
+			break;
+
+		default:
+			fck_dynarr_add(dst, *current);
+			break;
+		}
+
+		fck_dynarr_add(dst, *current);
+	}
+	return dst;
+}
+
+static void print_tokens(/* dynarr */ token *tokens)
+{
+	os->io->log("PRINT TOKENS:");
+	const fckc_size_t count = fck_dynarr_count(tokens);
+	for (fckc_size_t index = 0; index < count; index++)
+	{
+		token *current = tokens + index;
+		printf(current->raw);
+	}
+}
+
+static token *substitute(kll_arena *arena, token *tokens, /* set */ header *headers)
+{
+	token *result = fck_dynarr_new(token, arena, 512);
+
+	constant *constants = fck_set_new(constant, arena, 128);
+	constants_add(&constants, "alignof", "");
+
+	result = fill(arena, &constants, result, tokens, headers);
+
+	print_tokens(result);
+
+	return result;
+
+	// const fckc_size_t count = fck_dynarr_count(tokens);
+	// for (fckc_size_t index = 0; index < count; index++)
+	//{
+
+	//	token *current = tokens + index;
+
+	//	switch (current->type)
+	//	{
+	//	case token_pp_include: {
+	//		token *identifier = tokens + current->next;
+	//		if (identifier->type == token_identifier)
+	//		{
+	//			header *target = headers_find(headers, identifier->raw);
+	//			if (target)
+	//			{
+	//				result = fill(constants, result, target->tokens, headers);
+	//			}
+	//			index = identifier - tokens;
+	//		}
+	//		break;
+	//	}
+	//	case token_pp_define:
+	//		index = define(arena, tokens, &constants, index);
+	//		break;
+	//	case token_pp_undef: {
+	//		const token *identifier = tokens + 1;
+	//		if (identifier->type == token_identifier)
+	//		{
+	//			fck_set_remove(constants, fck_hash(identifier->raw, strlen(identifier->raw)));
+	//		}
+	//		break;
+	//	}
+	//	case token_pp_if:
+	//		// TODO
+	//		break;
+	//	case token_pp_elif:
+	//		// TODO
+	//		break;
+	//	case token_pp_ifndef:
+	//		// TODO
+	//		break;
+	//	case token_pp_ifdef:
+	//		break;
+	//	case token_pp_elifndef:
+	//		break;
+	//	case token_pp_elifdef:
+	//		break;
+	//	case token_pp_else:
+	//		break;
+	//	case token_pp_endif:
+	//		break;
+	//	case token_pp_pragma:
+	//		break;
+	//	case token_pp_error:
+	//		break;
+	//	case token_pp_line:
+	//		break;
+	//	case token_pp_warning:
+	//		break;
+	//	case token_pp_embed:
+	//		break;
+
+	//	default:
+	//		fck_dynarr_add(result, *current);
+	//		break;
+	//	}
+	//}
+	// print_tokens(result);
+	// return result;
 }
 
 int main(int argc, char **argv)
@@ -575,47 +1092,48 @@ int main(int argc, char **argv)
 
 	os->io->log("Generate...");
 
+#if defined(fck_gen_system_dir)
+	const char *system = fck_gen_system_dir;
+#else
+	const char *system = from_args("system", argc, argv);
+	if (system == NULL)
+	{
+		return -1;
+	}
+#endif
+#if defined(fck_gen_target_path)
+	const char *path = fck_gen_target_path;
+#else
 	const char *path = from_args("path", argc, argv);
 	if (path == NULL)
 	{
-		path = "C:/Users/jukai/Documents/fck-engine";
+		return -1;
 	}
-	else
-	{
-		return;
-	}
+#endif
+	os->io->log(system);
 	os->io->log(path);
 
-	char            **paths       = NULL;
-	const fckc_size_t paths_count = os->glob->directory(path, "*", &paths);
-	for (fckc_size_t paths_index = 0; paths_index < paths_count; paths_index++)
-	{
-		const char *sub    = paths[paths_index];
-		const int   offset = snprintf(buffer, sizeof(buffer), "%s/%s/", path, sub);
+	kll_arena   *arena        = kll->arena->create(kll->system, 4096);
+	header      *headers      = fck_set_new(header, arena, 512);
+	compilation *compilations = fck_dynarr_new(compilation, arena, 512);
 
-		fck_path_info info;
-		if (os->fs->info(buffer, &info))
-		{
-			if (info.type == fck_path_directory)
-			{
-				if (*sub != '.' && strcmp(sub, "build") != 0)
-				{
-					char            **files       = NULL;
-					const fckc_size_t files_count = os->glob->directory(buffer, "*/*.h", &files);
-					for (fckc_size_t files_index = 0; files_index < files_count; files_index++)
-					{
-						char *file = files[files_index];
-						normalise_path(file);
-						(void)snprintf(buffer + offset, sizeof(buffer) - offset, "%s", file);
-						// os->io->log(buffer);
-						scan_file(buffer);
-					}
-					os->glob->free(files);
-				}
-			}
-		}
+	setup_user(arena, path, &headers, &compilations);
+
+	fckc_size_t it = fck_set_begin(headers);
+	while (fck_set_next(headers, it))
+	{
+		header *value = headers + it;
+		value->tokens = tokenise(arena, value->path);
 	}
-	os->glob->free(paths);
+
+	const fckc_size_t count = fck_dynarr_count(compilations);
+	for (fckc_size_t index = 0; index < count; index++)
+	{
+		compilation *value = compilations + index;
+		value->tokens      = tokenise(arena, value->path);
+		value->tokens      = substitute(arena, value->tokens, headers);
+		break;
+	}
 
 	return 0;
 }

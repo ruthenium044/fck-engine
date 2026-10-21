@@ -30,7 +30,7 @@ inline void             fck_dynarr_free(void *ptr);
 inline fckc_size_t      fck_dynarr_count(const void *ptr);
 inline void             fck_dynarr_expand(void **ref_ptr, fckc_size_t element_size);
 
-#define fck_dynarr_new(type, allocator, size) (type *)fck_dynarr_alloc((allocator), (sizeof(type)), (size))
+#define fck_dynarr_new(type, allocator, size) (type *)fck_dynarr_alloc((struct kll_allocator *)(allocator), (sizeof(type)), (size))
 #define fck_dynarr_destroy(ptr)               fck_dynarr_free(ptr)
 
 #define fck_dynarr_add(ptr, value) fck_dynarr_expand((void **)&(ptr), sizeof(value)), (ptr)[fck_dynarr_count(ptr) - 1] = value

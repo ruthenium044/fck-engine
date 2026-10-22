@@ -22,19 +22,43 @@ typedef enum token_type
 	token_end_of_file,
 	token_newline,
 	token_identifier,
+	token_number,
+	token_string_literal,
+	token_char_literal,
+
+	token_header_name,
+
 	token_semicolon,
 	token_colon,
-	token_backslash,
 
 	// {}
 	token_scope_open,
 	token_scope_close,
-	// () - EEEH, I do not like any name for this shit
-	token_tuple_open,
-	token_tuple_close,
+	// ()
+	token_paren_open,
+	token_paren_close,
+	// []
+	token_bracket_open,
+	token_bracket_close,
 
 	token_asterisk,
+	token_plus,
+	token_minus,
+	token_slash,
+	token_percent,
+	token_dot,
+	token_comma,
+	token_ampersand,
+	token_pipe,
+	token_caret,
+	token_tilde,
+	token_exclamation,
+	token_question,
+	token_bigger,
+	token_smaller,
+	token_equals,
 
+	// Keywords
 	token_struct,
 	token_union,
 	token_typedef,
@@ -57,14 +81,23 @@ typedef enum token_type
 	token_volatile,
 	token_inline,
 	token_restrict,
+	token_if,
+	token_else,
+	token_switch,
+	token_case,
+	token_default,
+	token_while,
+	token_do,
+	token_for,
+	token_goto,
+	token_continue,
+	token_break,
+	token_return,
 
-	token_bigger,
-	token_smaller,
-	token_equals,
-	token_quotationmark,
-
+	// Preprocessor Directives
 	token_pp_include,
 	token_pp_define,
+	token_pp_defined,
 	token_pp_undef,
 	token_pp_if,
 	token_pp_elif,
@@ -81,19 +114,26 @@ typedef enum token_type
 	token_pp_embed,
 } token_type;
 
+typedef struct text
+{
+	const char *raw;
+	fckc_size_t len;
+} text;
+
+#define make_text(str) (text){"" str "", sizeof(str) - 1}
+
 struct token;
 typedef struct token
 {
+	text        value;
 	token_type  type;
-	const char *raw;
-	// TODO: having size in here could be useful later on! :)
 	fckc_size_t next;
 } token;
 
 typedef struct constant
 {
-	const char *name;
-	const char *value;
+	text name;
+	text value;
 } constant;
 
 typedef struct header
@@ -111,6 +151,21 @@ typedef struct compilation
 
 	token *tokens;
 } compilation;
+
+static fck_hash_int text_hash(text lhs)
+{
+	return fck_hash(lhs.raw, lhs.len);
+}
+
+static int text_same(const text *lhs, const text *rhs)
+{
+	if (lhs->len != rhs->len)
+	{
+		return 0;
+	}
+
+	return memcmp(lhs->raw, rhs->raw, lhs->len) == 0;
+}
 
 static const char *next_char_ignore_whitespace(const char *str)
 {
@@ -196,12 +251,23 @@ static void normalise_path(char *buffer)
 
 typedef struct token_keyword_result
 {
-	const char *text;
-	token_type  type;
+	text       value;
+	token_type type;
 } token_keyword_result;
 
-#define token_keyword_custom(_text, _type) {.text = (#_text), .type = (_type)}
-#define token_keyword(_text)               {.text = (#_text), .type = (token_##_text)}
+#define token_keyword_custom(_text, _type) {.value.raw = (#_text), .value.len = sizeof(#_text) - 1, .type = (_type)}
+#define token_keyword(_text)               {.value.raw = (#_text), .value.len = sizeof(#_text) - 1, .type = (token_##_text)}
+
+static token_keyword_result pp_searches[] = {
+	token_keyword_custom(#include, token_pp_include), token_keyword_custom(#define, token_pp_define),
+	token_keyword_custom(#undef, token_pp_undef),     token_keyword_custom(#if, token_pp_if),
+	token_keyword_custom(#elif, token_pp_elif),       token_keyword_custom(#else, token_pp_else),
+	token_keyword_custom(#ifndef, token_pp_ifndef),   token_keyword_custom(#ifdef, token_pp_ifdef),
+	token_keyword_custom(#elifdef, token_pp_elifdef), token_keyword_custom(#elifndef, token_pp_elifndef),
+	token_keyword_custom(#endif, token_pp_endif),     token_keyword_custom(#pragma, token_pp_pragma),
+	token_keyword_custom(#error, token_pp_error),     token_keyword_custom(#line, token_pp_line),
+	token_keyword_custom(#warning, token_pp_warning),
+};
 
 static token_keyword_result searches[] = {
 	token_keyword(struct),
@@ -227,6 +293,8 @@ static token_keyword_result searches[] = {
 	token_keyword(inline),
 	token_keyword(restrict),
 
+	token_keyword_custom(defined, token_pp_defined),
+
 	token_keyword_custom(if, token_ignore),
 	token_keyword_custom(else, token_ignore),
 	token_keyword_custom(switch, token_ignore),
@@ -239,21 +307,6 @@ static token_keyword_result searches[] = {
 	token_keyword_custom(break, token_ignore),
 	token_keyword_custom(continue, token_ignore),
 	token_keyword_custom(return, token_ignore),
-	token_keyword_custom(#include, token_pp_include),
-	token_keyword_custom(#define, token_pp_define),
-	token_keyword_custom(#undef, token_pp_undef),
-	token_keyword_custom(#if, token_pp_if),
-	token_keyword_custom(#elif, token_pp_elif),
-	token_keyword_custom(#else, token_pp_else),
-	token_keyword_custom(#ifndef, token_pp_ifndef),
-	token_keyword_custom(#ifdef, token_pp_ifdef),
-	token_keyword_custom(#elifdef, token_pp_elifdef),
-	token_keyword_custom(#elifndef, token_pp_elifndef),
-	token_keyword_custom(#endif, token_pp_endif),
-	token_keyword_custom(#pragma, token_pp_pragma),
-	token_keyword_custom(#error, token_pp_error),
-	token_keyword_custom(#line, token_pp_line),
-	token_keyword_custom(#warning, token_pp_warning),
 };
 
 static char *remove_comments2(char *source, char *eof)
@@ -299,13 +352,43 @@ static void remove_comments(char *source, char *eof)
 	}
 }
 
-static fckc_size_t tokens_push(token **tokens, token_type type, char *text)
+static void replace_backslash(char *source)
 {
-	if (text && strlen(text) > 0)
+	char *current = source;
+	while (*current)
+	{
+		current = strchr(current, '\\');
+		if (current == NULL)
+		{
+			break;
+		}
+		char *next = current + 1;
+		if (*next == '\n')
+		{
+			*current = ' ';
+			*next    = ' ';
+		}
+		if (*next == '\r')
+		{
+			char *last = next + 1;
+			if (*last == '\n')
+			{
+				*current = ' ';
+				*last    = ' ';
+				*next    = ' ';
+			}
+		}
+		current = current + 1;
+	}
+}
+
+static fckc_size_t tokens_push(token **tokens, token_type type, char *raw, fckc_size_t len)
+{
+	if (raw && len > 0)
 	{
 		const token tok = {
-			.type = type,
-			.raw  = text,
+			.type  = type,
+			.value = (text){raw, len},
 		};
 
 		fck_dynarr_add(*tokens, tok);
@@ -315,147 +398,278 @@ static fckc_size_t tokens_push(token **tokens, token_type type, char *text)
 	return 0;
 }
 
-static token *prepare(char *source)
+static token_type char_to_token_type(char c)
+{
+	switch (c)
+	{
+	case ';':
+		return token_semicolon;
+	case ':':
+		return token_colon;
+	case '{':
+		return token_scope_open;
+	case '}':
+		return token_scope_close;
+	case '(':
+		return token_paren_open;
+	case ')':
+		return token_paren_close;
+	case '[':
+		return token_bracket_open;
+	case ']':
+		return token_bracket_close;
+	case '*':
+		return token_asterisk;
+	case '+':
+		return token_plus;
+	case '-':
+		return token_minus;
+	case '/':
+		return token_slash;
+	case '%':
+		return token_percent;
+	case '.':
+		return token_dot;
+	case ',':
+		return token_comma;
+	case '&':
+		return token_ampersand;
+	case '|':
+		return token_pipe;
+	case '^':
+		return token_caret;
+	case '~':
+		return token_tilde;
+	case '!':
+		return token_exclamation;
+	case '?':
+		return token_question;
+	case '>':
+		return token_bigger;
+	case '<':
+		return token_smaller;
+	case '=':
+		return token_equals;
+	case '\n':
+		return token_newline;
+	default:
+		return token_ignore;
+	}
+}
+
+static fckc_size_t literal(fckc_size_t index, char *source, fckc_size_t total, token **tokens)
+{
+	const char c = source[index];
+	fck_assert(c == '\'' || c == '\"');
+
+	const fckc_size_t checkpoint = index + 1; // Past marker
+	for (index = checkpoint; index < total; index++)
+	{
+		if (source[index] == c)
+		{
+			const token_type  type = c == '\'' ? token_char_literal : token_string_literal;
+			// End-exclusive math ;-)
+			const fckc_size_t len  = index - checkpoint;
+			tokens_push(tokens, type, source + checkpoint, len);
+			break;
+		}
+	}
+	return index;
+}
+
+static fckc_size_t header_name(fckc_size_t index, char *source, fckc_size_t total, token **tokens)
+{
+	const char c = source[index];
+	fck_assert(c == '<');
+
+	const fckc_size_t checkpoint = index + 1; // Past marker
+	for (index = checkpoint; index < total; index++)
+	{
+		if (source[index] == '>')
+		{
+			// End-exclusive math ;-)
+			const fckc_size_t len = index - checkpoint;
+			tokens_push(tokens, token_header_name, source + checkpoint, len);
+			break;
+		}
+	}
+	return index;
+}
+
+static fckc_size_t included_header_name(fckc_size_t index, char *source, fckc_size_t total, token **tokens)
+{
+	for (index = index + 1; index < total; index++)
+	{
+		char *current = source + index;
+		switch (*current)
+		{
+		case '\"':
+		case '\'':
+			index = literal(index, source, total, tokens);
+			return index;
+		case '<':
+			index = header_name(index, source, total, tokens);
+			return index;
+		case '\n':
+			return total;
+		}
+	}
+	return index;
+}
+
+static fckc_size_t preprocessor(fckc_size_t index, char *source, fckc_size_t total, token **tokens)
+{
+	const char c = source[index];
+	fck_assert(c == '#');
+
+	for (index = index + 1; index < total; index++)
+	{
+		// We except any letter after # - If not we just scan until the end, which is super duper fine lol
+		char *begin = source + index;
+		if (*begin >= 'a' && *begin <= 'z')
+		{
+			for (index = index + 1; index < total; index++)
+			{
+				char *end = source + index;
+				if (*end < 'a' || *end > 'z')
+				{
+					token_type        type = token_ignore;
+					const fckc_size_t len  = end - begin;
+					switch (len)
+					{
+					case 2:
+						if (memcmp(begin, "if", len) == 0)
+						{
+							type = token_pp_if;
+						}
+						break;
+					case 4:
+						if (memcmp(begin, "else", len) == 0)
+						{
+							type = token_pp_else;
+						}
+						else if (memcmp(begin, "elif", len) == 0)
+						{
+							type = token_pp_elif;
+						}
+						else if (memcmp(begin, "line", len) == 0)
+						{
+							type = token_pp_line;
+						}
+						break;
+
+					case 5:
+						if (memcmp(begin, "error", len) == 0)
+						{
+							type = token_pp_error;
+						}
+						else if (memcmp(begin, "ifdef", len) == 0)
+						{
+							type = token_pp_ifdef;
+						}
+						else if (memcmp(begin, "endif", len) == 0)
+						{
+							type = token_pp_endif;
+						}
+						else if (memcmp(begin, "undef", len) == 0)
+						{
+							type = token_pp_undef;
+						}
+						else if (memcmp(begin, "embed", len) == 0)
+						{
+							type = token_pp_embed;
+						}
+						break;
+
+					case 6:
+						if (memcmp(begin, "define", len) == 0)
+						{
+							type = token_pp_define;
+						}
+						else if (memcmp(begin, "ifndef", len) == 0)
+						{
+							type = token_pp_ifndef;
+						}
+						else if (memcmp(begin, "pragma", len) == 0)
+						{
+							type = token_pp_pragma;
+						}
+						break;
+
+					case 7:
+						if (memcmp(begin, "include", len) == 0)
+						{
+							type = token_pp_include;
+						}
+						else if (memcmp(begin, "warning", len) == 0)
+						{
+							type = token_pp_warning;
+						}
+						else if (memcmp(begin, "defined", len) == 0)
+						{
+							type = token_pp_defined;
+						}
+						break;
+
+					case 8:
+						if (memcmp(begin, "elifdef", len) == 0)
+						{
+							type = token_pp_elifdef;
+						}
+						break;
+
+					case 9:
+						if (memcmp(begin, "elifndef", len) == 0)
+						{
+							type = token_pp_elifndef;
+						}
+						break;
+					default:
+						return total;
+					}
+					if (type == token_ignore)
+					{
+						return total;
+					}
+
+					tokens_push(tokens, type, begin, len);
+
+					switch (type)
+					{
+					case token_ignore:
+						return total;
+					case token_pp_include:
+						return included_header_name(index, source, total, tokens);
+						break;
+					}
+					return index;
+				}
+			}
+		}
+	}
+	return total;
+}
+
+static token *prepare(char *source, fckc_size_t total)
 {
 	token *tokens     = fck_dynarr_new(token, kll->system, 64);
 	char  *checkpoint = NULL;
 
-	const token_keyword_result *active[fck_arraysize(searches)];
-	fckc_size_t                 active_count = 0;
-	fckc_size_t                 pivot        = 0;
-
-	char *current = source;
-	while (*current)
+	for (fckc_size_t index = 0; index < total; index++)
 	{
-		char previous = *current;
-
-		fckc_size_t tok = 0;
+		char *current = source + index;
 		switch (*current)
 		{
-		case '<':
-			*current = '\0';
-			tok      = tokens_push(&tokens, token_identifier, checkpoint);
-			tokens_push(&tokens, token_smaller, "<");
-			break;
-		case '\\':
-			*current = '\0';
-			tok      = tokens_push(&tokens, token_identifier, checkpoint);
-			tokens_push(&tokens, token_backslash, "\\");
-			break;
-		case '>':
-			*current = '\0';
-			tok      = tokens_push(&tokens, token_identifier, checkpoint);
-			tokens_push(&tokens, token_bigger, ">");
-			break;
-		case '=':
-			*current = '\0';
-			tok      = tokens_push(&tokens, token_identifier, checkpoint);
-			tokens_push(&tokens, token_equals, "=");
-			break;
 		case '\"':
-			*current = '\0';
-			tok      = tokens_push(&tokens, token_identifier, checkpoint);
-			tokens_push(&tokens, token_quotationmark, "\"");
+		case '\'':
+			index = literal(index, source, total, &tokens);
 			break;
-		case '*':
-			*current = '\0';
-			tok      = tokens_push(&tokens, token_identifier, checkpoint);
-			tokens_push(&tokens, token_asterisk, "*");
+		case '#':
+			index = preprocessor(index, source, total, &tokens);
 			break;
-		case ';':
-			*current = '\0';
-			tok      = tokens_push(&tokens, token_identifier, checkpoint);
-			tokens_push(&tokens, token_semicolon, ";");
-			break;
-		case ':':
-			*current = '\0';
-			tok      = tokens_push(&tokens, token_identifier, checkpoint);
-			tokens_push(&tokens, token_colon, ":");
-			break;
-		case '\t':
-		case '\v':
-		case '\f':
-		case '\r':
-		case ' ':
-			*current = '\0';
-			tok      = tokens_push(&tokens, token_identifier, checkpoint);
-			break;
-		case '\n':
-			*current = '\0';
-			tok      = tokens_push(&tokens, token_identifier, checkpoint);
-			tokens_push(&tokens, token_newline, "\n");
-			break;
-		case '{':
-			*current = '\0';
-			tok      = tokens_push(&tokens, token_identifier, checkpoint);
-			tokens_push(&tokens, token_scope_open, "{");
-			break;
-		case '}':
-			*current = '\0';
-			tok      = tokens_push(&tokens, token_identifier, checkpoint);
-			tokens_push(&tokens, token_scope_close, "}");
-			break;
-		case '(':
-			*current = '\0';
-			tok      = tokens_push(&tokens, token_identifier, checkpoint);
-			tokens_push(&tokens, token_tuple_open, "(");
-			break;
-		case ')':
-			*current = '\0';
-			tok      = tokens_push(&tokens, token_identifier, checkpoint);
-			tokens_push(&tokens, token_tuple_close, ")");
-			break;
-		}
-
-		for (fckc_size_t index = 0; index < active_count; index++)
-		{
-			const token_keyword_result *search = active[index];
-			if (*current != search->text[pivot])
-			{
-				const fckc_size_t last = active_count - 1;
-				active[index]          = active[last];
-				active[last]           = NULL;
-				active_count           = last;
-				// Repeat!
-				index                  = index - 1;
-				continue;
-			}
-
-			// Characters still the same
-			// Both terminated
-			if (*current == '\0')
-			{
-				fck_assert(tok);
-				token *t = tokens + tok - 1;
-				fck_assert(strcmp(t->raw, search->text) == 0);
-				t->type = search->type;
-			}
-		}
-		pivot = pivot + 1;
-
-		{
-			char *next = current + 1;
-			if (*current == '\0')
-			{
-				checkpoint = next;
-				pivot      = 0;
-
-				// Refresh active searches
-				for (fckc_size_t index = 0; index < fck_arraysize(searches); index++)
-				{
-					const token_keyword_result *search = searches + index;
-					if (*next == *search->text)
-					{
-						active[active_count] = search;
-						active_count         = active_count + 1;
-					}
-				}
-			}
-			current = next;
 		}
 	}
-
-	tokens_push(&tokens, token_end_of_file, "\0");
+	tokens_push(&tokens, token_end_of_file, NULL, 0);
 	return tokens;
 }
 
@@ -466,12 +680,12 @@ static int is_function_pointer(const token *tokens, fckc_size_t begin, fckc_size
 	for (fckc_size_t index = begin; index < semicolon; index++)
 	{
 		const token *current = tokens + index;
-		if (current->type == token_tuple_open)
+		if (current->type == token_paren_open)
 		{
 			stack = stack + 1;
 			continue;
 		}
-		if (current->type == token_tuple_close)
+		if (current->type == token_paren_close)
 		{
 			stack = stack - 1;
 			if (stack == 0)
@@ -530,7 +744,7 @@ static void handle_segment(const token *tokens, fckc_size_t begin, fckc_size_t s
 		const token      *current  = tokens + at;
 		if (current->type != token_newline)
 		{
-			printf("\t%s", current->raw);
+			printf("\t%.*s", (int)current->value.len, current->value.raw);
 		}
 	}
 	printf("\n");
@@ -553,7 +767,7 @@ static fckc_size_t handle_definition(const token *tokens, fckc_size_t index)
 			// Maybe blacklisting a bunch of keywords and as soon as a file has them it gets excluded from reflection
 			if (next->type == token_scope_open)
 			{
-				os->io->log("Nested %s <anonymous>", current->raw);
+				os->io->log("Nested %s <anonymous>", current->value);
 				index = handle_definition(tokens, next_idx + 1);
 				break;
 			}
@@ -563,7 +777,7 @@ static fckc_size_t handle_definition(const token *tokens, fckc_size_t index)
 				const token      *scope_open     = tokens + scope_open_idx;
 				if (scope_open->type == token_scope_open)
 				{
-					os->io->log("Nested %s %s", current->raw, next->raw);
+					os->io->log("Nested %s %s", current->value, next->value);
 					index = handle_definition(tokens, scope_open_idx + 1);
 				}
 			}
@@ -602,41 +816,40 @@ static fckc_size_t goto_newline(const token *tokens, fckc_size_t index)
 	return index;
 }
 
-static const char *stringify(kll_arena *arena, const token *begin, const token *end)
+static text stringify(kll_arena *arena, const token *begin, const token *end)
 {
 	fckc_size_t total = 0;
 	for (const token *current = begin; current != end; current++)
 	{
-		total = total + strlen(current->raw);
+		total = total + current->value.len;
 	}
 	if (total == 0)
 	{
-		return "\0";
+		return make_text("");
 	}
 
 	char *memory = (char *)kll_malloc(arena, total + 1);
 	char *at     = memory;
 	for (const token *current = begin; current != end; current++)
 	{
-		const fckc_size_t len = strlen(current->raw);
-		memcpy(at, current->raw, len);
-		at = at + len;
+		memcpy(at, current->value.raw, current->value.len);
+		at = at + current->value.len;
 	}
 	memory[total] = '\0';
-	return memory;
+	return (text){.raw = memory, .len = total};
 }
 
-static fckc_size_t constants_find(constant *constants, const char *name)
+static fckc_size_t constants_find(constant *constants, text name)
 {
-	const fck_hash_int hash   = fck_hash(name, strlen(name));
+	const fck_hash_int hash   = text_hash(name);
 	const fckc_size_t  result = fck_set_find(constants, hash);
 	return result;
 }
 
-static void constants_add(constant **constants, const char *name, const char *value)
+static void constants_add(constant **constants, text name, text value)
 {
 	const constant c = {.name = name, .value = value};
-	fck_set_add(*constants, fck_hash(name, strlen(name)), c);
+	fck_set_add(*constants, text_hash(name), c);
 }
 
 static fckc_size_t define(kll_arena *arena, /* dynarr */ const token *tokens, /* set */ constant **constants, fckc_size_t index)
@@ -646,32 +859,22 @@ static fckc_size_t define(kll_arena *arena, /* dynarr */ const token *tokens, /*
 
 	const token *include = tokens + index;
 
-	int backslashed = 0;
 	for (; index < count; index++)
 	{
 		const token *current = tokens + index;
 		if (current->type == token_newline)
 		{
-			if (!backslashed)
-			{
-				// Ok we are done
-				break;
-			}
-			backslashed = 0;
-		}
-
-		if (current->type == token_backslash)
-		{
-			backslashed = 1;
+			// Ok we are done
+			break;
 		}
 	}
 	const token      *identifier       = include + 1;
 	const token      *statement        = identifier + 1;
 	const fckc_size_t end_of_statement = index;
 
-	const char *raw = stringify(arena, statement, tokens + end_of_statement);
+	text raw = stringify(arena, statement, tokens + end_of_statement);
 
-	constants_add(constants, identifier->raw, raw);
+	constants_add(constants, identifier->value, raw);
 
 	return end_of_statement;
 }
@@ -680,16 +883,21 @@ static fckc_size_t include(token *tokens, fckc_size_t index)
 {
 	token       *include = tokens + index;
 	const token *current = tokens + index + 1;
-	if (current->type == token_quotationmark || current->type == token_smaller)
+	switch (current->type)
 	{
+	case token_smaller:
 		current = tokens + index + 2;
 		if (current->type == token_identifier)
 		{
 			include->next = index + 2;
 			return index + 2;
 		}
+		break;
+	case token_string_literal:
+		// If we do not see smaller, we know it HAS to be a string literal, in any other case, meh! :)
+		return index + 1;
 	}
-	return index;
+	return index + 1;
 }
 
 static void classify(kll_arena *arena, token *tokens)
@@ -735,18 +943,20 @@ static token *tokenise(kll_arena *arena, const char *path)
 	fck_assert(os->fs->is_valid(file));
 
 	const fckc_i64    size   = os->fs->size(file);
-	const fckc_size_t total  = size + 3;
-	char             *buffer = (char *)kll_malloc(kll->system, total);
-	const fckc_size_t result = os->fs->read(file, (void *)(buffer + 1), size); // Prefix newline
+	// const fckc_size_t total  = size;
+	char             *buffer = (char *)kll_malloc(kll->system, size + 1);
+	const fckc_size_t result = os->fs->read(file, (void *)(buffer), size); // Prefix newline
 	fck_assert(to_i64(result) == size);
 
 	// Streamline the algorithms a little
-	buffer[0]        = '\n';
-	buffer[size + 0] = '\n';
-	buffer[size + 1] = '\0';
+	// buffer[0]        = '\n';
+	// buffer[size + 0] = '\n';
+	buffer[size] = '\0';
 
-	remove_comments(buffer, buffer + total);
-	token *tokens = prepare(buffer);
+	remove_comments(buffer, buffer + size);
+	replace_backslash(buffer);
+
+	token *tokens = prepare(buffer, size);
 	classify(arena, tokens);
 
 	return tokens;
@@ -776,9 +986,9 @@ static const char *file_extension(const char *str)
 	return "";
 }
 
-static header *headers_find(header *headers, const char *name)
+static header *headers_find(header *headers, text name)
 {
-	const fckc_size_t result = fck_set_find(headers, fck_hash(name, strlen(name)));
+	const fckc_size_t result = fck_set_find(headers, text_hash(name));
 	if (result)
 	{
 		return headers + result - 1;
@@ -878,24 +1088,57 @@ static void setup_user(kll_arena *arena, const char *source, /*set*/ header **he
 	os->glob->free(directories);
 }
 
-static fckc_size_t skip_until_end_of_branch(const token *tokens, fckc_size_t index)
+static fckc_size_t repeat_branch(const token *tokens, fckc_size_t index)
 {
-	int counter = 0;
+	const token *current = tokens + index;
+	switch (current->type)
+	{
+	case token_pp_elif:
+	case token_pp_elifndef:
+	case token_pp_elifdef:
+		// We need to go before the pp token to repeat it since these branches need
+		// More evaluation
+		return index - 1;
+	case token_pp_else:
+		// Explicitly here to illustrate that the else branch on skip will be treated
+		// like any other branch that is used!
+		return index;
+	}
+	return index;
+}
 
+static fckc_size_t skip_branch(const token *tokens, fckc_size_t index)
+{
+	int               depth = 0;
 	const fckc_size_t count = fck_dynarr_count(tokens);
+
 	for (; index < count; index++)
 	{
 		const token *current = tokens + index;
 		switch (current->type)
 		{
+		case token_pp_if:
 		case token_pp_ifndef:
-			counter = counter + 1;
-			break;
 		case token_pp_ifdef:
-			counter = counter + 1;
+			depth++;
 			break;
+
 		case token_pp_endif:
-			counter = counter - 1;
+			depth--;
+			if (depth < 0)
+			{
+				return index;
+			}
+			break;
+
+		case token_pp_elif:
+		case token_pp_else:
+		case token_pp_elifndef:
+		case token_pp_elifdef:
+			if (depth == 0)
+			{
+				return index;
+			}
 			break;
 		}
 	}
@@ -907,6 +1150,7 @@ static token *fill(kll_arena *arena, constant **constants, token *dst, const tok
 	const fckc_size_t count = fck_dynarr_count(src);
 	for (fckc_size_t index = 0; index < count; index++)
 	{
+
 		const token *current = src + index;
 		switch (current->type)
 		{
@@ -914,7 +1158,7 @@ static token *fill(kll_arena *arena, constant **constants, token *dst, const tok
 			const token *identifier = src + current->next;
 			if (identifier->type == token_identifier)
 			{
-				header *target = headers_find(headers, identifier->raw);
+				header *target = headers_find(headers, identifier->value);
 				if (target)
 				{
 					dst = fill(arena, constants, dst, target->tokens, headers);
@@ -931,7 +1175,7 @@ static token *fill(kll_arena *arena, constant **constants, token *dst, const tok
 			const token *identifier = current + 1;
 			if (identifier->type == token_identifier)
 			{
-				fck_set_remove(*constants, fck_hash(identifier->raw, strlen(identifier->raw)));
+				fck_set_remove(*constants, text_hash(identifier->value));
 			}
 			index = goto_newline(src, index);
 			break;
@@ -944,22 +1188,22 @@ static token *fill(kll_arena *arena, constant **constants, token *dst, const tok
 			break;
 		case token_pp_ifndef: {
 			const token      *identifier = current + 1;
-			const fckc_size_t result     = constants_find(*constants, identifier->raw);
+			const fckc_size_t result     = constants_find(*constants, identifier->value);
 			if (result)
 			{
-				index = skip_until_end_of_branch(src, index);
+				index = skip_branch(src, index);
 			}
-			index = goto_newline(src, index);
+			index = repeat_branch(src, index);
 			break;
 		}
 		case token_pp_ifdef: {
 			const token      *identifier = current + 1;
-			const fckc_size_t result     = constants_find(*constants, identifier->raw);
+			const fckc_size_t result     = constants_find(*constants, identifier->value);
 			if (!result)
 			{
-				index = skip_until_end_of_branch(src, index);
+				index = skip_branch(src, index);
 			}
-			index = goto_newline(src, index);
+			index = repeat_branch(src, index);
 			break;
 		}
 		case token_pp_elifndef:
@@ -998,7 +1242,7 @@ static void print_tokens(/* dynarr */ token *tokens)
 	for (fckc_size_t index = 0; index < count; index++)
 	{
 		token *current = tokens + index;
-		printf(current->raw);
+		printf("%.*s", (int)current->value.len, current->value.raw);
 	}
 }
 
@@ -1007,7 +1251,7 @@ static token *substitute(kll_arena *arena, token *tokens, /* set */ header *head
 	token *result = fck_dynarr_new(token, arena, 512);
 
 	constant *constants = fck_set_new(constant, arena, 128);
-	constants_add(&constants, "alignof", "");
+	constants_add(&constants, make_text("alignof"), make_text(""));
 
 	result = fill(arena, &constants, result, tokens, headers);
 

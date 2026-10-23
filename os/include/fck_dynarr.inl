@@ -16,7 +16,7 @@ void* fck_dynarr_alloc(kll_allocator* allocator, fckc_size_t element_size, fckc_
 	info->allocator = allocator;
 	info->element_size = element_size;
 	info->capacity = capacity;
-	info->size = 0;
+	info->count = 0;
 
 	void* ptr = (void*)(((fckc_size_t)&buffer[sizeof(*info)]));
 	return ptr;
@@ -38,7 +38,7 @@ void fck_dynarr_free(void* ptr)
 fckc_size_t fck_dynarr_count(const void* ptr)
 {
 	fck_dynarr_info* info = fck_dynarr_get_info(ptr);
-	return info->size;
+	return info->count;
 }
 
 void fck_dynarr_realloc(void** ref_ptr, fckc_size_t extra)
@@ -50,8 +50,8 @@ void fck_dynarr_realloc(void** ref_ptr, fckc_size_t extra)
 
 	fck_dynarr_info* info = fck_dynarr_get_info(*ref_ptr);
 
-	fckc_size_t next_size = info->size + extra;
-	if (info->size != 0)
+	fckc_size_t next_size = info->count + extra;
+	if (info->count != 0)
 	{
 		next_size--;
 		next_size |= next_size >> 1;
@@ -66,8 +66,8 @@ void fck_dynarr_realloc(void** ref_ptr, fckc_size_t extra)
 	void* result = fck_dynarr_alloc(info->allocator, info->element_size, next_size);
 	fck_dynarr_info* result_info = fck_dynarr_get_info(result);
 
-	result_info->size = info->size;
-	memcpy(result, *ref_ptr, info->size * info->element_size);
+	result_info->count = info->count;
+	memcpy(result, *ref_ptr, info->count * info->element_size);
 	fck_dynarr_free(*ref_ptr);
 	*ref_ptr = result;
 }
@@ -77,14 +77,14 @@ void fck_dynarr_expand(void** ref_ptr, fckc_size_t element_size)
 	fck_dynarr_info* info = fck_dynarr_get_info(*ref_ptr);
 	assert(element_size == info->element_size);
 
-	if (info->size >= info->capacity)
+	if (info->count >= info->capacity)
 	{
 		fck_dynarr_realloc(ref_ptr, 1);
 		// Overwrite info and ref_ptr since realloc happened
 		info = fck_dynarr_get_info(*ref_ptr);
 	}
 
-	fckc_size_t offset = info->element_size * info->size;
+	fckc_size_t offset = info->element_size * info->count;
 	fckc_u8* dst = ((fckc_u8*)*ref_ptr) + offset;
-	info->size = info->size + 1;
+	info->count = info->count + 1;
 }

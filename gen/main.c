@@ -58,6 +58,17 @@ typedef enum token_type
 	token_smaller,
 	token_equals,
 
+	token_logical_and,
+	token_logical_or,
+	token_equal_equal,
+	token_not_equal,
+	token_less_equal,
+	token_greater_equal,
+	token_shift_left,
+	token_shift_right,
+	token_increment,
+	token_decrement,
+
 	// Keywords
 	token_struct,
 	token_union,
@@ -125,15 +136,14 @@ typedef struct text
 struct token;
 typedef struct token
 {
-	text        value;
-	token_type  type;
-	fckc_size_t next;
+	text       value;
+	token_type type;
 } token;
 
 typedef struct constant
 {
-	text name;
-	text value;
+	text   name;
+	token *tokens;
 } constant;
 
 typedef struct header
@@ -251,6 +261,7 @@ static void normalise_path(char *buffer)
 
 typedef struct token_keyword_result
 {
+	fckc_u64   hash;
 	text       value;
 	token_type type;
 } token_keyword_result;
@@ -258,62 +269,43 @@ typedef struct token_keyword_result
 #define token_keyword_custom(_text, _type) {.value.raw = (#_text), .value.len = sizeof(#_text) - 1, .type = (_type)}
 #define token_keyword(_text)               {.value.raw = (#_text), .value.len = sizeof(#_text) - 1, .type = (token_##_text)}
 
-static token_keyword_result pp_searches[] = {
-	token_keyword_custom(#include, token_pp_include), token_keyword_custom(#define, token_pp_define),
-	token_keyword_custom(#undef, token_pp_undef),     token_keyword_custom(#if, token_pp_if),
-	token_keyword_custom(#elif, token_pp_elif),       token_keyword_custom(#else, token_pp_else),
-	token_keyword_custom(#ifndef, token_pp_ifndef),   token_keyword_custom(#ifdef, token_pp_ifdef),
-	token_keyword_custom(#elifdef, token_pp_elifdef), token_keyword_custom(#elifndef, token_pp_elifndef),
-	token_keyword_custom(#endif, token_pp_endif),     token_keyword_custom(#pragma, token_pp_pragma),
-	token_keyword_custom(#error, token_pp_error),     token_keyword_custom(#line, token_pp_line),
-	token_keyword_custom(#warning, token_pp_warning),
-};
+static token_keyword_result keyword_table[64];
 
-static token_keyword_result searches[] = {
-	token_keyword(struct),
-	token_keyword(union),
-	token_keyword(typedef),
-	token_keyword(static),
-	token_keyword(int),
-	token_keyword(float),
-	token_keyword(double),
-	token_keyword(char),
-	token_keyword(void),
-	token_keyword(const),
-	token_keyword(extern),
-	token_keyword(register),
-	token_keyword(auto),
-	token_keyword(signed),
-	token_keyword(unsigned),
-	token_keyword(short),
-	token_keyword(long),
-	token_keyword(enum),
-	token_keyword(sizeof),
-	token_keyword(volatile),
-	token_keyword(inline),
-	token_keyword(restrict),
+static void register_keyword(const char *str, token_type type)
+{
+	fckc_size_t len  = strlen(str);
+	fckc_u64    hash = fck_hash(str, len);
+	fckc_u64    slot = hash % fck_arraysize(keyword_table);
 
-	token_keyword_custom(defined, token_pp_defined),
+	while (keyword_table[slot].hash != 0)
+	{
+		slot = (slot + 1) % fck_arraysize(keyword_table);
+	}
 
-	token_keyword_custom(if, token_ignore),
-	token_keyword_custom(else, token_ignore),
-	token_keyword_custom(switch, token_ignore),
-	token_keyword_custom(case, token_ignore),
-	token_keyword_custom(default, token_ignore),
-	token_keyword_custom(while, token_ignore),
-	token_keyword_custom(do, token_ignore),
-	token_keyword_custom(for, token_ignore),
-	token_keyword_custom(goto, token_ignore),
-	token_keyword_custom(break, token_ignore),
-	token_keyword_custom(continue, token_ignore),
-	token_keyword_custom(return, token_ignore),
-};
+	keyword_table[slot].value.raw = str;
+	keyword_table[slot].value.len = len;
+	keyword_table[slot].hash      = hash;
+	keyword_table[slot].type      = type;
+}
+
+static const token_keyword_result *find_keyword(fckc_u64 hash)
+{
+	fckc_u64 slot = hash % fck_arraysize(keyword_table);
+	while (keyword_table[slot].hash != hash)
+	{
+		if (keyword_table[slot].hash == 0)
+		{
+			return NULL;
+		}
+		slot = (slot + 1) % fck_arraysize(keyword_table);
+	}
+	return &keyword_table[slot];
+}
 
 static char *remove_comments2(char *source, char *eof)
 {
 	fck_assert(*source == '/');
 	char *current = source + 1;
-
 	if (*current == '\0')
 	{
 		// I am not even going to ask
@@ -398,98 +390,147 @@ static fckc_size_t tokens_push(token **tokens, token_type type, char *raw, fckc_
 	return 0;
 }
 
-static token_type char_to_token_type(char c)
+static fckc_size_t symbol(fckc_size_t index, char *source, fckc_size_t total, token **tokens)
 {
-	switch (c)
+	char *current = source + index;
+	for (fckc_size_t offset = 0; offset < 2; offset++)
 	{
-	case ';':
-		return token_semicolon;
-	case ':':
-		return token_colon;
-	case '{':
-		return token_scope_open;
-	case '}':
-		return token_scope_close;
-	case '(':
-		return token_paren_open;
-	case ')':
-		return token_paren_close;
-	case '[':
-		return token_bracket_open;
-	case ']':
-		return token_bracket_close;
-	case '*':
-		return token_asterisk;
-	case '+':
-		return token_plus;
-	case '-':
-		return token_minus;
-	case '/':
-		return token_slash;
-	case '%':
-		return token_percent;
-	case '.':
-		return token_dot;
-	case ',':
-		return token_comma;
-	case '&':
-		return token_ampersand;
-	case '|':
-		return token_pipe;
-	case '^':
-		return token_caret;
-	case '~':
-		return token_tilde;
-	case '!':
-		return token_exclamation;
-	case '?':
-		return token_question;
-	case '>':
-		return token_bigger;
-	case '<':
-		return token_smaller;
-	case '=':
-		return token_equals;
-	case '\n':
-		return token_newline;
-	default:
-		return token_ignore;
-	}
-}
+		// Very simple:
+		//	2 - 0 -> 2
+		//	2 - 1 -> 1
+		const int size = 2 - offset;
 
-static fckc_size_t literal(fckc_size_t index, char *source, fckc_size_t total, token **tokens)
-{
-	const char c = source[index];
-	fck_assert(c == '\'' || c == '\"');
-
-	const fckc_size_t checkpoint = index + 1; // Past marker
-	for (index = checkpoint; index < total; index++)
-	{
-		if (source[index] == c)
+		int symbol = 0;
+		for (int accumulator = 0; accumulator < size; accumulator++)
 		{
-			const token_type  type = c == '\'' ? token_char_literal : token_string_literal;
-			// End-exclusive math ;-)
-			const fckc_size_t len  = index - checkpoint;
-			tokens_push(tokens, type, source + checkpoint, len);
+			symbol = (symbol << CHAR_BIT) | (unsigned char)current[accumulator];
+		}
+
+		token_type type = token_ignore;
+
+		switch (symbol)
+		{
+		case ';':
+			type = token_semicolon;
 			break;
+		case ':':
+			type = token_colon;
+			break;
+		case '{':
+			type = token_scope_open;
+			break;
+		case '}':
+			type = token_scope_close;
+			break;
+		case '(':
+			type = token_paren_open;
+			break;
+		case ')':
+			type = token_paren_close;
+			break;
+		case '[':
+			type = token_bracket_open;
+			break;
+		case ']':
+			type = token_bracket_close;
+			break;
+		case '*':
+			type = token_asterisk;
+			break;
+		case '+':
+			type = token_plus;
+			break;
+		case '-':
+			type = token_minus;
+			break;
+		case '/':
+			type = token_slash;
+			break;
+		case '%':
+			type = token_percent;
+			break;
+		case '.':
+			type = token_dot;
+			break;
+		case ',':
+			type = token_comma;
+			break;
+		case '&':
+			type = token_ampersand;
+			break;
+		case '&&':
+			type = token_logical_and;
+			break;
+		case '|':
+			type = token_pipe;
+			break;
+		case '||':
+			type = token_logical_or;
+			break;
+		case '^':
+			type = token_caret;
+			break;
+		case '~':
+			type = token_tilde;
+			break;
+		case '!':
+			type = token_exclamation;
+			break;
+		case '?':
+			type = token_question;
+			break;
+		case '>':
+			type = token_bigger;
+			break;
+		case '<':
+			type = token_smaller;
+			break;
+		case '=':
+			type = token_equals;
+			break;
+		case '==':
+			type = token_equal_equal;
+			break;
+		case '!=':
+			type = token_not_equal;
+			break;
+		case '<=':
+			type = token_less_equal;
+			break;
+		case '>=':
+			type = token_greater_equal;
+			break;
+		case '<<':
+			type = token_shift_left;
+			break;
+		case '>>':
+			type = token_shift_right;
+			break;
+		case '\n':
+			type = token_newline;
+			break;
+		}
+
+		if (type != token_ignore)
+		{
+			tokens_push(tokens, type, current, size);
+			return index + (size - 1);
 		}
 	}
 	return index;
 }
 
-static fckc_size_t header_name(fckc_size_t index, char *source, fckc_size_t total, token **tokens)
+static fckc_size_t strip(fckc_size_t index, char *source, fckc_size_t total, char front, char back, token_type type, token **tokens)
 {
-	const char c = source[index];
-	fck_assert(c == '<');
+	fck_assert(front == source[index]);
 
 	const fckc_size_t checkpoint = index + 1; // Past marker
 	for (index = checkpoint; index < total; index++)
 	{
-		if (source[index] == '>')
+		if (source[index] == back)
 		{
-			// End-exclusive math ;-)
 			const fckc_size_t len = index - checkpoint;
-			tokens_push(tokens, token_header_name, source + checkpoint, len);
+			tokens_push(tokens, type, source + checkpoint, len);
 			break;
 		}
 	}
@@ -504,17 +545,87 @@ static fckc_size_t included_header_name(fckc_size_t index, char *source, fckc_si
 		switch (*current)
 		{
 		case '\"':
+			return strip(index, source, total, '\"', '\"', token_header_name, tokens);
 		case '\'':
-			index = literal(index, source, total, tokens);
-			return index;
+			return strip(index, source, total, '\'', '\'', token_header_name, tokens);
 		case '<':
-			index = header_name(index, source, total, tokens);
-			return index;
+			return strip(index, source, total, '<', '>', token_header_name, tokens);
 		case '\n':
 			return total;
 		}
 	}
 	return index;
+}
+
+static token_type classify_keyword(fckc_u64 hash)
+{
+	// Use the hash modulo slot directly in a regular runtime switch/if chain,
+	// or use a small lookup table:
+	const token_keyword_result *result = find_keyword(hash);
+	if (result)
+	{
+		return result->type;
+	}
+	return token_ignore;
+}
+
+static fckc_size_t number(fckc_size_t index, char *source, fckc_size_t total, token **tokens)
+{
+	fck_assert(isdigit(source[index]));
+
+	const fckc_size_t checkpoint = index;
+	for (index = index + 1; index < total; index++)
+	{
+		char c = source[index];
+		if ((c == 'e' || c == 'E' || c == 'p' || c == 'P') && index + 1 < total)
+		{
+			char next = source[index + 1];
+			if (next == '+' || next == '-')
+			{
+				index++;
+			}
+		}
+		else if (!isalnum((unsigned char)c) && c != '.')
+		{
+			break;
+		}
+	}
+
+	const fckc_size_t size = index - checkpoint;
+	tokens_push(tokens, token_number, source + checkpoint, size);
+
+	return index - 1;
+}
+
+static fckc_size_t identifier_or_keyword(fckc_size_t index, char *source, fckc_size_t total, token **tokens)
+{
+	fckc_size_t checkpoint = index;
+	for (; index < total; index++)
+	{
+		char c = source[index];
+		// Standard C identifier check (alphanumeric + underscore)
+		if (!isalnum(c) && c != '_')
+		{
+			break;
+		}
+	}
+	char             *raw  = source + checkpoint;
+	const fckc_size_t len  = to_int(index - checkpoint);
+	const fckc_u64    hash = fck_hash(raw, to_int(index - checkpoint)); // Match your fck_hash initial seed
+	const token_type  type = classify_keyword(hash);
+
+	if (type != token_ignore)
+	{
+		// We know it is a keyword
+		tokens_push(tokens, type, raw, len);
+	}
+	else
+	{
+		// We just accept it as an identifier
+		tokens_push(tokens, token_identifier, raw, len);
+	}
+	// One step back since we have to look at the terminator
+	return index - 1;
 }
 
 static fckc_size_t preprocessor(fckc_size_t index, char *source, fckc_size_t total, token **tokens)
@@ -639,6 +750,7 @@ static fckc_size_t preprocessor(fckc_size_t index, char *source, fckc_size_t tot
 					case token_ignore:
 						return total;
 					case token_pp_include:
+						// We handle header_name immediately - So in this case include can expect a
 						return included_header_name(index, source, total, tokens);
 						break;
 					}
@@ -652,23 +764,42 @@ static fckc_size_t preprocessor(fckc_size_t index, char *source, fckc_size_t tot
 
 static token *prepare(char *source, fckc_size_t total)
 {
-	token *tokens     = fck_dynarr_new(token, kll->system, 64);
-	char  *checkpoint = NULL;
+	token *tokens = fck_dynarr_new(token, kll->system, 64);
 
 	for (fckc_size_t index = 0; index < total; index++)
 	{
 		char *current = source + index;
 		switch (*current)
 		{
+		case '\n':
+			tokens_push(&tokens, token_newline, current, 1);
+			break;
 		case '\"':
+			index = strip(index, source, total, '\"', '\"', token_string_literal, &tokens);
+			break;
 		case '\'':
-			index = literal(index, source, total, &tokens);
+			index = strip(index, source, total, '\'', '\'', token_char_literal, &tokens);
 			break;
 		case '#':
 			index = preprocessor(index, source, total, &tokens);
 			break;
+		default:
+			if (isalpha(*current) || *current == '_')
+			{
+				index = identifier_or_keyword(index, source, total, &tokens);
+			}
+			else if (isdigit(*current))
+			{
+				index = number(index, source, total, &tokens);
+			}
+			else
+			{
+				index = symbol(index, source, total, &tokens);
+			}
+			break;
 		}
 	}
+
 	tokens_push(&tokens, token_end_of_file, NULL, 0);
 	return tokens;
 }
@@ -767,7 +898,7 @@ static fckc_size_t handle_definition(const token *tokens, fckc_size_t index)
 			// Maybe blacklisting a bunch of keywords and as soon as a file has them it gets excluded from reflection
 			if (next->type == token_scope_open)
 			{
-				os->io->log("Nested %s <anonymous>", current->value);
+				os->io->log("Nested %.*s <anonymous>", current->value.len, current->value.raw);
 				index = handle_definition(tokens, next_idx + 1);
 				break;
 			}
@@ -777,7 +908,7 @@ static fckc_size_t handle_definition(const token *tokens, fckc_size_t index)
 				const token      *scope_open     = tokens + scope_open_idx;
 				if (scope_open->type == token_scope_open)
 				{
-					os->io->log("Nested %s %s", current->value, next->value);
+					os->io->log("Nested %.*s %.*s", current->value.len, current->value.raw, next->value.len, next->value.raw);
 					index = handle_definition(tokens, scope_open_idx + 1);
 				}
 			}
@@ -816,27 +947,19 @@ static fckc_size_t goto_newline(const token *tokens, fckc_size_t index)
 	return index;
 }
 
-static text stringify(kll_arena *arena, const token *begin, const token *end)
+static token *token_list(kll_arena *arena, const token *begin, const token *end)
 {
-	fckc_size_t total = 0;
-	for (const token *current = begin; current != end; current++)
+	fckc_size_t count = end - begin;
+	if (count == 0)
 	{
-		total = total + current->value.len;
+		return NULL;
 	}
-	if (total == 0)
-	{
-		return make_text("");
-	}
+	token           *tokens = fck_dynarr_new(token, arena, count);
+	fck_dynarr_info *info   = fck_dynarr_get_info(tokens);
 
-	char *memory = (char *)kll_malloc(arena, total + 1);
-	char *at     = memory;
-	for (const token *current = begin; current != end; current++)
-	{
-		memcpy(at, current->value.raw, current->value.len);
-		at = at + current->value.len;
-	}
-	memory[total] = '\0';
-	return (text){.raw = memory, .len = total};
+	info->count = count;
+	memcpy(tokens, begin, count * sizeof(*tokens));
+	return tokens;
 }
 
 static fckc_size_t constants_find(constant *constants, text name)
@@ -846,9 +969,9 @@ static fckc_size_t constants_find(constant *constants, text name)
 	return result;
 }
 
-static void constants_add(constant **constants, text name, text value)
+static void constants_add(constant **constants, text name, token *tokens)
 {
-	const constant c = {.name = name, .value = value};
+	const constant c = {.name = name, .tokens = tokens};
 	fck_set_add(*constants, text_hash(name), c);
 }
 
@@ -872,16 +995,16 @@ static fckc_size_t define(kll_arena *arena, /* dynarr */ const token *tokens, /*
 	const token      *statement        = identifier + 1;
 	const fckc_size_t end_of_statement = index;
 
-	text raw = stringify(arena, statement, tokens + end_of_statement);
+	token *o = token_list(arena, statement, tokens + end_of_statement);
 
-	constants_add(constants, identifier->value, raw);
+	constants_add(constants, identifier->value, o);
 
 	return end_of_statement;
 }
 
-static fckc_size_t include(token *tokens, fckc_size_t index)
+static fckc_size_t include(const token *tokens, fckc_size_t index)
 {
-	token       *include = tokens + index;
+	const token *include = tokens + index;
 	const token *current = tokens + index + 1;
 	switch (current->type)
 	{
@@ -889,7 +1012,6 @@ static fckc_size_t include(token *tokens, fckc_size_t index)
 		current = tokens + index + 2;
 		if (current->type == token_identifier)
 		{
-			include->next = index + 2;
 			return index + 2;
 		}
 		break;
@@ -900,38 +1022,14 @@ static fckc_size_t include(token *tokens, fckc_size_t index)
 	return index + 1;
 }
 
-static void classify(kll_arena *arena, token *tokens)
+static void print_tokens(/* dynarr */ token *tokens)
 {
-	// All of this shit. I mean all of it,
-	// can break just because some knob likes macros
+	os->io->log("PRINT TOKENS:");
 	const fckc_size_t count = fck_dynarr_count(tokens);
-
 	for (fckc_size_t index = 0; index < count; index++)
 	{
 		token *current = tokens + index;
-		switch (current->type)
-		{
-		case token_pp_include: {
-			index = include(tokens, index);
-			index = goto_newline(tokens, index);
-			break;
-		}
-		case token_union:
-		case token_struct: {
-			const fckc_size_t identifier_idx = index + 1;
-			const token      *identifier     = tokens + identifier_idx;
-			if (identifier->type == token_identifier)
-			{
-				const fckc_size_t scope_open_idx = identifier_idx + 1;
-				const token      *scope_open     = tokens + scope_open_idx;
-				if (scope_open->type == token_scope_open)
-				{
-					index = handle_definition(tokens, scope_open_idx + 1);
-				}
-			}
-			break;
-		}
-		}
+		printf("%.*s", (int)current->value.len, current->value.raw);
 	}
 }
 
@@ -957,7 +1055,7 @@ static token *tokenise(kll_arena *arena, const char *path)
 	replace_backslash(buffer);
 
 	token *tokens = prepare(buffer, size);
-	classify(arena, tokens);
+	// print_tokens(tokens);
 
 	return tokens;
 }
@@ -1088,7 +1186,7 @@ static void setup_user(kll_arena *arena, const char *source, /*set*/ header **he
 	os->glob->free(directories);
 }
 
-static fckc_size_t repeat_branch(const token *tokens, fckc_size_t index)
+static fckc_size_t maybe_repeat_branch(const token *tokens, fckc_size_t index)
 {
 	const token *current = tokens + index;
 	switch (current->type)
@@ -1145,23 +1243,119 @@ static fckc_size_t skip_branch(const token *tokens, fckc_size_t index)
 	return index;
 }
 
-static token *fill(kll_arena *arena, constant **constants, token *dst, const token *src, /* set */ header *headers)
+typedef struct evaluation_stack
+{
+	fckc_u64 taken;
+	token   *expanded;
+	int      depth;
+} evaluation_stack;
+
+static void evaluation_stack_push(evaluation_stack *stack, int condition)
+{
+	const int current = stack->depth;
+	stack->taken      = (stack->taken & ~(1ULL << current)) | ((!!condition) << current);
+	stack->depth      = current + 1;
+}
+
+static int evaluation_stack_peek(evaluation_stack *stack)
+{
+	if (stack->depth == 0)
+	{
+		return 0;
+	}
+	const int current = stack->depth - 1;
+	return (stack->taken >> current) & 1ULL;
+}
+
+static void evaluation_stack_pop(evaluation_stack *stack)
+{
+	const int current = stack->depth;
+	stack->depth      = current - 1;
+}
+
+static token* fill(kll_arena* arena, constant** constants, evaluation_stack* eval, token* dst, const token* src, /* set */ header* headers);
+
+static int evaluate_condition(kll_arena *arena, constant **constants, evaluation_stack *eval, const token *src, fckc_size_t *index)
+{
+	// Reset the scratch dynarr count to 0 while keeping capacity intact
+	fck_dynarr_clear(eval->expanded);
+
+	const fckc_size_t start = *index;
+	const fckc_size_t end = goto_newline(src, start);
+
+	for (fckc_size_t i = start; i < end; i++)
+	{
+		const token* current = src + i;
+
+		if (current->type == token_identifier)
+		{
+			const fckc_size_t result = constants_find(*constants, current->value);
+			if (result)
+			{
+				constant* macro = *constants + result - 1;
+				if (macro->tokens)
+				{
+					eval->expanded = fill(arena, constants, eval, eval->expanded, macro->tokens, NULL);
+				}
+				else
+				{
+					fck_dynarr_add(eval->expanded, *current);
+				}
+			}
+			else
+			{
+				fck_dynarr_add(eval->expanded, *current);
+			}
+		}
+		else
+		{
+			fck_dynarr_add(eval->expanded, *current);
+		}
+	}
+
+	fckc_size_t eval_index = 0;
+	int success = 1;
+	
+	print_tokens(eval->expanded);
+
+	//int result = eval_expression(eval_stack->expanded, &eval_index, *constants, &success);
+
+	*index = end;
+	return 0;
+}
+
+static token *fill(kll_arena *arena, constant **constants, evaluation_stack *eval, token *dst, const token *src, /* set */ header *headers)
 {
 	const fckc_size_t count = fck_dynarr_count(src);
 	for (fckc_size_t index = 0; index < count; index++)
 	{
-
 		const token *current = src + index;
 		switch (current->type)
 		{
+		case token_identifier: {
+			const fckc_size_t result = constants_find(*constants, current->value);
+			if (result)
+			{
+				constant *macro = *constants + result - 1;
+				if (macro->tokens)
+				{
+					dst = fill(arena, constants, eval, dst, macro->tokens, headers);
+				}
+			}
+			else
+			{
+				fck_dynarr_add(dst, *current);
+			}
+			break;
+		}
 		case token_pp_include: {
-			const token *identifier = src + current->next;
-			if (identifier->type == token_identifier)
+			const token *identifier = src + include(src, index);
+			if (identifier->type == token_header_name)
 			{
 				header *target = headers_find(headers, identifier->value);
 				if (target)
 				{
-					dst = fill(arena, constants, dst, target->tokens, headers);
+					dst = fill(arena, constants, eval, dst, target->tokens, headers);
 				}
 				index = goto_newline(src, index);
 			}
@@ -1180,41 +1374,89 @@ static token *fill(kll_arena *arena, constant **constants, token *dst, const tok
 			index = goto_newline(src, index);
 			break;
 		}
-		case token_pp_if:
-			// TODO
+		case token_pp_if: {
+			const token *next = current + 1;
+			if (next->type == token_pp_defined)
+			{
+				const token      *identifier = next + 1;
+				const fckc_size_t result     = constants_find(*constants, identifier->value);
+				evaluation_stack_push(eval, result ? 1 : 0);
+				if (!result)
+				{
+					index = skip_branch(src, index);
+				}
+				index = maybe_repeat_branch(src, index);
+				break;
+			}
+			const int taken = evaluate_condition(arena, constants, eval, src, &index);
+			evaluation_stack_push(eval, taken); // Track that a branch was taken if true
+			if (!taken)
+			{
+				index = skip_branch(src, index); // Skips to next elif/else/endif
+			}
 			break;
-		case token_pp_elif:
-			// TODO
+		}
+		case token_pp_elif: {
+			if (evaluation_stack_peek(eval))
+			{
+				index = skip_branch(src, index);
+				break;
+			}
+			const int taken = evaluate_condition(arena, constants, eval, src, &index);
+			evaluation_stack_push(eval, taken);
+			if (!taken)
+			{
+				index = skip_branch(src, index);
+			}
 			break;
+		}
+		case token_pp_else:
+			if (evaluation_stack_peek(eval))
+			{
+				index = skip_branch(src, index);
+				break;
+			}
+			break;
+		case token_pp_endif:
+			evaluation_stack_pop(eval);
+			break;
+		case token_pp_elifndef:
 		case token_pp_ifndef: {
+			if (evaluation_stack_peek(eval))
+			{
+				index = skip_branch(src, index);
+				break;
+			}
 			const token      *identifier = current + 1;
 			const fckc_size_t result     = constants_find(*constants, identifier->value);
+			evaluation_stack_push(eval, result ? 0 : 1);
 			if (result)
 			{
 				index = skip_branch(src, index);
 			}
-			index = repeat_branch(src, index);
+			index = maybe_repeat_branch(src, index);
 			break;
 		}
+		// maybe_repeat_branch mechanics
+		case token_pp_elifdef:
 		case token_pp_ifdef: {
+			if (evaluation_stack_peek(eval))
+			{
+				index = skip_branch(src, index);
+				break;
+			}
 			const token      *identifier = current + 1;
 			const fckc_size_t result     = constants_find(*constants, identifier->value);
+			evaluation_stack_push(eval, result ? 1 : 0);
 			if (!result)
 			{
 				index = skip_branch(src, index);
 			}
-			index = repeat_branch(src, index);
+			index = maybe_repeat_branch(src, index);
 			break;
 		}
-		case token_pp_elifndef:
-			break;
-		case token_pp_elifdef:
-			break;
-		case token_pp_else:
-			break;
-		case token_pp_endif:
-			break;
 		case token_pp_pragma:
+			// BIG TODO! :D
 			break;
 		case token_pp_error:
 			break;
@@ -1224,114 +1466,100 @@ static token *fill(kll_arena *arena, constant **constants, token *dst, const tok
 			break;
 		case token_pp_embed:
 			break;
-
 		default:
 			fck_dynarr_add(dst, *current);
 			break;
 		}
-
-		fck_dynarr_add(dst, *current);
 	}
 	return dst;
-}
-
-static void print_tokens(/* dynarr */ token *tokens)
-{
-	os->io->log("PRINT TOKENS:");
-	const fckc_size_t count = fck_dynarr_count(tokens);
-	for (fckc_size_t index = 0; index < count; index++)
-	{
-		token *current = tokens + index;
-		printf("%.*s", (int)current->value.len, current->value.raw);
-	}
 }
 
 static token *substitute(kll_arena *arena, token *tokens, /* set */ header *headers)
 {
 	token *result = fck_dynarr_new(token, arena, 512);
 
+	evaluation_stack eval = {
+		.taken    = 0,
+		.depth    = 0,
+		.expanded = fck_dynarr_new(token, arena, 64),
+	};
 	constant *constants = fck_set_new(constant, arena, 128);
-	constants_add(&constants, make_text("alignof"), make_text(""));
 
-	result = fill(arena, &constants, result, tokens, headers);
+	constants_add(&constants, make_text("alignof"), NULL);
+
+	result = fill(arena, &constants, &eval, result, tokens, headers);
+
+	// fckc_size_t it = fck_set_begin(constants);
+	// while (fck_set_next(constants, it))
+	//{
+	//	constant *current = constants + it;
+
+	//	printf("%.*s: ", current->name.len, current->name.raw);
+	//	if (current->tokens)
+	//	{
+	//		const fckc_size_t count = fck_dynarr_count(current->tokens);
+	//		for (fckc_size_t index = 0; index < count; index++)
+	//		{
+	//			const token *token = current->tokens + index;
+	//			printf("%.*s", token->value.len, token->value.raw);
+	//		}
+	//	}
+	//	else
+	//	{
+	//		printf("defined");
+	//	}
+	//	printf("\n");
+	//}
 
 	print_tokens(result);
 
 	return result;
+}
 
-	// const fckc_size_t count = fck_dynarr_count(tokens);
-	// for (fckc_size_t index = 0; index < count; index++)
-	//{
+void init_keywords(void)
+{
+	register_keyword("struct", token_struct);
+	register_keyword("union", token_union);
+	register_keyword("typedef", token_typedef);
+	register_keyword("static", token_static);
+	register_keyword("int", token_int);
+	register_keyword("float", token_float);
+	register_keyword("double", token_double);
+	register_keyword("char", token_char);
+	register_keyword("void", token_void);
+	register_keyword("const", token_const);
+	register_keyword("extern", token_extern);
+	register_keyword("register", token_register);
+	register_keyword("auto", token_auto);
+	register_keyword("signed", token_signed);
+	register_keyword("unsigned", token_unsigned);
+	register_keyword("short", token_short);
+	register_keyword("long", token_long);
+	register_keyword("enum", token_enum);
+	register_keyword("sizeof", token_sizeof);
+	register_keyword("volatile", token_volatile);
+	register_keyword("inline", token_inline);
+	register_keyword("restrict", token_restrict);
 
-	//	token *current = tokens + index;
-
-	//	switch (current->type)
-	//	{
-	//	case token_pp_include: {
-	//		token *identifier = tokens + current->next;
-	//		if (identifier->type == token_identifier)
-	//		{
-	//			header *target = headers_find(headers, identifier->raw);
-	//			if (target)
-	//			{
-	//				result = fill(constants, result, target->tokens, headers);
-	//			}
-	//			index = identifier - tokens;
-	//		}
-	//		break;
-	//	}
-	//	case token_pp_define:
-	//		index = define(arena, tokens, &constants, index);
-	//		break;
-	//	case token_pp_undef: {
-	//		const token *identifier = tokens + 1;
-	//		if (identifier->type == token_identifier)
-	//		{
-	//			fck_set_remove(constants, fck_hash(identifier->raw, strlen(identifier->raw)));
-	//		}
-	//		break;
-	//	}
-	//	case token_pp_if:
-	//		// TODO
-	//		break;
-	//	case token_pp_elif:
-	//		// TODO
-	//		break;
-	//	case token_pp_ifndef:
-	//		// TODO
-	//		break;
-	//	case token_pp_ifdef:
-	//		break;
-	//	case token_pp_elifndef:
-	//		break;
-	//	case token_pp_elifdef:
-	//		break;
-	//	case token_pp_else:
-	//		break;
-	//	case token_pp_endif:
-	//		break;
-	//	case token_pp_pragma:
-	//		break;
-	//	case token_pp_error:
-	//		break;
-	//	case token_pp_line:
-	//		break;
-	//	case token_pp_warning:
-	//		break;
-	//	case token_pp_embed:
-	//		break;
-
-	//	default:
-	//		fck_dynarr_add(result, *current);
-	//		break;
-	//	}
-	//}
-	// print_tokens(result);
-	// return result;
+	register_keyword("defined", token_pp_defined);
+	register_keyword("if", token_ignore);
+	register_keyword("else", token_ignore);
+	register_keyword("switch", token_ignore);
+	register_keyword("case", token_ignore);
+	register_keyword("default", token_ignore);
+	register_keyword("while", token_ignore);
+	register_keyword("do", token_ignore);
+	register_keyword("for", token_ignore);
+	register_keyword("goto", token_ignore);
+	register_keyword("break", token_ignore);
+	register_keyword("continue", token_ignore);
+	register_keyword("return", token_ignore);
 }
 
 int main(int argc, char **argv)
 {
+	init_keywords();
+
 	char buffer[4048];
 
 	os->io->log("Generate...");
@@ -1376,7 +1604,6 @@ int main(int argc, char **argv)
 		compilation *value = compilations + index;
 		value->tokens      = tokenise(arena, value->path);
 		value->tokens      = substitute(arena, value->tokens, headers);
-		break;
 	}
 
 	return 0;

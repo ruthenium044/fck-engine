@@ -14,6 +14,7 @@
 // I do not know if I still approve hash_int... hash_type, maybe?
 typedef unsigned long long fck_hash_int;
 
+// Maybe inline? 
 static fck_hash_int fck_hash(const char *str, int length)
 {
 	unsigned long long hash = 5381;

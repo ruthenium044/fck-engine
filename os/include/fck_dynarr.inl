@@ -41,7 +41,7 @@ fckc_size_t fck_dynarr_count(const void* ptr)
 	return info->count;
 }
 
-void fck_dynarr_realloc(void** ref_ptr, fckc_size_t extra)
+inline void fck_dynarr_realloc(void** ref_ptr, fckc_size_t extra)
 {
 	if (extra == 0)
 	{

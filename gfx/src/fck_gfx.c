@@ -123,7 +123,7 @@ static void fck_gfx_initialize(fck_gfx_internal *gfx, sht_driver *driver, const 
 	sht_binding_desc binding_desc = {.bindings = bindings, .count = bindings_count};
 	gfx->bss                      = driver->vt->bss->create(*driver, &binding_desc);
 
-	// TODO: Deprecate
+	// TODO: Deprecate - or uummm.. FUCK
 	sht_vertex_desc vertex_desc = {
 		.stride   = 0,
 		.bindings = NULL,

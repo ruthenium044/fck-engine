@@ -20,3 +20,7 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
 )
 
 target_sources(${PROJECT_NAME} PRIVATE "main.c")
+target_sources(${PROJECT_NAME} PRIVATE "gen_tokeniser.h")
+target_sources(${PROJECT_NAME} PRIVATE "gen_tokeniser.c")
+target_sources(${PROJECT_NAME} PRIVATE "gen_parser.h")
+target_sources(${PROJECT_NAME} PRIVATE "gen_parser.c")

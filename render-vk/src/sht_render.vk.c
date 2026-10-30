@@ -381,8 +381,6 @@ static VkResult sht_vk_instance_init(sht_vk_instance *vk)
 
 	static const char *layer_names[] = {"VK_LAYER_KHRONOS_validation"};
 
-	// instance_extension_names[instance_extension_count++] = VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME;
-	// instance_create_info.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
 	sht_vk_platform_adjust_instance(&instance_create_info);
 	sht_vk_platform_adjust_extensions(instance_extension_names, &instance_extension_count);
 

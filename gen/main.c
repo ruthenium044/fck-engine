@@ -16,6 +16,43 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "gen_tokeniser.h"
+
+typedef enum element_type
+{
+	element_none,
+	element_group_begin,
+	element_group_end,
+	element_value,
+
+	element_multiply,
+	element_add,
+	element_subtract,
+	element_divide,
+	element_modulus,
+
+	element_not_equal,
+	element_equal,
+	element_less,
+	element_greater,
+	element_equal_less,
+	element_equal_greater,
+
+	element_ternary_if,
+	element_ternary_else,
+
+	element_logical_not,
+	element_logical_and,
+	element_logical_or,
+
+	element_bitwise_not,
+	element_bitwise_and,
+	element_bitwise_or,
+	element_bitwise_xor,
+	element_bitwise_shift_left,
+	element_bitwise_shift_right
+} element_type;
+
 typedef enum token_type
 {
 	token_ignore,
@@ -118,6 +155,7 @@ typedef enum token_type
 	token_pp_elifdef,
 	token_pp_else,
 	token_pp_endif,
+	token_pp_va_args,
 	token_pp_pragma,
 	token_pp_error,
 	token_pp_line,
@@ -133,7 +171,6 @@ typedef struct text
 
 #define make_text(str) (text){"" str "", sizeof(str) - 1}
 
-struct token;
 typedef struct token
 {
 	text       value;
@@ -385,9 +422,6 @@ typedef struct token_keyword_result
 	token_type type;
 } token_keyword_result;
 
-#define token_keyword_custom(_text, _type) {.value.raw = (#_text), .value.len = sizeof(#_text) - 1, .type = (_type)}
-#define token_keyword(_text)               {.value.raw = (#_text), .value.len = sizeof(#_text) - 1, .type = (token_##_text)}
-
 static token_keyword_result keyword_table[64];
 
 static void register_keyword(const char *str, token_type type)
@@ -514,10 +548,15 @@ static fckc_size_t symbol(fckc_size_t index, char *source, fckc_size_t total, to
 	char *current = source + index;
 	for (fckc_size_t offset = 0; offset < 2; offset++)
 	{
-		// Very simple:
-		//	2 - 0 -> 2
-		//	2 - 1 -> 1
+		// TODOVery simple:
+		//	3 - 0 -> 3
+		//	3 - 1 -> 2
+		//  3 - 2 -> 1
 		const int size = 2 - offset;
+		if (index + size > total)
+		{
+			continue;
+		}
 
 		int symbol = 0;
 		for (int accumulator = 0; accumulator < size; accumulator++)
@@ -527,105 +566,105 @@ static fckc_size_t symbol(fckc_size_t index, char *source, fckc_size_t total, to
 
 		token_type type = token_ignore;
 
-		switch (symbol)
+		switch (symbol % 107)
 		{
-		case ';':
+		case ';' % 107:
 			type = token_semicolon;
 			break;
-		case ':':
+		case ':' % 107:
 			type = token_colon;
 			break;
-		case '{':
+		case '{' % 107:
 			type = token_scope_open;
 			break;
-		case '}':
+		case '}' % 107:
 			type = token_scope_close;
 			break;
-		case '(':
+		case '(' % 107:
 			type = token_paren_open;
 			break;
-		case ')':
+		case ')' % 107:
 			type = token_paren_close;
 			break;
-		case '[':
+		case '[' % 107:
 			type = token_bracket_open;
 			break;
-		case ']':
+		case ']' % 107:
 			type = token_bracket_close;
 			break;
-		case '*':
+		case '*' % 107:
 			type = token_asterisk;
 			break;
-		case '+':
+		case '+' % 107:
 			type = token_plus;
 			break;
-		case '-':
+		case '-' % 107:
 			type = token_minus;
 			break;
-		case '/':
+		case '/' % 107:
 			type = token_slash;
 			break;
-		case '%':
+		case '%' % 107:
 			type = token_percent;
 			break;
-		case '.':
+		case '.' % 107:
 			type = token_dot;
 			break;
-		case ',':
+		case ',' % 107:
 			type = token_comma;
 			break;
-		case '&':
+		case '&' % 107:
 			type = token_ampersand;
 			break;
-		case '&&':
+		case '&&' % 107:
 			type = token_logical_and;
 			break;
-		case '|':
+		case '|' % 107:
 			type = token_pipe;
 			break;
-		case '||':
+		case '||' % 107:
 			type = token_logical_or;
 			break;
-		case '^':
+		case '^' % 107:
 			type = token_caret;
 			break;
-		case '~':
+		case '~' % 107:
 			type = token_tilde;
 			break;
-		case '!':
+		case '!' % 107:
 			type = token_exclamation;
 			break;
-		case '?':
+		case '?' % 107:
 			type = token_question;
 			break;
-		case '>':
+		case '>' % 107:
 			type = token_bigger;
 			break;
-		case '<':
+		case '<' % 107:
 			type = token_smaller;
 			break;
-		case '=':
+		case '=' % 107:
 			type = token_equals;
 			break;
-		case '==':
+		case '==' % 107:
 			type = token_equal_equal;
 			break;
-		case '!=':
+		case '!=' % 107:
 			type = token_not_equal;
 			break;
-		case '<=':
+		case '<=' % 107:
 			type = token_less_equal;
 			break;
-		case '>=':
+		case '>=' % 107:
 			type = token_greater_equal;
 			break;
-		case '<<':
+		case '<<' % 107:
 			type = token_shift_left;
 			break;
-		case '>>':
+		case '>>' % 107:
 			type = token_shift_right;
 			break;
-		case '\n':
+		case '\n' % 107:
 			type = token_newline;
 			break;
 		}
@@ -1088,6 +1127,27 @@ static token *parameter_list(kll_arena *arena, const token *begin, const token *
 			fck_set_add(tokens, hash, *current);
 			break;
 		}
+		case token_dot: {
+			const token *checkpoint = current;
+			for (fckc_size_t index = 1; index < 3; index++)
+			{
+				current = checkpoint + index;
+				if (current->type != token_dot)
+				{
+					// Maybe.. just break? idk
+					fck_assert(0);
+				}
+			}
+			// Historic!
+			const token va_arg_token = {
+				.type      = token_pp_va_args,
+				.value.raw = "__VA_ARGS__",
+				.value.len = sizeof("__VA_ARGS__") - 1,
+
+			};
+			fck_set_add(tokens, text_hash(va_arg_token.value), va_arg_token);
+			break;
+		};
 		default:
 			fck_assert(0);
 			break;
@@ -1149,11 +1209,11 @@ static fckc_size_t define(kll_arena *arena, /* dynarr */ const token *tokens, /*
 	const token *maybe_open = identifier + 1;
 	if (maybe_open->type == token_paren_open)
 	{
-		const token* list = maybe_open + 1;
+		const token *list = maybe_open + 1;
 		for (const token *current = list; current != end; current++)
 		{
 			if (current->type == token_paren_close)
-			{	
+			{
 				p = parameter_list(arena, list, current);
 				break;
 			}
@@ -1241,13 +1301,16 @@ static token *tokenise(kll_arena *arena, const char *path)
 	// buffer[size + 0] = '\n';
 	buffer[size] = '\0';
 
-	remove_comments(buffer, buffer + size);
-	replace_backslash(buffer);
+	xtoken           *tokens;
+	const fckc_size_t output = tokens_generate(buffer, &tokens);
 
-	token *tokens = prepare(buffer, size);
-	// print_tokens(tokens);
+	// remove_comments(buffer, buffer + size);
+	// replace_backslash(buffer);
 
-	return tokens;
+	// token *tokens = prepare(buffer, size);
+	//  print_tokens(tokens);
+
+	return NULL;
 }
 
 static const char *skip_until_last(const char *str, char c)
@@ -1436,7 +1499,7 @@ static fckc_size_t skip_branch(const token *tokens, fckc_size_t index)
 typedef struct evaluation_stack
 {
 	fckc_u64 taken;
-	element *temp; // TODO: rename to expanded?
+	element *temp;
 	int      depth;
 } evaluation_stack;
 
@@ -1613,6 +1676,32 @@ static int token_op_precedence(token_type type)
 	}
 }
 
+#define pp_args_table_capacity 64
+
+typedef struct pp_arg
+{
+	token        parameter;
+	const token *tokens;
+	fckc_size_t  count;
+} pp_arg;
+
+typedef struct pp_args_table
+{
+	pp_arg      values[pp_args_table_capacity];
+	fckc_size_t count;
+} pp_args_table;
+
+void pp_args_table_add(pp_args_table *table, const token *param, const token *tokens, fckc_size_t count)
+{
+	fck_assert(table->count < pp_args_table_capacity);
+
+	for (;;)
+	{
+	}
+}
+
+static element evaluate_expression(fckc_size_t *index, element *elements, fckc_size_t count, int precedence);
+
 static void expand_condition(kll_arena *arena, constant **constants, evaluation_stack *eval, const token *src, fckc_size_t start,
                              fckc_size_t end)
 {
@@ -1622,7 +1711,6 @@ static void expand_condition(kll_arena *arena, constant **constants, evaluation_
 	for (fckc_size_t index = start; index < end; index++)
 	{
 		const token *current = src + index;
-
 		switch (current->type)
 		{
 		case token_paren_open:
@@ -1666,6 +1754,69 @@ static void expand_condition(kll_arena *arena, constant **constants, evaluation_
 				if (result)
 				{
 					constant *macro = *constants + result - 1;
+					if (macro->params)
+					{
+						index                   = index + 1;
+						const token *paren_open = src + index;
+						fck_assert(paren_open->type == token_paren_open);
+
+						int depth = 0;
+
+						const fckc_size_t params_count = fck_dynarr_count(macro->params);
+						fckc_size_t       params_index = 0;
+
+						// Nowe we should get arguments
+						index                 = index + 1;
+						fckc_size_t arg_begin = index;
+						for (; index < end; index++)
+						{
+							if (params_index > params_count)
+							{
+								// ...
+								break;
+							}
+
+							current = src + index;
+							switch (current->type)
+							{
+							case token_paren_open:
+								depth = depth + 1;
+								break;
+							case token_paren_close:
+								depth = depth - 1;
+								break;
+							case token_pp_va_args:
+								break;
+							case token_comma:
+								if (depth == 0)
+								{
+									const token *param = macro->params + params_index;
+									params_index       = params_index + 1;
+
+									const fckc_size_t steal_count = fck_dynarr_count(eval->temp);
+
+									elements_add_fake_symbol(eval, token_paren_open);
+									expand_condition(arena, constants, eval, src, arg_begin, index);
+									elements_add_fake_symbol(eval, token_paren_close);
+									fckc_size_t index = steal_count;
+
+									fck_dynarr_info *info   = fck_dynarr_get_info(eval->temp);
+									element          result = evaluate_expression(&index, eval->temp, info->count - steal_count, 0);
+									info->count             = steal_count;
+
+									// constants_add(constants, param->value, )
+									//  find param in tokens
+									//  replace tokens with param...
+									//  expand_condition(arena, constants, eval, src, arg_begin, end);
+								}
+								break;
+							default:
+								fck_assert(0);
+								break;
+							}
+						}
+					}
+
 					if (macro->tokens)
 					{
 						const fckc_size_t count = fck_dynarr_count(macro->tokens);
@@ -1696,6 +1847,36 @@ static void expand_condition(kll_arena *arena, constant **constants, evaluation_
 			break;
 		}
 	}
+}
+
+static token *substitute_macro(kll_arena *arena, constant *macro, constant **constants, evaluation_stack *eval, token *dst,
+                               /* set */ header *headers)
+{
+	// TODO: Substitute function-like macros
+	// MACRO
+	// MACRO()
+	// MACRO(x)
+	// MACRO(x, y)
+	// MACRO(...)
+	// MACRO(x, y, ...)
+	// tokens SHOULD NOT include ()
+	// params SHOULD ALSO NOT include ()
+	// That manes, we only need to apply params if our tokenised format contains params
+	//
+	// Push and pop values into constants??
+	if (macro->tokens)
+	{
+		return fill(arena, constants, eval, dst, macro->tokens, headers);
+	}
+
+	if (macro->params)
+	{
+		os->io->log("Function Macro");
+		// ...
+	}
+
+	// TODO
+	return dst;
 }
 
 static int evluate_as_boolean(element e)
@@ -1835,8 +2016,6 @@ static element evaluate_binary(token_type op, element lhs, element rhs)
 	return res;
 }
 
-static element evaluate_expression(fckc_size_t *index, element *elements, fckc_size_t count, int precedence);
-
 static element evaluate_group(fckc_size_t *index, element *elements, fckc_size_t count)
 {
 	fck_assert(elements[*index].type == token_paren_open);
@@ -1958,7 +2137,7 @@ static int evaluate_condition(kll_arena *arena, constant **constants, evaluation
 	print_elements(eval->temp);
 
 	*index = end;
-	return 0;
+	return evluate_as_boolean(result);
 }
 
 static token *fill(kll_arena *arena, constant **constants, evaluation_stack *eval, token *dst, const token *src, /* set */ header *headers)
@@ -1974,10 +2153,7 @@ static token *fill(kll_arena *arena, constant **constants, evaluation_stack *eva
 			if (result)
 			{
 				constant *macro = *constants + result - 1;
-				if (macro->tokens)
-				{
-					dst = fill(arena, constants, eval, dst, macro->tokens, headers);
-				}
+				dst             = substitute_macro(arena, macro, constants, eval, dst, headers);
 			}
 			else
 			{
@@ -1992,6 +2168,10 @@ static token *fill(kll_arena *arena, constant **constants, evaluation_stack *eva
 				header *target = headers_find(headers, identifier->value);
 				if (target)
 				{
+					if (strcmp(target->name, "yyjson") == 0)
+					{
+						os->io->log("Test");
+					}
 					dst = fill(arena, constants, eval, dst, target->tokens, headers);
 				}
 				index = goto_newline(src, index);
@@ -2049,12 +2229,12 @@ static token *fill(kll_arena *arena, constant **constants, evaluation_stack *eva
 			evaluation_stack_pop(eval);
 			break;
 		case token_pp_elifndef:
-		case token_pp_ifndef: {
 			if (evaluation_stack_peek(eval))
 			{
 				index = skip_branch(src, index);
 				break;
 			}
+		case token_pp_ifndef: {
 			const token      *identifier = current + 1;
 			const fckc_size_t result     = constants_find(*constants, identifier->value);
 			evaluation_stack_push(eval, result ? 0 : 1);
@@ -2067,12 +2247,12 @@ static token *fill(kll_arena *arena, constant **constants, evaluation_stack *eva
 		}
 		// maybe_repeat_branch mechanics
 		case token_pp_elifdef:
-		case token_pp_ifdef: {
 			if (evaluation_stack_peek(eval))
 			{
 				index = skip_branch(src, index);
 				break;
 			}
+		case token_pp_ifdef: {
 			const token      *identifier = current + 1;
 			const fckc_size_t result     = constants_find(*constants, identifier->value);
 			evaluation_stack_push(eval, result ? 1 : 0);
@@ -2231,7 +2411,7 @@ int main(int argc, char **argv)
 	{
 		compilation *value = compilations + index;
 		value->tokens      = tokenise(arena, value->path);
-		value->tokens      = substitute(arena, value->tokens, headers);
+		// value->tokens      = substitute(arena, value->tokens, headers);
 	}
 
 	return 0;

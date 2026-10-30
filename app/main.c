@@ -580,7 +580,7 @@ int main(int argc, char **argv)
 			fck_assert(os->so->is_ok(*plugins->so(current)));
 		}
 	}
-
+	
 	fck_input       *input   = (fck_input *)registry->find(fck_input_api_name);
 	sht_render_api  *render  = (sht_render_api *)registry->find(sht_render_api_name);
 	fck_texture_api *png     = (fck_texture_api *)registry->find(fck_texture_api_name);

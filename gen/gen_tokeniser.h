@@ -206,6 +206,11 @@ typedef struct xtoken
 
 } xtoken;
 
+struct kll_allocator;
+
+// Make types out of this 
+char* text_buffer_create(struct kll_allocator* allocator, fckc_size_t len);
+
 fckc_size_t tokens_generate(char *source, xtoken **tokens);
 
 // TODO: Do very distinct steps! :)

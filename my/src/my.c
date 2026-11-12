@@ -113,11 +113,13 @@ const my_type *my_api_typeof(const my_assembly *assembly, const char *name)
 	static my_type error_type = {
 		.hash     = 0,
 		.name     = "Unsupported Type",
-		.assembly = &fck_my_api.system,
 		.size     = 0,
 		.fields   = NULL,
 		.last     = NULL,
 	};
+	// meh, we can set up secret error types better next time!:)
+	error_type.assembly = fck_my_api.system;
+
 	return &error_type;
 }
 

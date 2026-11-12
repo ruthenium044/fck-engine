@@ -13,4 +13,11 @@ target_sources(${PROJECT_NAME} PRIVATE "include/fckc_apidef.h")
 target_sources(${PROJECT_NAME} PRIVATE "include/fckc_assert.h")
 target_sources(${PROJECT_NAME} PRIVATE "include/fckc_atomic.h")
 target_sources(${PROJECT_NAME} PRIVATE "include/fckc_inttypes.h")
+target_sources(${PROJECT_NAME} PRIVATE "include/fckc_simd.h")
+target_sources(${PROJECT_NAME} PRIVATE "include/fckc_simd.fallback.inl")
+target_sources(${PROJECT_NAME} PRIVATE "include/fckc_simd.sse.inl")
+target_sources(${PROJECT_NAME} PRIVATE "include/fckc_simd.neon.inl")
+
+
+target_sources(${PROJECT_NAME} PRIVATE "include/fckc_bits.h")
 target_sources(${PROJECT_NAME} PRIVATE "include/fckc_math.h")

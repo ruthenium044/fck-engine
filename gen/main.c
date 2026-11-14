@@ -1285,14 +1285,14 @@ static void print_elements(/* dynarr */ const element *elements)
 
 static token *tokenise(kll_arena *arena, const char *path)
 {
-	os->io->log("Processing... %s", path);
+	//os->io->log("Processing... %s", path);
 
 	fck_file file = os->fs->open(path, "r");
 	fck_assert(os->fs->is_valid(file));
 
 	const fckc_i64    size   = os->fs->size(file);
 	// const fckc_size_t total  = size;
-	char             *buffer = (char *)kll_malloc(kll->system, size + 1);
+	char             *buffer = text_buffer_create(kll->system, size);
 	const fckc_size_t result = os->fs->read(file, (void *)(buffer), size); // Prefix newline
 	fck_assert(to_i64(result) == size);
 
@@ -1301,7 +1301,13 @@ static token *tokenise(kll_arena *arena, const char *path)
 	// buffer[size + 0] = '\n';
 	buffer[size] = '\0';
 
-	xtoken           *tokens;
+	xtoken *tokens;
+
+	// UTF-8 Byte Order Mark (BOM) (EF BB BF)
+	if (result >= 3 && (unsigned char)buffer[0] == 0xEF && (unsigned char)buffer[1] == 0xBB && (unsigned char)buffer[2] == 0xBF)
+	{
+		buffer = buffer + 3;
+	}
 	const fckc_size_t output = tokens_generate(buffer, &tokens);
 
 	// remove_comments(buffer, buffer + size);
@@ -2081,7 +2087,7 @@ static element evaluate_prefix(fckc_size_t *index, element *elements, fckc_size_
 static element evaluate_expression(fckc_size_t *index, element *elements, fckc_size_t count, int precedence)
 {
 	element left = evaluate_prefix(index, elements, count);
-	for (; *index < count; *index++)
+	for (; *index < count; (*index)++)
 	{
 		element *current         = elements + *index;
 		int      next_precedence = token_op_precedence(current->type);
@@ -2396,8 +2402,14 @@ int main(int argc, char **argv)
 	kll_arena   *arena        = kll->arena->create(kll->system, 4096);
 	header      *headers      = fck_set_new(header, arena, 512);
 	compilation *compilations = fck_dynarr_new(compilation, arena, 512);
-
-	setup_user(arena, path, &headers, &compilations);
+	const char  *issue        = "C:/Users/jukai/Documents/fck-engine/nuklear/src/nuklear_overview_demo.inl";
+	{
+	    const char *name   = skip_until_last(issue, '/');
+	    header      target = {.path = issue, .name = name};
+	    fck_set_add(headers, fck_hash(name, strlen(name)), target);
+	}
+	//setup_user(arena, path, &headers, &compilations);
+	//setup_system(arena, system, &headers);
 
 	fckc_size_t it = fck_set_begin(headers);
 	while (fck_set_next(headers, it))
@@ -2405,7 +2417,7 @@ int main(int argc, char **argv)
 		header *value = headers + it;
 		value->tokens = tokenise(arena, value->path);
 	}
-
+	return 0;
 	const fckc_size_t count = fck_dynarr_count(compilations);
 	for (fckc_size_t index = 0; index < count; index++)
 	{

@@ -37,10 +37,29 @@ static inline fckc_i128 simd_prefix_xor(fckc_i128 v)
 	return v;
 }
 
+// set:     [  0,    0,   0xFF, 0xFF, 0xFF,  0,   0xFF, 0xFF, ...,  0   ]
+// reset:   [ 0xFF, 0xFF,  0,    0,    0,   0xFF,  0,    0,   ..., 0xFF ]
+// ... ->   [  0,    0,   0xFF,  0,   0xFF,  0,   0xFF,  0,   ...,  0   ]
+static inline fckc_i128 simd_prefix_xor_reset(fckc_i128 set, fckc_i128 reset)
+{
+	fckc_i128 result = set;
+	fckc_i128 value  = fck_simd_i128_not(reset);
+
+	result = fck_simd_i128_xor(result, fck_simd_i128_and(value, fck_simd_i128_bsll(result, 1)));
+	value  = fck_simd_i128_and(value, fck_simd_i128_bsll(value, 1));
+	result = fck_simd_i128_xor(result, fck_simd_i128_and(value, fck_simd_i128_bsll(result, 2)));
+	value  = fck_simd_i128_and(value, fck_simd_i128_bsll(value, 2));
+	result = fck_simd_i128_xor(result, fck_simd_i128_and(value, fck_simd_i128_bsll(result, 4)));
+	value  = fck_simd_i128_and(value, fck_simd_i128_bsll(value, 4));
+	result = fck_simd_i128_xor(result, fck_simd_i128_and(value, fck_simd_i128_bsll(result, 8)));
+
+	return result;
+}
+
 // set:     [ 0,  0, 0xFF,  0,    0,    0,    0,  0,  ...,  0 ]
 // reset:   [ 0,  0,  0,    0,    0,   0xFF,  0,  0,  ...,  0 ]
 // ... ->   [ 0,  0, 0xFF, 0xFF, 0xFF,  0,    0,  0,  ...,  0 ]
-static inline fckc_i128 simd_prefix_set_reset(fckc_i128 set, fckc_i128 reset)
+static inline fckc_i128 simd_prefix_or_reset(fckc_i128 set, fckc_i128 reset)
 {
 	fckc_i128 result = set;
 	fckc_i128 value  = fck_simd_i128_not(reset);

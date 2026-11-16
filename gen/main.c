@@ -1285,9 +1285,9 @@ static void print_elements(/* dynarr */ const element *elements)
 
 static token *tokenise(kll_arena *arena, const char *path)
 {
-	//os->io->log("Processing... %s", path);
+	// os->io->log("Processing... %s", path);
 
-	fck_file file = os->fs->open(path, "r");
+	fck_file file = os->fs->open(path, "rb");
 	fck_assert(os->fs->is_valid(file));
 
 	const fckc_i64    size   = os->fs->size(file);
@@ -2402,14 +2402,14 @@ int main(int argc, char **argv)
 	kll_arena   *arena        = kll->arena->create(kll->system, 4096);
 	header      *headers      = fck_set_new(header, arena, 512);
 	compilation *compilations = fck_dynarr_new(compilation, arena, 512);
-	const char  *issue        = "C:/Users/jukai/Documents/fck-engine/nuklear/src/nuklear_overview_demo.inl";
-	{
-	    const char *name   = skip_until_last(issue, '/');
-	    header      target = {.path = issue, .name = name};
-	    fck_set_add(headers, fck_hash(name, strlen(name)), target);
-	}
-	//setup_user(arena, path, &headers, &compilations);
-	//setup_system(arena, system, &headers);
+	// const char  *issue        = "C:/Users/jukai/Documents/fck-engine/nuklear/src/nuklear_overview_demo.inl";
+	//{
+	//     const char *name   = skip_until_last(issue, '/');
+	//     header      target = {.path = issue, .name = name};
+	//     fck_set_add(headers, fck_hash(name, strlen(name)), target);
+	// }
+	setup_user(arena, path, &headers, &compilations);
+	// setup_system(arena, system, &headers);
 
 	fckc_size_t it = fck_set_begin(headers);
 	while (fck_set_next(headers, it))

@@ -25,12 +25,20 @@
 
 typedef enum chartype
 {
-	chartype_none  = 0,
-	chartype_space = 1 << 0,                          // 9-13 | 32
-	chartype_digit = 1 << 1,                          // 48–57
-	chartype_alpha = 1 << 2,                          // 65-90 | 97-122
-	chartype_alnum = chartype_digit | chartype_alpha, // 48–57 | 65-90 | 97-122
-	chartype_punct = 1 << 4,                          // 33-47 | 58-64 | 91-96 | 123–126
+	// TECHNICALLY only alpha, digit and alnum need to be strict flags...
+
+	chartype_none           = 0,                               // I think asserting on NONE is ok (0–8 | 14–31 | (127))
+	chartype_space          = 1 << 0,                          // 9-13 | 32
+	chartype_digit          = 1 << 1,                          // 48–57
+	chartype_alpha          = 1 << 2,                          // 65-90 | 97-122
+	chartype_alnum          = chartype_digit | chartype_alpha, // 48–57 | 65-90 | 97-122
+	chartype_punct          = 1 << 3,                          // 33-47 | 58-64 | 91-96 | 123–126
+	// Let's see if this is a good idea....
+	chartype_line_comment   = 1 << 4,
+	chartype_block_comment  = 1 << 5,
+	chartype_char_literal   = 1 << 6,
+	chartype_string_literal = 1 << 7,
+	chartype_any_literal    = chartype_char_literal | chartype_string_literal, // urgh...
 } chartype;
 
 typedef enum tokenise_state_type
@@ -39,6 +47,10 @@ typedef enum tokenise_state_type
 	tokenise_state_identifier_or_keyword,
 	tokenise_state_integer_or_decimal_number,
 	tokenise_state_symbol,
+	tokenise_state_line_comment,
+	tokenise_state_block_comment,
+	tokenise_state_string_literal,
+	tokenise_state_char_literal,
 } tokenise_state_type;
 
 static fckc_i128 categorise_chars(fckc_i128 batch)
@@ -195,6 +207,13 @@ static chartype isalnum(char c)
 		break
 
 #define conditional_switch for (int fckc_concat(i, __LINE__) = 1; fckc_concat(i, __LINE__) != 0; fckc_concat(i, __LINE__) = 0)
+
+#define conditional_case(condition, state, target)                                                                                         \
+	if ((condition))                                                                                                                       \
+	{                                                                                                                                      \
+		(state) = (target);                                                                                                                \
+		break;                                                                                                                             \
+	}
 
 #define token_symbol_hash(c) (((c) ^ ((c) >> 3)) & 31)
 
@@ -407,6 +426,139 @@ static char *number(char **cursor, char *eof, xtoken **tokens)
 	fck_dynarr_add(*tokens, token_create_constant(&text, type));
 	*cursor = current - 1;
 	return *cursor;
+}
+
+void symbol_to_token(char *cursor, fckc_size_t *out_len, token_punctuator_type *out_type)
+{
+	// TODO: THIS FUNCTION CANNOT FAIL! The hash table is wayyyy to short for that
+	// This method here relies on having a perfect set ENTERING this function
+
+	// TODO: Range check, but we can also just add a little buffer at the end of source for some convenience :)
+	// stand-alone only symbols
+	token_punctuator_type type     = token_punctuator_invalid;
+	token_punctuator_type compound = token_punctuator_invalid;
+
+	char *current = cursor;
+	if (*current == '\n')
+	{
+		// Edge case for now... Just for now. I think I can do something better later
+		*out_len  = 1;
+		*out_type = token_punctuator_newline;
+		return;
+	}
+
+	switch (token_symbol_hash(current[0]))
+	{
+		{
+			// single-character possibilities
+			token_hashed_symbol_case_break('[', type, token_punctuator_lbracket);
+			token_hashed_symbol_case_break(']', type, token_punctuator_rbracket);
+			token_hashed_symbol_case_break('(', type, token_punctuator_lparen);
+			token_hashed_symbol_case_break(')', type, token_punctuator_rparen);
+			token_hashed_symbol_case_break('{', type, token_punctuator_lbrace);
+			token_hashed_symbol_case_break('}', type, token_punctuator_rbrace);
+			token_hashed_symbol_case_break('?', type, token_punctuator_question);
+			token_hashed_symbol_case_break(';', type, token_punctuator_semicolon);
+			token_hashed_symbol_case_break(':', type, token_punctuator_colon);
+			token_hashed_symbol_case_break(',', type, token_punctuator_comma);
+			token_hashed_symbol_case_break('~', type, token_punctuator_tilde);
+		}
+
+		{
+			// multi-character possibilities
+			token_hashed_symbol_case('.', type, token_punctuator_dot);
+			token_symbol_assign_if(current[1] == '.', compound, token_punctuator_ellipsis);
+			break;
+			token_hashed_symbol_case('+', type, token_punctuator_plus);
+			token_symbol_assign_if(current[1] == '+', compound, token_punctuator_plus_plus);
+			token_symbol_assign_if(current[1] == '=', compound, token_punctuator_plus_equal);
+			break;
+			token_hashed_symbol_case('-', type, token_punctuator_minus);
+			token_symbol_assign_if(current[1] == '-', compound, token_punctuator_minus_minus);
+			token_symbol_assign_if(current[1] == '=', compound, token_punctuator_minus_equal);
+			token_symbol_assign_if(current[1] == '>', compound, token_punctuator_arrow);
+			break;
+			token_hashed_symbol_case('%', type, token_punctuator_percent);
+			token_symbol_assign_if(current[1] == '=', compound, token_punctuator_percent_equal);
+			break;
+			token_hashed_symbol_case('*', type, token_punctuator_star);
+			token_symbol_assign_if(current[1] == '=', compound, token_punctuator_star_equal);
+			break;
+			token_hashed_symbol_case('/', type, token_punctuator_slash);
+			token_symbol_assign_if(current[1] == '=', compound, token_punctuator_slash_equal);
+			break;
+			token_hashed_symbol_case('^', type, token_punctuator_caret);
+			token_symbol_assign_if(current[1] == '=', compound, token_punctuator_caret_equal);
+			break;
+			token_hashed_symbol_case('&', type, token_punctuator_ampersand);
+			token_symbol_assign_if(current[1] == '&', compound, token_punctuator_ampersand_ampersand);
+			token_symbol_assign_if(current[1] == '=', compound, token_punctuator_ampersand_equal);
+			break;
+			token_hashed_symbol_case('|', type, token_punctuator_pipe);
+			token_symbol_assign_if(current[1] == '|', compound, token_punctuator_pipe_pipe);
+			token_symbol_assign_if(current[1] == '=', compound, token_punctuator_pipe_equal);
+			break;
+			token_hashed_symbol_case('!', type, token_punctuator_exclaim);
+			token_symbol_assign_if(current[1] == '=', compound, token_punctuator_exclaim_equal);
+			break;
+			token_hashed_symbol_case('<', type, token_punctuator_less);
+			token_symbol_assign_if(current[1] == '<', compound, token_punctuator_less_less);
+			token_symbol_assign_if(current[1] == '=', compound, token_punctuator_less_equal);
+			break;
+			token_hashed_symbol_case('>', type, token_punctuator_greater);
+			token_symbol_assign_if(current[1] == '>', compound, token_punctuator_greater_greater);
+			token_symbol_assign_if(current[1] == '=', compound, token_punctuator_greater_equal);
+			break;
+			token_hashed_symbol_case('=', type, token_punctuator_equal);
+			token_symbol_assign_if(current[1] == '=', compound, token_punctuator_equal_equal);
+			break;
+			token_hashed_symbol_case('#', type, token_punctuator_hash);
+			token_symbol_assign_if(current[1] == '#', compound, token_punctuator_hash_hash);
+			break;
+		}
+	}
+	if (type == token_punctuator_invalid)
+	{
+		*out_len  = 1;
+		*out_type = token_punctuator_invalid;
+		fck_assert(0);
+		return;
+	}
+
+	if (compound == token_punctuator_invalid)
+	{
+		*out_len  = 1;
+		*out_type = type;
+		return;
+	}
+
+	type = token_punctuator_invalid;
+
+	switch (compound)
+	{
+	case token_punctuator_ellipsis: {
+		token_symbol_assign_if(current[2] == '.', type, token_punctuator_ellipsis);
+		*out_len  = 1;
+		*out_type = type;
+		return;
+	}
+	case token_punctuator_greater_greater:
+		token_symbol_assign_if(current[2] == '=', type, token_punctuator_greater_greater_equal);
+		break;
+	case token_punctuator_less_less:
+		token_symbol_assign_if(current[2] == '=', type, token_punctuator_less_less_equal);
+		break;
+	}
+
+	if (type == token_punctuator_invalid)
+	{
+		*out_len  = 2;
+		*out_type = compound;
+		return;
+	}
+
+	*out_len  = 3;
+	*out_type = type;
 }
 
 static char *preprocessor_directive(char *begin, char *end, xtoken **tokens)
@@ -1157,8 +1309,8 @@ static xtoken *generate_tokens_simd(char *source, char *eof)
 			const fckc_i128 block_comment_end = fck_simd_i128_and(stars[0], slashes[1]);
 			const fckc_i128 line_comment_end  = newlines[0];
 
-			block_comments = simd_prefix_set_reset(block_comment_start, block_comment_end);
-			line_comments  = simd_prefix_set_reset(line_comment_start, line_comment_end);
+			block_comments = simd_prefix_or_reset(block_comment_start, block_comment_end);
+			line_comments  = simd_prefix_or_reset(line_comment_start, line_comment_end);
 
 			carry.block_comment = (fck_simd_i128_movemask_i8(block_comments) >> 15) & 1;
 			carry.line_comment  = (fck_simd_i128_movemask_i8(line_comments) >> 15) & 1;
@@ -1506,7 +1658,8 @@ void tokens_print(xtoken *tokens, fckc_size_t count)
 char *text_buffer_create(struct kll_allocator *allocator, fckc_size_t len)
 {
 	// For the sake of vectorisation
-	const fckc_size_t preferred = fckc_align(len + 1, 16);
+	const fckc_size_t padding   = 64;
+	const fckc_size_t preferred = fckc_align(len + padding + 1, 16);
 
 	// TODO: we may have to do extra alignment :)
 	char *buffer = (char *)kll_malloc(kll->system, preferred);
@@ -1527,18 +1680,22 @@ typedef struct token_chunk_carry
 	// fckc_u8 punctuator : 1;
 } token_chunk_carry;
 
-xtoken *generate_tokens_simd_v3(char *source, char *eof)
+// static int compute_flag_mask(fckc_i128 state, fckc_i128 mask)
+//{
+//	const int result = fck_simd_i128_movemask_i8(fck_simd_i128_cmpeq_i8(fck_simd_i128_and(state, mask), mask));
+//	return result;
+// }
+#define compute_flag_mask(state, mask) fck_simd_i128_movemask_i8(fck_simd_i128_cmpeq_i8(fck_simd_i128_and(state, mask), mask))
+
+xtoken *generate_tokens_simd_v3(char *source)
 {
-	// TODO: \t -> ' '
-	const fckc_i128 tabs    = fck_simd_i128_set1_i8('\t');
-	const fckc_i128 newline = fck_simd_i128_set1_i8('\n');
-
-	const fckc_i128 single_quote = fck_simd_i128_set1_i8('\'');
-	const fckc_i128 double_quote = fck_simd_i128_set1_i8('"');
-
+	const fckc_i128 newline         = fck_simd_i128_set1_i8('\n');
 	const fckc_i128 carriage_return = fck_simd_i128_set1_i8('\r');
-
-	const fckc_i128 backslash = fck_simd_i128_set1_i8('\\');
+	const fckc_i128 slash           = fck_simd_i128_set1_i8('/');
+	const fckc_i128 star            = fck_simd_i128_set1_i8('*');
+	const fckc_i128 single_quote    = fck_simd_i128_set1_i8('\'');
+	const fckc_i128 double_quote    = fck_simd_i128_set1_i8('"');
+	const fckc_i128 backslash       = fck_simd_i128_set1_i8('\\');
 
 	const fckc_i128 space     = fck_simd_i128_set1_i8(' ');
 	const fckc_i128 space_min = fck_simd_i128_set1_i8('\t' - 1);
@@ -1550,32 +1707,43 @@ xtoken *generate_tokens_simd_v3(char *source, char *eof)
 	const fckc_i128 lower_min = fck_simd_i128_set1_i8('a' - 1);
 	const fckc_i128 lower_max = fck_simd_i128_set1_i8('z' + 1);
 
-	// x | ('a' - 'A') -> everything becomes 'a'
+	const fckc_i128 mask_underscore = fck_simd_i128_set1_i8('_');
+	const fckc_i128 mask_dot        = fck_simd_i128_set1_i8('.');
+
+	const fckc_i128 mask_space = fck_simd_i128_set1_i8(chartype_space);
+	const fckc_i128 mask_digit = fck_simd_i128_set1_i8(chartype_digit);
+	const fckc_i128 mask_alpha = fck_simd_i128_set1_i8(chartype_alpha);
+	const fckc_i128 mask_punct = fck_simd_i128_set1_i8(chartype_punct);
+
+	//  x | ('a' - 'A') -> everything becomes 'a'
 	const fckc_i128 to_lower = fck_simd_i128_set1_i8('a' - 'A');
 
 	// x >= ' ' -> graph | max implicit (we ignore backspace)
 	const fckc_i128 graph_min = fck_simd_i128_set1_i8(' ');
 
-	struct
-	{
-		fckc_u8 backslash    : 1;
-		fckc_u8 single_quote : 1;
-		fckc_u8 double_quote : 1;
-		// fckc_u8 line_comment : 1;
-		// fckc_u8 block_comment : 1;
-		// fckc_u8 identifier : 1;
-		// fckc_u8 digit : 1;
-		// fckc_u8 punctuator : 1;
+	union {
+		struct
+		{
+			fckc_u8 single_quote  : 1;
+			fckc_u8 double_quote  : 1;
+			fckc_u8 line_comment  : 1;
+			fckc_u8 block_comment : 1;
+			fckc_u8 identifier    : 1;
+			fckc_u8 digit         : 1;
+			fckc_u8 punctuator    : 1;
+		} has;
+		fckc_u8 any : 8;
 	} carry = {0};
 
-	const fckc_i128 mask_constant[] = {
+	struct
+	{
+		fckc_i128 splice_carriage_return;
+		fckc_i128 splice_newline;
+		fckc_i128 backslash;
+	} simd_carry = {
 		fck_simd_i128_zero(),
-		fck_simd_i128_ones(),
-	};
-
-	const fckc_i128 carry_constant[] = {
 		fck_simd_i128_zero(),
-		fck_simd_i128_set_i8(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xFF),
+		fck_simd_i128_zero(),
 	};
 
 	// char(127)			-> ignored
@@ -1584,112 +1752,393 @@ xtoken *generate_tokens_simd_v3(char *source, char *eof)
 
 	xtoken *result = fck_dynarr_new(xtoken, kll->system, 512);
 
+	char *directive  = NULL;
 	char *checkpoint = NULL;
-	for (char *cursor = source; cursor < eof; cursor = cursor + 64)
+	int   active     = 0xFFFF;
+
+	for (char *cursor = source; /* YOLO */; cursor = cursor + 16)
 	{
+		struct
+		{
+			int nulls;
+			int spaces;
+			int alphas;
+			int digits;
+			int puncts;
+			int underscores;
+			int dots;
+			int newlines;
+			int double_quotes;
+			int single_quotes;
+			int line_comment_starts;
+			int block_comment_starts;
+			int block_comment_ends;
+		} chunk;
+
 		const fckc_i128 original[] = {
 			fck_simd_i128_load(cursor + 0),
 			fck_simd_i128_loadu(cursor + 1),
+			fck_simd_i128_loadu(cursor + 2),
 		};
 
-		const fckc_i128 escaped_backslash = carry_constant[carry.backslash];
-		const fckc_i128 backslashes       = fck_simd_i128_cmpeq_i8(original[0], backslash);
-
-		fckc_i128 newlines[] = {
-			fck_simd_i128_cmpeq_i8(original[0], newline),
-			fck_simd_i128_cmpeq_i8(original[1], newline),
-		};
-
+		fckc_i128 chars /* = zero below in base categorisation */;
 		{
-			// Handle line merging via escaping
-			const fckc_i128 carriage_returns[] = {
-				fck_simd_i128_cmpeq_i8(original[0], carriage_return),
-				fck_simd_i128_cmpeq_i8(original[1], carriage_return),
-			};
+			// Maybe use char constants instead. Oh well
 
-			// Thanks Windows for CRLF - Stupid
-			// '\\' '\n' -> 0xFF & 0xFF -> 0xFF
-			const fckc_i128 backslash_newline = fck_simd_i128_and(backslashes, newlines[1]);
-			// '\\' '\r' -> 0xFF & 0xFF -> 0xFF
-			const fckc_i128 backslash_returns = fck_simd_i128_and(backslashes, carriage_returns[1]);
-			// '\\' '\r' '\n' ->  0xFF & 0xFF & 0xFF -> 0xFF
-			const fckc_i128 backslash_crlf    = fck_simd_i128_and(fck_simd_i128_bsll(backslash_returns, 1), newlines[1]);
+			// if (c == ' ' || (c > space_min && c < space_max))
+			const fckc_i128 is_space_char    = fck_simd_i128_cmpeq_i8(original[0], space);
+			const fckc_i128 is_space_greater = fck_simd_i128_cmpgt_i8(original[0], space_min);
+			const fckc_i128 is_space_less    = fck_simd_i128_cmplt_i8(original[0], space_max);
+			const fckc_i128 is_space_ish     = fck_simd_i128_and(is_space_greater, is_space_less);
+			const fckc_i128 is_space         = fck_simd_i128_or(is_space_char, is_space_ish);
 
-			// Escaped
-			const fckc_i128 ignored_lf           = fck_simd_i128_bsll(backslash_newline, 1);
-			const fckc_i128 ignored_crlf         = fck_simd_i128_bsll(backslash_crlf, 1);
-			const fckc_i128 ignored_line_endings = fck_simd_i128_or(ignored_lf, ignored_crlf);
+			// if (c > digit_min && c < digit_max)
+			const fckc_i128 is_digit_greater = fck_simd_i128_cmpgt_i8(original[0], digit_min);
+			const fckc_i128 is_digit_less    = fck_simd_i128_cmplt_i8(original[0], digit_max);
+			const fckc_i128 is_digit         = fck_simd_i128_and(is_digit_greater, is_digit_less);
 
-			// Sadly, we can have '\\' in a previous chunk, so let's mix that shit in
-			// if carried -> 0x00 0x00 ... 0xFF
-			const fckc_i128 carry_ignored_lf           = escaped_backslash;
-			// Also consider it for CLRF, thanks again, Windows
-			const fckc_i128 carry_ignored_crlf         = fck_simd_i128_bsll(fck_simd_i128_and(carry_ignored_lf, carriage_returns[0]), 1);
-			// Will effectivaly, and conditionally, adjust the first byte of chunk cause carrying
-			const fckc_i128 carry_ignored_line_endings = fck_simd_i128_or(carry_ignored_lf, carry_ignored_crlf);
-			const fckc_i128 all_ignored_line_endings   = fck_simd_i128_or(ignored_line_endings, carry_ignored_line_endings);
+			// if (to_lower(c) > lower_min && to_lower(c) < lower_max)
+			const fckc_i128 as_lower         = fck_simd_i128_or(original[0], to_lower);
+			const fckc_i128 is_alpha_greater = fck_simd_i128_cmpgt_i8(as_lower, lower_min);
+			const fckc_i128 is_alpha_less    = fck_simd_i128_cmplt_i8(as_lower, lower_max);
+			const fckc_i128 is_alpha         = fck_simd_i128_and(is_alpha_greater, is_alpha_less);
 
-			// When carrying '\\''\r', we treat it as '\\'; '\r' should be quite useless to us...
-			// The downside is that we handle carry.backslash in this section
-			const fckc_i128 active_escapes = fck_simd_i128_or(backslashes, fck_simd_i128_bsll(backslash_returns, 1));
-			carry.backslash                = (fck_simd_i128_movemask_i8(active_escapes) >> 15) & 1;
+			// if (c > graph_min)
+			const fckc_i128 is_graphical = fck_simd_i128_cmpgt_i8(original[0], graph_min);
 
-			// Apply escaped CL or CRLF (Thanks for nothing, Windows)
-			newlines[0] = fck_simd_i128_andnot(newlines[0], all_ignored_line_endings);
+			const fckc_i128 is_alnum = fck_simd_i128_or(is_digit, is_alpha);
+			// Very simple, is GRAPHICAL, but NOT ALNUM -> Only punctuators are left! :)
+			const fckc_i128 is_punct = fck_simd_i128_andnot(is_graphical, is_alnum);
+
+			// Combine!
+			chars = fck_simd_i128_and(is_space, mask_space);
+			chars = fck_simd_i128_or(chars, fck_simd_i128_and(is_digit, mask_digit));
+			chars = fck_simd_i128_or(chars, fck_simd_i128_and(is_alpha, mask_alpha));
+			chars = fck_simd_i128_or(chars, fck_simd_i128_and(is_punct, mask_punct));
 		}
 
+		fckc_i128       newlines    = fck_simd_i128_cmpeq_i8(original[0], newline);
+		const fckc_i128 backslashes = fck_simd_i128_cmpeq_i8(original[0], backslash);
+
+		fckc_i128 spliced_backslashes;
 		{
-			// Handle string and char literals
-			fckc_i128 single_quotes[] = {
-				fck_simd_i128_cmpeq_i8(original[0], single_quote),
-				fck_simd_i128_cmpeq_i8(original[1], single_quote),
-			};
+			// Line splicing
 
-			fckc_i128 double_quotes[] = {
-				fck_simd_i128_cmpeq_i8(original[0], double_quote),
-				fck_simd_i128_cmpeq_i8(original[1], double_quote),
-			};
+			// Char info setups to make good decisions!
+			const fckc_i128 next_is_carriage_return = fck_simd_i128_cmpeq_i8(original[1], carriage_return);
+			const fckc_i128 next_is_newline         = fck_simd_i128_cmpeq_i8(original[1], newline);
+			const fckc_i128 two_ahead_is_newline    = fck_simd_i128_cmpeq_i8(original[2], newline);
 
-			// Mask away escaped single quotes
-			fckc_i128 escaped_single = fck_simd_i128_and(backslashes, single_quotes[1]);
-			escaped_single           = fck_simd_i128_or(escaped_backslash, fck_simd_i128_bsll(escaped_single, 1));
-			// Combine masked away single quotes backed away into all single quotes
-			single_quotes[0]         = fck_simd_i128_andnot(single_quotes[0], escaped_single);
+			// Thanks Windows - \r\n then \\r\n
+			const fckc_i128 carriage_return_then_newline = fck_simd_i128_and(next_is_carriage_return, two_ahead_is_newline);
+			const fckc_i128 spliced_crlf                 = fck_simd_i128_and(backslashes, carriage_return_then_newline);
+			// Ok! - \\n
+			const fckc_i128 spliced_newline              = fck_simd_i128_and(backslashes, next_is_newline);
 
-			// Do literally the same as with single quotes for double quotes
-			fckc_i128 escaped_double = fck_simd_i128_and(backslashes, double_quotes[1]);
-			escaped_double           = fck_simd_i128_or(escaped_backslash, fck_simd_i128_bsll(escaped_double, 1));
-			double_quotes[0]         = fck_simd_i128_andnot(double_quotes[0], escaped_double);
+			// THANK YOU SO FUCKING MUCH WINDOWS
+			const fckc_i128 ignored_crlf     = fck_simd_i128_or(fck_simd_i128_bsll(spliced_crlf, 1), simd_carry.splice_carriage_return);
+			const fckc_i128 newline_splice   = fck_simd_i128_or(spliced_newline, ignored_crlf);
+			const fckc_i128 ignored_newlines = fck_simd_i128_or(fck_simd_i128_bsll(newline_splice, 1), simd_carry.splice_newline);
 
-			// Prefix XOR from " until the next ", if something got escaped, look above ;)
-			fckc_i128 string_literals = simd_prefix_xor(double_quotes[0]);
-			// Clever carry-over thing. If we had a carry over, we jsut XOR the mask which pretty much just flips the start
-			string_literals           = fck_simd_i128_xor(string_literals, mask_constant[carry.double_quote]);
+			simd_carry.splice_carriage_return = fck_simd_i128_bsrl(spliced_crlf, 15);
+			simd_carry.splice_newline         = fck_simd_i128_bsrl(newline_splice, 15);
 
-			// Mask away ALL single quotes within string literals - This can happen
-			const fckc_i128 valid_single_quotes = fck_simd_i128_andnot(single_quotes[0], string_literals);
+			spliced_backslashes = fck_simd_i128_or(spliced_newline, spliced_crlf);
 
-			// Same	shit as with the string literals 
-			fckc_i128 char_literals = simd_prefix_xor(valid_single_quotes);
-			char_literals           = fck_simd_i128_xor(char_literals, mask_constant[carry.single_quote]);
+			const fckc_i128 spliced = fck_simd_i128_or(spliced_backslashes, fck_simd_i128_or(ignored_crlf, ignored_newlines));
 
-			carry.double_quote = (fck_simd_i128_movemask_i8(string_literals) >> 15) & 1;
-			carry.single_quote = (fck_simd_i128_movemask_i8(char_literals) >> 15) & 1;
-
-			// TODO: After processing everything, we MIGHT want to include the end quotes OR exclude the beginning quotes. Idk
-			/*fckc_i128 literals = fck_simd_i128_or(string_literals, char_literals);
-			literals           = fck_simd_i128_or(literals, fck_simd_i128_bsll(literals, 1));
-			literals           = fck_simd_i128_or(literals, carry_constant[carry.double_quote]);*/
+			newlines = fck_simd_i128_andnot(newlines, ignored_newlines);
+			chars    = fck_simd_i128_select(spliced, mask_space, chars);
 		}
 
-		// movemask combine
-		int mask = 0;
-		while (mask)
+		fckc_i128 escaped_characters;
 		{
-			const int index = fck_lszcnt_u32(mask);
-			mask            = mask & (mask - 1);
+			const fckc_i128 quote_backslashes = fck_simd_i128_andnot(backslashes, spliced_backslashes);
+
+			const fckc_i128 effective_backslashes = fck_simd_i128_andnot(quote_backslashes, simd_carry.backslash);
+			const fckc_i128 odd_backslashes       = simd_prefix_xor_reset(effective_backslashes, fck_simd_i128_not(effective_backslashes));
+
+			escaped_characters   = fck_simd_i128_or(fck_simd_i128_bsll(odd_backslashes, 1), simd_carry.backslash);
+			simd_carry.backslash = fck_simd_i128_bsrl(odd_backslashes, 15);
+		}
+
+		const fckc_i128 double_quotes   = fck_simd_i128_andnot(fck_simd_i128_cmpeq_i8(original[0], double_quote), escaped_characters);
+		const fckc_i128 single_quotes   = fck_simd_i128_andnot(fck_simd_i128_cmpeq_i8(original[0], single_quote), escaped_characters);
+		const fckc_i128 current_slashes = fck_simd_i128_cmpeq_i8(original[0], slash);
+		const fckc_i128 next_slashes    = fck_simd_i128_cmpeq_i8(original[1], slash);
+		const fckc_i128 current_stars   = fck_simd_i128_cmpeq_i8(original[0], star);
+		const fckc_i128 next_stars      = fck_simd_i128_cmpeq_i8(original[1], star);
+
+		const fckc_i128 line_comment_starts  = fck_simd_i128_and(current_slashes, next_slashes);
+		const fckc_i128 block_comment_starts = fck_simd_i128_and(current_slashes, next_stars);
+		const fckc_i128 block_comment_ends   = fck_simd_i128_and(current_stars, next_slashes);
+
+		chunk.nulls       = fck_simd_i128_movemask_i8(fck_simd_i128_cmpeq_i8(original[0], fck_simd_i128_zero()));
+		chunk.spaces      = compute_flag_mask(chars, mask_space);
+		chunk.alphas      = compute_flag_mask(chars, mask_alpha);
+		chunk.digits      = compute_flag_mask(chars, mask_digit);
+		chunk.puncts      = compute_flag_mask(chars, mask_punct);
+		chunk.underscores = fck_simd_i128_movemask_i8(fck_simd_i128_cmpeq_i8(original[0], mask_underscore));
+		chunk.dots        = fck_simd_i128_movemask_i8(fck_simd_i128_cmpeq_i8(original[0], mask_dot));
+		chunk.newlines    = fck_simd_i128_movemask_i8(newlines);
+
+		// If all of this is faster, I deserve a cookie
+		chunk.double_quotes        = fck_simd_i128_movemask_i8(double_quotes);
+		chunk.single_quotes        = fck_simd_i128_movemask_i8(single_quotes);
+		chunk.line_comment_starts  = fck_simd_i128_movemask_i8(line_comment_starts);
+		chunk.block_comment_starts = fck_simd_i128_movemask_i8(block_comment_starts);
+		chunk.block_comment_ends   = fck_simd_i128_movemask_i8(block_comment_ends);
+
+		// We handle these bad boys outside of puncts!
+		chunk.puncts = chunk.puncts & ~chunk.double_quotes;
+		chunk.puncts = chunk.puncts & ~chunk.single_quotes;
+
+		{
+			// OHHH, I hate this. I hate this so much
+			const int identifier_characters = chunk.alphas | chunk.underscores | chunk.digits;
+			const int number_characters     = chunk.digits | chunk.alphas | chunk.underscores | chunk.dots;
+			const int token_starts          = chunk.alphas | chunk.digits | chunk.puncts | chunk.double_quotes | chunk.single_quotes;
+
+			const int resume_mask = active;
+			int       mask        = token_starts & active;
+
+			active = 0xFFFF;
+
+			while (mask || checkpoint)
+			{
+				const int is_new_token = (checkpoint == NULL);
+				const int index        = is_new_token ? (int)fck_lszcnt_u32(mask) : 0;
+				const int bit          = 1 << index;
+				char     *raw          = is_new_token ? (cursor + index) : checkpoint;
+
+				tokenise_state_type state = tokenise_state_none;
+				conditional_switch
+				{
+					if (!is_new_token)
+					{
+						checkpoint = NULL;
+						conditional_case(carry.has.line_comment, state, tokenise_state_line_comment);
+						conditional_case(carry.has.block_comment, state, tokenise_state_block_comment);
+						conditional_case(carry.has.single_quote, state, tokenise_state_char_literal);
+						conditional_case(carry.has.double_quote, state, tokenise_state_string_literal);
+						conditional_case(carry.has.identifier, state, tokenise_state_identifier_or_keyword);
+						conditional_case(carry.has.digit, state, tokenise_state_integer_or_decimal_number);
+						conditional_case(carry.has.punctuator, state, tokenise_state_symbol);
+						break;
+					}
+					else
+					{
+						conditional_case(chunk.line_comment_starts & bit, state, tokenise_state_line_comment);
+						conditional_case(chunk.block_comment_starts & bit, state, tokenise_state_block_comment);
+						conditional_case(chunk.single_quotes & bit, state, tokenise_state_char_literal);
+						conditional_case(chunk.double_quotes & bit, state, tokenise_state_string_literal);
+						conditional_case((chunk.alphas | chunk.underscores) & bit, state, tokenise_state_identifier_or_keyword);
+						conditional_case(chunk.digits & bit, state, tokenise_state_integer_or_decimal_number);
+						// Well, this sucks...
+						conditional_case((chunk.dots & bit) && isdigit(cursor[index + 1]), state, tokenise_state_integer_or_decimal_number);
+						conditional_case(chunk.puncts & bit, state, tokenise_state_symbol);
+					}
+				}
+				carry.any = 0;
+
+				switch (state)
+				{
+				case tokenise_state_identifier_or_keyword: {
+					const int smear    = is_new_token ? (bit - 1) : 0;
+					const int rest     = identifier_characters | smear;
+					const int consumed = (int)fck_lsocnt_u32(rest);
+
+					carry.has.identifier = (consumed == 16);
+					if (!carry.has.identifier)
+					{
+						char *end = cursor + consumed;
+
+						const fckc_size_t len = to_size_t(end - raw);
+
+						if (!directive || !preprocessor_directive(raw, end, &result))
+						{
+							const source_text          text  = source_text_from_string_length(raw, len);
+							const fckc_u64             hash  = fck_hash(raw, len);
+							const token_keyword_entry *entry = find_keyword(hash, raw, len);
+							// if we received #, run [raw, end] through preprocessor and be done with it!
+							if (entry)
+							{
+								fck_dynarr_add(result, token_create_keyword(&text, entry->type));
+							}
+							else
+							{
+								fck_dynarr_add(result, token_create_common(&text, token_common_identifier));
+							}
+						}
+						directive = NULL;
+					}
+					mask &= (~0U << consumed);
+					break;
+				}
+
+				case tokenise_state_integer_or_decimal_number: {
+					// Holy shit. ALl this really sucks...
+					int       smear    = is_new_token ? (bit - 1) : 0;
+					const int rest     = number_characters | smear;
+					const int consumed = (int)fck_lsocnt_u32(rest);
+
+					carry.has.digit = (consumed == 16);
+					if (!carry.has.digit)
+					{
+						// What a fucking nightmare...
+						const int  is_hex        = (raw[0] == '0' && (raw[1] | 0x20) == 'x');
+						const char exponent_char = is_hex ? 'p' : 'e';
+
+						int decimal = 0;
+
+						const char       *end = cursor + consumed;
+						const fckc_size_t len = to_size_t(end - raw);
+						for (const char *current = raw; current != end; current++)
+						{
+							const char c = *current;
+							if (c == '.' || (c | 0x20) == exponent_char)
+							{
+								decimal = 1;
+								break;
+							}
+						}
+
+						const source_text         text = source_text_from_string_string(raw, end);
+						const token_constant_type type = decimal ? token_constant_decimal : token_constant_integer;
+						fck_dynarr_add(result, token_create_constant(&text, type));
+					}
+
+					mask &= (~0U << consumed);
+					break;
+				}
+				case tokenise_state_symbol: {
+					const int smear    = is_new_token ? (bit - 1) : 0;
+					const int rest     = chunk.puncts | smear;
+					const int consumed = (int)fck_lsocnt_u32(rest);
+
+					carry.has.punctuator = (consumed == 16);
+					if (!carry.has.punctuator)
+					{
+						char *end = cursor + consumed;
+
+						token_punctuator_type punct_type = token_punctuator_invalid;
+						for (char *at = raw; at < end;)
+						{
+							fckc_size_t token_length = 0;
+							symbol_to_token(at, &token_length, &punct_type);
+
+							const source_text text = source_text_from_string_length(at, token_length);
+							fck_dynarr_add(result, token_create_punctuator(&text, punct_type));
+
+							at = at + token_length;
+						}
+
+						const int last_was_hash = punct_type == token_punctuator_hash;
+
+						directive = last_was_hash ? end - 1 : NULL;
+					}
+
+					mask &= (~0U << consumed);
+					break;
+				}
+
+				case tokenise_state_line_comment: {
+					const int closing = (chunk.newlines | chunk.nulls) & (is_new_token ? (~0U << (index + 2)) : 0xFFFF);
+
+					carry.has.line_comment = (closing == 0);
+					if (!carry.has.line_comment)
+					{
+						const int         consumed = (int)fck_lszcnt_u32(closing) + 1;
+						const char       *end      = cursor + consumed;
+						const fckc_size_t len      = to_size_t(end - raw);
+						os->io->log("%.*s", len, raw);
+						mask &= (~0U << consumed);
+					}
+					break;
+				}
+
+				case tokenise_state_block_comment: {
+					const int closing = (chunk.block_comment_ends | chunk.nulls) & (is_new_token ? (~0U << (index + 2)) : resume_mask);
+
+					carry.has.block_comment = (closing == 0);
+					if (carry.has.block_comment)
+					{
+						if (is_new_token && index == 15)
+						{
+							active = 0xFFFE;
+						}
+					}
+					else
+					{
+						const int         consumed = (int)fck_lszcnt_u32(closing) + 2;
+						const char       *end      = cursor + consumed;
+						const fckc_size_t len      = to_size_t(end - raw);
+						os->io->log("%.*s", len, raw);
+						if (consumed > 16)
+						{
+							active = 0xFFFE;
+							mask   = 0;
+						}
+						else
+						{
+							mask &= (~0U << consumed);
+						}
+					}
+					break;
+				}
+
+				case tokenise_state_string_literal: {
+					const int closing = (chunk.double_quotes | chunk.nulls) & (is_new_token ? (~0U << (index + 1)) : 0xFFFF);
+
+					carry.has.double_quote = (closing == 0);
+					if (!carry.has.double_quote)
+					{
+						const int         consumed = (int)fck_lszcnt_u32(closing) + 1;
+						const char       *end      = cursor + consumed;
+						const fckc_size_t len      = to_size_t(end - raw);
+						os->io->log("%.*s", len, raw);
+						mask &= (~0U << consumed);
+					}
+					break;
+				}
+
+				case tokenise_state_char_literal: {
+					const int closing = (chunk.single_quotes | chunk.nulls) & (is_new_token ? (~0U << (index + 1)) : 0xFFFF);
+
+					carry.has.single_quote = (closing == 0);
+					if (!carry.has.single_quote)
+					{
+						const int         consumed = (int)fck_lszcnt_u32(closing) + 1;
+						const char       *end      = cursor + consumed;
+						const fckc_size_t len      = to_size_t(end - raw);
+						os->io->log("%.*s", len, raw);
+						mask &= (~0U << consumed);
+					}
+					break;
+				}
+
+				case tokenise_state_none:
+				default: {
+					mask &= (mask - 1);
+					// Maybe assert cause we definitely missed something
+					break;
+				}
+				}
+
+				if (carry.any)
+				{
+					checkpoint = raw;
+					break;
+				}
+			}
+		}
+		if (chunk.nulls)
+		{
+			break;
 		}
 	}
+
+	return result;
 }
 
 fckc_size_t tokens_generate(char *source, xtoken **tokens)
@@ -1702,8 +2151,9 @@ fckc_size_t tokens_generate(char *source, xtoken **tokens)
 
 	const fckc_size_t len = strlen(source);
 
-	*tokens = generate_tokens_simd(source, source + len);
-	tokens_print(*tokens, fck_dynarr_count(*tokens));
+	generate_tokens_simd_v3(source);
+	//*tokens = generate_tokens_simd(source, source + len);
+	// tokens_print(*tokens, fck_dynarr_count(*tokens));
 
 	*tokens = generate_tokens_from_source(source, source + len);
 	return fck_dynarr_count(*tokens);
